@@ -1,0 +1,11 @@
+data/archives/
+data/extracted/
+data/embeddings/
+*.pyc
+__pycache__/
+.env
+*.7z
+*.egg-info/
+dist/
+build/
+.eggs/

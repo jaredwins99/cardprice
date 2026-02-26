@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "cardprice"
+version = "0.1.0"
+description = "Pokemon card pricing algorithm"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy",
+    "psycopg2-binary",
+    "requests",
+    "pandas",
+    "numpy",
+]
+
+[tool.setuptools.packages.find]
+include = ["cardprice*"]
