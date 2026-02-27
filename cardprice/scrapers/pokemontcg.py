@@ -36,7 +36,7 @@ def _get(url, params=None):
                 raise requests.exceptions.HTTPError("504 Gateway Timeout")
             resp.raise_for_status()
             return resp.json()
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             if attempt == MAX_RETRIES - 1:
                 raise
             wait = 2 ** (attempt + 1)
@@ -75,7 +75,7 @@ def _github_get(url):
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
             return resp.json()
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             if attempt == MAX_RETRIES - 1:
                 raise
             wait = 2 ** (attempt + 1)
@@ -195,7 +195,7 @@ def ingest_pokemon(session, cards):
             text("""
                 INSERT INTO dim_pokemon (name, pokedex_num, types, hp_base, evolves_from, evolves_to)
                 VALUES (:name, :pokedex_num, :types, :hp_base, :evolves_from, :evolves_to)
-                ON CONFLICT (name, pokedex_num) DO UPDATE SET
+                ON CONFLICT (name, COALESCE(pokedex_num, -1)) DO UPDATE SET
                     types = EXCLUDED.types,
                     hp_base = EXCLUDED.hp_base,
                     evolves_from = EXCLUDED.evolves_from,
@@ -357,7 +357,7 @@ def ingest_all(session):
     try:
         all_cards = _try_api_ingestion(session)
         logger.info("API ingestion succeeded")
-    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+    except (requests.exceptions.RequestException, ValueError) as e:
         logger.warning(
             "API ingestion failed after retries (%s), falling back to GitHub mirror", e
         )

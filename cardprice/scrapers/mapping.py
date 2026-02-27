@@ -20,15 +20,75 @@ logger = logging.getLogger(__name__)
 GROUPS_URL = f"{TCGCSV_BASE_URL}/tcgplayer/{POKEMON_CATEGORY_ID}/groups"
 PRODUCTS_URL = f"{TCGCSV_BASE_URL}/tcgplayer/{POKEMON_CATEGORY_ID}/{{group_id}}/products"
 
-FUZZY_THRESHOLD = 0.85
+FUZZY_THRESHOLD = 0.80
+
+# Manual alias table for known name mismatches between TCGCSV and pokemontcg.io.
+# Maps TCGCSV group name (lowercase) -> pokemontcg.io set_id.
+MANUAL_SET_ALIASES = {
+    "base set": "base1",
+    "base set (shadowless)": "base1",  # same cards, different print run
+    "expedition": "ecard1",
+    "rumble": "ru1",
+    "wotc promo": "basep",
+    "best of promos": "bp",
+    "nintendo promos": "np",
+    "black and white promos": "bwp",
+    "diamond and pearl promos": "dpp",
+    "hgss promos": "hsp",
+    "sm promos": "smp",
+    "xy promos": "xyp",
+    "sm base set": "sm1",
+    "xy base set": "xy1",
+    "sv: scarlet & violet 151": "sv3pt5",
+    "swsh: sword & shield promo cards": "swshp",
+    "sv: scarlet & violet promo cards": "svp",
+    "sv01: scarlet & violet base set": "sv1",
+    "swsh01: sword & shield base set": "swsh1",
+    "swsh02: rebel clash": "swsh2",
+    "swsh04: vivid voltage": "swsh4",
+    "swsh05: battle styles": "swsh5",
+    "swsh08: fusion strike": "swsh8",
+    "swsh11: lost origin": "swsh11",
+    # McDonald's: TCGCSV uses "Promos", pokemontcg.io uses "Collection"
+    "mcdonald's promos 2011": "mcd11",
+    "mcdonald's promos 2012": "mcd12",
+    "mcdonald's promos 2014": "mcd14",
+    "mcdonald's promos 2015": "mcd15",
+    "mcdonald's promos 2016": "mcd16",
+    "mcdonald's promos 2017": "mcd17",
+    "mcdonald's promos 2018": "mcd18",
+    "mcdonald's promos 2019": "mcd19",
+    "mcdonald's promos 2022": "mcd22",
+}
+
+# Gender symbols that TCGCSV spells out but pokemontcg.io uses unicode
+GENDER_MAP = {"♂": " m", "♀": " f", "♂": " m", "♀": " f"}
+
+# Series prefixes TCGCSV prepends to set names (pokemontcg.io does not)
+_SET_PREFIX_RE = re.compile(
+    r"^(?:SM\s*[-:]?\s*|XY\s*[-:]?\s*|SWSH\d*\s*[-:]?\s*|SV\d*\s*[-:]?\s*"
+    r"|BW\s*[-:]?\s*|DP\s*[-:]?\s*|EX\s*[-:]?\s*|HS\s*[-:]?\s*)",
+    re.IGNORECASE,
+)
 
 
 def _normalize(s: str) -> str:
     """Lowercase, strip, remove special chars for comparison."""
+    # Replace gender symbols before stripping
+    for sym, repl in GENDER_MAP.items():
+        s = s.replace(sym, repl)
     s = s.lower().strip()
+    # Normalize & to and
+    s = s.replace("&", "and")
     s = re.sub(r"[^a-z0-9 ]", "", s)
     s = re.sub(r"\s+", " ", s)
     return s
+
+
+def _normalize_set_name(s: str) -> str:
+    """Normalize a set name: strip series prefixes, then standard normalize."""
+    s = _SET_PREFIX_RE.sub("", s.strip())
+    return _normalize(s)
 
 
 def _fuzzy_match(a: str, b: str) -> float:
@@ -61,34 +121,64 @@ def map_sets(session) -> dict:
     logger.info("Found %d dim_sets rows in DB", len(db_sets))
 
     # Build normalized lookup: norm_name -> (set_id, original_name)
+    # Use both plain and prefix-stripped normalization for broader matching
     db_lookup = {}
     for set_id, name in db_sets.items():
-        norm = _normalize(name)
-        db_lookup[norm] = (set_id, name)
+        db_lookup[_normalize(name)] = (set_id, name)
+        db_lookup[_normalize_set_name(name)] = (set_id, name)
 
     matched = 0
+    matched_set_ids = set()
     unmatched_tcg = []
 
     for group in groups:
         group_id = group.get("groupId")
         group_name = group.get("name", "")
-        norm_group = _normalize(group_name)
 
-        # Exact normalized match first
-        if norm_group in db_lookup:
+        # 0. Manual alias check first (highest priority)
+        alias_set_id = MANUAL_SET_ALIASES.get(group_name.lower().strip())
+        if alias_set_id and alias_set_id not in matched_set_ids:
+            # Verify alias target exists in DB
+            if alias_set_id in db_sets:
+                session.execute(
+                    text("UPDATE dim_sets SET tcg_group_id = :gid WHERE set_id = :sid"),
+                    {"gid": group_id, "sid": alias_set_id},
+                )
+                matched += 1
+                matched_set_ids.add(alias_set_id)
+                continue
+
+        # Try both plain and prefix-stripped normalization
+        norm_group = None
+        for candidate_norm in [_normalize(group_name), _normalize_set_name(group_name)]:
+            if candidate_norm in db_lookup:
+                candidate_set_id = db_lookup[candidate_norm][0]
+                if candidate_set_id not in matched_set_ids:
+                    norm_group = candidate_norm
+                    break
+        if norm_group is None:
+            norm_group = _normalize_set_name(group_name)
+
+        # Exact normalized match
+        if norm_group in db_lookup and db_lookup[norm_group][0] not in matched_set_ids:
+            set_id = db_lookup[norm_group][0]
             set_id = db_lookup[norm_group][0]
             session.execute(
                 text("UPDATE dim_sets SET tcg_group_id = :gid WHERE set_id = :sid"),
                 {"gid": group_id, "sid": set_id},
             )
             matched += 1
+            matched_set_ids.add(set_id)
             continue
 
-        # Fuzzy match
+        # Fuzzy match using prefix-stripped name
+        norm_group_stripped = _normalize_set_name(group_name)
         best_score = 0.0
         best_set_id = None
         for norm_name, (set_id, _) in db_lookup.items():
-            score = _fuzzy_match(norm_group, norm_name)
+            if set_id in matched_set_ids:
+                continue
+            score = _fuzzy_match(norm_group_stripped, norm_name)
             if score > best_score:
                 best_score = score
                 best_set_id = set_id
@@ -99,6 +189,7 @@ def map_sets(session) -> dict:
                 {"gid": group_id, "sid": best_set_id},
             )
             matched += 1
+            matched_set_ids.add(best_set_id)
             logger.debug(
                 "Fuzzy matched TCGCSV '%s' -> dim_sets '%s' (%.2f)",
                 group_name, db_sets[best_set_id], best_score,
@@ -132,14 +223,27 @@ def map_sets(session) -> dict:
 
 
 def _parse_card_number(num_str: str) -> str:
-    """Normalize card number: strip leading zeros, lowercase."""
+    """Normalize card number: extract the card number portion, strip leading zeros.
+
+    Handles formats like "001/102", "SV001", "TG05/TG30", "1", "SWSH001", etc.
+    We extract just the collector number (before slash) and strip leading zeros.
+    """
     if not num_str:
         return ""
-    num_str = num_str.strip().lower()
-    # Strip leading zeros from purely numeric numbers
-    if num_str.isdigit():
-        return str(int(num_str))
-    return num_str
+    num_str = num_str.strip()
+
+    # Take portion before "/" if present (e.g. "001/102" -> "001")
+    if "/" in num_str:
+        num_str = num_str.split("/")[0].strip()
+
+    # Strip leading zeros from numeric portion
+    # Match optional alpha prefix + digits (e.g. "SV001" -> "SV1", "001" -> "1")
+    m = re.match(r"^([A-Za-z]*)0*(\d+)$", num_str)
+    if m:
+        prefix, digits = m.groups()
+        return f"{prefix.lower()}{digits}" if prefix else digits
+
+    return num_str.lower()
 
 
 def map_cards(session) -> dict:
@@ -202,6 +306,10 @@ def map_cards(session) -> dict:
                 for d in product.get("extendedData", [])
             }
             product_number = ext_data.get("Number", product.get("number", ""))
+
+            # Skip sealed products (booster packs, boxes, etc.) — no card equivalent
+            if product_number in ("N/A", "", None):
+                continue
 
             norm_pname = _normalize(product_name)
             norm_pnum = _parse_card_number(str(product_number) if product_number else "")

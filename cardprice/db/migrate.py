@@ -15,8 +15,13 @@ CREATE TABLE IF NOT EXISTS dim_pokemon (
     evolves_from  TEXT,
     evolves_to    TEXT[],
     created_at    TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(name, pokedex_num)
+    -- NOTE: plain UNIQUE(name, pokedex_num) doesn't work with NULLs.
+    -- Use a functional unique index instead (created below).
+    -- UNIQUE(name, pokedex_num)  -- replaced by idx_pokemon_name_dex
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pokemon_name_dex
+    ON dim_pokemon(name, COALESCE(pokedex_num, -1));
 
 CREATE TABLE IF NOT EXISTS dim_sets (
     set_id        TEXT PRIMARY KEY,
