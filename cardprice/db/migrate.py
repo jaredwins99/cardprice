@@ -14,10 +14,9 @@ CREATE TABLE IF NOT EXISTS dim_pokemon (
     generation    SMALLINT,
     evolves_from  TEXT,
     evolves_to    TEXT[],
-    created_at    TIMESTAMPTZ DEFAULT now(),
+    created_at    TIMESTAMPTZ DEFAULT now()
     -- NOTE: plain UNIQUE(name, pokedex_num) doesn't work with NULLs.
     -- Use a functional unique index instead (created below).
-    -- UNIQUE(name, pokedex_num)  -- replaced by idx_pokemon_name_dex
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pokemon_name_dex
