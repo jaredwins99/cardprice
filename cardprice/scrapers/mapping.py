@@ -58,11 +58,44 @@ MANUAL_SET_ALIASES = {
     "mcdonald's promos 2017": "mcd17",
     "mcdonald's promos 2018": "mcd18",
     "mcdonald's promos 2019": "mcd19",
+    "mcdonald's 25th anniversary promos": "mcd21",
     "mcdonald's promos 2022": "mcd22",
 }
 
 # Gender symbols that TCGCSV spells out but pokemontcg.io uses unicode
 GENDER_MAP = {"♂": " m", "♀": " f", "♂": " m", "♀": " f"}
+
+# TCGCSV appends " - NNN/NNN" or " - PREFNNN" suffixes to many product names.
+# This regex strips the trailing card-number portion so the name can match dim_cards.
+_PRODUCT_NAME_NUM_SUFFIX_RE = re.compile(
+    r"\s*-\s*[A-Za-z]*\d+(?:/\d+)?\s*$"
+)
+
+# Parenthetical qualifiers TCGCSV adds that pokemontcg.io does not include in card names.
+# e.g. "(Full Art)", "(Alternate Full Art)", "(Delta Species)", "(Secret)", etc.
+_PAREN_QUALIFIER_RE = re.compile(
+    r"\s*\("
+    r"(?:Full Art|Alternate Full Art|Alternate Art|Secret|Cracked Ice Holo"
+    r"|Cosmos Holo|Delta Species|Holo|Reverse Holo|Stamped|Shiny"
+    r"|Special Art Rare|Special Art|Illustration Rare|Ultra Rare"
+    r"|Hyper Rare|Art Rare|Trainer Gallery|Pokemon Day Stamped"
+    r"|Staff|Pre-Release Promo|Box Topper|Jumbo|Gold Secret Rare"
+    r"|Gold|Rainbow Rare|Rainbow|Character Rare|Character Secret Rare"
+    r"|Galarian Gallery|Special Illustration Rare"
+    r"|Immersive Rare|Immersive Art Rare|Crown Rare"
+    r"|Team Plasma|Team Flare|Team Aqua|Team Magma"
+    r"|Prerelease|Pre-Release|Build and Battle|Non-Holo)"
+    r"\)\s*",
+    re.IGNORECASE,
+)
+
+# TCGCSV sometimes disambiguates duplicate names with "(NNN)" parenthetical card numbers.
+# e.g. "Roselia (002)" for card #002 - strip these.
+_PAREN_NUMBER_RE = re.compile(r"\s*\(\d+\)\s*")
+
+# pokemontcg.io uses "★" and "δ" symbols; TCGCSV spells them out as "Star" / "(Delta Species)".
+# After stripping the parenthetical, "Star" may remain as a trailing word in TCGCSV names.
+_STAR_SUFFIX_RE = re.compile(r"\bStar\b", re.IGNORECASE)
 
 # Series prefixes TCGCSV prepends to set names (pokemontcg.io does not)
 _SET_PREFIX_RE = re.compile(
@@ -70,6 +103,34 @@ _SET_PREFIX_RE = re.compile(
     r"|BW\s*[-:]?\s*|DP\s*[-:]?\s*|EX\s*[-:]?\s*|HS\s*[-:]?\s*)",
     re.IGNORECASE,
 )
+
+
+def _clean_tcgcsv_product_name(name: str) -> str:
+    """Strip TCGCSV-specific name decorations before normalizing.
+
+    Removes:
+    - Trailing " - NNN/NNN" or " - PREFIX_NNN (qualifier) [tag]" suffixes
+    - Parenthetical art/print qualifiers like "(Full Art)", "(Delta Species)"
+    - Square-bracket tags like "[Staff]"
+    - "Star" -> "★" alignment (pokemontcg.io uses the symbol, which _normalize strips)
+    """
+    # Strip everything after " - <card-number-like>" including trailing qualifiers.
+    # Handles: "Rillaboom - SWSH006 (Prerelease) [Staff]" -> "Rillaboom"
+    #          "Sprigatito - 012/193" -> "Sprigatito"
+    name = re.sub(
+        r"\s*-\s*[A-Za-z]*\d+(?:/\d+)?(?:\s*[\(\[].*)?$",
+        "",
+        name,
+    )
+    # Strip parenthetical qualifiers: "Leafeon V (Full Art)" -> "Leafeon V"
+    name = _PAREN_QUALIFIER_RE.sub(" ", name)
+    # Strip parenthetical card numbers: "Roselia (002)" -> "Roselia"
+    name = _PAREN_NUMBER_RE.sub(" ", name)
+    # Strip square-bracket tags: "Some Card [Staff]" -> "Some Card"
+    name = re.sub(r"\s*\[.*?\]\s*", " ", name)
+    # "Charizard Star" -> "Charizard" (pokemontcg.io uses ★ which gets stripped)
+    name = _STAR_SUFFIX_RE.sub("", name)
+    return name.strip()
 
 
 def _normalize(s: str) -> str:
@@ -162,7 +223,6 @@ def map_sets(session) -> dict:
         # Exact normalized match
         if norm_group in db_lookup and db_lookup[norm_group][0] not in matched_set_ids:
             set_id = db_lookup[norm_group][0]
-            set_id = db_lookup[norm_group][0]
             session.execute(
                 text("UPDATE dim_sets SET tcg_group_id = :gid WHERE set_id = :sid"),
                 {"gid": group_id, "sid": set_id},
@@ -237,11 +297,15 @@ def _parse_card_number(num_str: str) -> str:
         num_str = num_str.split("/")[0].strip()
 
     # Strip leading zeros from numeric portion
-    # Match optional alpha prefix + digits (e.g. "SV001" -> "SV1", "001" -> "1")
-    m = re.match(r"^([A-Za-z]*)0*(\d+)$", num_str)
+    # Match optional alpha prefix + digits + optional alpha suffix
+    # e.g. "SV001" -> "SV1", "001" -> "1", "SM103a" -> "sm103a"
+    m = re.match(r"^([A-Za-z]*)0*(\d+)([A-Za-z]?)$", num_str)
     if m:
-        prefix, digits = m.groups()
-        return f"{prefix.lower()}{digits}" if prefix else digits
+        prefix, digits, suffix = m.groups()
+        result = f"{prefix.lower()}{digits}" if prefix else digits
+        if suffix:
+            result += suffix.lower()
+        return result
 
     return num_str.lower()
 
@@ -311,7 +375,9 @@ def map_cards(session) -> dict:
             if product_number in ("N/A", "", None):
                 continue
 
-            norm_pname = _normalize(product_name)
+            # Clean TCGCSV product name: strip number suffixes, art qualifiers, etc.
+            clean_product_name = _clean_tcgcsv_product_name(product_name)
+            norm_pname = _normalize(clean_product_name)
             norm_pnum = _parse_card_number(str(product_number) if product_number else "")
 
             # Exact match on (name, number)
@@ -326,6 +392,29 @@ def map_cards(session) -> dict:
                         ),
                         {"pid": product_id, "cid": card.card_id},
                     )
+                set_matched += 1
+                continue
+
+            # Substring / starts-with match on name, exact on number.
+            # Handles cases where one source has a subtitle the other doesn't,
+            # e.g. TCGCSV "Professor's Research" vs DB "Professor's Research (Professor Magnolia)".
+            substr_card = None
+            for (norm_name, norm_num), card_list in card_lookup.items():
+                if norm_num != norm_pnum:
+                    continue
+                if (norm_name.startswith(norm_pname)
+                        or norm_pname.startswith(norm_name)):
+                    substr_card = card_list[0]
+                    break
+
+            if substr_card:
+                session.execute(
+                    text(
+                        "UPDATE dim_cards SET tcg_product_id = :pid "
+                        "WHERE card_id = :cid AND tcg_product_id IS NULL"
+                    ),
+                    {"pid": product_id, "cid": substr_card.card_id},
+                )
                 set_matched += 1
                 continue
 

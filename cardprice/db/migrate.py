@@ -95,6 +95,45 @@ CREATE TABLE IF NOT EXISTS fact_sales (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_fs_card_date ON fact_sales(card_id, sale_date);
+
+-- ============================================================
+-- Phase 2: eBay transaction data support
+-- ============================================================
+
+-- New columns on fact_sales (idempotent via IF NOT EXISTS)
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS source_item_id    TEXT;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS quantity           INTEGER DEFAULT 1;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS sale_type          TEXT;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS shipping_price     NUMERIC(10,2);
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS grading_authority  TEXT;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS grade              TEXT;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS raw_title          TEXT;
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS image_urls         TEXT[];
+ALTER TABLE fact_sales ADD COLUMN IF NOT EXISTS match_confidence   REAL;
+
+-- Dedup: same source_item_id should not appear twice
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fs_source_item_id
+    ON fact_sales(source_item_id) WHERE source_item_id IS NOT NULL;
+
+-- Scrape job tracking for observability and resumption
+CREATE TABLE IF NOT EXISTS scrape_jobs (
+    id              SERIAL PRIMARY KEY,
+    source          TEXT,
+    query           TEXT,
+    started_at      TIMESTAMPTZ,
+    completed_at    TIMESTAMPTZ,
+    items_found     INTEGER,
+    items_matched   INTEGER,
+    status          TEXT
+);
+
+-- Priority queue: which cards to scrape next
+CREATE TABLE IF NOT EXISTS card_scrape_priority (
+    card_id         TEXT PRIMARY KEY REFERENCES dim_cards(card_id),
+    priority_score  REAL,
+    last_scraped    TIMESTAMPTZ,
+    scrape_count    INTEGER DEFAULT 0
+);
 """
 
 
