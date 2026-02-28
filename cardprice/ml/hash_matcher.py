@@ -110,7 +110,14 @@ def build_hash_database(
     errors = 0
 
     for i, img_path in enumerate(image_files, 1):
-        card_id = img_path.stem
+        # Convert filename stem to DB card_id format:
+        # "base1-4_normal" -> "base1-4/normal"
+        stem = img_path.stem
+        if "_" in stem:
+            last_underscore = stem.rfind("_")
+            card_id = stem[:last_underscore] + "/" + stem[last_underscore + 1:]
+        else:
+            card_id = stem
         try:
             hash_db[card_id] = compute_hashes(img_path)
         except Exception:

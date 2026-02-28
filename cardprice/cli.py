@@ -39,7 +39,6 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Condition multipliers for valuation
@@ -234,12 +233,15 @@ def cmd_status(args):
 
 
 # ---------------------------------------------------------------------------
-# scan -- identify a card from an image
+# scan -- identify a card from an image (helpers + command)
 # ---------------------------------------------------------------------------
 
 
-def cmd_scan(args):
-    """Scan a card image (or directory of images) to identify it."""
+def _resolve_image_paths(args):
+    """Resolve image paths from CLI args (single file or directory).
+
+    Returns a list of absolute paths or calls sys.exit on error.
+    """
     image_paths = []
     if args.dir:
         dirpath = os.path.abspath(args.dir)
@@ -261,11 +263,79 @@ def cmd_scan(args):
     else:
         print("ERROR: provide <image_path> or --dir <directory>")
         sys.exit(1)
+    return image_paths
 
+
+def _run_model(model, img_path, session):
+    """Run a card identification model on an image.
+
+    Returns (card_id, confidence, raw_response).  On error, prints a
+    message and returns (None, 0.0, {}).
+    """
+    card_id = None
+    confidence = 0.0
+    raw_response = {}
+
+    try:
+        if model == "claude-haiku-4-5":
+            from cardprice.ml.claude_scanner import scan_card, match_to_database
+            result = scan_card(img_path, model="claude-haiku-4-5")
+            matched_id, match_conf = match_to_database(result, session)
+            card_id = matched_id
+            confidence = match_conf if matched_id else result.get("confidence", 0.0)
+            raw_response = result
+        elif model == "clip":
+            from cardprice.ml.clip_matcher import identify_card as clip_identify
+            matches = clip_identify(img_path)
+            if matches:
+                card_id, confidence = matches[0]
+                raw_response = {"top_matches": matches}
+        elif model == "dino":
+            from cardprice.ml.dino_matcher import identify_card as dino_identify
+            matches = dino_identify(img_path)
+            if matches:
+                card_id, confidence = matches[0]
+                raw_response = {"top_matches": matches}
+        elif model == "hash":
+            from cardprice.ml.hash_matcher import match_card, classify_match
+            matches = match_card(img_path)
+            if matches:
+                raw_card_id = matches[0][0]
+                # Convert hash DB key format (base1-4_normal) to
+                # dim_cards card_id format (base1-4/normal) if needed
+                if "/" not in raw_card_id and "_" in raw_card_id:
+                    last_us = raw_card_id.rfind("_")
+                    card_id = raw_card_id[:last_us] + "/" + raw_card_id[last_us + 1:]
+                else:
+                    card_id = raw_card_id
+                distance = int(matches[0][1])
+                confidence = max(0.0, 1.0 - distance / 15.0)
+                raw_response = {
+                    "matches": [[str(m[0]), int(m[1])] for m in matches[:20]],
+                    "confidence_label": classify_match(distance),
+                }
+        elif model == "cascade":
+            from cardprice.ml import identify_card as cascade_identify
+            result = cascade_identify(img_path, session)
+            card_id = result["card_id"]
+            confidence = result["confidence"]
+            raw_response = result["raw_response"]
+            if result["method"]:
+                print(f"  Method: {result['method']}")
+        else:
+            print(f"  ERROR: unknown model '{model}'")
+    except Exception as e:
+        print(f"  ERROR ({model}): {e}")
+
+    return card_id, confidence, raw_response
+
+
+def cmd_scan(args):
+    """Scan a card image (or directory of images) to identify it."""
+    image_paths = _resolve_image_paths(args)
     model = args.model
     auto_threshold = 0.9
 
-    # Batch tracking counters
     total = len(image_paths)
     identified = 0
     added = 0
@@ -275,65 +345,7 @@ def cmd_scan(args):
             print(f"\n=== Scanning: {img_path} ===")
             print(f"  Model: {model}")
 
-            # ----------------------------------------------------------
-            # Stub: replace with actual model invocation per --model flag
-            # Each model backend should return:
-            #   card_id (str | None), confidence (float), raw_response (dict)
-            # ----------------------------------------------------------
-            card_id = None
-            confidence = 0.0
-            raw_response = {}
-
-            if model == "claude-haiku-4-5":
-                try:
-                    from cardprice.ml.claude_scanner import scan_card, match_to_database
-                    result = scan_card(img_path, model="claude-haiku-4-5")
-                    matched_id, match_conf = match_to_database(result, session)
-                    card_id = matched_id
-                    confidence = match_conf if matched_id else result.get("confidence", 0.0)
-                    raw_response = result
-                except Exception as e:
-                    print(f"  ERROR (claude-haiku-4-5): {e}")
-            elif model == "clip":
-                try:
-                    from cardprice.ml.clip_matcher import identify_card as clip_identify
-                    matches = clip_identify(img_path)
-                    if matches:
-                        card_id, confidence = matches[0]
-                        raw_response = {"top_matches": matches}
-                except Exception as e:
-                    print(f"  ERROR (clip): {e}")
-            elif model == "dino":
-                try:
-                    from cardprice.ml.dino_matcher import identify_card as dino_identify
-                    matches = dino_identify(img_path)
-                    if matches:
-                        card_id, confidence = matches[0]
-                        raw_response = {"top_matches": matches}
-                except Exception as e:
-                    print(f"  ERROR (dino): {e}")
-            elif model == "hash":
-                try:
-                    from cardprice.ml.hash_matcher import match_card, classify_match
-                    matches = match_card(img_path)
-                    if matches:
-                        card_id = matches[0][0]
-                        distance = matches[0][1]
-                        confidence = max(0, 1.0 - distance / 15.0)  # normalize to 0-1
-                        raw_response = {"matches": matches, "confidence_label": classify_match(distance)}
-                except Exception as e:
-                    print(f"  ERROR (hash): {e}")
-            elif model == "cascade":
-                from cardprice.ml import identify_card as cascade_identify
-                result = cascade_identify(img_path, session)
-                card_id = result["card_id"]
-                confidence = result["confidence"]
-                raw_response = result["raw_response"]
-                if result["method"]:
-                    print(f"  Method: {result['method']}")
-            else:
-                print(f"  ERROR: unknown model '{model}'")
-                continue
+            card_id, confidence, raw_response = _run_model(model, img_path, session)
 
             # Record the scan attempt
             session.execute(
@@ -346,17 +358,16 @@ def cmd_scan(args):
                 {
                     "path": img_path,
                     "card_id": card_id,
-                    "conf": confidence,
+                    "conf": float(confidence),
                     "model": model,
-                    "raw": json.dumps(raw_response),
-                    "accepted": confidence >= auto_threshold if card_id else False,
+                    "raw": json.dumps(raw_response, default=str),
+                    "accepted": bool(confidence >= auto_threshold) if card_id else False,
                 },
             )
             session.commit()
 
             if card_id:
                 identified += 1
-                # Fetch card name for display
                 row = session.execute(
                     text("SELECT name, set_id, variant FROM dim_cards WHERE card_id = :cid"),
                     {"cid": card_id},
@@ -371,7 +382,6 @@ def cmd_scan(args):
                 else:
                     print("  Below auto-accept threshold; review recommended")
 
-                # Auto-add to inventory if --add flag and confidence meets threshold
                 if args.add and confidence >= args.threshold:
                     session.execute(text("""
                         INSERT INTO user_inventory (card_id, quantity, condition, notes)
@@ -383,7 +393,6 @@ def cmd_scan(args):
             else:
                 print("  No card identified.")
 
-    # Batch summary
     print(f"\nBatch summary: {identified}/{total} identified, {added}/{total} added to inventory")
 
 
@@ -1029,13 +1038,6 @@ def main():
         "build-clip-index": cmd_build_clip_index,
         "telegram": cmd_telegram,
     }
-    # Configure logging so library-level logger.info() calls are visible
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        stream=sys.stdout,
-    )
-
     dispatch[args.command](args)
 
 

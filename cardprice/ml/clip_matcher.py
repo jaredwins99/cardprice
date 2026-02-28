@@ -38,6 +38,29 @@ def _get_model_and_processor() -> tuple[CLIPModel, CLIPProcessor]:
     return _model, _processor
 
 
+def _extract_text_features(model, **inputs) -> torch.Tensor:
+    """Extract text features from CLIP, handling transformers 5.x API change.
+
+    In transformers >=5.0, get_text_features returns BaseModelOutputWithPooling
+    instead of a plain tensor. This helper extracts and projects the pooled output.
+    """
+    out = model.get_text_features(**inputs)
+    if isinstance(out, torch.Tensor):
+        return out
+    # transformers 5.x: extract pooler_output and project
+    pooled = out.pooler_output
+    return model.text_projection(pooled)
+
+
+def _extract_image_features(model, **inputs) -> torch.Tensor:
+    """Extract image features from CLIP, handling transformers 5.x API change."""
+    out = model.get_image_features(**inputs)
+    if isinstance(out, torch.Tensor):
+        return out
+    pooled = out.pooler_output
+    return model.visual_projection(pooled)
+
+
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Compute cosine similarity between vector a and matrix b.
 
@@ -116,7 +139,7 @@ def build_text_index(session=None, output_path: Optional[str] = None) -> Path:
         batch = descriptions[i : i + batch_size]
         inputs = processor(text=batch, return_tensors="pt", padding=True, truncation=True)
         with torch.no_grad():
-            text_features = model.get_text_features(**inputs)
+            text_features = _extract_text_features(model, **inputs)
         # Normalize embeddings
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
         all_embeddings.append(text_features.cpu().numpy())
@@ -182,7 +205,7 @@ def identify_card(
     image = Image.open(image_path).convert("RGB")
     inputs = processor(images=image, return_tensors="pt")
     with torch.no_grad():
-        image_features = model.get_image_features(**inputs)
+        image_features = _extract_image_features(model, **inputs)
     image_features = image_features / image_features.norm(dim=-1, keepdim=True)
     query = image_features.cpu().numpy().squeeze()  # (D,)
 
@@ -260,7 +283,7 @@ def build_image_index(
         if len(batch_images) >= batch_size:
             inputs = processor(images=batch_images, return_tensors="pt")
             with torch.no_grad():
-                feats = model.get_image_features(**inputs)
+                feats = _extract_image_features(model, **inputs)
             feats = feats / feats.norm(dim=-1, keepdim=True)
             all_embeddings.append(feats.cpu().numpy())
             batch_images = []
@@ -332,7 +355,7 @@ def identify_card_by_image(
     image = Image.open(image_path).convert("RGB")
     inputs = processor(images=image, return_tensors="pt")
     with torch.no_grad():
-        image_features = model.get_image_features(**inputs)
+        image_features = _extract_image_features(model, **inputs)
     image_features = image_features / image_features.norm(dim=-1, keepdim=True)
     query = image_features.cpu().numpy().squeeze()  # (D,)
 

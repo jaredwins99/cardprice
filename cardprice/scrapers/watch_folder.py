@@ -19,19 +19,19 @@ from pathlib import Path
 from sqlalchemy import text
 
 from cardprice.db.session import SessionLocal
-from cardprice.utils.image_convert import ensure_compatible
 
 logger = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic"}
 DEFAULT_WATCH_DIR = "data/inbox"
-DEFAULT_DONE_DIR = "data/inbox/done"
-DEFAULT_FAILED_DIR = "data/inbox/failed"
 POLL_INTERVAL = 2.0  # seconds
 AUTO_ACCEPT_THRESHOLD = 0.85
+# Minimum time (seconds) a file must be stable (unchanged size) before processing,
+# to avoid reading partially-written files.
+_STABLE_SECONDS = 0.5
 
 
-def _find_new_images(watch_dir: Path, done_dir: Path, failed_dir: Path) -> list[Path]:
+def _find_new_images(watch_dir: Path) -> list[Path]:
     """Find image files in watch_dir that haven't been processed."""
     images = []
     for f in sorted(watch_dir.iterdir()):
@@ -40,12 +40,64 @@ def _find_new_images(watch_dir: Path, done_dir: Path, failed_dir: Path) -> list[
     return images
 
 
+def _is_stable(path: Path) -> bool:
+    """Return True if the file size has not changed recently.
+
+    Guards against reading a file that is still being written (e.g. copied
+    into the inbox folder over a slow network mount).
+    """
+    try:
+        size1 = path.stat().st_size
+        time.sleep(_STABLE_SECONDS)
+        size2 = path.stat().st_size
+        return size1 == size2 and size2 > 0
+    except OSError:
+        return False
+
+
+def _safe_move(src: Path, dest_dir: Path) -> Path:
+    """Move *src* into *dest_dir*, adding a numeric suffix on name collision."""
+    dest = dest_dir / src.name
+    if not dest.exists():
+        shutil.move(str(src), str(dest))
+        return dest
+
+    stem, suffix = src.stem, src.suffix
+    for i in range(1, 10000):
+        dest = dest_dir / f"{stem}_{i}{suffix}"
+        if not dest.exists():
+            shutil.move(str(src), str(dest))
+            return dest
+
+    # Extremely unlikely fallback
+    raise OSError(f"Cannot move {src} to {dest_dir}: too many collisions")
+
+
+def _record_scan(session, image_path: Path, result: dict, accepted: bool) -> None:
+    """Insert a row into inventory_scans for every processed image."""
+    session.execute(
+        text("""
+            INSERT INTO inventory_scans
+                (image_path, identified_card_id, confidence, model_used, raw_response, accepted)
+            VALUES (:path, :cid, :conf, :model, :raw, :accepted)
+        """),
+        {
+            "path": str(image_path),
+            "cid": result.get("card_id"),
+            "conf": result.get("confidence"),
+            "model": result.get("method"),
+            "raw": json.dumps(result.get("raw_response", {})),
+            "accepted": accepted,
+        },
+    )
+
+
 def _process_image(image_path: Path, session, auto_accept: float) -> dict:
     """Scan a single image and optionally add to inventory."""
     from cardprice.ml import identify_card
 
-    compatible_path = ensure_compatible(str(image_path))
-    result = identify_card(compatible_path, session=session)
+    # identify_card already calls ensure_compatible internally.
+    result = identify_card(str(image_path), session=session)
 
     output = {
         "image": image_path.name,
@@ -55,49 +107,36 @@ def _process_image(image_path: Path, session, auto_accept: float) -> dict:
         "added_to_inventory": False,
     }
 
-    if result["card_id"] and result["confidence"] >= auto_accept:
-        # Auto-add to inventory
-        try:
-            session.execute(
-                text("""
-                    INSERT INTO user_inventory (card_id, quantity, condition, notes)
-                    VALUES (:cid, 1, 'NM', :notes)
-                """),
-                {
-                    "cid": result["card_id"],
-                    "notes": f"Auto-scanned from {image_path.name} via {result['method']} (conf={result['confidence']:.2f})",
-                },
-            )
-            # Record scan
-            session.execute(
-                text("""
-                    INSERT INTO inventory_scans
-                        (image_path, identified_card_id, confidence, model_used, raw_response, accepted)
-                    VALUES (:path, :cid, :conf, :model, :raw, TRUE)
-                """),
-                {
-                    "path": str(image_path),
-                    "cid": result["card_id"],
-                    "conf": result["confidence"],
-                    "model": result["method"],
-                    "raw": json.dumps({"method": result["method"]}),
-                },
-            )
-            session.commit()
-            output["added_to_inventory"] = True
+    accepted = bool(result["card_id"] and result["confidence"] >= auto_accept)
 
-            # Look up card name for display
-            row = session.execute(
-                text("SELECT name, set_id FROM dim_cards WHERE card_id = :cid"),
-                {"cid": result["card_id"]},
-            ).fetchone()
-            if row:
-                output["card_name"] = row.name
-                output["set_id"] = row.set_id
+    if accepted:
+        session.execute(
+            text("""
+                INSERT INTO user_inventory (card_id, quantity, condition, notes)
+                VALUES (:cid, 1, 'NM', :notes)
+            """),
+            {
+                "cid": result["card_id"],
+                "notes": (
+                    f"Auto-scanned from {image_path.name} "
+                    f"via {result['method']} (conf={result['confidence']:.2f})"
+                ),
+            },
+        )
+        output["added_to_inventory"] = True
 
-        except Exception as e:
-            session.rollback()
-            logger.error("Failed to add to inventory: %s", e)
+        # Look up card name for display
+        row = session.execute(
+            text("SELECT name, set_id FROM dim_cards WHERE card_id = :cid"),
+            {"cid": result["card_id"]},
+        ).fetchone()
+        if row:
+            output["card_name"] = row.name
+            output["set_id"] = row.set_id
+
+    # Always record the scan attempt for traceability
+    _record_scan(session, image_path, result, accepted)
+    session.commit()
 
     return output
 
@@ -122,31 +161,56 @@ def watch(
     done_path.mkdir(exist_ok=True)
     failed_path.mkdir(exist_ok=True)
 
-    logger.info("Watching %s for card images (auto-accept >= %.0f%%)", watch_path, auto_accept * 100)
+    logger.info(
+        "Watching %s for card images (auto-accept >= %.0f%%)",
+        watch_path,
+        auto_accept * 100,
+    )
 
-    with SessionLocal() as session:
+    try:
         while True:
-            images = _find_new_images(watch_path, done_path, failed_path)
+            images = _find_new_images(watch_path)
 
             for img in images:
+                if not _is_stable(img):
+                    logger.debug("Skipping %s (still being written)", img.name)
+                    continue
+
                 logger.info("Processing: %s", img.name)
+
+                # Open a fresh session per image to avoid stale connections and
+                # unbounded identity-map growth during long-running watches.
                 try:
-                    result = _process_image(img, session, auto_accept)
+                    with SessionLocal() as session:
+                        result = _process_image(img, session, auto_accept)
 
                     if result["card_id"]:
-                        status = "ADDED" if result["added_to_inventory"] else "MATCHED (below threshold)"
+                        status = (
+                            "ADDED"
+                            if result["added_to_inventory"]
+                            else "MATCHED (below threshold)"
+                        )
                         name = result.get("card_name", result["card_id"])
-                        print(f"  {status}: {name} ({result['confidence']:.0%} via {result['method']})")
-                        shutil.move(str(img), str(done_path / img.name))
+                        print(
+                            f"  {status}: {name} "
+                            f"({result['confidence']:.0%} via {result['method']})"
+                        )
+                        _safe_move(img, done_path)
                     else:
                         print(f"  NO MATCH: {img.name}")
-                        shutil.move(str(img), str(failed_path / img.name))
+                        _safe_move(img, failed_path)
 
                 except Exception as e:
                     logger.error("Error processing %s: %s", img.name, e)
-                    shutil.move(str(img), str(failed_path / img.name))
+                    try:
+                        _safe_move(img, failed_path)
+                    except OSError:
+                        logger.error("Could not move %s to failed dir", img.name)
 
             if once:
                 break
 
             time.sleep(POLL_INTERVAL)
+
+    except KeyboardInterrupt:
+        logger.info("Watch stopped by user")
