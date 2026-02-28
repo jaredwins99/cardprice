@@ -4,7 +4,7 @@ Cascade card identification pipeline.
 
 Tries identification methods in order of cost/speed:
 1. Perceptual hash (free, instant) -- accept if distance < 5
-2. DINOv2 + FAISS (free, ~1s) -- accept if similarity > 0.95
+2. DINOv2 + FAISS (free, ~1s) -- accept if similarity > 0.40
 3. Claude Haiku vision API ($0.0015/card) -- accept if db-match confidence > 0.5
 """
 
@@ -72,16 +72,25 @@ def identify_card(image_path, session=None):
         if _DINO_INDEX_PATH.exists():
             logger.info("Tier 2 (dino): searching FAISS index ...")
             matches = dino_identify(image_path)
-            if matches and matches[0][1] > 0.95:
-                result["card_id"] = matches[0][0]
-                result["confidence"] = float(matches[0][1])
-                result["method"] = "dino"
-                result["raw_response"] = {"top_matches": matches[:5]}
-                logger.info("Tier 2 (dino): MATCH %s (similarity=%.4f)", matches[0][0], matches[0][1])
-                return result
-            elif matches:
-                logger.info("Tier 2 (dino): best similarity=%.4f < threshold 0.95, falling through",
-                            matches[0][1])
+            if matches:
+                # DINOv2 index stores card_ids with set dir prefix: "bw5/bw5-107/normal"
+                # Strip the first path segment to get "bw5-107/normal"
+                raw_cid = matches[0][0]
+                parts = raw_cid.split("/", 1)
+                card_id = parts[1] if len(parts) > 1 else raw_cid
+                similarity = float(matches[0][1])
+                # Phone photos score ~0.4-0.6 against digital refs;
+                # digital-to-digital scores ~0.8+. Use 0.65 as threshold.
+                if similarity > 0.65:
+                    result["card_id"] = card_id
+                    result["confidence"] = similarity
+                    result["method"] = "dino"
+                    result["raw_response"] = {"top_matches": matches[:5]}
+                    logger.info("Tier 2 (dino): MATCH %s (similarity=%.4f)", card_id, similarity)
+                    return result
+                else:
+                    logger.info("Tier 2 (dino): best similarity=%.4f < threshold 0.65, falling through",
+                                similarity)
             else:
                 logger.info("Tier 2 (dino): no matches found")
         else:

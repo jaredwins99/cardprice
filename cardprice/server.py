@@ -7,6 +7,8 @@ Endpoints:
     GET  /           -> Mobile-friendly upload page (with QR code)
     GET  /qr         -> QR code PNG image of the server URL
     POST /scan       -> Upload image, identify card, return JSON
+    POST /scan-page  -> Upload binder page photo, segment & identify cards
+    GET  /pending    -> List pending scans awaiting identification
     GET  /inventory  -> Current inventory as JSON
 """
 
@@ -23,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("data/inbox")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+PENDING_DIR = Path("data/pending_scans")
+PENDING_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -106,6 +111,12 @@ input[type=file] { display: none; }
     <label class="upload-btn" for="gallery" style="background:#16213e;border:2px solid #e94560;">Choose from Gallery</label>
     <input type="file" id="gallery" accept="image/*">
 </form>
+<form id="pageForm">
+    <label class="upload-btn" for="pageCamera" style="background:#4ecca3;color:#1a1a2e;margin-top:20px;">Scan Binder Page</label>
+    <input type="file" id="pageCamera" accept="image/*" capture="environment">
+    <label class="upload-btn" for="pageGallery" style="background:#16213e;border:2px solid #4ecca3;color:#4ecca3;">Page from Gallery</label>
+    <input type="file" id="pageGallery" accept="image/*">
+</form>
 <img id="preview">
 <div class="spinner" id="spinner">Scanning...</div>
 <div class="result" id="result">
@@ -113,6 +124,12 @@ input[type=file] { display: none; }
     <div class="price" id="cardPrice"></div>
     <div class="confidence" id="cardConf"></div>
     <div id="cardMeta"></div>
+    <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
+</div>
+<div class="result" id="pageResult">
+    <h3 style="color:#4ecca3;">Binder Page Results</h3>
+    <div id="pageTotal" class="price"></div>
+    <div id="pageCards"></div>
 </div>
 <script>
 // Minimal QR Code generator in JS — zero external dependencies.
@@ -231,12 +248,15 @@ function handleFile(file) {
         .then(function(data) {
             spinner.classList.remove('show');
             result.classList.add('show');
-            document.getElementById('cardName').textContent = data.card_name || 'Unknown Card';
-            document.getElementById('cardPrice').textContent = data.market_price ? '$' + data.market_price : 'No price data';
-            document.getElementById('cardConf').textContent =
-                (data.confidence ? (data.confidence * 100).toFixed(0) + '% confidence' : '') +
-                (data.method ? ' via ' + data.method : '');
-            document.getElementById('cardMeta').textContent = data.card_id || '';
+            if (data.status === 'pending') {
+                document.getElementById('cardName').textContent = 'Queued for identification...';
+                document.getElementById('cardPrice').textContent = 'Checking every 3s';
+                document.getElementById('cardConf').textContent = '';
+                document.getElementById('cardMeta').textContent = '';
+                pollResult(data.scan_id);
+            } else {
+                showResult(data);
+            }
         })
         .catch(function(e) {
             spinner.classList.remove('show');
@@ -244,8 +264,85 @@ function handleFile(file) {
             document.getElementById('cardName').textContent = 'Error: ' + e;
         });
 }
+function showResult(data) {
+    document.getElementById('cardName').textContent = data.card_name || 'Unknown Card';
+    document.getElementById('cardPrice').textContent = data.market_price ? '$' + data.market_price : 'No price data';
+    document.getElementById('cardConf').textContent =
+        (data.confidence ? (data.confidence * 100).toFixed(0) + '% confidence' : '') +
+        (data.method ? ' via ' + data.method : '');
+    document.getElementById('cardMeta').textContent = data.card_id || '';
+    var refImg = document.getElementById('refImage');
+    if (data.image_url) {
+        refImg.src = data.image_url;
+        refImg.style.display = 'block';
+    } else {
+        refImg.style.display = 'none';
+    }
+}
+function pollResult(scanId) {
+    var poll = setInterval(function() {
+        fetch('/result/' + scanId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.status === 'resolved') {
+                    clearInterval(poll);
+                    showResult(data);
+                }
+            });
+    }, 3000);
+}
 document.getElementById('camera').onchange = function() { handleFile(this.files[0]); };
 document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); };
+function handlePageFile(file) {
+    if (!file) return;
+    var preview = document.getElementById('preview');
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = 'block';
+    var spinner = document.getElementById('spinner');
+    var pageResult = document.getElementById('pageResult');
+    var result = document.getElementById('result');
+    spinner.classList.add('show');
+    pageResult.classList.remove('show');
+    result.classList.remove('show');
+    var fd = new FormData();
+    fd.append('image', file);
+    fetch('/scan-page', {method: 'POST', body: fd})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            spinner.classList.remove('show');
+            pageResult.classList.add('show');
+            var cards = data.cards || [];
+            var total = 0;
+            var html = '';
+            for (var i = 0; i < cards.length; i++) {
+                var c = cards[i];
+                var price = c.market_price ? parseFloat(c.market_price) : 0;
+                total += price;
+                html += '<div style="background:#0f3460;padding:10px;border-radius:8px;margin:8px 0;">';
+                html += '<strong>' + (c.card_name || 'Unknown') + '</strong>';
+                if (c.market_price) html += ' <span class="price">$' + c.market_price + '</span>';
+                if (c.confidence) html += ' <span class="confidence">' + (c.confidence * 100).toFixed(0) + '% via ' + (c.method || '?') + '</span>';
+                if (c.card_id) html += '<br><small style="color:#888">' + c.card_id + '</small>';
+                if (c.position !== undefined) html += ' <small style="color:#666">(slot ' + (c.position + 1) + ')</small>';
+                html += '</div>';
+            }
+            if (data.status === 'pending') {
+                document.getElementById('pageTotal').textContent = 'Page queued for processing (' + (data.scan_id || '') + ')';
+                document.getElementById('pageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
+            } else {
+                document.getElementById('pageTotal').textContent = cards.length + ' cards found — Total: $' + total.toFixed(2);
+                document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
+            }
+        })
+        .catch(function(e) {
+            spinner.classList.remove('show');
+            pageResult.classList.add('show');
+            document.getElementById('pageTotal').textContent = 'Error';
+            document.getElementById('pageCards').textContent = '' + e;
+        });
+}
+document.getElementById('pageCamera').onchange = function() { handlePageFile(this.files[0]); };
+document.getElementById('pageGallery').onchange = function() { handlePageFile(this.files[0]); };
 </script>
 </body>
 </html>
@@ -285,16 +382,25 @@ class ScanHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self._send_html(HTML_PAGE)
+        elif self.path == "/multi":
+            from cardprice.scanner_ui import MULTI_CARD_HTML
+            self._send_html(MULTI_CARD_HTML)
         elif self.path == "/qr":
             self._send_qr()
         elif self.path == "/inventory":
             self._send_inventory()
+        elif self.path == "/pending":
+            self._send_pending()
+        elif self.path.startswith("/result/"):
+            self._send_result(self.path.split("/result/", 1)[1])
         else:
             self.send_error(404)
 
     def do_POST(self):
         if self.path == "/scan":
             self._handle_scan()
+        elif self.path == "/scan-page":
+            self._handle_scan_page()
         else:
             self.send_error(404)
 
@@ -379,12 +485,13 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "card_name": None,
                     "market_price": None,
                     "set_name": None,
+                    "image_url": None,
                 }
 
                 if result["card_id"]:
                     row = session.execute(
                         sql_text("""
-                            SELECT c.name, s.name as set_name, p.market_price
+                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
                             FROM dim_cards c
                             JOIN dim_sets s ON s.set_id = c.set_id
                             LEFT JOIN LATERAL (
@@ -402,12 +509,152 @@ class ScanHandler(BaseHTTPRequestHandler):
                         response["market_price"] = (
                             float(row.market_price) if row.market_price else None
                         )
+                        response["image_url"] = row.image_small
+                else:
+                    # No confident ML match — queue for Claude Code identification
+                    scan_id = timestamp
+                    pending_meta = PENDING_DIR / f"{scan_id}.json"
+                    pending_meta.write_text(json.dumps({
+                        "scan_id": scan_id,
+                        "image_path": str(save_path),
+                        "status": "pending",
+                        "ml_response": result.get("raw_response", {}),
+                    }))
+                    response["status"] = "pending"
+                    response["scan_id"] = scan_id
+                    response["message"] = "Card queued for identification"
 
             self._send_json(response)
 
         except Exception as e:
             logger.error("Scan error: %s", e)
             self._send_json({"error": str(e)}, status=500)
+
+    def _handle_scan_page(self):
+        """Handle binder page upload: segment into individual cards, identify each."""
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        if length > MAX_UPLOAD_BYTES:
+            self.send_error(413, "Upload too large (max 20 MB)")
+            return
+
+        body = self.rfile.read(length)
+        filename, file_data = _parse_multipart(body, content_type)
+        if not filename or not file_data:
+            self.send_error(400, "No image uploaded")
+            return
+
+        # Save uploaded page image
+        ext = Path(filename).suffix or ".jpg"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = UPLOAD_DIR / f"page_{timestamp}{ext}"
+        save_path.write_bytes(file_data)
+        logger.info("Binder page saved: %s (%d bytes)", save_path, len(file_data))
+
+        # Try to segment cards from the page
+        card_images = []
+        segmentation_ok = False
+        try:
+            from cardprice.ml.card_segmenter import segment_cards
+            card_images = segment_cards(str(save_path))
+            segmentation_ok = True
+            logger.info("Segmented %d cards from binder page", len(card_images))
+        except ImportError:
+            logger.info("card_segmenter not available, queuing whole page")
+        except Exception as e:
+            logger.warning("Segmentation failed: %s, queuing whole page", e)
+
+        if not segmentation_ok or not card_images:
+            # Queue the whole page image for later processing
+            scan_id = f"page_{timestamp}"
+            pending_meta = PENDING_DIR / f"{scan_id}.json"
+            pending_meta.write_text(json.dumps({
+                "scan_id": scan_id,
+                "image_path": str(save_path),
+                "status": "pending",
+                "type": "binder_page",
+            }))
+            self._send_json({
+                "status": "pending",
+                "scan_id": scan_id,
+                "message": "Binder page queued for processing",
+                "cards": [],
+            })
+            return
+
+        # Identify each segmented card
+        cards = []
+        try:
+            from cardprice.ml import identify_card
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                for idx, card_img_path in enumerate(card_images):
+                    result = identify_card(str(card_img_path), session=session)
+                    card_data = {
+                        "position": idx,
+                        "card_id": result["card_id"],
+                        "confidence": result["confidence"],
+                        "method": result["method"],
+                        "card_name": None,
+                        "market_price": None,
+                        "set_name": None,
+                        "image_url": None,
+                    }
+
+                    if result["card_id"]:
+                        row = session.execute(
+                            sql_text("""
+                                SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                                FROM dim_cards c
+                                JOIN dim_sets s ON s.set_id = c.set_id
+                                LEFT JOIN LATERAL (
+                                    SELECT market_price FROM fact_market_prices
+                                    WHERE card_id = c.card_id
+                                    ORDER BY price_date DESC LIMIT 1
+                                ) p ON true
+                                WHERE c.card_id = :cid
+                            """),
+                            {"cid": result["card_id"]},
+                        ).fetchone()
+                        if row:
+                            card_data["card_name"] = row.name
+                            card_data["set_name"] = row.set_name
+                            card_data["market_price"] = (
+                                float(row.market_price) if row.market_price else None
+                            )
+                            card_data["image_url"] = row.image_small
+
+                    cards.append(card_data)
+
+        except Exception as e:
+            logger.error("Page scan identification error: %s", e)
+            self._send_json({"error": str(e), "cards": []}, status=500)
+            return
+
+        total_value = sum(c["market_price"] for c in cards if c["market_price"])
+        self._send_json({
+            "status": "ok",
+            "cards": cards,
+            "total_cards": len(cards),
+            "total_value": round(total_value, 2),
+        })
 
     def _send_inventory(self):
         try:
@@ -445,6 +692,51 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Inventory error: %s", e)
             self._send_json({"error": str(e)}, status=500)
+
+    def _send_pending(self):
+        """List all pending scans awaiting identification."""
+        pending = []
+        for f in sorted(PENDING_DIR.glob("*.json")):
+            data = json.loads(f.read_text())
+            if data.get("status") == "pending":
+                pending.append(data)
+        self._send_json({"pending": pending, "count": len(pending)})
+
+    def _send_result(self, scan_id):
+        """Check result of a specific scan by scan_id."""
+        meta_path = PENDING_DIR / f"{scan_id}.json"
+        if not meta_path.exists():
+            self.send_error(404, "Scan not found")
+            return
+        data = json.loads(meta_path.read_text())
+        # If resolved, look up price
+        if data.get("status") == "resolved" and data.get("card_id"):
+            try:
+                from cardprice.db.session import SessionLocal
+                from sqlalchemy import text as sql_text
+                with SessionLocal() as session:
+                    row = session.execute(
+                        sql_text("""
+                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                            FROM dim_cards c
+                            JOIN dim_sets s ON s.set_id = c.set_id
+                            LEFT JOIN LATERAL (
+                                SELECT market_price FROM fact_market_prices
+                                WHERE card_id = c.card_id
+                                ORDER BY price_date DESC LIMIT 1
+                            ) p ON true
+                            WHERE c.card_id = :cid
+                        """),
+                        {"cid": data["card_id"]},
+                    ).fetchone()
+                    if row:
+                        data["card_name"] = row.name
+                        data["set_name"] = row.set_name
+                        data["market_price"] = float(row.market_price) if row.market_price else None
+                        data["image_url"] = row.image_small
+            except Exception as e:
+                logger.error("Result lookup error: %s", e)
+        self._send_json(data)
 
     def log_message(self, fmt, *args):
         logger.info(fmt, *args)
