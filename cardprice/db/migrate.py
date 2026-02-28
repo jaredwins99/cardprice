@@ -133,6 +133,97 @@ CREATE TABLE IF NOT EXISTS card_scrape_priority (
     last_scraped    TIMESTAMPTZ,
     scrape_count    INTEGER DEFAULT 0
 );
+
+-- ============================================================
+-- Phase 3: User inventory and card scanning
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS user_inventory (
+    id                  SERIAL PRIMARY KEY,
+    card_id             TEXT REFERENCES dim_cards(card_id),
+    quantity            INTEGER DEFAULT 1,
+    condition           TEXT CHECK (condition IN ('NM', 'LP', 'MP', 'HP', 'DMG')),
+    grade_authority     TEXT CHECK (grade_authority IN ('PSA', 'BGS', 'CGC')),
+    grade               TEXT,
+    acquisition_price   NUMERIC(10,2),
+    acquisition_date    DATE,
+    acquisition_source  TEXT CHECK (acquisition_source IN ('pulled', 'purchased', 'traded')),
+    notes               TEXT,
+    image_path          TEXT,
+    scan_confidence     REAL,
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_inv_card ON user_inventory(card_id);
+CREATE INDEX IF NOT EXISTS idx_inv_condition ON user_inventory(condition);
+
+CREATE TABLE IF NOT EXISTS inventory_scans (
+    id                  SERIAL PRIMARY KEY,
+    image_path          TEXT NOT NULL,
+    identified_card_id  TEXT REFERENCES dim_cards(card_id),
+    identified_condition TEXT,
+    confidence          REAL,
+    model_used          TEXT,
+    raw_response        JSONB,
+    accepted            BOOLEAN,
+    created_at          TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scans_card ON inventory_scans(identified_card_id);
+
+CREATE TABLE IF NOT EXISTS inventory_valuations (
+    id                  SERIAL PRIMARY KEY,
+    valuation_date      DATE NOT NULL,
+    total_cards         INTEGER,
+    total_value_low     NUMERIC(12,2),
+    total_value_mid     NUMERIC(12,2),
+    total_value_high    NUMERIC(12,2),
+    breakdown           JSONB,
+    created_at          TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_valuations_date ON inventory_valuations(valuation_date);
+
+-- ============================================================
+-- Phase 3: Pokemon features and competitive data
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS dim_pokemon_features (
+    pokedex_num     INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL,
+    generation      TEXT,
+    is_legendary    BOOLEAN DEFAULT FALSE,
+    is_mythical     BOOLEAN DEFAULT FALSE,
+    capture_rate    INTEGER,
+    base_happiness  INTEGER,
+    egg_groups      TEXT[],
+    color           TEXT,
+    shape           TEXT,
+    habitat         TEXT,
+    hp              INTEGER,
+    attack          INTEGER,
+    defense         INTEGER,
+    sp_attack       INTEGER,
+    sp_defense      INTEGER,
+    speed           INTEGER,
+    bst             INTEGER,
+    height          INTEGER,
+    weight          INTEGER,
+    types           TEXT[],
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS dim_smogon_usage (
+    id              SERIAL PRIMARY KEY,
+    pokemon_name    TEXT NOT NULL,
+    format          TEXT NOT NULL,
+    usage_weighted  REAL,
+    usage_raw       REAL,
+    usage_real      REAL,
+    viability_gxe   REAL,
+    count           INTEGER,
+    lead_weighted   REAL,
+    fetched_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(pokemon_name, format)
+);
 """
 
 

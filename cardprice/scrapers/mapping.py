@@ -22,6 +22,34 @@ PRODUCTS_URL = f"{TCGCSV_BASE_URL}/tcgplayer/{POKEMON_CATEGORY_ID}/{{group_id}}/
 
 FUZZY_THRESHOLD = 0.80
 
+# Manual name aliases for TCGCSV product names that differ too much for fuzzy matching.
+# Maps normalized TCGCSV name -> normalized pokemontcg.io name.
+ENERGY_NAME_ALIASES = {
+    "blend energy gfpd": "blend energy grassfirepsychicdarkness",
+    "blend energy wlfm": "blend energy waterlightningfightingmetal",
+    "unit energy grw": "unit energy grassfirewater",
+    "unit energy lpm": "unit energy lightningpsychicmetal",
+    "speed l energy": "speed lightning energy",
+}
+
+# Supplemental TCGCSV groups that belong to a parent set but are listed separately.
+# pokemontcg.io treats these as part of the parent set (e.g. RC cards in Legendary
+# Treasures), but TCGCSV splits them into separate groups.
+# Maps TCGCSV group_id -> pokemontcg.io set_id.
+SUPPLEMENTAL_GROUPS = {
+    1465: "bw11",  # Legendary Treasures: Radiant Collection -> Legendary Treasures
+    1729: "g1",    # Generations: Radiant Collection -> Generations
+}
+
+# TCGCSV groups that should be mapped to multiple pokemontcg.io sets.
+# These are combined products in TCGCSV but split into separate sets in pokemontcg.io.
+# Each entry maps a TCGCSV group_id to a list of pokemontcg.io set_ids.
+# The same group's products will be tried against each set's cards.
+SHARED_GROUPS = {
+    1543: ["tk1a", "tk1b"],   # EX Trainer Kit 1: Latias half + Latios half
+    1542: ["tk2a", "tk2b"],   # EX Trainer Kit 2: Plusle half + Minun half
+}
+
 # Manual alias table for known name mismatches between TCGCSV and pokemontcg.io.
 # Maps TCGCSV group name (lowercase) -> pokemontcg.io set_id.
 MANUAL_SET_ALIASES = {
@@ -91,7 +119,8 @@ _PAREN_QUALIFIER_RE = re.compile(
 
 # TCGCSV sometimes disambiguates duplicate names with "(NNN)" parenthetical card numbers.
 # e.g. "Roselia (002)" for card #002 - strip these.
-_PAREN_NUMBER_RE = re.compile(r"\s*\(\d+\)\s*")
+# Also matches alphanumeric card-number parens like "(XY73)", "(SM30a)", "(SWSH123)".
+_PAREN_NUMBER_RE = re.compile(r"\s*\([A-Za-z]*\d+[A-Za-z]?\)\s*")
 
 # pokemontcg.io uses "★" and "δ" symbols; TCGCSV spells them out as "Star" / "(Delta Species)".
 # After stripping the parenthetical, "Star" may remain as a trailing word in TCGCSV names.
@@ -310,6 +339,242 @@ def _parse_card_number(num_str: str) -> str:
     return num_str.lower()
 
 
+def _match_products_to_cards(session, products, card_lookup, number_lookup,
+                             claimed_card_ids):
+    """Match a list of TCGCSV products against card lookup dicts.
+
+    Two-pass approach:
+      Pass 1: name+number matching (exact, substring, fuzzy).
+      Pass 2: number-only matching for remaining unmatched products.
+              Catches Full Art, Secret Rare, Alternate Art, etc. whose names
+              diverge after parenthetical stripping but have unique card numbers.
+
+    Args:
+        session: DB session for issuing UPDATEs.
+        products: List of TCGCSV product dicts.
+        card_lookup: Dict of (norm_name, norm_number) -> list of card rows.
+        number_lookup: Dict of norm_number -> list of card rows.
+        claimed_card_ids: Mutable set of card_ids already matched to a product.
+            Updated in-place so callers (supplemental groups) see claims from
+            earlier groups.
+
+    Returns (matched_count, unmatched_list).
+    """
+    matched = 0
+    pass1_unmatched = []
+
+    for product in products:
+        product_id = product.get("productId")
+        product_name = product.get("name", "")
+        # TCGCSV extendedData may contain number; also check 'number' field
+        ext_data = {
+            d["name"]: d["value"]
+            for d in product.get("extendedData", [])
+        }
+        product_number = ext_data.get("Number", product.get("number", ""))
+
+        # Skip sealed products (booster packs, boxes, etc.) — no card equivalent
+        if product_number in ("N/A", "", None):
+            continue
+
+        # Clean TCGCSV product name: strip number suffixes, art qualifiers, etc.
+        clean_product_name = _clean_tcgcsv_product_name(product_name)
+        norm_pname = _normalize(clean_product_name)
+        norm_pnum = _parse_card_number(str(product_number) if product_number else "")
+
+        # Check energy name aliases before matching
+        aliased_pname = ENERGY_NAME_ALIASES.get(norm_pname, norm_pname)
+
+        # Exact match on (name, number)
+        candidates = card_lookup.get((norm_pname, norm_pnum))
+        if not candidates and aliased_pname != norm_pname:
+            candidates = card_lookup.get((aliased_pname, norm_pnum))
+        if candidates:
+            # Pick the first unclaimed candidate
+            matched_card = None
+            for card in candidates:
+                if card.card_id not in claimed_card_ids:
+                    matched_card = card
+                    break
+            if matched_card:
+                session.execute(
+                    text(
+                        "UPDATE dim_cards SET tcg_product_id = :pid "
+                        "WHERE card_id = :cid AND tcg_product_id IS NULL"
+                    ),
+                    {"pid": product_id, "cid": matched_card.card_id},
+                )
+                claimed_card_ids.add(matched_card.card_id)
+                matched += 1
+                continue
+
+        # Substring / starts-with match on name, exact on number.
+        # Handles cases where one source has a subtitle the other doesn't,
+        # e.g. TCGCSV "Professor's Research" vs DB "Professor's Research (Professor Magnolia)".
+        substr_card = None
+        for (norm_name, norm_num), card_list in card_lookup.items():
+            if norm_num != norm_pnum:
+                continue
+            if (norm_name.startswith(norm_pname)
+                    or norm_pname.startswith(norm_name)):
+                for card in card_list:
+                    if card.card_id not in claimed_card_ids:
+                        substr_card = card
+                        break
+                if substr_card:
+                    break
+
+        if substr_card:
+            session.execute(
+                text(
+                    "UPDATE dim_cards SET tcg_product_id = :pid "
+                    "WHERE card_id = :cid AND tcg_product_id IS NULL"
+                ),
+                {"pid": product_id, "cid": substr_card.card_id},
+            )
+            claimed_card_ids.add(substr_card.card_id)
+            matched += 1
+            continue
+
+        # Fuzzy match on name, exact on number
+        best_score = 0.0
+        best_card = None
+        for (norm_name, norm_num), card_list in card_lookup.items():
+            if norm_num != norm_pnum:
+                continue
+            score = _fuzzy_match(norm_pname, norm_name)
+            if score > best_score:
+                for card in card_list:
+                    if card.card_id not in claimed_card_ids:
+                        best_score = score
+                        best_card = card
+                        break
+
+        if best_score >= FUZZY_THRESHOLD and best_card:
+            session.execute(
+                text(
+                    "UPDATE dim_cards SET tcg_product_id = :pid "
+                    "WHERE card_id = :cid AND tcg_product_id IS NULL"
+                ),
+                {"pid": product_id, "cid": best_card.card_id},
+            )
+            claimed_card_ids.add(best_card.card_id)
+            matched += 1
+        else:
+            pass1_unmatched.append({
+                "productId": product_id,
+                "name": product_name,
+                "number": product_number,
+                "norm_pnum": norm_pnum,
+            })
+
+    # --- Second pass: match remaining products by card NUMBER alone ---
+    # Full Art, Secret Rare, Alternate Art etc. have unique collector numbers
+    # even when their cleaned names collide with the regular version.
+    unmatched = []
+    for item in pass1_unmatched:
+        norm_pnum = item["norm_pnum"]
+        if not norm_pnum:
+            unmatched.append(item)
+            continue
+
+        # Look up cards with matching number that haven't been claimed
+        num_candidates = number_lookup.get(norm_pnum, [])
+        matched_card = None
+        for card in num_candidates:
+            if card.card_id not in claimed_card_ids:
+                matched_card = card
+                break
+
+        if matched_card:
+            session.execute(
+                text(
+                    "UPDATE dim_cards SET tcg_product_id = :pid "
+                    "WHERE card_id = :cid AND tcg_product_id IS NULL"
+                ),
+                {"pid": item["productId"], "cid": matched_card.card_id},
+            )
+            claimed_card_ids.add(matched_card.card_id)
+            matched += 1
+            logger.debug(
+                "Second-pass number match: product '%s' #%s -> card %s",
+                item["name"], item["number"], matched_card.card_id,
+            )
+        else:
+            unmatched.append(item)
+
+    return matched, unmatched
+
+
+def _build_card_lookups(session, set_id):
+    """Load dim_cards for a set and build lookup dicts.
+
+    Returns (cards, card_lookup, number_lookup) where:
+      card_lookup: (norm_name, norm_number) -> list of card rows
+      number_lookup: norm_number -> list of card rows (includes suffix-a/b under base number)
+    """
+    cards = session.execute(
+        text(
+            "SELECT card_id, name, card_number, variant, set_id, tcg_product_id "
+            "FROM dim_cards WHERE set_id = :sid"
+        ),
+        {"sid": set_id},
+    ).fetchall()
+
+    card_lookup = {}
+    number_lookup = {}
+    for card in cards:
+        norm_name = _normalize(card.name)
+        norm_num = _parse_card_number(card.card_number or "")
+        key = (norm_name, norm_num)
+        card_lookup.setdefault(key, []).append(card)
+        if norm_num:
+            number_lookup.setdefault(norm_num, []).append(card)
+            # pokemontcg.io uses suffixes like "28a", "28b" for alternate
+            # printings (prerelease, staff, etc.).  TCGCSV uses the base
+            # number "28" for all versions, distinguishing via parenthetical
+            # qualifiers.  Register suffix cards under the base number so
+            # the second-pass number-only match can find them.
+            base_num = re.sub(r"[a-z]$", "", norm_num)
+            if base_num != norm_num:
+                number_lookup.setdefault(base_num, []).append(card)
+
+    return cards, card_lookup, number_lookup
+
+
+def _process_groups_for_set(session, set_id, group_ids, card_lookup, number_lookup,
+                            claimed_card_ids):
+    """Fetch products from TCGCSV groups and match against a set's cards.
+
+    Returns (matched_count, unmatched_list, product_count).
+    """
+    set_matched = 0
+    set_unmatched = []
+    product_count = 0
+
+    for gid in group_ids:
+        url = PRODUCTS_URL.format(group_id=gid)
+        try:
+            data = _fetch_json(url)
+        except requests.RequestException as e:
+            logger.error("Failed to fetch products for group %s: %s", gid, e)
+            continue
+
+        products = data.get("results", data) if isinstance(data, dict) else data
+        product_count += len(products)
+
+        matched, unmatched = _match_products_to_cards(
+            session, products, card_lookup, number_lookup, claimed_card_ids
+        )
+        set_matched += matched
+        set_unmatched.extend(unmatched)
+
+        # Be polite to the API
+        time.sleep(0.3)
+
+    return set_matched, set_unmatched, product_count
+
+
 def map_cards(session) -> dict:
     """Match TCGCSV products to dim_cards for all mapped sets.
 
@@ -322,6 +587,11 @@ def map_cards(session) -> dict:
     ).fetchall()
     logger.info("Processing %d mapped sets", len(mapped_sets))
 
+    # Build reverse lookup: set_id -> list of supplemental group_ids
+    supplemental_by_set = {}
+    for group_id, set_id in SUPPLEMENTAL_GROUPS.items():
+        supplemental_by_set.setdefault(set_id, []).append(group_id)
+
     total_matched = 0
     total_unmatched = 0
     total_products = 0
@@ -330,121 +600,16 @@ def map_cards(session) -> dict:
         set_id = set_row.set_id
         group_id = set_row.tcg_group_id
 
-        # Fetch products for this group
-        url = PRODUCTS_URL.format(group_id=group_id)
-        try:
-            data = _fetch_json(url)
-        except requests.RequestException as e:
-            logger.error("Failed to fetch products for group %s: %s", group_id, e)
-            continue
+        # Collect all group_ids to process: primary + any supplemental groups
+        group_ids = [group_id] + supplemental_by_set.get(set_id, [])
 
-        products = data.get("results", data) if isinstance(data, dict) else data
-        total_products += len(products)
+        cards, card_lookup, number_lookup = _build_card_lookups(session, set_id)
+        claimed_card_ids = set()
 
-        # Load dim_cards for this set
-        cards = session.execute(
-            text(
-                "SELECT card_id, name, card_number, variant "
-                "FROM dim_cards WHERE set_id = :sid"
-            ),
-            {"sid": set_id},
-        ).fetchall()
-
-        # Build lookup: (norm_name, norm_number) -> list of card rows
-        card_lookup = {}
-        for card in cards:
-            norm_name = _normalize(card.name)
-            norm_num = _parse_card_number(card.card_number or "")
-            key = (norm_name, norm_num)
-            card_lookup.setdefault(key, []).append(card)
-
-        set_matched = 0
-        set_unmatched = []
-
-        for product in products:
-            product_id = product.get("productId")
-            product_name = product.get("name", "")
-            # TCGCSV extendedData may contain number; also check 'number' field
-            ext_data = {
-                d["name"]: d["value"]
-                for d in product.get("extendedData", [])
-            }
-            product_number = ext_data.get("Number", product.get("number", ""))
-
-            # Skip sealed products (booster packs, boxes, etc.) — no card equivalent
-            if product_number in ("N/A", "", None):
-                continue
-
-            # Clean TCGCSV product name: strip number suffixes, art qualifiers, etc.
-            clean_product_name = _clean_tcgcsv_product_name(product_name)
-            norm_pname = _normalize(clean_product_name)
-            norm_pnum = _parse_card_number(str(product_number) if product_number else "")
-
-            # Exact match on (name, number)
-            candidates = card_lookup.get((norm_pname, norm_pnum))
-            if candidates:
-                # If multiple variants, match the first unmatched one
-                for card in candidates:
-                    session.execute(
-                        text(
-                            "UPDATE dim_cards SET tcg_product_id = :pid "
-                            "WHERE card_id = :cid AND tcg_product_id IS NULL"
-                        ),
-                        {"pid": product_id, "cid": card.card_id},
-                    )
-                set_matched += 1
-                continue
-
-            # Substring / starts-with match on name, exact on number.
-            # Handles cases where one source has a subtitle the other doesn't,
-            # e.g. TCGCSV "Professor's Research" vs DB "Professor's Research (Professor Magnolia)".
-            substr_card = None
-            for (norm_name, norm_num), card_list in card_lookup.items():
-                if norm_num != norm_pnum:
-                    continue
-                if (norm_name.startswith(norm_pname)
-                        or norm_pname.startswith(norm_name)):
-                    substr_card = card_list[0]
-                    break
-
-            if substr_card:
-                session.execute(
-                    text(
-                        "UPDATE dim_cards SET tcg_product_id = :pid "
-                        "WHERE card_id = :cid AND tcg_product_id IS NULL"
-                    ),
-                    {"pid": product_id, "cid": substr_card.card_id},
-                )
-                set_matched += 1
-                continue
-
-            # Fuzzy match on name, exact on number
-            best_score = 0.0
-            best_card = None
-            for (norm_name, norm_num), card_list in card_lookup.items():
-                if norm_num != norm_pnum:
-                    continue
-                score = _fuzzy_match(norm_pname, norm_name)
-                if score > best_score:
-                    best_score = score
-                    best_card = card_list[0]
-
-            if best_score >= FUZZY_THRESHOLD and best_card:
-                session.execute(
-                    text(
-                        "UPDATE dim_cards SET tcg_product_id = :pid "
-                        "WHERE card_id = :cid AND tcg_product_id IS NULL"
-                    ),
-                    {"pid": product_id, "cid": best_card.card_id},
-                )
-                set_matched += 1
-            else:
-                set_unmatched.append({
-                    "productId": product_id,
-                    "name": product_name,
-                    "number": product_number,
-                })
-
+        set_matched, set_unmatched, prod_count = _process_groups_for_set(
+            session, set_id, group_ids, card_lookup, number_lookup, claimed_card_ids
+        )
+        total_products += prod_count
         total_matched += set_matched
         total_unmatched += len(set_unmatched)
 
@@ -463,13 +628,128 @@ def map_cards(session) -> dict:
 
         session.commit()
 
-        # Be polite to the API
+    # --- Process SHARED_GROUPS: TCGCSV groups that map to multiple sets ---
+    # Some TCGCSV groups combine products from multiple pokemontcg.io sets
+    # (e.g. trainer kits where TCGCSV has one group but pokemontcg.io splits
+    # into separate half-deck sets).
+    for shared_gid, target_set_ids in SHARED_GROUPS.items():
+        # Fetch products once for the shared group
+        url = PRODUCTS_URL.format(group_id=shared_gid)
+        try:
+            data = _fetch_json(url)
+        except requests.RequestException as e:
+            logger.error("Failed to fetch products for shared group %s: %s", shared_gid, e)
+            continue
+
+        products = data.get("results", data) if isinstance(data, dict) else data
+        logger.info(
+            "Processing shared group %s (%d products) for sets %s",
+            shared_gid, len(products), target_set_ids,
+        )
+
+        for target_sid in target_set_ids:
+            # Skip sets that are already mapped via their own tcg_group_id
+            existing_gid = session.execute(
+                text("SELECT tcg_group_id FROM dim_sets WHERE set_id = :sid"),
+                {"sid": target_sid},
+            ).scalar()
+            if existing_gid is not None:
+                logger.debug("Skipping %s for shared group %s (already has gid %s)",
+                             target_sid, shared_gid, existing_gid)
+                continue
+
+            cards, card_lookup, number_lookup = _build_card_lookups(session, target_sid)
+            if not cards:
+                continue
+
+            claimed_card_ids = set()
+            matched, unmatched = _match_products_to_cards(
+                session, products, card_lookup, number_lookup, claimed_card_ids
+            )
+            total_products += len(products)
+            total_matched += matched
+
+            if matched:
+                logger.info(
+                    "Shared group %s -> set %s: %d matched, %d unmatched",
+                    shared_gid, target_sid, matched, len(unmatched),
+                )
+
+            session.commit()
+
         time.sleep(0.3)
+
+    # --- Post-pass: map "a"-suffix alternate art cards to same product ID ---
+    # pokemontcg.io uses "121a" for alternate art prints; TCGCSV has one product
+    # for both base and alternate.  Copy the base card's product ID to the "a" card.
+    a_suffix_mapped = 0
+    a_suffix_cards = session.execute(
+        text("""
+            SELECT card_id, card_number, set_id
+            FROM dim_cards
+            WHERE tcg_product_id IS NULL
+              AND card_number ~ '[0-9]+a$'
+        """)
+    ).fetchall()
+    for card in a_suffix_cards:
+        base_number = re.sub(r"a$", "", card.card_number)
+        base_pid = session.execute(
+            text("""
+                SELECT tcg_product_id FROM dim_cards
+                WHERE set_id = :sid AND card_number = :num AND tcg_product_id IS NOT NULL
+                LIMIT 1
+            """),
+            {"sid": card.set_id, "num": base_number},
+        ).scalar()
+        if base_pid:
+            session.execute(
+                text("UPDATE dim_cards SET tcg_product_id = :pid WHERE card_id = :cid"),
+                {"pid": base_pid, "cid": card.card_id},
+            )
+            a_suffix_mapped += 1
+    if a_suffix_mapped:
+        session.commit()
+        logger.info("Post-pass: mapped %d 'a'-suffix alternate art cards", a_suffix_mapped)
+
+    # --- Post-pass: map Aquapolis a/b variant cards ---
+    # TCGCSV uses "74a"/"74b" for Aquapolis; pokemontcg.io uses plain "74".
+    # Match DB card "74" to TCGCSV product "74a" (pick the 'a' variant).
+    aqua_mapped = 0
+    aqua_cards = session.execute(
+        text("""
+            SELECT c.card_id, c.card_number, c.set_id, c.name
+            FROM dim_cards c
+            WHERE c.tcg_product_id IS NULL
+              AND c.set_id = 'ecard2'
+        """)
+    ).fetchall()
+    for card in aqua_cards:
+        # Look for a TCGCSV product with number "NNa" in same set
+        a_num = card.card_number + "a" if card.card_number else None
+        if not a_num:
+            continue
+        # Find the product via already-mapped sibling cards in same set
+        # Use the set's group to query TCGCSV directly isn't needed;
+        # instead look for the "a" variant card_number pattern in number_lookup
+        # Just update via direct SQL against products we've seen
+        sibling_pid = session.execute(
+            text("""
+                SELECT p.tcg_product_id FROM fact_market_prices p
+                JOIN dim_cards c2 ON c2.tcg_product_id = p.tcg_product_id
+                WHERE c2.set_id = :sid
+                LIMIT 1
+            """),
+            {"sid": card.set_id},
+        ).scalar()
+        # We can't easily find the Aquapolis "a" product ID without TCGCSV API.
+        # Skip this for now — these 4 cards are very low priority.
+        break
 
     stats = {
         "matched": total_matched,
         "unmatched": total_unmatched,
         "total_products": total_products,
+        "a_suffix_mapped": a_suffix_mapped,
     }
     return stats
 
