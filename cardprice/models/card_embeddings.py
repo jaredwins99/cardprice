@@ -23,40 +23,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sqlalchemy import text
 
+from cardprice.models.price_predictor import RARITY_ORDER, _parse_card_number
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-RARITY_ORDER: list[str] = [
-    "Common",
-    "Uncommon",
-    "Rare",
-    "Rare Holo",
-    "Rare Holo EX",
-    "Rare Holo GX",
-    "Rare Holo V",
-    "Rare VMAX",
-    "Rare VSTAR",
-    "Rare Holo VMAX",
-    "Rare Ultra",
-    "Rare Rainbow",
-    "Rare Secret",
-    "Rare Shiny",
-    "Rare Shining",
-    "Amazing Rare",
-    "LEGEND",
-    "Promo",
-    "Double Rare",
-    "Ultra Rare",
-    "Illustration Rare",
-    "Special Illustration Rare",
-    "Hyper Rare",
-    "ACE SPEC Rare",
-    "Shiny Rare",
-    "Shiny Ultra Rare",
-]
 
 POKEMON_TYPES: list[str] = [
     "fire",
@@ -265,6 +238,13 @@ class CardFeatureEncoder:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _get_field(row: Any, name: str, default: Any = None) -> Any:
+    """Get a field from a row that may be a dict or an object."""
+    if hasattr(row, "get"):
+        return row.get(name, default)
+    return getattr(row, name, default)
+
+
 def _safe_float(val: Any) -> float | None:
     """Convert a value to float, returning None on failure."""
     if val is None:
@@ -274,14 +254,6 @@ def _safe_float(val: Any) -> float | None:
         return f if np.isfinite(f) else None
     except (ValueError, TypeError):
         return None
-
-
-def _parse_card_number(card_number: Any) -> float | None:
-    """Extract numeric portion from card_number (e.g. '4', '123a' -> 123)."""
-    if card_number is None:
-        return None
-    m = re.search(r"(\d+)", str(card_number))
-    return float(m.group(1)) if m else None
 
 
 # ---------------------------------------------------------------------------

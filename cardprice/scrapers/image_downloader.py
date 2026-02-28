@@ -97,6 +97,7 @@ def download_card_images(
     rows = session.execute(query).fetchall()
     total = len(rows)
     logger.info("Found %d cards with %s URLs", total, size)
+    print(f"Found {total:,} cards with {size} image URLs", flush=True)
 
     last_request_time = 0.0
 
@@ -148,14 +149,14 @@ def download_card_images(
 
 
 def _log_progress(current: int, total: int, stats: dict):
-    logger.info(
-        "Progress %d/%d — downloaded: %d, skipped: %d, failed: %d",
-        current,
-        total,
-        stats["downloaded"],
-        stats["skipped"],
-        stats["failed"],
+    msg = (
+        f"Progress {current}/{total} — "
+        f"downloaded: {stats['downloaded']}, "
+        f"skipped: {stats['skipped']}, "
+        f"failed: {stats['failed']}"
     )
+    logger.info(msg)
+    print(msg, flush=True)
 
 
 # ---------------------------------------------------------------------------

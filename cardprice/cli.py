@@ -13,6 +13,12 @@ Usage:
     python -m cardprice.cli scan           # scan card image to identify
     python -m cardprice.cli inventory      # manage card inventory (list/add/remove/value/export)
     python -m cardprice.cli valuation      # snapshot collection value
+    python -m cardprice.cli watch          # watch folder for card images to auto-scan
+    python -m cardprice.cli server         # start card scanner HTTP server
+    python -m cardprice.cli telegram       # start Telegram card scanner bot
+    python -m cardprice.cli build-hash-index  # build perceptual hash database
+    python -m cardprice.cli build-dino-index  # build DINOv2 FAISS index
+    python -m cardprice.cli build-clip-index  # build CLIP embedding indexes
 """
 
 import argparse
@@ -259,6 +265,11 @@ def cmd_scan(args):
     model = args.model
     auto_threshold = 0.9
 
+    # Batch tracking counters
+    total = len(image_paths)
+    identified = 0
+    added = 0
+
     with SessionLocal() as session:
         for img_path in image_paths:
             print(f"\n=== Scanning: {img_path} ===")
@@ -274,17 +285,52 @@ def cmd_scan(args):
             raw_response = {}
 
             if model == "claude-haiku-4-5":
-                # TODO: call Anthropic vision API with the image
-                print("  [stub] claude-haiku-4-5 model not yet implemented")
+                try:
+                    from cardprice.ml.claude_scanner import scan_card, match_to_database
+                    result = scan_card(img_path, model="claude-haiku-4-5")
+                    matched_id, match_conf = match_to_database(result, session)
+                    card_id = matched_id
+                    confidence = match_conf if matched_id else result.get("confidence", 0.0)
+                    raw_response = result
+                except Exception as e:
+                    print(f"  ERROR (claude-haiku-4-5): {e}")
             elif model == "clip":
-                # TODO: CLIP embedding similarity search
-                print("  [stub] CLIP model not yet implemented")
+                try:
+                    from cardprice.ml.clip_matcher import identify_card as clip_identify
+                    matches = clip_identify(img_path)
+                    if matches:
+                        card_id, confidence = matches[0]
+                        raw_response = {"top_matches": matches}
+                except Exception as e:
+                    print(f"  ERROR (clip): {e}")
             elif model == "dino":
-                # TODO: DINOv2 embedding similarity search
-                print("  [stub] DINOv2 model not yet implemented")
+                try:
+                    from cardprice.ml.dino_matcher import identify_card as dino_identify
+                    matches = dino_identify(img_path)
+                    if matches:
+                        card_id, confidence = matches[0]
+                        raw_response = {"top_matches": matches}
+                except Exception as e:
+                    print(f"  ERROR (dino): {e}")
             elif model == "hash":
-                # TODO: perceptual hash matching
-                print("  [stub] hash model not yet implemented")
+                try:
+                    from cardprice.ml.hash_matcher import match_card, classify_match
+                    matches = match_card(img_path)
+                    if matches:
+                        card_id = matches[0][0]
+                        distance = matches[0][1]
+                        confidence = max(0, 1.0 - distance / 15.0)  # normalize to 0-1
+                        raw_response = {"matches": matches, "confidence_label": classify_match(distance)}
+                except Exception as e:
+                    print(f"  ERROR (hash): {e}")
+            elif model == "cascade":
+                from cardprice.ml import identify_card as cascade_identify
+                result = cascade_identify(img_path, session)
+                card_id = result["card_id"]
+                confidence = result["confidence"]
+                raw_response = result["raw_response"]
+                if result["method"]:
+                    print(f"  Method: {result['method']}")
             else:
                 print(f"  ERROR: unknown model '{model}'")
                 continue
@@ -309,6 +355,7 @@ def cmd_scan(args):
             session.commit()
 
             if card_id:
+                identified += 1
                 # Fetch card name for display
                 row = session.execute(
                     text("SELECT name, set_id, variant FROM dim_cards WHERE card_id = :cid"),
@@ -323,10 +370,21 @@ def cmd_scan(args):
                     print("  Auto-accepted (confidence >= 90%)")
                 else:
                     print("  Below auto-accept threshold; review recommended")
+
+                # Auto-add to inventory if --add flag and confidence meets threshold
+                if args.add and confidence >= args.threshold:
+                    session.execute(text("""
+                        INSERT INTO user_inventory (card_id, quantity, condition, notes)
+                        VALUES (:cid, 1, 'NM', :notes)
+                    """), {"cid": card_id, "notes": f"Scanned via {model} (conf={confidence:.2f})"})
+                    session.commit()
+                    added += 1
+                    print("  Added to inventory!")
             else:
                 print("  No card identified.")
 
-    print("\nScan complete.")
+    # Batch summary
+    print(f"\nBatch summary: {identified}/{total} identified, {added}/{total} added to inventory")
 
 
 # ---------------------------------------------------------------------------
@@ -733,6 +791,69 @@ def cmd_valuation(args):
 
 
 # ---------------------------------------------------------------------------
+# watch -- watch folder for new card images and auto-scan them
+# ---------------------------------------------------------------------------
+
+
+def cmd_watch(args):
+    """Watch folder for new card images and auto-scan them."""
+    from cardprice.scrapers.watch_folder import watch
+    watch(watch_dir=args.dir, auto_accept=args.threshold, once=args.once)
+
+
+def cmd_server(args):
+    """Start the card scanner HTTP server."""
+    from cardprice.server import run_server
+    run_server(host=args.host, port=args.port)
+
+
+# ---------------------------------------------------------------------------
+# build-*-index -- build ML reference indexes from downloaded card images
+# ---------------------------------------------------------------------------
+
+
+def cmd_build_hash_index(args):
+    """Build perceptual hash database from card images."""
+    from cardprice.ml.hash_matcher import build_hash_database
+
+    print(f"Building hash database from {args.image_dir}...")
+    result = build_hash_database(args.image_dir, args.output)
+    print(f"Done: {len(result)} cards indexed")
+
+
+def cmd_build_dino_index(args):
+    """Build DINOv2 FAISS index from card images."""
+    from cardprice.ml.dino_matcher import build_reference_index
+
+    print(f"Building DINOv2 FAISS index from {args.image_dir}...")
+    count = build_reference_index(args.image_dir, args.index_path, args.mapping_path)
+    print(f"Done: {count} cards indexed")
+
+
+def cmd_build_clip_index(args):
+    """Build CLIP embedding indexes (text, image, or both)."""
+    if args.mode in ("text", "both"):
+        from cardprice.ml.clip_matcher import build_text_index
+
+        with SessionLocal() as session:
+            print("Building CLIP text index...")
+            path = build_text_index(session)
+            print(f"Text index saved to {path}")
+    if args.mode in ("image", "both"):
+        from cardprice.ml.clip_matcher import build_image_index
+
+        print(f"Building CLIP image index from {args.image_dir}...")
+        path = build_image_index(args.image_dir)
+        print(f"Image index saved to {path}")
+
+
+def cmd_telegram(args):
+    """Start Telegram card scanner bot."""
+    from cardprice.telegram_bot import main as tg_main
+    tg_main()
+
+
+# ---------------------------------------------------------------------------
 # main -- argparse setup and dispatch
 # ---------------------------------------------------------------------------
 
@@ -808,10 +929,12 @@ def main():
     sc.add_argument("--dir", type=str, default=None, help="Directory of card images")
     sc.add_argument(
         "--model",
-        choices=["claude-haiku-4-5", "clip", "dino", "hash"],
+        choices=["claude-haiku-4-5", "clip", "dino", "hash", "cascade"],
         default="claude-haiku-4-5",
         help="Identification model (default: claude-haiku-4-5)",
     )
+    sc.add_argument("--add", action="store_true", help="Auto-add identified cards to inventory")
+    sc.add_argument("--threshold", type=float, default=0.85, help="Confidence threshold for auto-add (default: 0.85)")
 
     # inventory (with sub-subcommands)
     inv = sub.add_parser("inventory", help="Manage card inventory")
@@ -847,8 +970,38 @@ def main():
         "--output", type=str, default=None, help="Output file path"
     )
 
+    # watch
+    wa = sub.add_parser("watch", help="Watch folder for card images to auto-scan")
+    wa.add_argument("--dir", default="data/inbox", help="Directory to watch (default: data/inbox)")
+    wa.add_argument("--threshold", type=float, default=0.85, help="Auto-accept confidence threshold (default: 0.85)")
+    wa.add_argument("--once", action="store_true", help="Process existing images and exit (don't loop)")
+
     # valuation
     sub.add_parser("valuation", help="Snapshot collection value to DB")
+
+    # server
+    sv = sub.add_parser("server", help="Start card scanner HTTP server")
+    sv.add_argument("--port", type=int, default=8888, help="Port (default: 8888)")
+    sv.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
+
+    # build-hash-index
+    bhi = sub.add_parser("build-hash-index", help="Build perceptual hash database from card images")
+    bhi.add_argument("--image-dir", default="data/card_images", help="Card images directory")
+    bhi.add_argument("--output", default="data/hash_db.pkl", help="Output hash DB path")
+
+    # build-dino-index
+    bdi = sub.add_parser("build-dino-index", help="Build DINOv2 FAISS index from card images")
+    bdi.add_argument("--image-dir", default="data/card_images", help="Card images directory")
+    bdi.add_argument("--index-path", default="data/dino_index.faiss", help="Output FAISS index path")
+    bdi.add_argument("--mapping-path", default="data/dino_card_ids.pkl", help="Output card ID mapping path")
+
+    # build-clip-index
+    bci = sub.add_parser("build-clip-index", help="Build CLIP embedding indexes")
+    bci.add_argument("--mode", choices=["text", "image", "both"], default="text", help="Index type to build")
+    bci.add_argument("--image-dir", default="data/card_images", help="Card images directory (for image mode)")
+
+    # telegram
+    sub.add_parser("telegram", help="Start Telegram card scanner bot")
 
     args = parser.parse_args()
 
@@ -869,7 +1022,20 @@ def main():
         "scan": cmd_scan,
         "inventory": cmd_inventory,
         "valuation": cmd_valuation,
+        "watch": cmd_watch,
+        "server": cmd_server,
+        "build-hash-index": cmd_build_hash_index,
+        "build-dino-index": cmd_build_dino_index,
+        "build-clip-index": cmd_build_clip_index,
+        "telegram": cmd_telegram,
     }
+    # Configure logging so library-level logger.info() calls are visible
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+
     dispatch[args.command](args)
 
 

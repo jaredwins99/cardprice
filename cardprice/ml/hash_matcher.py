@@ -96,8 +96,8 @@ def build_hash_database(
 
     valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
     image_files = sorted(
-        f for f in image_dir.iterdir()
-        if f.suffix.lower() in valid_extensions
+        f for f in image_dir.rglob("*")
+        if f.is_file() and f.suffix.lower() in valid_extensions
     )
 
     if not image_files:
@@ -244,8 +244,8 @@ def batch_match(
 
     valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
     image_files = sorted(
-        f for f in image_dir.iterdir()
-        if f.suffix.lower() in valid_extensions
+        f for f in image_dir.rglob("*")
+        if f.is_file() and f.suffix.lower() in valid_extensions
     )
 
     if not image_files:

@@ -5,6 +5,7 @@ using OpenAI's CLIP (ViT-Large/14) model.
 """
 
 import logging
+import os
 import pickle
 from pathlib import Path
 from typing import Optional
@@ -218,8 +219,8 @@ def build_image_index(
 
     extensions = {".jpg", ".jpeg", ".png", ".webp"}
     image_files = sorted(
-        p for p in image_dir.iterdir()
-        if p.suffix.lower() in extensions
+        p for p in image_dir.rglob("*")
+        if p.is_file() and p.suffix.lower() in extensions
     )
 
     if not image_files:
@@ -236,8 +237,14 @@ def build_image_index(
     batch_ids = []
 
     for img_path in image_files:
-        # Derive card_id from filename: replace '__' back to '/'
-        card_id = img_path.stem.replace("__", "/")
+        # Derive card_id from relative path: e.g.
+        # data/card_images/sv8/sv8-162_normal.png -> "sv8-162/normal"
+        rel = img_path.relative_to(image_dir).with_suffix("")
+        card_id = str(rel).replace(os.sep, "/")
+        # The filename uses '_' to separate variant; replace last '_' with '/'
+        last_under = card_id.rfind("_")
+        if last_under != -1:
+            card_id = card_id[:last_under] + "/" + card_id[last_under + 1:]
         card_ids.append(card_id)
         batch_ids.append(card_id)
 

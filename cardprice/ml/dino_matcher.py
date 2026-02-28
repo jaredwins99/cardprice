@@ -125,10 +125,10 @@ def build_reference_index(
     if not image_dir.is_dir():
         raise FileNotFoundError(f"Image directory not found: {image_dir}")
 
-    # Collect image paths
+    # Collect image paths (recursively to support nested set subdirectories)
     image_files = sorted(
-        p for p in image_dir.iterdir()
-        if p.suffix.lower() in _IMAGE_EXTENSIONS
+        p for p in image_dir.rglob("*")
+        if p.is_file() and p.suffix.lower() in _IMAGE_EXTENSIONS
     )
     if not image_files:
         raise ValueError(f"No images found in {image_dir}")
@@ -143,7 +143,15 @@ def build_reference_index(
         try:
             vec = extract_embedding(img_path)
             embeddings.append(vec)
-            card_ids.append(img_path.stem)
+            # Derive card_id from relative path: e.g.
+            # data/card_images/sv8/sv8-162_normal.png -> "sv8-162/normal"
+            rel = img_path.relative_to(image_dir).with_suffix("")
+            card_id = str(rel).replace(os.sep, "/")  # normalize separators
+            # The filename uses '_' to separate variant; replace last '_' with '/'
+            last_under = card_id.rfind("_")
+            if last_under != -1:
+                card_id = card_id[:last_under] + "/" + card_id[last_under + 1:]
+            card_ids.append(card_id)
         except Exception:
             logger.warning("Failed to process %s", img_path, exc_info=True)
             failed += 1
