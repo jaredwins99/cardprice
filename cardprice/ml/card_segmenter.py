@@ -93,8 +93,14 @@ def _is_card_shaped(contour: np.ndarray, image_area: float,
 
     # Check that the contour approximates to a quadrilateral
     peri = cv2.arcLength(contour, True)
-    approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
-    if len(approx) != 4:
+    # Try increasing epsilon until we get 4 vertices (handles noisy edges)
+    approx = None
+    for eps_mult in (0.02, 0.04, 0.06, 0.08):
+        candidate = cv2.approxPolyDP(contour, eps_mult * peri, True)
+        if len(candidate) == 4:
+            approx = candidate
+            break
+    if approx is None:
         return False
 
     # Check aspect ratio using minimum area bounding rectangle
@@ -106,8 +112,11 @@ def _is_card_shaped(contour: np.ndarray, image_area: float,
     if abs(aspect - CARD_ASPECT_RATIO) > ASPECT_RATIO_TOLERANCE:
         return False
 
-    # Check that the contour is convex (cards should be convex)
-    if not cv2.isContourConvex(approx):
+    # Check solidity (area / convex hull area) — relaxed from strict convexity
+    # to handle sleeves, reflections, and slight card curvature
+    hull = cv2.convexHull(approx)
+    hull_area = cv2.contourArea(hull)
+    if hull_area > 0 and cv2.contourArea(approx) / hull_area < 0.85:
         return False
 
     return True
@@ -135,8 +144,13 @@ def _find_card_contours(image: np.ndarray) -> list[np.ndarray]:
             if not _is_card_shaped(cnt, image_area):
                 continue
             peri = cv2.arcLength(cnt, True)
-            approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-            if len(approx) != 4:
+            approx = None
+            for eps_mult in (0.02, 0.04, 0.06, 0.08):
+                candidate = cv2.approxPolyDP(cnt, eps_mult * peri, True)
+                if len(candidate) == 4:
+                    approx = candidate
+                    break
+            if approx is None:
                 continue
             # Deduplicate by center position (within 30px)
             M = cv2.moments(cnt)
