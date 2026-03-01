@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Standard Pokemon card dimensions (mm): 63 x 88 -> aspect ratio ~0.716
 CARD_ASPECT_RATIO = 63.0 / 88.0  # width / height = ~0.716
-ASPECT_RATIO_TOLERANCE = 0.25     # allow 25% deviation
+ASPECT_RATIO_TOLERANCE = 0.20     # allow 20% deviation
 
 # Output card image size (pixels) -- 2.5x standard 63x88mm at ~10px/mm
 CARD_OUTPUT_W = 630
@@ -135,7 +135,7 @@ def _find_card_contours(image: np.ndarray) -> list[np.ndarray]:
     h, w = gray.shape[:2]
     image_area = h * w
 
-    candidates = {}  # keyed by center to deduplicate
+    candidates = []  # list of (cx, cy, area, approx)
 
     def _add_candidates(edges: np.ndarray):
         contours, _ = cv2.findContours(edges, cv2.RETR_TREE,
@@ -152,16 +152,13 @@ def _find_card_contours(image: np.ndarray) -> list[np.ndarray]:
                     break
             if approx is None:
                 continue
-            # Deduplicate by center position (within 30px)
             M = cv2.moments(cnt)
             if M["m00"] == 0:
                 continue
             cx = int(M["m10"] / M["m00"])
             cy = int(M["m01"] / M["m00"])
-            grid_key = (cx // 30, cy // 30)
             area = cv2.contourArea(cnt)
-            if grid_key not in candidates or area > cv2.contourArea(candidates[grid_key]):
-                candidates[grid_key] = approx
+            candidates.append((cx, cy, area, approx))
 
     # Strategy 1: Canny edge detection (good for clear edges)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -193,9 +190,27 @@ def _find_card_contours(image: np.ndarray) -> list[np.ndarray]:
     edges_bilateral = cv2.dilate(edges_bilateral, kernel, iterations=1)
     _add_candidates(edges_bilateral)
 
-    result = list(candidates.values())
-    logger.info("Found %d card-shaped contours", len(result))
-    return result
+    # Deduplicate overlapping detections: if two contour centers are within
+    # dedup_radius, keep only the one with the larger area.  This prevents
+    # inner card art frames from being detected as separate cards.
+    dedup_radius = max(w, h) * 0.10  # ~10% of image dimension
+    # Sort largest first so the biggest contour wins
+    candidates.sort(key=lambda c: c[2], reverse=True)
+    kept: list[np.ndarray] = []
+    kept_centers: list[tuple[int, int]] = []
+    for cx, cy, area, approx in candidates:
+        too_close = False
+        for kx, ky in kept_centers:
+            if abs(cx - kx) < dedup_radius and abs(cy - ky) < dedup_radius:
+                too_close = True
+                break
+        if not too_close:
+            kept.append(approx)
+            kept_centers.append((cx, cy))
+
+    logger.info("Found %d card-shaped contours (before dedup: %d)",
+                len(kept), len(candidates))
+    return kept
 
 
 def _sort_grid(contours: list[np.ndarray]) -> list[np.ndarray]:

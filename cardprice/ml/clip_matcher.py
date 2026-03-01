@@ -42,23 +42,28 @@ def _extract_text_features(model, **inputs) -> torch.Tensor:
     """Extract text features from CLIP, handling transformers 5.x API change.
 
     In transformers >=5.0, get_text_features returns BaseModelOutputWithPooling
-    instead of a plain tensor. This helper extracts and projects the pooled output.
+    instead of a plain tensor. The pooler_output is already projected through
+    text_projection, so we return it directly.
     """
     out = model.get_text_features(**inputs)
     if isinstance(out, torch.Tensor):
         return out
-    # transformers 5.x: extract pooler_output and project
-    pooled = out.pooler_output
-    return model.text_projection(pooled)
+    # transformers 5.x: pooler_output is already the projected embedding
+    return out.pooler_output
 
 
 def _extract_image_features(model, **inputs) -> torch.Tensor:
-    """Extract image features from CLIP, handling transformers 5.x API change."""
+    """Extract image features from CLIP, handling transformers 5.x API change.
+
+    In transformers >=5.0, get_image_features returns BaseModelOutputWithPooling
+    instead of a plain tensor. The pooler_output is already projected through
+    visual_projection, so we return it directly.
+    """
     out = model.get_image_features(**inputs)
     if isinstance(out, torch.Tensor):
         return out
-    pooled = out.pooler_output
-    return model.visual_projection(pooled)
+    # transformers 5.x: pooler_output is already the projected embedding
+    return out.pooler_output
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -294,7 +299,7 @@ def build_image_index(
     if batch_images:
         inputs = processor(images=batch_images, return_tensors="pt")
         with torch.no_grad():
-            feats = model.get_image_features(**inputs)
+            feats = _extract_image_features(model, **inputs)
         feats = feats / feats.norm(dim=-1, keepdim=True)
         all_embeddings.append(feats.cpu().numpy())
 
