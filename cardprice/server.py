@@ -7,16 +7,29 @@ Endpoints:
     GET  /           -> Mobile-friendly upload page (with QR code)
     GET  /qr         -> QR code PNG image of the server URL
     POST /scan       -> Upload image, identify card, return JSON
+    POST /scan-url   -> Download image from URL, identify card, return JSON
     POST /scan-page  -> Upload binder page photo, segment & identify cards
     GET  /pending    -> List pending scans awaiting identification
+    GET  /history    -> Last 50 scans (resolved + pending) sorted by timestamp desc
+    GET  /stats      -> Scanning statistics (counts, methods, confidence, index sizes)
+    GET  /price-history/<card_id> -> Last 30 days of market prices as JSON array
+    POST /resolve    -> Resolve a pending scan with correct card_id
+    POST /resolve-batch -> Resolve multiple pending scans at once
     GET  /inventory  -> Current inventory as JSON
+    GET  /export     -> Export inventory as CSV attachment
+    GET  /card-image/<card_id> -> Serve local card reference image (PNG)
 """
 
 import argparse
+import csv
+import io
 import json
 import logging
+import os
 import re
 import socket
+import urllib.request
+import urllib.error
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
@@ -29,10 +42,63 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 PENDING_DIR = Path("data/pending_scans")
 PENDING_DIR.mkdir(parents=True, exist_ok=True)
 
+CARD_IMAGES_DIR = Path("data/card_images")
+
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+# Duplicate detection: max Hamming distance to consider a duplicate
+_DEDUP_HASH_THRESHOLD = 3
 
 # Server port stored at startup so QR code can encode the full URL
 _server_port = 8888
+
+
+def _compute_phash(image_path):
+    """Compute perceptual hash of an image, returning hex string or None."""
+    try:
+        import imagehash
+        from PIL import Image
+        img = Image.open(image_path)
+        return str(imagehash.phash(img))
+    except Exception as e:
+        logger.warning("Failed to compute phash for %s: %s", image_path, e)
+        return None
+
+
+def _find_duplicate_scan(phash_hex):
+    """Check all scans in pending_scans/ for a matching phash.
+
+    Returns the cached scan dict if a duplicate is found (Hamming distance
+    < _DEDUP_HASH_THRESHOLD), otherwise None.
+    """
+    if not phash_hex:
+        return None
+    try:
+        import imagehash
+        query_hash = imagehash.hex_to_hash(phash_hex)
+    except Exception:
+        return None
+
+    for f in PENDING_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text())
+        except Exception:
+            continue
+        stored_hex = data.get("phash")
+        if not stored_hex:
+            continue
+        try:
+            stored_hash = imagehash.hex_to_hash(stored_hex)
+            distance = query_hash - stored_hash
+            if distance < _DEDUP_HASH_THRESHOLD:
+                logger.info(
+                    "Duplicate scan detected (distance=%d): %s matches %s",
+                    distance, phash_hex, f.name,
+                )
+                return data
+        except Exception:
+            continue
+    return None
 
 
 def _get_lan_ip():
@@ -83,6 +149,14 @@ h1 { text-align: center; color: #e94560; }
 .upload-btn { display: block; width: 100%; padding: 20px; font-size: 18px; background: #e94560; color: white; border: none; border-radius: 12px; cursor: pointer; margin: 10px 0; }
 .upload-btn:active { background: #c23152; }
 input[type=file] { display: none; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; background: #16213e; padding: 12px 15px; border-radius: 8px; margin: 10px 0; }
+.toggle-row label { color: #ccc; font-size: 15px; }
+.toggle-switch { position: relative; width: 50px; height: 28px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #333; border-radius: 28px; transition: 0.3s; }
+.toggle-slider:before { content: ""; position: absolute; height: 22px; width: 22px; left: 3px; bottom: 3px; background: #eee; border-radius: 50%; transition: 0.3s; }
+.toggle-switch input:checked + .toggle-slider { background: #4ecca3; }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(22px); }
 .result { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; display: none; }
 .result.show { display: block; }
 .result h3 { color: #e94560; margin: 0 0 10px; }
@@ -111,6 +185,13 @@ input[type=file] { display: none; }
     <label class="upload-btn" for="gallery" style="background:#16213e;border:2px solid #e94560;">Choose from Gallery</label>
     <input type="file" id="gallery" accept="image/*">
 </form>
+<div class="toggle-row">
+    <label for="continuousScan">Continuous scan mode</label>
+    <div class="toggle-switch">
+        <input type="checkbox" id="continuousScan">
+        <span class="toggle-slider"></span>
+    </div>
+</div>
 <form id="pageForm">
     <label class="upload-btn" for="pageCamera" style="background:#4ecca3;color:#1a1a2e;margin-top:20px;">Scan Binder Page</label>
     <input type="file" id="pageCamera" accept="image/*" capture="environment">
@@ -125,6 +206,8 @@ input[type=file] { display: none; }
     <div class="confidence" id="cardConf"></div>
     <div id="cardMeta"></div>
     <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
+    <canvas id="sparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
+    <div id="sparkLabel" style="display:none;font-size:11px;color:#888;"></div>
 </div>
 <div class="result" id="pageResult">
     <h3 style="color:#4ecca3;">Binder Page Results</h3>
@@ -278,6 +361,46 @@ function showResult(data) {
     } else {
         refImg.style.display = 'none';
     }
+    // Sparkline: fetch 30-day price history and draw
+    var spark = document.getElementById('sparkline');
+    var sparkLabel = document.getElementById('sparkLabel');
+    spark.style.display = 'none';
+    sparkLabel.style.display = 'none';
+    if (data.card_id) {
+        fetch('/price-history/' + encodeURIComponent(data.card_id))
+            .then(function(r) { return r.json(); })
+            .then(function(pts) {
+                if (!pts || pts.length < 2) return;
+                // pts are newest-first from API; reverse to chronological order
+                pts = pts.slice().reverse();
+                var prices = pts.map(function(p) { return p.price; });
+                var minP = Math.min.apply(null, prices);
+                var maxP = Math.max.apply(null, prices);
+                var range = maxP - minP || 1;
+                var W = 150, H = 40, pad = 2;
+                spark.width = W; spark.height = H;
+                spark.style.display = 'block';
+                var ctx = spark.getContext('2d');
+                ctx.clearRect(0, 0, W, H);
+                var up = prices[prices.length - 1] >= prices[0];
+                ctx.strokeStyle = up ? '#4ecca3' : '#e94560';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (var i = 0; i < prices.length; i++) {
+                    var x = pad + (i / (prices.length - 1)) * (W - 2 * pad);
+                    var y = H - pad - ((prices[i] - minP) / range) * (H - 2 * pad);
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                sparkLabel.style.display = 'block';
+                var diff = prices[prices.length - 1] - prices[0];
+                var sign = diff >= 0 ? '+' : '';
+                sparkLabel.textContent = '30d: ' + sign + diff.toFixed(2) + ' (' + pts[0].date + ' \u2192 ' + pts[pts.length - 1].date + ')';
+                sparkLabel.style.color = up ? '#4ecca3' : '#e94560';
+            })
+            .catch(function() {});
+    }
+    reopenCamera();
 }
 function pollResult(scanId) {
     var poll = setInterval(function() {
@@ -291,8 +414,13 @@ function pollResult(scanId) {
             });
     }, 3000);
 }
-document.getElementById('camera').onchange = function() { handleFile(this.files[0]); };
-document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); };
+document.getElementById('camera').onchange = function() { handleFile(this.files[0]); this.value=''; };
+document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); this.value=''; };
+function reopenCamera() {
+    if (document.getElementById('continuousScan').checked) {
+        setTimeout(function() { document.getElementById('camera').click(); }, 1200);
+    }
+}
 function handlePageFile(file) {
     if (!file) return;
     var preview = document.getElementById('preview');
@@ -378,6 +506,25 @@ def _parse_multipart(body, content_type):
     return None, None
 
 
+def _local_image_url(card_id):
+    """Return local /card-image/ URL for a card_id if the image file exists.
+
+    card_id format: "bw5-107" (base only, no variant).
+    Checks for normal variant PNG on disk.  Returns None if not found.
+    """
+    if not card_id:
+        return None
+    set_match = re.match(r"^(.+)-\d+[a-z]?$", card_id)
+    if not set_match:
+        return None
+    set_id = set_match.group(1)
+    # Default to "normal" variant
+    image_path = CARD_IMAGES_DIR / set_id / f"{card_id}_normal.png"
+    if image_path.is_file():
+        return f"/card-image/{card_id}/normal"
+    return None
+
+
 class ScanHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
@@ -389,18 +536,42 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_qr()
         elif self.path == "/inventory":
             self._send_inventory()
+        elif self.path == "/export":
+            self._send_csv_export()
         elif self.path == "/pending":
             self._send_pending()
+        elif self.path == "/history":
+            self._send_history()
+        elif self.path == "/stats":
+            self._send_stats()
         elif self.path.startswith("/result/"):
             self._send_result(self.path.split("/result/", 1)[1])
+        elif self.path.startswith("/price-history/"):
+            from urllib.parse import unquote
+            card_id = unquote(self.path.split("/price-history/", 1)[1])
+            self._send_price_history(card_id)
+        elif self.path.startswith("/card-image/"):
+            from urllib.parse import unquote
+            card_path = unquote(self.path.split("/card-image/", 1)[1])
+            self._send_card_image(card_path)
+        elif self.path.startswith("/segment-image/"):
+            from urllib.parse import unquote
+            seg_path = unquote(self.path.split("/segment-image/", 1)[1])
+            self._send_segment_image(seg_path)
         else:
             self.send_error(404)
 
     def do_POST(self):
         if self.path == "/scan":
             self._handle_scan()
+        elif self.path == "/scan-url":
+            self._handle_scan_url()
         elif self.path == "/scan-page":
             self._handle_scan_page()
+        elif self.path == "/resolve":
+            self._handle_resolve()
+        elif self.path == "/resolve-batch":
+            self._handle_resolve_batch()
         else:
             self.send_error(404)
 
@@ -469,6 +640,17 @@ class ScanHandler(BaseHTTPRequestHandler):
         save_path = UPLOAD_DIR / f"scan_{timestamp}{ext}"
         save_path.write_bytes(file_data)
 
+        # Duplicate detection: compute phash and check for previous scan
+        phash_hex = _compute_phash(str(save_path))
+        if phash_hex:
+            cached = _find_duplicate_scan(phash_hex)
+            if cached:
+                logger.info("Returning cached result for duplicate scan")
+                cached_response = dict(cached)
+                cached_response["duplicate"] = True
+                self._send_json(cached_response)
+                return
+
         # Run identification
         try:
             from cardprice.ml import identify_card
@@ -486,6 +668,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "market_price": None,
                     "set_name": None,
                     "image_url": None,
+                    "local_image_url": _local_image_url(result["card_id"]),
+                    "phash": phash_hex,
                 }
 
                 if result["card_id"]:
@@ -518,16 +702,373 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "scan_id": scan_id,
                         "image_path": str(save_path),
                         "status": "pending",
+                        "phash": phash_hex,
                         "ml_response": result.get("raw_response", {}),
                     }))
                     response["status"] = "pending"
                     response["scan_id"] = scan_id
                     response["message"] = "Card queued for identification"
 
+            # Save resolved scan metadata so future dedup checks can find it
+            if response.get("card_id") and phash_hex:
+                resolved_meta = PENDING_DIR / f"{timestamp}.json"
+                if not resolved_meta.exists():
+                    resolved_meta.write_text(json.dumps({
+                        "scan_id": timestamp,
+                        "image_path": str(save_path),
+                        "status": "resolved",
+                        "phash": phash_hex,
+                        "card_id": response["card_id"],
+                        "confidence": response["confidence"],
+                        "method": response["method"],
+                        "card_name": response.get("card_name"),
+                        "market_price": response.get("market_price"),
+                        "set_name": response.get("set_name"),
+                        "image_url": response.get("image_url"),
+                    }))
+
             self._send_json(response)
 
         except Exception as e:
             logger.error("Scan error: %s", e)
+            self._send_json({"error": str(e)}, status=500)
+
+
+    def _read_json_body(self, max_bytes=1024 * 1024):
+        """Read and parse a JSON request body.  Returns dict or None (sends error)."""
+        content_type = self.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            self.send_error(400, "Expected application/json")
+            return None
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return None
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return None
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return None
+        if length > max_bytes:
+            self.send_error(413, "Request body too large")
+            return None
+        body = self.rfile.read(length)
+        try:
+            return json.loads(body.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.send_error(400, "Invalid JSON")
+            return None
+
+    def _resolve_single(self, scan_id, card_id, confidence=0.95):
+        """Resolve a single pending scan.  Returns response dict or error dict."""
+        pending_file = PENDING_DIR / f"{scan_id}.json"
+        if not pending_file.exists():
+            return {"error": f"Scan {scan_id} not found", "_status": 404}
+
+        try:
+            scan_data = json.loads(pending_file.read_text())
+        except (json.JSONDecodeError, OSError) as e:
+            return {"error": f"Failed to read scan data: {e}", "_status": 500}
+
+        # Look up card info from database
+        card_name = None
+        set_name = None
+        market_price = None
+        image_url = None
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                row = session.execute(
+                    sql_text("""
+                        SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                        FROM dim_cards c
+                        JOIN dim_sets s ON s.set_id = c.set_id
+                        LEFT JOIN LATERAL (
+                            SELECT market_price FROM fact_market_prices
+                            WHERE card_id = c.card_id
+                            ORDER BY price_date DESC LIMIT 1
+                        ) p ON true
+                        WHERE c.card_id = :cid
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+                if row:
+                    card_name = row.name
+                    set_name = row.set_name
+                    market_price = float(row.market_price) if row.market_price else None
+                    image_url = row.image_small
+        except Exception as e:
+            logger.warning("DB lookup failed during resolve for %s: %s", card_id, e)
+
+        # Update the pending scan file
+        scan_data["status"] = "resolved"
+        scan_data["card_id"] = card_id
+        scan_data["confidence"] = confidence
+        scan_data["method"] = "manual"
+        scan_data["card_name"] = card_name
+        scan_data["set_name"] = set_name
+        scan_data["market_price"] = market_price
+        scan_data["image_url"] = image_url
+        pending_file.write_text(json.dumps(scan_data))
+
+        return {
+            "scan_id": scan_id,
+            "status": "resolved",
+            "card_id": card_id,
+            "confidence": confidence,
+            "method": "manual",
+            "card_name": card_name,
+            "set_name": set_name,
+            "market_price": market_price,
+            "image_url": image_url,
+            "local_image_url": _local_image_url(card_id),
+        }
+
+    def _handle_resolve(self):
+        """Resolve a single pending/unknown scan by providing the correct card_id.
+
+        Accepts JSON: {"scan_id": "...", "card_id": "...", "confidence": 0.95}
+        Updates the pending scan JSON and returns card info.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        scan_id = data.get("scan_id")
+        card_id = data.get("card_id")
+        if not scan_id or not card_id:
+            self._send_json({"error": "Missing required fields: scan_id, card_id"}, status=400)
+            return
+
+        confidence = data.get("confidence", 0.95)
+        result = self._resolve_single(scan_id, card_id, confidence)
+        status = result.pop("_status", 200)
+        self._send_json(result, status=status)
+
+    def _handle_resolve_batch(self):
+        """Resolve multiple pending scans at once.
+
+        Accepts JSON: {"resolutions": [{"scan_id": "...", "card_id": "...", "confidence": 0.95}, ...]}
+        Returns results for each resolution.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        resolutions = data.get("resolutions")
+        if not resolutions or not isinstance(resolutions, list):
+            self._send_json({"error": "Missing or invalid 'resolutions' array"}, status=400)
+            return
+
+        results = []
+        for item in resolutions:
+            scan_id = item.get("scan_id")
+            card_id = item.get("card_id")
+            if not scan_id or not card_id:
+                results.append({"error": "Missing scan_id or card_id", "scan_id": scan_id})
+                continue
+            confidence = item.get("confidence", 0.95)
+            result = self._resolve_single(scan_id, card_id, confidence)
+            result.pop("_status", None)
+            results.append(result)
+
+        self._send_json({"results": results, "count": len(results)})
+
+    def _handle_scan_url(self):
+        """Handle image download from URL: fetch the image, identify card, return JSON.
+
+        Accepts JSON: {"url": "https://example.com/card.jpg"}
+        Downloads with 10-second timeout and 20MB size limit.
+        Returns same response format as /scan.
+        """
+        content_type = self.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            self.send_error(400, "Expected application/json")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        if length > 1024 * 1024:  # 1 MB max for JSON request itself
+            self.send_error(413, "Request body too large")
+            return
+
+        body = self.rfile.read(length)
+        try:
+            request_data = json.loads(body.decode())
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.send_error(400, "Invalid JSON")
+            return
+
+        url = request_data.get("url")
+        if not url:
+            self.send_error(400, "Missing 'url' field in JSON body")
+            return
+
+        # Validate URL (basic check)
+        if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+            self.send_error(400, "Invalid URL: must start with http:// or https://")
+            return
+
+        # Download the image with timeout and size limit
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                file_data = b""
+                # Read in chunks to enforce size limit
+                while True:
+                    chunk = response.read(1024 * 1024)  # 1 MB chunks
+                    if not chunk:
+                        break
+                    file_data += chunk
+                    if len(file_data) > MAX_UPLOAD_BYTES:
+                        self.send_error(413, f"Downloaded image too large (max {MAX_UPLOAD_BYTES / 1024 / 1024:.0f} MB)")
+                        return
+
+            if not file_data:
+                self.send_error(400, "Downloaded image is empty")
+                return
+
+        except urllib.error.URLError as e:
+            logger.warning("URL fetch failed: %s", e)
+            self.send_error(400, f"Failed to download image: {str(e)[:100]}")
+            return
+        except socket.timeout:
+            self.send_error(408, "Download timeout (10s)")
+            return
+        except Exception as e:
+            logger.warning("URL download error: %s", e)
+            self.send_error(400, f"Download error: {str(e)[:100]}")
+            return
+
+        # Infer file extension from URL or default to .jpg
+        ext = ".jpg"
+        if "?" in url:
+            path_part = url.split("?")[0]
+        else:
+            path_part = url
+        if "." in path_part:
+            ext_candidate = "." + path_part.split(".")[-1].lower()
+            if ext_candidate in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"):
+                ext = ext_candidate
+
+        # Save downloaded image
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_path = UPLOAD_DIR / f"scan_{timestamp}{ext}"
+        save_path.write_bytes(file_data)
+        logger.info("Downloaded image saved: %s (%d bytes from %s)", save_path, len(file_data), url)
+
+        # Duplicate detection: compute phash and check for previous scan
+        phash_hex = _compute_phash(str(save_path))
+        if phash_hex:
+            cached = _find_duplicate_scan(phash_hex)
+            if cached:
+                logger.info("Returning cached result for duplicate scan from URL")
+                cached_response = dict(cached)
+                cached_response["duplicate"] = True
+                self._send_json(cached_response)
+                return
+
+        # Run identification
+        try:
+            from cardprice.ml import identify_card
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                result = identify_card(str(save_path), session=session)
+
+                response = {
+                    "card_id": result["card_id"],
+                    "confidence": result["confidence"],
+                    "method": result["method"],
+                    "card_name": None,
+                    "market_price": None,
+                    "set_name": None,
+                    "image_url": None,
+                    "local_image_url": _local_image_url(result["card_id"]),
+                    "phash": phash_hex,
+                    "source_url": url,
+                }
+
+                if result["card_id"]:
+                    row = session.execute(
+                        sql_text("""
+                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                            FROM dim_cards c
+                            JOIN dim_sets s ON s.set_id = c.set_id
+                            LEFT JOIN LATERAL (
+                                SELECT market_price FROM fact_market_prices
+                                WHERE card_id = c.card_id
+                                ORDER BY price_date DESC LIMIT 1
+                            ) p ON true
+                            WHERE c.card_id = :cid
+                        """),
+                        {"cid": result["card_id"]},
+                    ).fetchone()
+                    if row:
+                        response["card_name"] = row.name
+                        response["set_name"] = row.set_name
+                        response["market_price"] = (
+                            float(row.market_price) if row.market_price else None
+                        )
+                        response["image_url"] = row.image_small
+                else:
+                    # No confident ML match — queue for Claude Code identification
+                    scan_id = timestamp
+                    pending_meta = PENDING_DIR / f"{scan_id}.json"
+                    pending_meta.write_text(json.dumps({
+                        "scan_id": scan_id,
+                        "image_path": str(save_path),
+                        "status": "pending",
+                        "phash": phash_hex,
+                        "source_url": url,
+                        "ml_response": result.get("raw_response", {}),
+                    }))
+                    response["status"] = "pending"
+                    response["scan_id"] = scan_id
+                    response["message"] = "Card queued for identification"
+
+            # Save resolved scan metadata so future dedup checks can find it
+            if response.get("card_id") and phash_hex:
+                resolved_meta = PENDING_DIR / f"{timestamp}.json"
+                if not resolved_meta.exists():
+                    resolved_meta.write_text(json.dumps({
+                        "scan_id": timestamp,
+                        "image_path": str(save_path),
+                        "status": "resolved",
+                        "phash": phash_hex,
+                        "card_id": response["card_id"],
+                        "confidence": response["confidence"],
+                        "method": response["method"],
+                        "card_name": response.get("card_name"),
+                        "market_price": response.get("market_price"),
+                        "set_name": response.get("set_name"),
+                        "image_url": response.get("image_url"),
+                        "source_url": url,
+                    }))
+
+            self._send_json(response)
+
+        except Exception as e:
+            logger.error("Scan-URL error: %s", e)
             self._send_json({"error": str(e)}, status=500)
 
     def _handle_scan_page(self):
@@ -607,8 +1148,16 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 for idx, card_img_path in enumerate(card_images):
                     result = identify_card(str(card_img_path), session=session)
+                    # Compute grid position (assume 3 columns for binder pages)
+                    num_cols = 3
+                    row = idx // num_cols
+                    col = idx % num_cols
+                    # Build URL for the segmented card image
+                    seg_rel = str(Path(card_img_path).relative_to(UPLOAD_DIR))
                     card_data = {
                         "position": idx,
+                        "row": row,
+                        "col": col,
                         "card_id": result["card_id"],
                         "confidence": result["confidence"],
                         "method": result["method"],
@@ -616,6 +1165,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "market_price": None,
                         "set_name": None,
                         "image_url": None,
+                        "local_image_url": _local_image_url(result["card_id"]),
+                        "segment_image_url": f"/segment-image/{seg_rel}",
                     }
 
                     if result["card_id"]:
@@ -656,6 +1207,35 @@ class ScanHandler(BaseHTTPRequestHandler):
             "total_value": round(total_value, 2),
         })
 
+    def _send_price_history(self, card_id):
+        """Return last 30 days of market prices for a card as JSON array."""
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                rows = session.execute(
+                    sql_text("""
+                        SELECT price_date, market_price
+                        FROM fact_market_prices
+                        WHERE card_id = :cid
+                        ORDER BY price_date DESC
+                        LIMIT 30
+                    """),
+                    {"cid": card_id},
+                ).fetchall()
+                result = [
+                    {
+                        "date": str(r.price_date),
+                        "price": float(r.market_price) if r.market_price else 0,
+                    }
+                    for r in rows
+                ]
+                self._send_json(result)
+        except Exception as e:
+            logger.error("Price history error: %s", e)
+            self._send_json([])
+
     def _send_inventory(self):
         try:
             from cardprice.db.session import SessionLocal
@@ -693,6 +1273,79 @@ class ScanHandler(BaseHTTPRequestHandler):
             logger.error("Inventory error: %s", e)
             self._send_json({"error": str(e)}, status=500)
 
+    def _send_csv_export(self):
+        """Export inventory as CSV with columns: card_id, name, set_name, variant, quantity, condition, market_price, total_value."""
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                rows = session.execute(sql_text("""
+                    SELECT ui.card_id, dc.name, ds.name as set_name, ui.quantity,
+                           ui.condition, lp.market_price
+                    FROM user_inventory ui
+                    JOIN dim_cards dc ON dc.card_id = ui.card_id
+                    JOIN dim_sets ds ON ds.set_id = dc.set_id
+                    LEFT JOIN LATERAL (
+                        SELECT market_price FROM fact_market_prices
+                        WHERE card_id = ui.card_id
+                        ORDER BY price_date DESC LIMIT 1
+                    ) lp ON true
+                    ORDER BY ds.name, dc.name
+                """)).fetchall()
+
+                # Extract variant from card_id (format: setnum-cardnum/variant)
+                csv_buffer = io.StringIO()
+                writer = csv.writer(csv_buffer)
+
+                # Write header
+                writer.writerow([
+                    "card_id",
+                    "name",
+                    "set_name",
+                    "variant",
+                    "quantity",
+                    "condition",
+                    "market_price",
+                    "total_value"
+                ])
+
+                # Write data rows
+                for r in rows:
+                    card_id = r.card_id or ""
+                    variant = ""
+                    if "/" in card_id:
+                        variant = card_id.split("/", 1)[1]
+
+                    market_price = float(r.market_price) if r.market_price else 0.0
+                    total_value = market_price * r.quantity
+
+                    writer.writerow([
+                        card_id,
+                        r.name or "",
+                        r.set_name or "",
+                        variant,
+                        r.quantity or 0,
+                        r.condition or "",
+                        f"{market_price:.2f}" if market_price > 0 else "",
+                        f"{total_value:.2f}" if total_value > 0 else ""
+                    ])
+
+                csv_content = csv_buffer.getvalue()
+                csv_bytes = csv_content.encode("utf-8")
+
+                # Send CSV response with attachment headers
+                self.send_response(200)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", 'attachment; filename="inventory.csv"')
+                self.send_header("Content-Length", str(len(csv_bytes)))
+                self.end_headers()
+                self.wfile.write(csv_bytes)
+
+        except Exception as e:
+            logger.error("CSV export error: %s", e)
+            self._send_json({"error": str(e)}, status=500)
+
     def _send_pending(self):
         """List all pending scans awaiting identification."""
         pending = []
@@ -701,6 +1354,160 @@ class ScanHandler(BaseHTTPRequestHandler):
             if data.get("status") == "pending":
                 pending.append(data)
         self._send_json({"pending": pending, "count": len(pending)})
+
+    def _send_history(self):
+        """Return the last 50 scans (resolved and pending) sorted by timestamp desc."""
+        scans = []
+        for f in PENDING_DIR.glob("*.json"):
+            try:
+                data = json.loads(f.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+
+            scan_id = data.get("scan_id", f.stem)
+            status = data.get("status", "unknown")
+
+            # Derive timestamp from scan_id (format: YYYYMMDD_HHMMSS or page_YYYYMMDD_HHMMSS)
+            ts_str = scan_id.replace("page_", "")
+            try:
+                ts = datetime.strptime(ts_str, "%Y%m%d_%H%M%S")
+                timestamp = ts.isoformat()
+            except ValueError:
+                # Fallback: use file mtime
+                timestamp = datetime.fromtimestamp(
+                    os.path.getmtime(str(f))
+                ).isoformat()
+
+            entry = {
+                "scan_id": scan_id,
+                "status": status,
+                "card_id": data.get("card_id"),
+                "card_name": data.get("card_name"),
+                "market_price": data.get("market_price"),
+                "method": data.get("method"),
+                "timestamp": timestamp,
+            }
+            scans.append(entry)
+
+        # Sort by timestamp descending, take last 50
+        scans.sort(key=lambda s: s["timestamp"], reverse=True)
+        scans = scans[:50]
+
+        # Enrich resolved scans that have a card_id but no price data from DB
+        resolved_ids = [
+            s["card_id"]
+            for s in scans
+            if s["status"] == "resolved" and s["card_id"] and s["market_price"] is None
+        ]
+        if resolved_ids:
+            try:
+                from cardprice.db.session import SessionLocal
+                from sqlalchemy import text as sql_text
+
+                with SessionLocal() as session:
+                    rows = session.execute(
+                        sql_text("""
+                            SELECT c.card_id, c.name, p.market_price
+                            FROM dim_cards c
+                            LEFT JOIN LATERAL (
+                                SELECT market_price FROM fact_market_prices
+                                WHERE card_id = c.card_id
+                                ORDER BY price_date DESC LIMIT 1
+                            ) p ON true
+                            WHERE c.card_id = ANY(:ids)
+                        """),
+                        {"ids": resolved_ids},
+                    ).fetchall()
+                    db_lookup = {
+                        r.card_id: {"name": r.name, "price": float(r.market_price) if r.market_price else None}
+                        for r in rows
+                    }
+                    for s in scans:
+                        if s["card_id"] in db_lookup:
+                            info = db_lookup[s["card_id"]]
+                            if s["card_name"] is None:
+                                s["card_name"] = info["name"]
+                            if s["market_price"] is None:
+                                s["market_price"] = info["price"]
+            except Exception as e:
+                logger.debug("History DB enrichment skipped: %s", e)
+
+        self._send_json({"scans": scans, "count": len(scans)})
+
+    def _send_stats(self):
+        """Return scanning statistics computed from pending_scans JSON files."""
+        scans = []
+        for f in PENDING_DIR.glob("*.json"):
+            try:
+                scans.append(json.loads(f.read_text()))
+            except (json.JSONDecodeError, OSError):
+                continue
+
+        total = len(scans)
+        resolved = sum(1 for s in scans if s.get("status") == "resolved")
+        pending = sum(1 for s in scans if s.get("status") == "pending")
+
+        # Method breakdown and average confidence
+        method_counts = {}
+        method_conf_sums = {}
+        method_conf_counts = {}
+        for s in scans:
+            method = s.get("method")
+            if method:
+                method_counts[method] = method_counts.get(method, 0) + 1
+                conf = s.get("confidence")
+                if conf is not None:
+                    method_conf_sums[method] = method_conf_sums.get(method, 0.0) + conf
+                    method_conf_counts[method] = method_conf_counts.get(method, 0) + 1
+
+        avg_confidence_by_method = {}
+        for m, total_conf in method_conf_sums.items():
+            count = method_conf_counts[m]
+            avg_confidence_by_method[m] = round(total_conf / count, 4)
+
+        # ML index file sizes
+        data_dir = Path("data")
+        index_files = {
+            "hash_db": data_dir / "hash_db.pkl",
+            "dino_index": data_dir / "dino_index.faiss",
+            "dino_card_ids": data_dir / "dino_card_ids.pkl",
+            "clip_text_index": data_dir / "clip_text_index.pkl",
+        }
+        index_sizes = {}
+        for name, path in index_files.items():
+            if path.exists():
+                size_bytes = path.stat().st_size
+                index_sizes[name] = {
+                    "bytes": size_bytes,
+                    "human": (
+                        f"{size_bytes / 1048576:.1f} MB"
+                        if size_bytes >= 1048576
+                        else f"{size_bytes / 1024:.1f} KB"
+                    ),
+                }
+
+        # Count card images
+        card_images_dir = data_dir / "card_images"
+        image_count = 0
+        if card_images_dir.exists():
+            for entry in card_images_dir.iterdir():
+                if entry.is_dir():
+                    # set subdirectories contain the actual images
+                    image_count += sum(
+                        1 for _ in entry.iterdir() if _.is_file()
+                    )
+                elif entry.is_file():
+                    image_count += 1
+
+        self._send_json({
+            "total_scans": total,
+            "resolved": resolved,
+            "pending": pending,
+            "method_counts": method_counts,
+            "avg_confidence_by_method": avg_confidence_by_method,
+            "index_sizes": index_sizes,
+            "card_image_count": image_count,
+        })
 
     def _send_result(self, scan_id):
         """Check result of a specific scan by scan_id."""
@@ -734,9 +1541,76 @@ class ScanHandler(BaseHTTPRequestHandler):
                         data["set_name"] = row.set_name
                         data["market_price"] = float(row.market_price) if row.market_price else None
                         data["image_url"] = row.image_small
+                        data["local_image_url"] = _local_image_url(data["card_id"])
             except Exception as e:
                 logger.error("Result lookup error: %s", e)
         self._send_json(data)
+
+    def _send_card_image(self, card_path):
+        """Serve a local card reference image as PNG.
+
+        URL format: /card-image/bw5-107/normal
+        Maps to:    data/card_images/bw5/bw5-107_normal.png
+
+        The set_id is derived by stripping the trailing -<number> suffix from
+        the card identifier (everything before the slash).
+        """
+        card_path = card_path.strip("/")
+        if "/" not in card_path:
+            self.send_error(400, "Expected format: <card_id>/<variant>")
+            return
+
+        base_id, variant = card_path.rsplit("/", 1)
+
+        # Derive set_id: strip the last -<digits> segment
+        # e.g. "bw5-107" -> "bw5", "base1-4" -> "base1", "swsh12pt5-160" -> "swsh12pt5"
+        set_match = re.match(r"^(.+)-\d+[a-z]?$", base_id)
+        if not set_match:
+            self.send_error(400, "Cannot parse set from card_id")
+            return
+        set_id = set_match.group(1)
+
+        # Build file path: data/card_images/<set_id>/<base_id>_<variant>.png
+        filename = f"{base_id}_{variant}.png"
+        image_path = CARD_IMAGES_DIR / set_id / filename
+
+        if not image_path.is_file():
+            self.send_error(404, f"Image not found: {set_id}/{filename}")
+            return
+
+        png_data = image_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(png_data)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(png_data)
+
+    def _send_segment_image(self, rel_path):
+        """Serve a segmented card image from data/inbox/.
+
+        URL format: /segment-image/page_20260228_120000_cards/card_00.png
+        """
+        rel_path = rel_path.strip("/")
+        # Security: prevent directory traversal
+        if ".." in rel_path or rel_path.startswith("/"):
+            self.send_error(400, "Invalid path")
+            return
+
+        image_path = UPLOAD_DIR / rel_path
+        if not image_path.is_file():
+            self.send_error(404, f"Segment image not found: {rel_path}")
+            return
+
+        img_data = image_path.read_bytes()
+        ext = image_path.suffix.lower()
+        ctype = "image/png" if ext == ".png" else "image/jpeg"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(img_data)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(img_data)
 
     def log_message(self, fmt, *args):
         logger.info(fmt, *args)
