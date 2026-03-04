@@ -61,7 +61,7 @@ def _load_model() -> tuple[torch.nn.Module, torch.device]:
 # ---------------------------------------------------------------------------
 
 def extract_embedding(image_path: str | Path) -> np.ndarray:
-    """Extract a 768-dim L2-normalized DINOv2 CLS embedding from an image.
+    """Extract a 768-dim L2-normalized DINOv2 CLS embedding.
 
     Parameters
     ----------
@@ -79,11 +79,11 @@ def extract_embedding(image_path: str | Path) -> np.ndarray:
     tensor = _transform(img).unsqueeze(0).to(device)  # (1, 3, 224, 224)
 
     with torch.no_grad():
-        embedding = model(tensor)  # (1, 768)
+        embedding = model(tensor)  # (1, 768) CLS token
 
     vec = embedding.cpu().numpy().astype(np.float32).squeeze()  # (768,)
 
-    # L2-normalize so inner-product == cosine similarity
+    # L2-normalize
     norm = np.linalg.norm(vec)
     if norm > 0:
         vec /= norm
@@ -200,6 +200,9 @@ def identify_card(
     index_path: str = "data/dino_index.faiss",
     mapping_path: str = "data/dino_card_ids.pkl",
     top_k: int = 5,
+    *,
+    faiss_index: Optional["faiss.Index"] = None,
+    card_ids_list: Optional[list[str]] = None,
 ) -> list[tuple[str, float]]:
     """Identify a card by searching the FAISS index for nearest neighbors.
 
@@ -213,21 +216,29 @@ def identify_card(
         Path to the saved card-ID mapping.
     top_k : int
         Number of results to return.
+    faiss_index : faiss.Index, optional
+        Pre-loaded FAISS index. If provided, *index_path* is ignored.
+    card_ids_list : list[str], optional
+        Pre-loaded card-ID list. If provided, *mapping_path* is ignored.
 
     Returns
     -------
     list[tuple[str, float]]
         List of (card_id, cosine_similarity) sorted by descending similarity.
     """
-    # Load index and mapping
-    if not os.path.exists(index_path):
-        raise FileNotFoundError(f"FAISS index not found: {index_path}")
-    if not os.path.exists(mapping_path):
-        raise FileNotFoundError(f"Card-ID mapping not found: {mapping_path}")
+    # Load index and mapping (use pre-loaded if provided)
+    if faiss_index is not None and card_ids_list is not None:
+        index = faiss_index
+        card_ids = card_ids_list
+    else:
+        if not os.path.exists(index_path):
+            raise FileNotFoundError(f"FAISS index not found: {index_path}")
+        if not os.path.exists(mapping_path):
+            raise FileNotFoundError(f"Card-ID mapping not found: {mapping_path}")
 
-    index = faiss.read_index(index_path)
-    with open(mapping_path, "rb") as f:
-        card_ids: list[str] = pickle.load(f)
+        index = faiss.read_index(index_path)
+        with open(mapping_path, "rb") as f:
+            card_ids = pickle.load(f)
 
     # Extract query embedding
     query = extract_embedding(image_path).reshape(1, -1)

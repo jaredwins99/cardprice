@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS dim_cards (
     rarity            TEXT,
     supertype         TEXT,
     subtypes          TEXT[],
+    types             TEXT[],
     variant           TEXT,
     hp                INTEGER,
     artist            TEXT,
@@ -81,6 +82,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_fmp_product_date_subtype
 
 -- Migration: add tcg_product_id if table already existed without it.
 ALTER TABLE fact_market_prices ADD COLUMN IF NOT EXISTS tcg_product_id INTEGER;
+
+-- Migration: add card-level types (may differ from species types, e.g. delta species).
+ALTER TABLE dim_cards ADD COLUMN IF NOT EXISTS types TEXT[];
 
 CREATE TABLE IF NOT EXISTS fact_sales (
     id              BIGSERIAL PRIMARY KEY,

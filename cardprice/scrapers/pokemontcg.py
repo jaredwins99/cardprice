@@ -243,6 +243,7 @@ def ingest_cards(session, cards, pokemon_map):
         images = c.get("images", {})
         tcgplayer_url = (c.get("tcgplayer") or {}).get("url")
         subtypes = c.get("subtypes", [])
+        types = c.get("types")  # Card-level types (may differ from species)
 
         for variant in _get_variants(c):
             card_id = f"{base_id}/{variant}"
@@ -250,11 +251,11 @@ def ingest_cards(session, cards, pokemon_map):
                 text("""
                     INSERT INTO dim_cards (
                         card_id, name, set_id, pokemon_id, card_number,
-                        rarity, supertype, subtypes, variant, hp,
+                        rarity, supertype, subtypes, types, variant, hp,
                         artist, image_small, image_large, tcgplayer_url
                     ) VALUES (
                         :card_id, :name, :set_id, :pokemon_id, :card_number,
-                        :rarity, :supertype, :subtypes, :variant, :hp,
+                        :rarity, :supertype, :subtypes, :types, :variant, :hp,
                         :artist, :image_small, :image_large, :tcgplayer_url
                     )
                     ON CONFLICT (card_id) DO UPDATE SET
@@ -264,6 +265,7 @@ def ingest_cards(session, cards, pokemon_map):
                         rarity = EXCLUDED.rarity,
                         supertype = EXCLUDED.supertype,
                         subtypes = EXCLUDED.subtypes,
+                        types = EXCLUDED.types,
                         hp = EXCLUDED.hp,
                         artist = EXCLUDED.artist,
                         image_small = EXCLUDED.image_small,
@@ -279,6 +281,7 @@ def ingest_cards(session, cards, pokemon_map):
                     "rarity": c.get("rarity"),
                     "supertype": c.get("supertype"),
                     "subtypes": subtypes,
+                    "types": types,
                     "variant": variant,
                     "hp": hp,
                     "artist": c.get("artist"),

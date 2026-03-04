@@ -13,8 +13,11 @@ Endpoints:
     GET  /history    -> Last 50 scans (resolved + pending) sorted by timestamp desc
     GET  /stats      -> Scanning statistics (counts, methods, confidence, index sizes)
     GET  /price-history/<card_id> -> Last 30 days of market prices as JSON array
+    GET  /events/<scan_id> -> SSE stream for scan result updates
     POST /resolve    -> Resolve a pending scan with correct card_id
     POST /resolve-batch -> Resolve multiple pending scans at once
+    POST /inventory/add -> Add card to inventory (upsert)
+    POST /inventory/remove -> Remove card from inventory (decrement)
     GET  /inventory  -> Current inventory as JSON
     GET  /export     -> Export inventory as CSV attachment
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
@@ -28,6 +31,7 @@ import logging
 import os
 import re
 import socket
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime
@@ -208,6 +212,8 @@ input[type=file] { display: none; }
     <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
     <canvas id="sparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
     <div id="sparkLabel" style="display:none;font-size:11px;color:#888;"></div>
+    <button id="addInventoryBtn" style="display:none;margin:12px auto;padding:10px 24px;background:#4ecca3;color:#1a1a2e;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;" onclick="addToInventory()">Add to Inventory</button>
+    <div id="inventoryMsg" style="display:none;font-size:13px;margin-top:6px;"></div>
 </div>
 <div class="result" id="pageResult">
     <h3 style="color:#4ecca3;">Binder Page Results</h3>
@@ -400,9 +406,74 @@ function showResult(data) {
             })
             .catch(function() {});
     }
+    // Show/hide Add to Inventory button
+    var addBtn = document.getElementById('addInventoryBtn');
+    var invMsg = document.getElementById('inventoryMsg');
+    invMsg.style.display = 'none';
+    invMsg.textContent = '';
+    if (data.card_id) {
+        addBtn.style.display = 'block';
+        addBtn.dataset.cardId = data.card_id;
+    } else {
+        addBtn.style.display = 'none';
+    }
     reopenCamera();
 }
+function addToInventory() {
+    var btn = document.getElementById('addInventoryBtn');
+    var msg = document.getElementById('inventoryMsg');
+    var cardId = btn.dataset.cardId;
+    if (!cardId) return;
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+    fetch('/inventory/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({card_id: cardId, quantity: 1})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Add to Inventory';
+        msg.style.display = 'block';
+        if (data.error) {
+            msg.style.color = '#e94560';
+            msg.textContent = data.error;
+        } else {
+            msg.style.color = '#4ecca3';
+            msg.textContent = 'Added! Total in inventory: ' + data.quantity;
+        }
+    })
+    .catch(function(e) {
+        btn.disabled = false;
+        btn.textContent = 'Add to Inventory';
+        msg.style.display = 'block';
+        msg.style.color = '#e94560';
+        msg.textContent = 'Error: ' + e;
+    });
+}
 function pollResult(scanId) {
+    if (typeof EventSource !== 'undefined') {
+        var es = new EventSource('/events/' + scanId);
+        es.addEventListener('resolved', function(e) {
+            es.close();
+            showResult(JSON.parse(e.data));
+        });
+        es.addEventListener('timeout', function() {
+            es.close();
+            document.getElementById('cardName').textContent = 'Identification timed out';
+            document.getElementById('cardPrice').textContent = '';
+        });
+        es.onerror = function() {
+            es.close();
+            // Fallback to polling on SSE failure
+            _pollFallback(scanId);
+        };
+    } else {
+        _pollFallback(scanId);
+    }
+}
+function _pollFallback(scanId) {
     var poll = setInterval(function() {
         fetch('/result/' + scanId)
             .then(function(r) { return r.json(); })
@@ -546,6 +617,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_stats()
         elif self.path.startswith("/result/"):
             self._send_result(self.path.split("/result/", 1)[1])
+        elif self.path.startswith("/events/"):
+            self._stream_sse(self.path.split("/events/", 1)[1])
         elif self.path.startswith("/price-history/"):
             from urllib.parse import unquote
             card_id = unquote(self.path.split("/price-history/", 1)[1])
@@ -572,6 +645,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_resolve()
         elif self.path == "/resolve-batch":
             self._handle_resolve_batch()
+        elif self.path == "/inventory/add":
+            self._handle_inventory_add()
+        elif self.path == "/inventory/remove":
+            self._handle_inventory_remove()
         else:
             self.send_error(404)
 
@@ -1141,13 +1218,13 @@ class ScanHandler(BaseHTTPRequestHandler):
         # Identify each segmented card
         cards = []
         try:
-            from cardprice.ml import identify_card
+            from cardprice.ml import identify_page_vision_first as identify_page
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
-                for idx, card_img_path in enumerate(card_images):
-                    result = identify_card(str(card_img_path), session=session)
+                page_results = identify_page(card_images, session=session)
+                for idx, (card_img_path, result) in enumerate(zip(card_images, page_results)):
                     # Compute grid position (assume 3 columns for binder pages)
                     num_cols = 3
                     row = idx // num_cols
@@ -1235,6 +1312,154 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Price history error: %s", e)
             self._send_json([])
+
+    def _handle_inventory_add(self):
+        """Add a card to user inventory (upsert).
+
+        Accepts JSON: {"card_id": "base1-4/holofoil", "quantity": 1}
+        Validates card exists in dim_cards, then upserts into user_inventory.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        card_id = data.get("card_id")
+        if not card_id:
+            self._send_json({"error": "Missing required field: card_id"}, status=400)
+            return
+
+        quantity = data.get("quantity", 1)
+        try:
+            quantity = int(quantity)
+        except (ValueError, TypeError):
+            self._send_json({"error": "quantity must be an integer"}, status=400)
+            return
+        if quantity < 1:
+            self._send_json({"error": "quantity must be >= 1"}, status=400)
+            return
+
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                # Validate card exists
+                card = session.execute(
+                    sql_text("SELECT card_id FROM dim_cards WHERE card_id = :cid"),
+                    {"cid": card_id},
+                ).fetchone()
+                if not card:
+                    self._send_json({"error": f"Card not found: {card_id}"}, status=404)
+                    return
+
+                # Upsert: increment if exists, insert otherwise
+                existing = session.execute(
+                    sql_text("""
+                        SELECT id, quantity FROM user_inventory
+                        WHERE card_id = :cid
+                        ORDER BY id LIMIT 1
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+
+                if existing:
+                    new_qty = existing.quantity + quantity
+                    session.execute(
+                        sql_text("""
+                            UPDATE user_inventory
+                            SET quantity = :qty, updated_at = NOW()
+                            WHERE id = :rid
+                        """),
+                        {"qty": new_qty, "rid": existing.id},
+                    )
+                else:
+                    new_qty = quantity
+                    session.execute(
+                        sql_text("""
+                            INSERT INTO user_inventory (card_id, quantity, created_at, updated_at)
+                            VALUES (:cid, :qty, NOW(), NOW())
+                        """),
+                        {"cid": card_id, "qty": new_qty},
+                    )
+                session.commit()
+
+                self._send_json({
+                    "card_id": card_id,
+                    "quantity": new_qty,
+                    "action": "added",
+                })
+        except Exception as e:
+            logger.error("Inventory add error: %s", e)
+            self._send_json({"error": str(e)}, status=500)
+
+    def _handle_inventory_remove(self):
+        """Remove a card from user inventory (decrement or delete).
+
+        Accepts JSON: {"card_id": "base1-4/holofoil", "quantity": 1}
+        Decrements quantity; deletes row if result <= 0.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        card_id = data.get("card_id")
+        if not card_id:
+            self._send_json({"error": "Missing required field: card_id"}, status=400)
+            return
+
+        quantity = data.get("quantity", 1)
+        try:
+            quantity = int(quantity)
+        except (ValueError, TypeError):
+            self._send_json({"error": "quantity must be an integer"}, status=400)
+            return
+        if quantity < 1:
+            self._send_json({"error": "quantity must be >= 1"}, status=400)
+            return
+
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                row = session.execute(
+                    sql_text("SELECT quantity FROM user_inventory WHERE card_id = :cid"),
+                    {"cid": card_id},
+                ).fetchone()
+                if not row:
+                    self._send_json({"error": f"Card not in inventory: {card_id}"}, status=404)
+                    return
+
+                new_qty = row.quantity - quantity
+                if new_qty <= 0:
+                    session.execute(
+                        sql_text("DELETE FROM user_inventory WHERE card_id = :cid"),
+                        {"cid": card_id},
+                    )
+                    session.commit()
+                    self._send_json({
+                        "card_id": card_id,
+                        "quantity": 0,
+                        "action": "removed",
+                    })
+                else:
+                    session.execute(
+                        sql_text("""
+                            UPDATE user_inventory
+                            SET quantity = :qty, updated_at = NOW()
+                            WHERE card_id = :cid
+                        """),
+                        {"cid": card_id, "qty": new_qty},
+                    )
+                    session.commit()
+                    self._send_json({
+                        "card_id": card_id,
+                        "quantity": new_qty,
+                        "action": "decremented",
+                    })
+        except Exception as e:
+            logger.error("Inventory remove error: %s", e)
+            self._send_json({"error": str(e)}, status=500)
 
     def _send_inventory(self):
         try:
@@ -1545,6 +1770,83 @@ class ScanHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Result lookup error: %s", e)
         self._send_json(data)
+
+    def _stream_sse(self, scan_id):
+        """Stream Server-Sent Events for a pending scan until it resolves or times out."""
+        meta_path = PENDING_DIR / f"{scan_id}.json"
+        if not meta_path.exists():
+            self.send_error(404, "Scan not found")
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
+        timeout = 5 * 60  # 5 minutes
+        start = time.monotonic()
+        last_keepalive = start
+
+        try:
+            while time.monotonic() - start < timeout:
+                # Check current status
+                try:
+                    data = json.loads(meta_path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    time.sleep(1)
+                    continue
+
+                if data.get("status") == "resolved":
+                    # Enrich with DB info if needed
+                    if data.get("card_id") and not data.get("card_name"):
+                        try:
+                            from cardprice.db.session import SessionLocal
+                            from sqlalchemy import text as sql_text
+                            with SessionLocal() as session:
+                                row = session.execute(
+                                    sql_text("""
+                                        SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                                        FROM dim_cards c
+                                        JOIN dim_sets s ON s.set_id = c.set_id
+                                        LEFT JOIN LATERAL (
+                                            SELECT market_price FROM fact_market_prices
+                                            WHERE card_id = c.card_id
+                                            ORDER BY price_date DESC LIMIT 1
+                                        ) p ON true
+                                        WHERE c.card_id = :cid
+                                    """),
+                                    {"cid": data["card_id"]},
+                                ).fetchone()
+                                if row:
+                                    data["card_name"] = row.name
+                                    data["set_name"] = row.set_name
+                                    data["market_price"] = float(row.market_price) if row.market_price else None
+                                    data["image_url"] = row.image_small
+                                    data["local_image_url"] = _local_image_url(data["card_id"])
+                        except Exception as e:
+                            logger.debug("SSE DB enrichment error: %s", e)
+
+                    payload = json.dumps(data)
+                    self.wfile.write(f"event: resolved\ndata: {payload}\n\n".encode())
+                    self.wfile.flush()
+                    return
+
+                # Send keepalive comment every 15 seconds
+                now = time.monotonic()
+                if now - last_keepalive >= 15:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                    last_keepalive = now
+
+                time.sleep(1)
+
+            # Timeout reached
+            self.wfile.write(b"event: timeout\ndata: {}\n\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            logger.debug("SSE client disconnected for scan %s", scan_id)
 
     def _send_card_image(self, card_path):
         """Serve a local card reference image as PNG.

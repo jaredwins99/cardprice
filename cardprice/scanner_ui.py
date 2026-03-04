@@ -3,8 +3,10 @@
 Exports MULTI_CARD_HTML: a self-contained HTML page (no external deps)
 that provides:
 - Mode toggle: Single Card vs Binder Page
-- Grid display of identified cards with reference images, prices
+- Grid display of identified cards with segment thumbnails + reference images
+- Re-scan button per card slot for corrections
 - Total page value summary
+- Grid position labels (Row N, Col N)
 - Tap-to-detail modal for individual cards
 - Pending/queued status with spinner animation
 - Mobile-first dark theme matching the existing scanner style
@@ -191,81 +193,160 @@ input[type=file] { display: none; }
     margin-right: 8px;
 }
 
-/* Card Grid */
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-}
-@media (max-width: 400px) {
-    .card-grid { grid-template-columns: repeat(2, 1fr); }
+/* Binder Card List (replaces grid for richer per-card display) */
+.binder-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-/* Card Tile */
-.card-tile {
+/* Individual binder card row */
+.binder-card-row {
     background: var(--bg-card);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius);
     overflow: hidden;
+    transition: transform 0.15s;
+}
+.binder-card-row:active {
+    transform: scale(0.99);
+}
+
+/* Grid position label */
+.binder-pos-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 0;
+}
+.binder-pos-label .pos-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.binder-pos-label .rescan-btn {
+    background: none;
+    border: 1px solid var(--text-faint);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 3px 10px;
     cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    position: relative;
+    transition: all 0.15s;
 }
-.card-tile:active {
-    transform: scale(0.97);
+.binder-pos-label .rescan-btn:hover,
+.binder-pos-label .rescan-btn:active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(233, 69, 96, 0.08);
 }
-.card-tile .tile-img-wrap {
+
+/* Image comparison area */
+.binder-images {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    align-items: stretch;
+}
+
+.binder-img-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+.binder-img-col .img-label {
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.binder-img-col .img-wrap {
     width: 100%;
     aspect-ratio: 3/4.2;
     background: #0d1321;
+    border-radius: 6px;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
 }
-.card-tile .tile-img-wrap img {
+.binder-img-col .img-wrap img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
-.card-tile .tile-info {
-    padding: 6px 8px 8px;
-}
-.card-tile .tile-name {
+.binder-img-col .img-wrap .no-img {
+    color: var(--text-faint);
     font-size: 11px;
-    font-weight: 600;
+    text-align: center;
+    padding: 8px;
+}
+
+/* Card info section */
+.binder-card-info {
+    padding: 6px 12px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+.binder-card-info .info-left {
+    flex: 1;
+    min-width: 0;
+}
+.binder-card-info .info-name {
+    font-size: 14px;
+    font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 2px;
 }
-.card-tile .tile-set {
-    font-size: 10px;
+.binder-card-info .info-set {
+    font-size: 12px;
     color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 4px;
 }
-.card-tile .tile-price {
-    font-size: 13px;
+.binder-card-info .info-meta {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 2px;
+}
+.binder-card-info .info-price {
+    font-size: 18px;
     font-weight: 700;
     color: var(--green);
+    white-space: nowrap;
+    margin-left: 8px;
+}
+.binder-card-info .info-price.no-price {
+    color: var(--text-dim);
+    font-size: 14px;
 }
 
-/* Queued tile state */
-.card-tile.queued .tile-img-wrap {
+/* Queued state for binder rows */
+.binder-card-row.queued .info-name { color: var(--text-dim); }
+.binder-card-row.queued .img-wrap {
     position: relative;
 }
-.card-tile.queued .tile-img-wrap::after {
+.binder-card-row.queued .img-wrap::after {
     content: '';
     position: absolute;
-    width: 28px; height: 28px;
+    width: 24px; height: 24px;
     border: 3px solid var(--text-faint);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
-.card-tile.queued .tile-name { color: var(--text-dim); }
+
+/* Hidden rescan file input */
+.rescan-input { display: none; }
 
 /* Single Card Result */
 .single-result {
@@ -337,13 +418,35 @@ input[type=file] { display: none; }
     border-radius: 2px;
     margin: 8px auto 20px;
 }
-.modal-img {
-    display: block;
-    max-width: 220px;
-    margin: 0 auto 16px;
+
+/* Modal side-by-side images */
+.modal-images {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    justify-content: center;
+}
+.modal-img-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.modal-img-col .img-label {
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.modal-img-col img {
+    max-width: 150px;
+    max-height: 210px;
     border-radius: var(--radius-sm);
     box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    object-fit: contain;
 }
+
 .modal-name {
     font-size: 20px;
     font-weight: 700;
@@ -453,19 +556,23 @@ input[type=file] { display: none; }
         </div>
     </div>
 
-    <!-- Card Grid (binder mode) -->
-    <div class="card-grid" id="cardGrid"></div>
+    <!-- Binder Results (list of card rows with thumbnails) -->
+    <div class="binder-results" id="binderResults"></div>
 </div>
 
 <!-- Detail Modal -->
 <div class="modal-overlay" id="detailModal">
     <div class="modal-sheet" id="modalSheet">
         <div class="modal-handle"></div>
-        <img class="modal-img" id="modalImg">
+        <div class="modal-images" id="modalImages"></div>
         <div class="modal-name" id="modalName"></div>
         <div class="modal-set" id="modalSet"></div>
         <div class="modal-price" id="modalPrice"></div>
         <div id="modalMeta">
+            <div class="modal-meta-row">
+                <span class="label">Position</span>
+                <span class="value" id="modalPosition">--</span>
+            </div>
             <div class="modal-meta-row">
                 <span class="label">Card ID</span>
                 <span class="value" id="modalCardId">--</span>
@@ -601,7 +708,7 @@ function drawQR(canvasId,text,cellSize){
         // Reset display
         document.getElementById('singleResult').classList.remove('show');
         document.getElementById('summaryBar').classList.remove('show');
-        document.getElementById('cardGrid').innerHTML = '';
+        document.getElementById('binderResults').innerHTML = '';
         document.getElementById('preview').style.display = 'none';
         document.getElementById('scanningIndicator').classList.remove('show');
         cards = [];
@@ -634,12 +741,12 @@ function drawQR(canvasId,text,cellSize){
         var indicator = document.getElementById('scanningIndicator');
         var result = document.getElementById('singleResult');
         var summary = document.getElementById('summaryBar');
-        var grid = document.getElementById('cardGrid');
+        var binder = document.getElementById('binderResults');
 
         indicator.classList.add('show');
         result.classList.remove('show');
         summary.classList.remove('show');
-        grid.innerHTML = '';
+        binder.innerHTML = '';
 
         var fd = new FormData();
         fd.append('image', file);
@@ -717,66 +824,62 @@ function drawQR(canvasId,text,cellSize){
     }
 
     // ---- Binder Page Mode ----
-    // For binder mode, we send the same /scan endpoint.
-    // The server currently handles one image = one card.
-    // In binder mode, we post the image once, and the response may contain
-    // a single card (the server could be extended to return multiple).
-    // For forward-compatibility, we handle both array and single responses.
-    // We also support the user scanning multiple photos in succession to
-    // build up the binder page grid (e.g., one photo per card slot).
+    // Posts to /scan-page which segments the binder page and identifies each card.
+    // Response: { status, cards: [{position, row, col, card_id, card_name, ...}], total_value }
 
     function handleBinderScan(file) {
         var indicator = document.getElementById('scanningIndicator');
         indicator.classList.add('show');
         document.getElementById('singleResult').classList.remove('show');
 
-        // Add a placeholder tile while scanning
-        var placeholderIdx = cards.length;
-        cards.push({ status: 'scanning' });
-        renderGrid();
+        // Clear previous results
+        cards = [];
+        renderBinderResults();
+        clearAllPolls();
 
         var fd = new FormData();
         fd.append('image', file);
 
-        fetch('/scan', { method: 'POST', body: fd })
+        fetch('/scan-page', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 indicator.classList.remove('show');
 
-                // Handle array response (future multi-card endpoint)
-                if (Array.isArray(data.cards)) {
-                    // Remove placeholder
-                    cards.splice(placeholderIdx, 1);
+                if (data.cards && data.cards.length > 0) {
                     for (var i = 0; i < data.cards.length; i++) {
                         cards.push(normalizeCard(data.cards[i]));
                     }
                 } else if (data.status === 'pending') {
-                    cards[placeholderIdx] = {
+                    cards.push({
                         status: 'pending',
                         scan_id: data.scan_id,
-                        card_name: 'Queued...',
-                    };
-                    startPollForTile(placeholderIdx, data.scan_id);
+                        card_name: 'Page queued...',
+                        row: 0,
+                        col: 0,
+                    });
+                    startPollForTile(0, data.scan_id);
                 } else if (data.error) {
-                    cards[placeholderIdx] = {
+                    cards.push({
                         status: 'error',
                         card_name: 'Error',
                         set_name: data.error,
-                    };
-                } else {
-                    cards[placeholderIdx] = normalizeCard(data);
+                        row: 0,
+                        col: 0,
+                    });
                 }
-                renderGrid();
+                renderBinderResults();
                 updateSummary();
             })
             .catch(function(e) {
                 indicator.classList.remove('show');
-                cards[placeholderIdx] = {
+                cards.push({
                     status: 'error',
                     card_name: 'Error',
                     set_name: String(e),
-                };
-                renderGrid();
+                    row: 0,
+                    col: 0,
+                });
+                renderBinderResults();
                 updateSummary();
             });
     }
@@ -784,11 +887,16 @@ function drawQR(canvasId,text,cellSize){
     function normalizeCard(data) {
         return {
             status: 'resolved',
+            position: data.position != null ? data.position : null,
+            row: data.row != null ? data.row : null,
+            col: data.col != null ? data.col : null,
             card_id: data.card_id || null,
             card_name: data.card_name || 'Unknown Card',
             set_name: data.set_name || '',
             market_price: data.market_price || null,
             image_url: data.image_url || null,
+            local_image_url: data.local_image_url || null,
+            segment_image_url: data.segment_image_url || null,
             confidence: data.confidence || null,
             method: data.method || null,
         };
@@ -803,7 +911,7 @@ function drawQR(canvasId,text,cellSize){
                         clearInterval(poll);
                         delete activePolls[scanId];
                         cards[idx] = normalizeCard(data);
-                        renderGrid();
+                        renderBinderResults();
                         updateSummary();
                     }
                 });
@@ -811,72 +919,226 @@ function drawQR(canvasId,text,cellSize){
         activePolls[scanId] = poll;
     }
 
-    // ---- Grid Rendering ----
-    function renderGrid() {
-        var grid = document.getElementById('cardGrid');
-        grid.innerHTML = '';
+    // ---- Re-scan individual card slot ----
+    function rescanSlot(idx) {
+        // Create a hidden file input, trigger it, and re-scan just that slot
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment';
+        input.className = 'rescan-input';
+        input.onchange = function() {
+            var file = input.files[0];
+            if (!file) return;
+
+            // Mark slot as scanning
+            cards[idx] = { status: 'scanning', card_name: 'Re-scanning...', row: cards[idx].row, col: cards[idx].col };
+            renderBinderResults();
+            updateSummary();
+
+            var fd = new FormData();
+            fd.append('image', file);
+
+            fetch('/scan', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.status === 'pending') {
+                        cards[idx] = {
+                            status: 'pending',
+                            scan_id: data.scan_id,
+                            card_name: 'Queued...',
+                            row: cards[idx].row,
+                            col: cards[idx].col,
+                        };
+                        startPollForTile(idx, data.scan_id);
+                    } else if (data.error) {
+                        cards[idx] = {
+                            status: 'error',
+                            card_name: 'Error',
+                            set_name: data.error,
+                            row: cards[idx].row,
+                            col: cards[idx].col,
+                        };
+                    } else {
+                        var c = normalizeCard(data);
+                        c.row = cards[idx].row;
+                        c.col = cards[idx].col;
+                        cards[idx] = c;
+                    }
+                    renderBinderResults();
+                    updateSummary();
+                })
+                .catch(function(e) {
+                    cards[idx] = {
+                        status: 'error',
+                        card_name: 'Error',
+                        set_name: String(e),
+                        row: cards[idx].row,
+                        col: cards[idx].col,
+                    };
+                    renderBinderResults();
+                    updateSummary();
+                });
+
+            input.remove();
+        };
+        document.body.appendChild(input);
+        input.click();
+    }
+
+    // ---- Binder Results Rendering ----
+    function renderBinderResults() {
+        var container = document.getElementById('binderResults');
+        container.innerHTML = '';
 
         for (var i = 0; i < cards.length; i++) {
             var card = cards[i];
-            var tile = document.createElement('div');
-            tile.className = 'card-tile';
+            var row = document.createElement('div');
+            row.className = 'binder-card-row';
             if (card.status === 'scanning' || card.status === 'pending') {
-                tile.className += ' queued';
+                row.className += ' queued';
             }
 
-            var imgWrap = document.createElement('div');
-            imgWrap.className = 'tile-img-wrap';
+            // Position label + Re-scan button
+            var posLabel = document.createElement('div');
+            posLabel.className = 'binder-pos-label';
 
-            if (card.image_url) {
-                var img = document.createElement('img');
-                img.src = card.image_url;
-                img.alt = card.card_name || '';
-                img.loading = 'lazy';
-                imgWrap.appendChild(img);
-            }
-            tile.appendChild(imgWrap);
-
-            var info = document.createElement('div');
-            info.className = 'tile-info';
-
-            var name = document.createElement('div');
-            name.className = 'tile-name';
-            if (card.status === 'scanning') {
-                name.textContent = 'Scanning...';
-            } else if (card.status === 'pending') {
-                name.textContent = 'Queued...';
+            var posTag = document.createElement('span');
+            posTag.className = 'pos-tag';
+            if (card.row != null && card.col != null) {
+                posTag.textContent = 'Row ' + (card.row + 1) + ', Col ' + (card.col + 1);
+            } else if (card.position != null) {
+                posTag.textContent = 'Slot ' + (card.position + 1);
             } else {
-                name.textContent = card.card_name || 'Unknown';
+                posTag.textContent = 'Card ' + (i + 1);
             }
-            info.appendChild(name);
+            posLabel.appendChild(posTag);
+
+            var rescanBtn = document.createElement('button');
+            rescanBtn.className = 'rescan-btn';
+            rescanBtn.textContent = 'Re-scan';
+            (function(idx) {
+                rescanBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    rescanSlot(idx);
+                });
+            })(i);
+            posLabel.appendChild(rescanBtn);
+            row.appendChild(posLabel);
+
+            // Side-by-side images: scanned segment vs reference
+            var images = document.createElement('div');
+            images.className = 'binder-images';
+
+            // Left: scanned segment thumbnail
+            var segCol = document.createElement('div');
+            segCol.className = 'binder-img-col';
+            var segLabel = document.createElement('div');
+            segLabel.className = 'img-label';
+            segLabel.textContent = 'Scanned';
+            segCol.appendChild(segLabel);
+            var segWrap = document.createElement('div');
+            segWrap.className = 'img-wrap';
+            if (card.segment_image_url) {
+                var segImg = document.createElement('img');
+                segImg.src = card.segment_image_url;
+                segImg.alt = 'Scanned card';
+                segImg.loading = 'lazy';
+                segWrap.appendChild(segImg);
+            } else {
+                var noSeg = document.createElement('div');
+                noSeg.className = 'no-img';
+                noSeg.textContent = card.status === 'scanning' || card.status === 'pending' ? '' : 'No segment';
+                segWrap.appendChild(noSeg);
+            }
+            segCol.appendChild(segWrap);
+            images.appendChild(segCol);
+
+            // Right: reference image
+            var refCol = document.createElement('div');
+            refCol.className = 'binder-img-col';
+            var refLabel = document.createElement('div');
+            refLabel.className = 'img-label';
+            refLabel.textContent = 'Reference';
+            refCol.appendChild(refLabel);
+            var refWrap = document.createElement('div');
+            refWrap.className = 'img-wrap';
+            // Prefer local_image_url, fall back to image_url (remote)
+            var refSrc = card.local_image_url || card.image_url;
+            if (refSrc) {
+                var refImg = document.createElement('img');
+                refImg.src = refSrc;
+                refImg.alt = card.card_name || 'Reference';
+                refImg.loading = 'lazy';
+                refWrap.appendChild(refImg);
+            } else {
+                var noRef = document.createElement('div');
+                noRef.className = 'no-img';
+                noRef.textContent = card.status === 'scanning' || card.status === 'pending' ? '' : 'No match';
+                refWrap.appendChild(noRef);
+            }
+            refCol.appendChild(refWrap);
+            images.appendChild(refCol);
+
+            row.appendChild(images);
+
+            // Card info: name, set, meta, price
+            var info = document.createElement('div');
+            info.className = 'binder-card-info';
+
+            var infoLeft = document.createElement('div');
+            infoLeft.className = 'info-left';
+
+            var nameDiv = document.createElement('div');
+            nameDiv.className = 'info-name';
+            if (card.status === 'scanning') {
+                nameDiv.textContent = 'Scanning...';
+            } else if (card.status === 'pending') {
+                nameDiv.textContent = 'Queued...';
+            } else {
+                nameDiv.textContent = card.card_name || 'Unknown';
+            }
+            infoLeft.appendChild(nameDiv);
 
             var setDiv = document.createElement('div');
-            setDiv.className = 'tile-set';
+            setDiv.className = 'info-set';
             setDiv.textContent = card.set_name || '';
-            info.appendChild(setDiv);
+            infoLeft.appendChild(setDiv);
 
-            var price = document.createElement('div');
-            price.className = 'tile-price';
-            if (card.status === 'scanning' || card.status === 'pending') {
-                price.innerHTML = '<span class="spinner-ring" style="width:14px;height:14px;border-width:2px"></span>';
-            } else if (card.market_price) {
-                price.textContent = '$' + Number(card.market_price).toFixed(2);
-            } else {
-                price.textContent = '--';
-                price.style.color = 'var(--text-dim)';
+            if (card.confidence || card.method) {
+                var metaDiv = document.createElement('div');
+                metaDiv.className = 'info-meta';
+                var parts = [];
+                if (card.confidence) parts.push(Math.round(card.confidence * 100) + '%');
+                if (card.method) parts.push(card.method);
+                metaDiv.textContent = parts.join(' / ');
+                infoLeft.appendChild(metaDiv);
             }
-            info.appendChild(price);
 
-            tile.appendChild(info);
+            info.appendChild(infoLeft);
 
-            // Tap handler (only for resolved cards)
+            var priceDiv = document.createElement('div');
+            priceDiv.className = 'info-price';
+            if (card.status === 'scanning' || card.status === 'pending') {
+                priceDiv.innerHTML = '<span class="spinner-ring" style="width:16px;height:16px;border-width:2px"></span>';
+            } else if (card.market_price) {
+                priceDiv.textContent = '$' + Number(card.market_price).toFixed(2);
+            } else {
+                priceDiv.textContent = '--';
+                priceDiv.className += ' no-price';
+            }
+            info.appendChild(priceDiv);
+
+            row.appendChild(info);
+
+            // Tap handler for detail modal (resolved/error cards)
             if (card.status === 'resolved' || card.status === 'error') {
                 (function(c) {
-                    tile.addEventListener('click', function() { openModal(c); });
+                    row.addEventListener('click', function() { openModal(c); });
                 })(card);
             }
 
-            grid.appendChild(tile);
+            container.appendChild(row);
         }
     }
 
@@ -914,17 +1176,47 @@ function drawQR(canvasId,text,cellSize){
         var overlay = document.getElementById('detailModal');
         overlay.classList.add('show');
 
-        var img = document.getElementById('modalImg');
-        if (card.image_url) {
-            img.src = card.image_url;
-            img.style.display = 'block';
-        } else {
-            img.style.display = 'none';
+        // Build modal images (segment + reference side-by-side)
+        var imagesDiv = document.getElementById('modalImages');
+        imagesDiv.innerHTML = '';
+
+        if (card.segment_image_url) {
+            var segCol = document.createElement('div');
+            segCol.className = 'modal-img-col';
+            var segLabel = document.createElement('div');
+            segLabel.className = 'img-label';
+            segLabel.textContent = 'Scanned';
+            segCol.appendChild(segLabel);
+            var segImg = document.createElement('img');
+            segImg.src = card.segment_image_url;
+            segCol.appendChild(segImg);
+            imagesDiv.appendChild(segCol);
+        }
+
+        var refSrc = card.local_image_url || card.image_url;
+        if (refSrc) {
+            var refCol = document.createElement('div');
+            refCol.className = 'modal-img-col';
+            var refLabel = document.createElement('div');
+            refLabel.className = 'img-label';
+            refLabel.textContent = 'Reference';
+            refCol.appendChild(refLabel);
+            var refImg = document.createElement('img');
+            refImg.src = refSrc;
+            refCol.appendChild(refImg);
+            imagesDiv.appendChild(refCol);
         }
 
         document.getElementById('modalName').textContent = card.card_name || 'Unknown Card';
         document.getElementById('modalSet').textContent = card.set_name || '';
         document.getElementById('modalPrice').textContent = card.market_price ? '$' + Number(card.market_price).toFixed(2) : 'No price data';
+
+        // Position
+        var posText = '--';
+        if (card.row != null && card.col != null) {
+            posText = 'Row ' + (card.row + 1) + ', Col ' + (card.col + 1);
+        }
+        document.getElementById('modalPosition').textContent = posText;
         document.getElementById('modalCardId').textContent = card.card_id || '--';
         document.getElementById('modalMethod').textContent = card.method || '--';
         document.getElementById('modalConfidence').textContent = card.confidence ? (Math.round(card.confidence * 100) + '%') : '--';
