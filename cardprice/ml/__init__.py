@@ -16,11 +16,16 @@ import logging
 import os
 import pickle
 import tempfile
+import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Thread lock for OCR engines (PaddleOCR/EasyOCR are not thread-safe)
+_ocr_lock = threading.Lock()
+_jp_easyocr_reader = None  # Cached Japanese EasyOCR reader (slow to init)
 
 # In-memory LRU cache for identify_card results, keyed by md5 of file contents.
 _scan_cache: OrderedDict = OrderedDict()
@@ -1320,8 +1325,11 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
         dino_below = dino_top1_score < DINO_ACCEPT_THRESHOLD
         clip_below = clip_top1_score < CLIP_ACCEPT_THRESHOLD
         if dino_below and not clip_below:
-            # DINOv2 score is noise — trust CLIP regardless of margin
-            use_dino = False
+            # CLIP scores 0.78-0.82 on wrong cards (semantic matching),
+            # so high CLIP score does NOT mean correct card.  DINOv2 is
+            # better at exact visual matching even with lower raw scores.
+            # Prefer DINOv2 when they disagree — was 0/3 trusting CLIP here.
+            use_dino = True
             decision_reason = "confidence_gate"
         elif clip_below and not dino_below:
             # CLIP score is noise — trust DINOv2 regardless of margin
@@ -1366,8 +1374,8 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
     elif decision_reason == "confidence_gate":
         result["method"] = f"ensemble (confidence_gate: {winner_method})"
         result["explanation"] = (
-            f"DINOv2 and CLIP disagree. {loser_method} score ({loser_margin:.3f}) is below "
-            f"its acceptance threshold — trusting {winner_method} ({winner_score:.3f}). "
+            f"DINOv2 and CLIP disagree. Preferring {winner_method} ({winner_score:.3f}) — "
+            f"DINOv2 is more reliable for exact visual matching when they disagree. "
             f"DINOv2 top1: {dino_top1_id} ({dino_top1_score:.3f}), "
             f"CLIP top1: {clip_top1_id} ({clip_top1_score:.3f})"
         )
@@ -2293,15 +2301,81 @@ def _run_name_ocr(image_path: str) -> tuple:
     """Run OCR to extract the Pokemon name from a card image.
 
     Returns (cleaned_name, confidence, raw_text) or (None, 0.0, None).
+    Uses thread lock since PaddleOCR/EasyOCR models are not thread-safe.
     """
-    try:
-        from cardprice.ml.ocr_matcher import detect_pokemon_name
-        name, conf = detect_pokemon_name(image_path)
-        if name and len(name) >= 2:
-            return name, conf, name
-    except Exception as e:
-        logger.warning("v2 name_ocr failed: %s", e)
+    with _ocr_lock:
+        try:
+            from cardprice.ml.ocr_matcher import detect_pokemon_name
+            name, conf = detect_pokemon_name(image_path)
+            if name and len(name) >= 2:
+                return name, conf, name
+        except Exception as e:
+            logger.warning("v2 name_ocr failed: %s", e)
+
+        # Japanese OCR fallback: if English OCR found nothing,
+        # try reading Japanese text and mapping to English name.
+        try:
+            jp_name = _try_japanese_ocr(image_path)
+            if jp_name:
+                return jp_name, 0.70, f"[JP]{jp_name}"
+        except Exception as e:
+            logger.debug("v2 japanese_ocr failed: %s", e)
+
     return None, 0.0, None
+
+
+def _try_japanese_ocr(image_path: str) -> str | None:
+    """Try Japanese OCR on the name region, return English name if found."""
+    import json
+    import re
+    import cv2
+
+    JP_CHAR_RE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+')
+
+    # Load JP→EN mapping
+    jp_map_path = Path(__file__).resolve().parent.parent.parent / "data" / "jp_en_pokemon_names.json"
+    if not jp_map_path.exists():
+        return None
+    with open(jp_map_path) as f:
+        jp_en_map = json.load(f)
+
+    # Crop name region (top 15% of card)
+    img = cv2.imread(str(image_path))
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    name_crop = img[0:int(h * 0.15), :]
+
+    # Save temp crop for EasyOCR
+    tmp_path = tempfile.mktemp(suffix='.png')
+    try:
+        cv2.imwrite(tmp_path, name_crop)
+
+        # Try EasyOCR with Japanese (cached reader to avoid 5-10s init)
+        import easyocr
+        global _jp_easyocr_reader
+        if _jp_easyocr_reader is None:
+            _jp_easyocr_reader = easyocr.Reader(['ja', 'en'], gpu=False, verbose=False)
+        reader = _jp_easyocr_reader
+        results = reader.readtext(tmp_path, detail=1)
+
+        for _bbox, text, conf in results:
+            # Check for Japanese characters
+            jp_matches = JP_CHAR_RE.findall(text)
+            for jp_text in jp_matches:
+                # Clean common OCR artifacts
+                jp_clean = jp_text.rstrip('・。、')
+                if jp_clean in jp_en_map:
+                    en_name = jp_en_map[jp_clean]
+                    logger.info("Japanese OCR: '%s' -> '%s' (conf=%.3f)", jp_clean, en_name, conf)
+                    return en_name
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    return None
 
 
 def _run_hp_detect(image_path: str):
@@ -2309,11 +2383,12 @@ def _run_hp_detect(image_path: str):
 
     Returns int HP value or None.
     """
-    try:
-        from cardprice.ml.hp_detector import detect_hp
-        return detect_hp(image_path)
-    except Exception as e:
-        logger.warning("v2 hp_detect failed: %s", e)
+    with _ocr_lock:
+        try:
+            from cardprice.ml.hp_detector import detect_hp
+            return detect_hp(image_path)
+        except Exception as e:
+            logger.warning("v2 hp_detect failed: %s", e)
     return None
 
 
@@ -2574,7 +2649,102 @@ def _dino_dot_product_against_refs(
                 pass
 
 
-def identify_card_v2(image_path, session=None):
+def _score_candidates_combined(
+    image_path: str,
+    candidate_card_ids: list,
+) -> list[tuple[str, float, dict]]:
+    """Score candidates using both DINOv2 visual similarity and attack OCR overlap.
+
+    Combined score = w_dino * dino_score + w_attack * attack_score
+    When attack OCR finds nothing, falls back to pure DINOv2.
+    """
+    from cardprice.ml.attack_ocr import extract_attack_names, _load_attack_index
+
+    dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids)
+    if not dino_results:
+        return []
+    dino_scores = {cid: score for cid, score in dino_results}
+
+    # Attack OCR
+    ocr_candidates = []
+    try:
+        ocr_candidates = extract_attack_names(image_path)
+    except Exception as e:
+        logger.warning("v2 combined: attack OCR failed: %s", e)
+
+    detected_attacks = [text.lower().strip() for text, _conf in ocr_candidates if text]
+
+    idx = _load_attack_index()
+    card_to_attacks = idx.get("card_to_attacks", {})
+
+    try:
+        from rapidfuzz import fuzz
+        use_rapidfuzz = True
+    except ImportError:
+        use_rapidfuzz = False
+
+    attack_scores = {}
+    attack_details = {}
+    for cid in candidate_card_ids:
+        card_attacks = card_to_attacks.get(cid, [])
+        if not card_attacks:
+            base_cid = cid.split("/")[0] if "/" in cid else cid
+            card_attacks = card_to_attacks.get(base_cid, [])
+
+        if not card_attacks or not detected_attacks:
+            attack_scores[cid] = 0.0
+            attack_details[cid] = []
+            continue
+
+        card_attacks_lower = [a.lower() for a in card_attacks]
+        matched = []
+        for card_atk in card_attacks_lower:
+            for det_atk in detected_attacks:
+                # Require higher threshold for short strings to avoid
+                # spurious matches like "Whap" → "Wrap"
+                min_len = min(len(det_atk), len(card_atk))
+                threshold = 80 if min_len <= 5 else 70
+                if use_rapidfuzz:
+                    if fuzz.ratio(det_atk, card_atk) >= threshold:
+                        matched.append(card_atk)
+                        break
+                else:
+                    from difflib import SequenceMatcher
+                    t = 0.75 if min_len <= 5 else 0.65
+                    if SequenceMatcher(None, det_atk, card_atk).ratio() >= t:
+                        matched.append(card_atk)
+                        break
+
+        # Score rewards both proportion AND absolute count
+        proportion = len(matched) / len(card_attacks_lower)
+        count_bonus = 0.1 * min(len(matched), 3)
+        attack_scores[cid] = proportion + count_bonus
+        attack_details[cid] = matched
+
+    # Dynamic weights
+    any_attacks = any(s > 0 for s in attack_scores.values())
+    w_dino, w_attack = (0.5, 0.5) if any_attacks else (1.0, 0.0)
+
+    results = []
+    for cid in candidate_card_ids:
+        d = dino_scores.get(cid, 0.0)
+        a = attack_scores.get(cid, 0.0)
+        combined = w_dino * d + w_attack * a
+        results.append((cid, combined, {
+            "dino_score": round(d, 4),
+            "attack_score": round(a, 4),
+            "matched_attacks": attack_details.get(cid, []),
+        }))
+
+    results.sort(key=lambda x: x[1], reverse=True)
+    if results:
+        t = results[0]
+        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f) %d candidates",
+                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], len(results))
+    return results
+
+
+def identify_card_v2(image_path, session=None, page_era=None):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -2593,6 +2763,8 @@ def identify_card_v2(image_path, session=None):
     Args:
         image_path: Path to the card image.
         session: Optional SQLAlchemy DB session.
+        page_era: Optional era string (e.g. "ex", "e-card") from page context.
+            Used to filter attack fallback candidates.
 
     Returns:
         Dict with keys: card_id, confidence, method, explanation, raw_response.
@@ -2639,7 +2811,7 @@ def identify_card_v2(image_path, session=None):
             logger.warning("v2 step1: color_detect error: %s", e)
 
         try:
-            ocr_name, ocr_conf, ocr_raw = name_future.result(timeout=10)
+            ocr_name, ocr_conf, ocr_raw = name_future.result(timeout=30)
         except Exception as e:
             logger.warning("v2 step1: name_ocr error: %s", e)
 
@@ -2647,6 +2819,13 @@ def identify_card_v2(image_path, session=None):
             hp_value = hp_future.result(timeout=10)
         except Exception as e:
             logger.warning("v2 step1: hp_detect error: %s", e)
+
+    # Reject partial OCR names (< 3 chars) — they create bad candidate sets.
+    # e.g. "tty" for Skitty, "ch" for Trapinch match wrong cards.
+    if ocr_name and len(ocr_name) < 3:
+        logger.info("v2: rejecting short OCR name %r (len=%d)", ocr_name, len(ocr_name))
+        ocr_name = None
+        ocr_conf = 0.0
 
     logger.info(
         "v2 step1: name=%r (conf=%.2f), hp=%s, color=%s (conf=%.2f)",
@@ -2676,35 +2855,13 @@ def identify_card_v2(image_path, session=None):
         )
 
     # -----------------------------------------------------------------------
-    # Step 3/4: DINOv2 against filtered candidates (with attack disambiguation)
+    # Step 3/4: Combined DINOv2 + attack scoring for candidate disambiguation
     # -----------------------------------------------------------------------
+    ref_match_result = None  # Low-confidence ref match saved for comparison
     if candidates:
-        # If many candidates, try attack OCR to narrow further
-        if len(candidates) > _V2_CANDIDATE_DISAMBIGUATION_LIMIT:
-            logger.info(
-                "v2 step3: %d candidates > %d, running attack OCR for disambiguation",
-                len(candidates), _V2_CANDIDATE_DISAMBIGUATION_LIMIT,
-            )
-            attack_names = _run_attack_ocr(image_path)
-            if attack_names:
-                logger.info("v2 step3: detected attacks: %s", attack_names)
-                candidates = _filter_candidates_by_attacks(
-                    candidates, attack_names, session=session,
-                )
-                logger.info("v2 step3: after attack filter: %d candidates",
-                            len(candidates))
-            else:
-                logger.info("v2 step3: no attacks detected, using all %d candidates",
-                            len(candidates))
-                attack_names = []
-        else:
-            attack_names = []
-
-        # Single candidate: verify with DINOv2 to catch OCR hallucinations.
-        # If visual similarity is too low, reject and fall through to ensemble.
+        # Single candidate: quick DINOv2 sanity check
         if len(candidates) == 1:
             only_cid = candidates[0]
-            # Quick DINOv2 sanity check
             dino_check = _dino_dot_product_against_refs(image_path, [only_cid])
             dino_score = dino_check[0][1] if dino_check else 0.0
 
@@ -2719,152 +2876,182 @@ def identify_card_v2(image_path, session=None):
                     "method": "v2_single_candidate",
                     "explanation": explanation,
                     "raw_response": {
-                        "ocr_name": ocr_name,
-                        "ocr_confidence": ocr_conf,
-                        "hp": hp_value,
-                        "color_type": color_type,
-                        "color_confidence": color_conf,
-                        "n_candidates": 1,
+                        "ocr_name": ocr_name, "ocr_confidence": ocr_conf,
+                        "hp": hp_value, "color_type": color_type,
+                        "color_confidence": color_conf, "n_candidates": 1,
                         "dino_sanity": dino_score,
                     },
                 }
-                logger.info("v2: SINGLE CANDIDATE %s (name=%r, hp=%s, dino=%.3f)",
-                            only_cid, ocr_name, hp_value, dino_score)
                 _cache_store(cache_key, result)
                 return result
             else:
-                logger.warning(
-                    "v2: REJECTED single candidate %s — DINOv2 score %.3f too low "
-                    "(OCR may have read wrong name), falling to ensemble",
-                    only_cid, dino_score,
-                )
+                logger.warning("v2: REJECTED single candidate %s — DINOv2 %.3f too low",
+                               only_cid, dino_score)
 
-        # Run DINOv2 dot product against candidate reference images
-        dino_results = _dino_dot_product_against_refs(image_path, candidates)
+        # Multiple candidates: combined DINOv2 + attack scoring
+        elif len(candidates) >= 2:
+            combined_results = _score_candidates_combined(image_path, candidates)
+            if combined_results:
+                best_cid, best_score, best_detail = combined_results[0]
+                alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
+                alt_str = ", ".join(f"{cid} ({s:.0%})" for cid, s in alt_list)
 
-        if dino_results:
-            best_cid, best_score = dino_results[0]
+                n_cand = len(candidates)
+                if n_cand <= 3:
+                    effective_threshold = 0.35
+                elif n_cand <= 10:
+                    effective_threshold = 0.45
+                else:
+                    effective_threshold = 0.50
 
-            # Build alternatives list
-            alt_list = dino_results[1:4]
-            alt_str = ", ".join(f"{cid} ({s:.0%})" for cid, s in alt_list)
+                if best_score >= effective_threshold:
+                    attack_names = best_detail.get("matched_attacks", [])
+                    explanation = (
+                        f"v2: name OCR={ocr_name!r}, hp={hp_value}, "
+                        f"type={color_type}, {n_cand} candidates, "
+                        f"combined={best_score:.3f} (dino={best_detail['dino_score']:.3f}, "
+                        f"atk={best_detail['attack_score']:.3f})"
+                    )
+                    if attack_names:
+                        explanation += f", attacks={attack_names}"
+                    if alt_str:
+                        explanation += f". Alts: {alt_str}"
 
-            # Adaptive threshold: fewer candidates = more trust in DINOv2
-            # With 2-3 candidates, the match is likely correct even at lower scores.
-            # With many candidates (OCR might be wrong), demand higher scores.
-            n_cand = len(candidates)
-            effective_threshold = _V2_DINO_ACCEPT_THRESHOLD
-            if n_cand <= 3:
-                effective_threshold = 0.35
-            elif n_cand <= 10:
-                effective_threshold = 0.45
-            else:
-                effective_threshold = 0.50  # many candidates = demand more
-
-            if best_score >= effective_threshold:
-                explanation = (
-                    f"v2: name OCR={ocr_name!r}, hp={hp_value}, "
-                    f"type={color_type}, {len(candidates)} candidates, "
-                    f"DINOv2 ref-match={best_score:.3f}"
-                )
-                if attack_names:
-                    explanation += f", attacks={attack_names}"
-                if alt_str:
-                    explanation += f". Alternatives: {alt_str}"
-
-                result = {
-                    "card_id": best_cid,
-                    "confidence": float(best_score),
-                    "method": "v2_ref_match",
-                    "explanation": explanation,
-                    "raw_response": {
-                        "ocr_name": ocr_name,
-                        "ocr_confidence": ocr_conf,
-                        "ocr_raw": ocr_raw,
-                        "hp": hp_value,
-                        "color_type": color_type,
-                        "color_confidence": color_conf,
-                        "attack_names": attack_names,
-                        "n_candidates": len(candidates),
-                        "dino_ref_results": dino_results[:5],
-                        "top_alternatives": alt_list,
-                    },
-                }
-                logger.info(
-                    "v2: MATCH %s (score=%.4f, %d candidates, method=v2_ref_match)",
-                    best_cid, best_score, len(candidates),
-                )
-                _cache_store(cache_key, result)
-                return result
-            else:
-                logger.info(
-                    "v2: best DINOv2 ref score %.4f < %.2f, will try ensemble fallback",
-                    best_score, _V2_DINO_ACCEPT_THRESHOLD,
-                )
-        else:
-            logger.info("v2: no DINOv2 ref results (no reference images found)")
+                    ref_match_result = {
+                        "card_id": best_cid,
+                        "confidence": float(best_score),
+                        "method": "v2_ref_match",
+                        "explanation": explanation,
+                        "raw_response": {
+                            "ocr_name": ocr_name, "ocr_confidence": ocr_conf,
+                            "ocr_raw": ocr_raw, "hp": hp_value,
+                            "color_type": color_type, "color_confidence": color_conf,
+                            "attack_names": attack_names, "n_candidates": n_cand,
+                            "combined_results": [(c, round(s, 4), d) for c, s, d in combined_results[:5]],
+                        },
+                    }
+                    # If DINOv2 score is low (< 0.60), OCR name might be wrong.
+                    # Save result but don't return yet — also try attack path.
+                    if best_detail['dino_score'] < 0.60:
+                        logger.info("v2: ref_match dino=%.3f < 0.60, will also try attack path",
+                                    best_detail['dino_score'])
+                    else:
+                        _cache_store(cache_key, ref_match_result)
+                        return ref_match_result
+                else:
+                    logger.info("v2: best combined %.4f < %.2f, falling to ensemble",
+                                best_score, effective_threshold)
 
     # -----------------------------------------------------------------------
-    # Step 4.5: Attack OCR fallback — when name OCR failed or produced no
-    # good candidates, try identifying by attack/move names instead.
+    # Step 5: Attack-based identification
+    # Try attack OCR when: (a) name OCR failed entirely, or (b) the OCR-based
+    # candidate match scored low (< 0.60), suggesting the OCR name may be wrong.
+    # Attack OCR has 92% recall — much more reliable than DINOv2 global search.
     # -----------------------------------------------------------------------
-    if not ocr_name:
-        logger.info("v2 step4.5: trying attack-based identification (name OCR failed)")
+    attack_result = None
+    if not ocr_name or ref_match_result is not None:
+        logger.info("v2 step5: no OCR name, trying attack-based identification")
         try:
             from cardprice.ml.attack_ocr import identify_by_attacks
             atk_results = identify_by_attacks(image_path)
             if atk_results:
-                # Take top candidates from attack matching, verify with DINOv2
-                atk_candidate_ids = [cid for cid, _s in atk_results[:20]]
-                dino_results = _dino_dot_product_against_refs(image_path, atk_candidate_ids)
-                if dino_results:
-                    best_cid, best_score = dino_results[0]
-                    if best_score >= 0.35:
-                        alt_list = dino_results[1:4]
-                        alt_str = ", ".join(f"{cid} ({s:.0%})" for cid, s in alt_list)
-                        atk_names_str = [t for t, _ in extract_attack_names(image_path)][:4] if False else []
-                        explanation = (
-                            f"v2: attack OCR fallback -> {len(atk_candidate_ids)} attack candidates, "
-                            f"DINOv2 ref-match={best_score:.3f}"
-                        )
-                        if alt_str:
-                            explanation += f". Alternatives: {alt_str}"
+                atk_candidate_ids = [cid for cid, _s in atk_results[:50]]
 
-                        result = {
+                # Era filtering: if page_era is known, prefer candidates
+                # from the same era. Keep era-matched candidates first,
+                # but fall back to all candidates if too few match.
+                if page_era:
+                    from cardprice.ml.page_context import _era_for_set, _extract_set_id
+                    era_matched = [
+                        cid for cid in atk_candidate_ids
+                        if _era_for_set(_extract_set_id(cid)) == page_era
+                    ]
+                    # Use era filter when: enough candidates OR many total
+                    # candidates (indistinguishable by DINOv2).
+                    if era_matched and (len(era_matched) >= 3 or len(atk_candidate_ids) >= 20):
+                        logger.info("v2 step5: era filter %s: %d/%d candidates",
+                                    page_era, len(era_matched), len(atk_candidate_ids))
+                        atk_candidate_ids = era_matched
+
+                era_filtered = page_era and len(atk_candidate_ids) < 50
+                combined_results = _score_candidates_combined(image_path, atk_candidate_ids)
+                if combined_results:
+                    best_cid, best_score, best_detail = combined_results[0]
+                    # Boost confidence when era filtering significantly reduced
+                    # the candidate set (strong prior from page context)
+                    if era_filtered:
+                        best_score = min(best_score + 0.10, 1.0)
+                    # Penalize when many candidates share the same attacks
+                    # (low discrimination — DINOv2 picks randomly among 50 Rattatas)
+                    if len(atk_candidate_ids) >= 30 and len(combined_results) >= 2:
+                        score_gap = combined_results[0][1] - combined_results[1][1]
+                        if score_gap < 0.05:
+                            best_score *= 0.85  # moderate penalty for low discrimination
+                            logger.info("v2 step5: %d candidates, gap=%.3f -> penalty to %.3f",
+                                        len(atk_candidate_ids), score_gap, best_score)
+                    if best_score >= 0.35:
+                        alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
+                        alt_str = ", ".join(f"{cid} ({s:.0%})" for cid, s in alt_list)
+                        attack_names = best_detail.get("matched_attacks", [])
+                        explanation = (
+                            f"v2: attack OCR -> {len(atk_candidate_ids)} candidates, "
+                            f"combined={best_score:.3f} (dino={best_detail['dino_score']:.3f}, "
+                            f"atk={best_detail['attack_score']:.3f})"
+                        )
+                        if attack_names:
+                            explanation += f", attacks={attack_names}"
+                        if alt_str:
+                            explanation += f". Alts: {alt_str}"
+
+                        attack_result = {
                             "card_id": best_cid,
                             "confidence": float(best_score),
                             "method": "v2_attack_fallback",
                             "explanation": explanation,
                             "raw_response": {
-                                "ocr_name": ocr_name,
-                                "ocr_confidence": ocr_conf,
-                                "hp": hp_value,
+                                "ocr_name": ocr_name, "hp": hp_value,
                                 "color_type": color_type,
-                                "color_confidence": color_conf,
                                 "attack_candidates": atk_results[:5],
-                                "dino_ref_results": dino_results[:5],
+                                "combined_results": [(c, round(s, 4), d)
+                                                     for c, s, d in combined_results[:5]],
                             },
                         }
-                        logger.info(
-                            "v2: ATTACK FALLBACK MATCH %s (dino=%.4f, %d atk candidates)",
-                            best_cid, best_score, len(atk_candidate_ids),
-                        )
-                        _cache_store(cache_key, result)
-                        return result
-                    else:
-                        logger.info("v2 step4.5: best DINOv2 on attack candidates %.3f < 0.35",
-                                    best_score)
+                        logger.info("v2: attack fallback -> %s (combined=%.3f)",
+                                    best_cid, best_score)
         except Exception as e:
-            logger.warning("v2 step4.5: attack fallback failed: %s", e)
+            logger.warning("v2 step5: attack fallback failed: %s", e)
 
     # -----------------------------------------------------------------------
-    # Step 5: Fallback to ensemble when OCR failed or DINOv2 was low-confidence
+    # Step 6: Ensemble fallback (last resort)
     # -----------------------------------------------------------------------
     logger.info(
-        "v2 step5: falling back to ensemble (ocr_name=%r, candidates=%d)",
+        "v2 step6: running ensemble (ocr_name=%r, candidates=%d)",
         ocr_name, len(candidates),
     )
     fallback = identify_card_ensemble(image_path, session=session)
+    fallback_conf = fallback.get("confidence", 0.0)
+
+    # Pick best among ref_match_result (if pending), attack_result, and ensemble.
+    # When page_era is known, give era-matched results a 0.10 bonus so they
+    # beat ensemble results from wrong eras.
+    best_alt = None
+    best_alt_conf = fallback_conf
+    if page_era:
+        from cardprice.ml.page_context import _era_for_set, _extract_set_id
+        fallback_cid = fallback.get("card_id", "")
+        fallback_era = _era_for_set(_extract_set_id(fallback_cid)) if fallback_cid else None
+        if fallback_era != page_era:
+            best_alt_conf -= 0.10  # penalize wrong-era ensemble result
+    for candidate in [ref_match_result, attack_result]:
+        if candidate and candidate["confidence"] > best_alt_conf:
+            best_alt = candidate
+            best_alt_conf = candidate["confidence"]
+    if best_alt:
+        logger.info("v2: %s (%.3f) > ensemble (%.3f)",
+                     best_alt["method"], best_alt_conf, fallback_conf)
+        _cache_store(cache_key, best_alt)
+        return best_alt
+
     fallback["method"] = f"v2_fallback({fallback.get('method', 'ensemble')})"
     fallback["explanation"] = (
         f"v2 fallback: OCR name={ocr_name!r} yielded {len(candidates)} candidates "
@@ -2913,30 +3100,21 @@ def identify_page_v2(card_image_paths, session=None):
     logger.info("identify_page_v2: processing %d cards", n_cards)
 
     # -----------------------------------------------------------------------
-    # Pass 1: Run identify_card_v2 on all cards in parallel
+    # Pass 1: Run identify_card_v2 sequentially (PaddleOCR is not thread-safe)
     # -----------------------------------------------------------------------
     results = [None] * n_cards
 
-    def _process_card(idx, path):
+    for i, path in enumerate(card_image_paths):
         try:
-            return idx, identify_card_v2(str(path), session=session)
+            results[i] = identify_card_v2(str(path), session=session)
         except Exception as e:
-            logger.warning("identify_page_v2: card %d failed: %s", idx, e)
-            return idx, {
+            logger.warning("identify_page_v2: card %d failed: %s", i, e)
+            results[i] = {
                 "card_id": None, "confidence": 0.0,
                 "method": "v2_error",
                 "explanation": f"identify_card_v2 failed: {e}",
                 "raw_response": {},
             }
-
-    with ThreadPoolExecutor(max_workers=min(n_cards, 6)) as pool:
-        futures = [
-            pool.submit(_process_card, i, path)
-            for i, path in enumerate(card_image_paths)
-        ]
-        for future in as_completed(futures):
-            idx, result = future.result()
-            results[idx] = result
 
     # -----------------------------------------------------------------------
     # Pass 2: Page context reranking
@@ -3045,6 +3223,55 @@ def identify_page_v2(card_image_paths, session=None):
                             "identify_page_v2 pass2: card %d requeried %s -> %s",
                             i, old_cid, best_cid,
                         )
+
+    # -----------------------------------------------------------------------
+    # Pass 3: Re-run fallback cards with era context
+    # Only re-run cards that used attack_fallback or ensemble_fallback
+    # AND have low confidence. Don't touch high-confidence results.
+    # -----------------------------------------------------------------------
+    from cardprice.ml.page_context import _era_for_set, _extract_set_id
+    page_era = ctx.get("era")
+    if page_era and ctx.get("confidence", 0) >= 0.50:
+        for i, (path, result) in enumerate(zip(card_image_paths, results)):
+            method = result.get("method", "")
+            # Only re-run fallback/low-quality results with low confidence
+            if "fallback" not in method and "page_context" not in method:
+                continue
+            if result["confidence"] >= 0.80:
+                continue
+
+            # Build leave-one-out era context
+            loo_results = results[:i] + results[i + 1:]
+            loo_ctx = identify_page_context(loo_results)
+            loo_era = loo_ctx.get("era")
+            if not loo_era or loo_ctx.get("confidence", 0) < 0.40:
+                continue
+
+            logger.info(
+                "identify_page_v2 pass3: re-running card %d (method=%s, conf=%.2f) "
+                "with page_era=%s",
+                i, method, result["confidence"], loo_era,
+            )
+            _scan_cache.clear()  # force re-run without cache
+            rerun = identify_card_v2(str(path), session=session, page_era=loo_era)
+
+            # Accept re-run if: (a) confidence improved, OR (b) the re-run
+            # result is from the correct era and original wasn't.
+            rerun_era = _era_for_set(_extract_set_id(rerun.get("card_id", ""))) if rerun.get("card_id") else None
+            orig_era = _era_for_set(_extract_set_id(result.get("card_id", ""))) if result.get("card_id") else None
+            era_improved = rerun_era == loo_era and orig_era != loo_era
+            conf_improved = rerun.get("confidence", 0) > result["confidence"]
+            if conf_improved or (era_improved and rerun.get("confidence", 0) >= 0.40):
+                old_cid = result.get("card_id")
+                results[i] = rerun
+                rerun["explanation"] = (
+                    (rerun.get("explanation") or "")
+                    + f" (pass3: era={loo_era}, was {old_cid})"
+                )
+                logger.info(
+                    "identify_page_v2 pass3: card %d improved %s -> %s (era=%s)",
+                    i, old_cid, rerun.get("card_id"), loo_era,
+                )
 
     # Summary logging
     methods = [r.get("method", "?") for r in results if r]

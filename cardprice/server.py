@@ -510,28 +510,46 @@ function handlePageFile(file) {
         .then(function(data) {
             spinner.classList.remove('show');
             pageResult.classList.add('show');
+            if (data.error) {
+                document.getElementById('pageTotal').textContent = 'Error';
+                document.getElementById('pageCards').innerHTML = '<div style="color:#e94560;padding:16px;">' + data.error + '</div>';
+                return;
+            }
             var cards = data.cards || [];
             var total = 0;
-            var html = '';
+            if (data.status === 'pending') {
+                document.getElementById('pageTotal').textContent = 'Page queued for processing (' + (data.scan_id || '') + ')';
+                document.getElementById('pageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
+                return;
+            }
+            // Build grid of reference images
+            var numCols = 3;
+            var numRows = Math.ceil(cards.length / numCols);
+            var html = '<div style="display:grid;grid-template-columns:repeat(' + numCols + ',1fr);gap:8px;max-width:600px;margin:12px auto;">';
             for (var i = 0; i < cards.length; i++) {
                 var c = cards[i];
                 var price = c.market_price ? parseFloat(c.market_price) : 0;
                 total += price;
-                html += '<div style="background:#0f3460;padding:10px;border-radius:8px;margin:8px 0;">';
-                html += '<strong>' + (c.card_name || 'Unknown') + '</strong>';
-                if (c.market_price) html += ' <span class="price">$' + c.market_price + '</span>';
-                if (c.confidence) html += ' <span class="confidence">' + (c.confidence * 100).toFixed(0) + '% via ' + (c.method || '?') + '</span>';
-                if (c.card_id) html += '<br><small style="color:#888">' + c.card_id + '</small>';
-                if (c.position !== undefined) html += ' <small style="color:#666">(slot ' + (c.position + 1) + ')</small>';
-                html += '</div>';
+                var imgSrc = c.local_image_url || c.image_url || '';
+                html += '<div style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;">';
+                if (imgSrc) {
+                    html += '<img src="' + imgSrc + '" style="width:100%;display:block;border-radius:8px 8px 0 0;" />';
+                } else {
+                    html += '<div style="width:100%;aspect-ratio:5/7;background:#16213e;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px;border-radius:8px 8px 0 0;">No image</div>';
+                }
+                html += '<div style="padding:6px 4px;">';
+                html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.card_name || 'Unknown') + '</div>';
+                if (c.market_price) {
+                    html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(c.market_price).toFixed(2) + '</div>';
+                } else {
+                    html += '<div style="font-size:13px;color:#666;">No price</div>';
+                }
+                html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
+                html += '</div></div>';
             }
-            if (data.status === 'pending') {
-                document.getElementById('pageTotal').textContent = 'Page queued for processing (' + (data.scan_id || '') + ')';
-                document.getElementById('pageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
-            } else {
-                document.getElementById('pageTotal').textContent = cards.length + ' cards found — Total: $' + total.toFixed(2);
-                document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
-            }
+            html += '</div>';
+            document.getElementById('pageTotal').textContent = cards.length + ' cards — Total: $' + total.toFixed(2);
+            document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
         })
         .catch(function(e) {
             spinner.classList.remove('show');
@@ -580,19 +598,21 @@ def _parse_multipart(body, content_type):
 def _local_image_url(card_id):
     """Return local /card-image/ URL for a card_id if the image file exists.
 
-    card_id format: "bw5-107" (base only, no variant).
+    card_id format: "ex14-94/normal" or "bw5-107" (with or without variant).
     Checks for normal variant PNG on disk.  Returns None if not found.
     """
     if not card_id:
         return None
-    set_match = re.match(r"^(.+)-\d+[a-z]?$", card_id)
-    if not set_match:
+    # Strip variant suffix if present (e.g. "ex14-94/normal" -> "ex14-94")
+    base_id = card_id.split("/")[0] if "/" in card_id else card_id
+    # Extract set_id: everything before the last '-' (e.g. "ecard3-H32" -> "ecard3")
+    last_dash = base_id.rfind("-")
+    if last_dash <= 0:
         return None
-    set_id = set_match.group(1)
-    # Default to "normal" variant
-    image_path = CARD_IMAGES_DIR / set_id / f"{card_id}_normal.png"
+    set_id = base_id[:last_dash]
+    image_path = CARD_IMAGES_DIR / set_id / f"{base_id}_normal.png"
     if image_path.is_file():
-        return f"/card-image/{card_id}/normal"
+        return f"/card-image/{base_id}/normal"
     return None
 
 
@@ -1864,13 +1884,13 @@ class ScanHandler(BaseHTTPRequestHandler):
 
         base_id, variant = card_path.rsplit("/", 1)
 
-        # Derive set_id: strip the last -<digits> segment
-        # e.g. "bw5-107" -> "bw5", "base1-4" -> "base1", "swsh12pt5-160" -> "swsh12pt5"
-        set_match = re.match(r"^(.+)-\d+[a-z]?$", base_id)
-        if not set_match:
+        # Derive set_id: everything before the last '-'
+        # e.g. "bw5-107" -> "bw5", "ecard3-H32" -> "ecard3", "swsh12pt5-160" -> "swsh12pt5"
+        last_dash = base_id.rfind("-")
+        if last_dash <= 0:
             self.send_error(400, "Cannot parse set from card_id")
             return
-        set_id = set_match.group(1)
+        set_id = base_id[:last_dash]
 
         # Build file path: data/card_images/<set_id>/<base_id>_<variant>.png
         filename = f"{base_id}_{variant}.png"

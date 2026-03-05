@@ -33,7 +33,7 @@ ASPECT_RATIO_TOLERANCE = 0.20     # allow 20% deviation
 # Higher resolution preserves text detail for OCR (especially holographic text)
 # Phone cameras send 4032x3024; in a 3x3 grid each card is ~1344x1008
 CARD_OUTPUT_W = 1008
-CARD_OUTPUT_H = 1410
+CARD_OUTPUT_H = 1530  # ~8% vertical padding over exact card ratio to avoid clipping names
 
 # --- Card back / empty slot detection thresholds ---
 # Pokemon card backs have a very specific orange-red colour profile:
@@ -147,7 +147,8 @@ def _order_points(pts: np.ndarray) -> np.ndarray:
 
 def _perspective_crop(image: np.ndarray, pts: np.ndarray,
                       output_w: int = CARD_OUTPUT_W,
-                      output_h: int = CARD_OUTPUT_H) -> np.ndarray:
+                      output_h: int = CARD_OUTPUT_H,
+                      force_landscape: bool = False) -> np.ndarray:
     """Apply a four-point perspective transform to extract a card.
 
     Args:
@@ -155,6 +156,10 @@ def _perspective_crop(image: np.ndarray, pts: np.ndarray,
         pts: 4 corner points of the card quadrilateral.
         output_w: Width of the output image.
         output_h: Height of the output image.
+        force_landscape: If True, treat the quad as landscape even if its
+            measured width <= height.  This handles cases where a partial
+            or skewed contour in a landscape page appears portrait-shaped
+            but the card content is actually rotated.
 
     Returns:
         Warped rectangular card image in portrait orientation.
@@ -169,9 +174,11 @@ def _perspective_crop(image: np.ndarray, pts: np.ndarray,
     avg_w = (width_top + width_bot) / 2
     avg_h = (height_left + height_right) / 2
 
+    is_landscape = avg_w > avg_h or force_landscape
+
     # If the detected quad is landscape (wider than tall), swap output dims
     # so we warp into landscape first, then rotate to portrait
-    if avg_w > avg_h:
+    if is_landscape:
         warp_w, warp_h = output_h, output_w
     else:
         warp_w, warp_h = output_w, output_h
@@ -186,7 +193,7 @@ def _perspective_crop(image: np.ndarray, pts: np.ndarray,
     warped = cv2.warpPerspective(image, M, (warp_w, warp_h))
 
     # Rotate landscape cards to portrait
-    if avg_w > avg_h:
+    if is_landscape:
         warped = cv2.rotate(warped, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     return warped
@@ -713,7 +720,20 @@ def _find_grid_lines(rectified_page, rows, cols):
             logger.debug("Valley detection: no valid valley combination found")
             return None
 
-        selected = best_combo
+        # Refine each valley to the deepest point on the smoothed profile
+        # within a small neighbourhood.  The combinatorial scoring picks
+        # from a discrete set of detected local minima; the actual
+        # minimum in the smoothed curve may be a few pixels away.
+        refine_radius = int(expected_cell * 0.04)
+        refined = []
+        for v in best_combo:
+            lo = max(0, v - refine_radius)
+            hi = min(axis_len, v + refine_radius + 1)
+            local_min_offset = int(np.argmin(smoothed[lo:hi]))
+            refined.append(lo + local_min_offset)
+        selected = refined
+        logger.debug("Valley refinement: %s -> %s (radius=%d)",
+                     best_combo, refined, refine_radius)
         return selected
 
     row_valleys = find_valleys(h_proj, rows, page_h)
@@ -769,15 +789,12 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
         image: Source image (BGR).
         rows: Number of rows in the binder grid.
         cols: Number of columns in the binder grid.
-        pad_frac: Fraction of cell size to pad inward (avoids sleeve edges).
-            The valley-based grid detector places valley lines near the centre
-            of inter-card gutters.  On a typical 3x3 binder page the gutter
-            is ~85-90px wide in a ~1100px-tall cell (~8%).  The valley sits
-            roughly 40px from the card below (~3.5% of cell height), so a
-            pad_frac of 0.035 just clears the gutter without eating into the
-            card name header.  The previous default of 0.06 was clipping 28-31px
-            into the top card header row, causing name OCR to fail on bottom-row
-            cards (e.g. ecard3 Rattata on page_20260228_195512).
+        pad_frac: Fraction of cell size to pad inward at page-edge
+            boundaries only (avoids binder frame/sleeve edges).  Interior
+            valley boundaries use zero padding since the valley refinement
+            step places them at the true gutter centre.  Only the
+            outermost edges of the grid (first/last row/col) apply this
+            inward padding to skip the binder frame.
         ref_contours: Optional list of card contours detected by
             _find_card_contours, used to calibrate orientation for
             landscape pages.
@@ -824,7 +841,32 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
                 page_corners.reshape(4, 2).astype(np.float32)
             )
 
-            # Compute destination size from average edge lengths
+            # Expand the detected page corners outward by a small margin.
+            # The contour detection may find an outline slightly inside the
+            # actual page, clipping cards at the edge (especially card
+            # names at the top of the page which, after landscape rotation,
+            # become the left edge of the first column).  Expanding the
+            # source quad by ~4% from the centroid ensures the rectified
+            # image includes a safety margin beyond the detected page
+            # outline.
+            centroid = ordered.mean(axis=0)
+            expand_frac = 0.04
+            ordered_expanded = centroid + (1.0 + expand_frac) * (ordered - centroid)
+
+            # Pad the source image so expanded corners never get clamped
+            # at image edges. This prevents asymmetric warping when the
+            # page is near a camera boundary.
+            pad_needed = int(max(w, h) * expand_frac) + 10
+            padded_image = cv2.copyMakeBorder(
+                image, pad_needed, pad_needed, pad_needed, pad_needed,
+                cv2.BORDER_REPLICATE,
+            )
+            # Shift corner coordinates to account for padding
+            ordered_expanded += pad_needed
+
+            # Compute destination size from average edge lengths of the
+            # *original* (unexpanded) corners to preserve the page's
+            # natural aspect ratio.
             width_top = np.linalg.norm(ordered[1] - ordered[0])
             width_bot = np.linalg.norm(ordered[2] - ordered[3])
             height_left = np.linalg.norm(ordered[3] - ordered[0])
@@ -839,8 +881,8 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
                     [dst_w - 1, dst_h - 1],
                     [0, dst_h - 1],
                 ], dtype=np.float32)
-                M_warp = cv2.getPerspectiveTransform(ordered, dst)
-                rectified = cv2.warpPerspective(image, M_warp, (dst_w, dst_h))
+                M_warp = cv2.getPerspectiveTransform(ordered_expanded, dst)
+                rectified = cv2.warpPerspective(padded_image, M_warp, (dst_w, dst_h))
                 perspective_warped = True
                 # After perspective warp, page fills the entire rectified
                 # image so crop offset is zero
@@ -960,7 +1002,14 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
             logger.info("Grid fallback: landscape calibration: rotation=%s reverse=%s",
                          rot_name, reverse_grid)
 
-    # Extract grid cells in binder reading order
+    # Extract grid cells in binder reading order.
+    #
+    # Padding strategy: valley positions (after refinement) sit at gutter
+    # centres.  At page-edge boundaries (first/last row/col) we pad inward
+    # by pad_frac to skip the binder frame.  At interior valley boundaries
+    # we use zero padding -- the valley *is* the gutter centre, so no
+    # additional inset is needed and any inset risks clipping card content
+    # (especially after 90-degree rotation on landscape pages).
     cards = []
     for br in range(rows):
         for bc in range(cols):
@@ -978,12 +1027,17 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
             rx1, rx2 = col_bounds[ic]
             cell_h_px = ry2 - ry1
             cell_w_px = rx2 - rx1
-            pad_y = int(cell_h_px * pad_frac)
-            pad_x = int(cell_w_px * pad_frac)
-            y1 = ry1 + pad_y
-            y2 = ry2 - pad_y
-            x1 = rx1 + pad_x
-            x2 = rx2 - pad_x
+
+            # Full padding at page edges, zero at interior valley boundaries
+            pad_y_top = int(cell_h_px * pad_frac) if ir == 0 else 0
+            pad_y_bot = int(cell_h_px * pad_frac) if ir == len(row_bounds) - 1 else 0
+            pad_x_left = int(cell_w_px * pad_frac) if ic == 0 else 0
+            pad_x_right = int(cell_w_px * pad_frac) if ic == len(col_bounds) - 1 else 0
+
+            y1 = ry1 + pad_y_top
+            y2 = ry2 - pad_y_bot
+            x1 = rx1 + pad_x_left
+            x2 = rx2 - pad_x_right
             cell = rectified[y1:y2, x1:x2]
 
             # Ensure portrait orientation: if cell is landscape (wider than
@@ -1075,6 +1129,17 @@ def segment_cards(
         logger.info("Contour detection found %d/%d cards, using grid fallback",
                      len(contours), expected_count)
         use_grid_fallback = True
+    elif len(contours) >= 3:
+        # Quality check: if any contour is much smaller than median, the
+        # contour detection grabbed a bad region.  Use grid instead.
+        areas = [cv2.contourArea(c) for c in contours]
+        median_area = sorted(areas)[len(areas) // 2]
+        min_area = min(areas)
+        if min_area < median_area * 0.5:
+            logger.info("Contour quality check: smallest area %.0f < 50%% of "
+                         "median %.0f, using grid fallback",
+                         min_area, median_area)
+            use_grid_fallback = True
 
     if use_grid_fallback:
         card_images = _grid_fallback(image, expected_rows, expected_cols,
@@ -1097,10 +1162,40 @@ def segment_cards(
     # Sort into grid reading order
     contours = _sort_grid(contours)
 
+    # Detect page-level landscape orientation.
+    # When the page image is landscape (wider than tall), all cards should be
+    # landscape quads.  If a contour's measured dimensions happen to be
+    # portrait-shaped (e.g. due to a partial or skewed detection), we still
+    # need to apply the landscape->portrait rotation so the card content
+    # comes out upright.
+    page_h, page_w = image.shape[:2]
+    page_is_landscape = page_w > page_h
+    if page_is_landscape and len(contours) >= 3:
+        # Count how many contours are landscape-shaped
+        n_landscape = 0
+        for cnt in contours:
+            pts = _order_points(cnt.reshape(4, 2).astype(np.float32))
+            qw = (np.linalg.norm(pts[1] - pts[0]) +
+                  np.linalg.norm(pts[2] - pts[3])) / 2
+            qh = (np.linalg.norm(pts[3] - pts[0]) +
+                  np.linalg.norm(pts[2] - pts[1])) / 2
+            if qw > qh:
+                n_landscape += 1
+        # If the majority of contours are landscape, force landscape
+        # treatment for all cards on this page.
+        force_landscape = n_landscape > len(contours) // 2
+        if force_landscape:
+            logger.info("Page is landscape with %d/%d landscape contours; "
+                        "forcing landscape rotation for all cards",
+                        n_landscape, len(contours))
+    else:
+        force_landscape = False
+
     # Extract and save each card
     saved_paths = []
     for i, cnt in enumerate(contours):
-        card_img = _perspective_crop(image, cnt.astype(np.float32))
+        card_img = _perspective_crop(image, cnt.astype(np.float32),
+                                     force_landscape=force_landscape)
         out_path = output_dir / f"card_{i:02d}.{output_format}"
         cv2.imwrite(str(out_path), card_img)
         saved_paths.append(out_path)

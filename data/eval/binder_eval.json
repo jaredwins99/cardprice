@@ -7,15 +7,15 @@
       "segments_dir": "data/inbox/page_20260228_174819_cards_hires",
       "grid": [3, 3],
       "cards": [
-        {"position": [0, 0], "segment": "card_08.png", "card_id": "ex15-92/normal", "name": "Flygon ex \u03b4"},
-        {"position": [0, 1], "segment": "card_07.png", "card_id": "ex14-94/normal", "name": "Jirachi ex"},
-        {"position": [0, 2], "segment": "card_06.png", "card_id": "ex14-98/normal", "name": "Swampert ex"},
-        {"position": [1, 0], "segment": "card_05.png", "card_id": "ex5-101/normal", "name": "Wigglytuff ex"},
+        {"position": [0, 0], "segment": "card_00.png", "card_id": "ex15-92/normal", "name": "Flygon ex \u03b4"},
+        {"position": [0, 1], "segment": "card_01.png", "card_id": "ex15-42/normal", "name": "Vibrava \u03b4", "note": "Fixed: was ex15-24 but attacks Bite+Sonic Noise = ex15-42"},
+        {"position": [0, 2], "segment": "card_02.png", "card_id": "ex15-68/normal", "name": "Trapinch \u03b4"},
+        {"position": [1, 0], "segment": "card_03.png", "card_id": "ex14-94/normal", "name": "Jirachi ex", "note": "Japanese printing — OCR will not read English name"},
         {"position": [1, 1], "segment": "card_04.png", "card_id": "ex14-91/normal", "name": "Delcatty ex"},
-        {"position": [1, 2], "segment": "card_03.png", "card_id": "ex15-24/normal", "name": "Vibrava \u03b4"},
-        {"position": [2, 0], "segment": "card_02.png", "card_id": "ex15-68/normal", "name": "Trapinch \u03b4"},
-        {"position": [2, 1], "segment": "card_01.png", "card_id": "ex14-41/normal", "name": "Skitty"},
-        {"position": [2, 2], "segment": "card_00.png", "card_id": "ex11-41/normal", "name": "Dragonair \u03b4"}
+        {"position": [1, 2], "segment": "card_05.png", "card_id": "ex14-41/normal", "name": "Skitty"},
+        {"position": [2, 0], "segment": "card_06.png", "card_id": "ex14-98/normal", "name": "Swampert ex"},
+        {"position": [2, 1], "segment": "card_07.png", "card_id": "ex5-101/normal", "name": "Wigglytuff ex"},
+        {"position": [2, 2], "segment": "card_08.png", "card_id": "ex11-41/normal", "name": "Dragonair \u03b4"}
       ]
     },
     {
@@ -27,7 +27,7 @@
         {"position": [0, 1], "segment": "card_01.png", "card_id": "ecard3-H32/normal", "name": "Xatu"},
         {"position": [0, 2], "segment": "card_02.png", "card_id": "ecard2-95/normal", "name": "Mr. Mime"},
         {"position": [1, 0], "segment": "card_03.png", "card_id": "ecard3-80/normal", "name": "Natu"},
-        {"position": [1, 1], "segment": "card_04.png", "card_id": "ecard3-H32/normal", "name": "Xatu"},
+        {"position": [1, 1], "segment": "card_04.png", "card_id": "ecard3-35/normal", "name": "Xatu", "note": "Fixed: was H32 but card shows 35/144"},
         {"position": [1, 2], "segment": "card_05.png", "card_id": "ecard3-90/normal", "name": "Rattata"},
         {"position": [2, 0], "segment": "card_06.png", "card_id": "ecard3-90/normal", "name": "Rattata"},
         {"position": [2, 1], "segment": "card_07.png", "card_id": "ecard3-89/normal", "name": "Raticate"},
@@ -41,7 +41,7 @@
       "notes": "Mixed eras (EX delta, DP, Platinum). Holos and reverse holos. Empty slot at position 0,0.",
       "cards": [
         {"position": [0, 0], "segment": "card_00.png", "card_id": null, "name": "Empty slot (card back)"},
-        {"position": [0, 1], "segment": "card_01.png", "card_id": "ex13-22/normal", "name": "Latios δ", "variant": "holofoil", "note": "Fixed: was ex11-9, but segment shows Aqua Wave + Dragonbreath = ex13-22"},
+        {"position": [0, 1], "segment": "card_01.png", "card_id": "ex13-22/normal", "name": "Latios \u03b4", "variant": "holofoil", "note": "Fixed: was ex11-9, but segment shows Aqua Wave + Dragonbreath = ex13-22"},
         {"position": [0, 2], "segment": "card_02.png", "card_id": "tk1a-4/normal", "name": "Latias", "note": "Fixed: was ex3-93 (Latias ex, 90HP), but segment shows Dragon Dew + Heat Blast at 70HP = tk1a-4"},
         {"position": [1, 0], "segment": "card_03.png", "card_id": "pl3-13/normal", "name": "Venusaur", "variant": "holofoil"},
         {"position": [1, 1], "segment": "card_04.png", "card_id": "pl2-5/normal", "name": "Flygon", "variant": "holofoil"},

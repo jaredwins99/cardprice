@@ -419,23 +419,69 @@ def fuzzy_match_attacks(
     if known_attacks is None:
         known_attacks = _get_all_attack_names()
 
+    # Build set of multi-word attack names for n-gram matching
+    multiword_attacks = [a for a in known_attacks if " " in a]
+
+    # Generate n-gram candidates from consecutive OCR fragments.
+    # EasyOCR often splits "Body Slam" into separate "Body" and "Slam"
+    # fragments. Combining adjacent fragments recovers multi-word names.
+    ngram_candidates = list(ocr_candidates)  # start with originals
+    for n in (2, 3):
+        for i in range(len(ocr_candidates) - n + 1):
+            words = [ocr_candidates[i + j][0] for j in range(n)]
+            confs = [ocr_candidates[i + j][1] for j in range(n)]
+            combined = " ".join(words)
+            avg_conf = sum(confs) / len(confs)
+            ngram_candidates.append((combined, avg_conf))
+
     matches = []
     used_attacks = set()
+    # Track best match per attack (prefer higher-scoring n-gram matches)
+    best_per_attack: dict[str, tuple[str, float]] = {}
 
-    for ocr_text, ocr_conf in ocr_candidates:
+    for ocr_text, ocr_conf in ngram_candidates:
         best_attack = None
         best_score = 0.0
 
-        for attack in known_attacks:
+        word_count = len(ocr_text.split())
+
+        # For short single-word fragments, require higher threshold
+        # and only match single-word attacks (prevents "Call" -> "recall")
+        effective_threshold = threshold
+        search_attacks = known_attacks
+        if word_count == 1 and len(ocr_text) <= 6:
+            search_attacks = [a for a in known_attacks if " " not in a]
+            effective_threshold = max(threshold, 0.80)
+        elif word_count >= 2:
+            # Multi-word OCR fragments: try multi-word attacks first
+            search_attacks = multiword_attacks if multiword_attacks else known_attacks
+
+        for attack in search_attacks:
             score = _fuzzy_ratio(ocr_text, attack)
             if score > best_score:
                 best_score = score
                 best_attack = attack
 
-        if best_attack and best_score >= threshold and best_attack not in used_attacks:
-            matches.append((ocr_text, best_attack, best_score))
-            used_attacks.add(best_attack)
+        # Fallback to all attacks if no good match in filtered set
+        if best_score < effective_threshold and search_attacks is not known_attacks:
+            for attack in known_attacks:
+                score = _fuzzy_ratio(ocr_text, attack)
+                if score > best_score:
+                    best_score = score
+                    best_attack = attack
 
+        if best_attack and best_score >= effective_threshold:
+            # Keep the best-scoring OCR fragment for each attack
+            prev = best_per_attack.get(best_attack)
+            if prev is None or best_score > prev[1]:
+                best_per_attack[best_attack] = (ocr_text, best_score)
+
+    # Convert to output format
+    for attack, (ocr_text, score) in best_per_attack.items():
+        matches.append((ocr_text, attack, score))
+
+    # Sort by score descending for stable output
+    matches.sort(key=lambda x: -x[2])
     return matches
 
 
@@ -552,9 +598,15 @@ def identify_by_attacks(
         # Combined score
         score = 0.4 * overlap_ratio + 0.4 * precision
 
-        # Bonus for matching ALL card attacks (strong signal)
-        if intersection == card_attacks:
+        # Bonus for matching ALL card attacks (strong signal), but only
+        # for cards with 2+ attacks — a single-attack match is too weak
+        # to warrant a bonus since many unrelated cards share one attack.
+        if intersection == card_attacks and len(card_attacks) >= 2:
             score += 0.15
+
+        # Bonus for absolute match count: matching 2 attacks is stronger
+        # evidence than matching 1, even if both are 100% overlap.
+        score += 0.05 * min(len(intersection), 3)
 
         # Bonus for fuzzy match quality
         avg_fuzzy = 0.0
