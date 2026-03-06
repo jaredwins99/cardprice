@@ -46,23 +46,18 @@ _BOTTOM_REGION = {"x1": 0.0, "y1": 0.83, "x2": 1.0, "y2": 0.95}
 
 
 # ---------------------------------------------------------------------------
-# Lazy-loaded EasyOCR reader (heavy init, ~2s first call)
+# Shared EasyOCR reader (from ocr_matcher to avoid ~500MB duplicate)
 # ---------------------------------------------------------------------------
-_easyocr_reader = None
 
 
 def _get_easyocr_reader():
-    """Lazy-load the EasyOCR reader singleton."""
-    global _easyocr_reader
-    if _easyocr_reader is None:
-        try:
-            import easyocr
-            logger.info("Initializing EasyOCR reader (first call, may take a few seconds)...")
-            _easyocr_reader = easyocr.Reader(["en"], gpu=True, verbose=False)
-        except ImportError:
-            logger.warning("easyocr not installed; will fall back to pytesseract")
-            return None
-    return _easyocr_reader
+    """Get the shared EasyOCR reader from ocr_matcher."""
+    try:
+        from cardprice.ml.ocr_matcher import get_easyocr_reader
+        return get_easyocr_reader()
+    except ImportError:
+        logger.warning("easyocr not installed; will fall back to pytesseract")
+        return None
 
 
 # ---------------------------------------------------------------------------

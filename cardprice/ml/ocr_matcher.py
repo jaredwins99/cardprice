@@ -854,6 +854,19 @@ def disambiguate_by_card_number(
 _easyocr_reader = None
 
 
+def get_easyocr_reader():
+    """Get or create the shared English EasyOCR reader singleton.
+
+    Other modules (attack_ocr, hp_detector) should import this instead
+    of creating their own readers (~500MB RAM each).
+    """
+    global _easyocr_reader
+    if _easyocr_reader is None:
+        import easyocr
+        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
+    return _easyocr_reader
+
+
 def _ocr_tesseract(processed_image: Image.Image) -> str:
     """Run Tesseract OCR on a preprocessed image."""
     import pytesseract

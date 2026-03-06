@@ -2262,8 +2262,16 @@ class ScanHandler(BaseHTTPRequestHandler):
             if front_path.exists():
                 try:
                     from cardprice.ml.condition_assessor import assess_condition
+                    # Build images dict (assess_condition requires multi-photo)
+                    images = {"front": str(front_path)}
+                    for angle in ("back", "oblique", "edge"):
+                        for ext in ("jpg", "jpeg", "png"):
+                            p = best_report / f"{angle}.{ext}"
+                            if p.exists():
+                                images[angle] = str(p)
+                                break
                     result = assess_condition(
-                        str(front_path),
+                        images,
                         card_id=card_id,
                     )
                     overall_grade = result.get("overall_grade", "NM")
@@ -2778,9 +2786,9 @@ def warmup():
     # --- 2. EasyOCR (attack OCR fallback) ---
 
     def _warmup_easyocr_attack_ocr():
-        """Load attack_ocr's EasyOCR reader."""
-        from cardprice.ml.attack_ocr import _get_reader
-        _get_reader()
+        """Load shared EasyOCR reader (used by attack_ocr + hp_detector)."""
+        from cardprice.ml.ocr_matcher import get_easyocr_reader
+        get_easyocr_reader()
 
     # --- 3. DINOv2 + dummy inference ---
 

@@ -40,8 +40,6 @@ _ATTACK_INDEX_PATH = _PROJECT_ROOT / "data" / "attack_index.pkl"
 
 # Lazy-loaded globals
 _attack_index: dict | None = None
-_easyocr_reader = None
-
 
 # ---------------------------------------------------------------------------
 # Attack index
@@ -79,12 +77,9 @@ def _get_all_attack_names() -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _get_reader():
-    """Lazy-init EasyOCR reader."""
-    global _easyocr_reader
-    if _easyocr_reader is None:
-        import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
-    return _easyocr_reader
+    """Get the shared EasyOCR reader from ocr_matcher (saves ~500MB RAM)."""
+    from cardprice.ml.ocr_matcher import get_easyocr_reader
+    return get_easyocr_reader()
 
 
 # ---------------------------------------------------------------------------
