@@ -3839,7 +3839,7 @@ def identify_page_v2(card_image_paths, session=None):
     t_precomp_start = _time.time()
 
     precomputed = [None] * n_cards
-    attack_results = [[] for _ in range(n_cards)]
+    attack_results = [None] * n_cards  # None = not computed, [] = computed but empty
     dino_embeddings = [None] * n_cards
     clip_embeddings = [None] * n_cards
 
@@ -3877,12 +3877,22 @@ def identify_page_v2(card_image_paths, session=None):
             precomputed[i] = ocr_data
 
             # --- Attack OCR (PaddleOCR, same engine) ---
-            try:
-                attack_results[i] = _extract_attacks_paddle(
-                    str(path), det_model=det_model, rec_model=rec_model,
-                )
-            except Exception as e:
-                logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
+            # Only pre-compute attacks when name OCR failed or has low
+            # confidence. High-confidence name matches (>= 0.90) are
+            # resolved by DINOv2 alone, saving ~7-9s per card.
+            ocr_name = ocr_data.get("ocr_name")
+            ocr_conf = ocr_data.get("ocr_conf", 0)
+            need_attacks = not ocr_name or ocr_conf < 0.90
+            if need_attacks:
+                try:
+                    attack_results[i] = _extract_attacks_paddle(
+                        str(path), det_model=det_model, rec_model=rec_model,
+                    )
+                except Exception as e:
+                    logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
+            else:
+                logger.info("identify_page_v2: skipping attack OCR for card %d "
+                            "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
 
         logger.info(
             "identify_page_v2: PaddleOCR thread (name+attack) done in %.1fs",
