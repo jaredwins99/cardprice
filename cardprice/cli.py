@@ -42,15 +42,17 @@ logging.basicConfig(
 
 # ---------------------------------------------------------------------------
 # Condition multipliers for valuation
+# Updated March 2026 from market research (see condition_pricing.py docstring)
 # ---------------------------------------------------------------------------
 CONDITION_MULTIPLIERS = {
-    "PSA10": Decimal("3.0"),
-    "PSA9": Decimal("1.5"),
+    "PSA10": Decimal("3.5"),
+    "PSA9": Decimal("1.8"),
+    "PSA8": Decimal("1.3"),
     "NM": Decimal("1.0"),
-    "LP": Decimal("0.75"),
-    "MP": Decimal("0.5"),
-    "HP": Decimal("0.25"),
-    "DMG": Decimal("0.1"),
+    "LP": Decimal("0.80"),
+    "MP": Decimal("0.55"),
+    "HP": Decimal("0.30"),
+    "DMG": Decimal("0.12"),
 }
 
 

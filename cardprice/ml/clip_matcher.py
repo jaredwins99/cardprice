@@ -38,7 +38,21 @@ def _get_model_and_processor() -> tuple[CLIPModel, CLIPProcessor]:
         _model = CLIPModel.from_pretrained(MODEL_NAME)
         _processor = CLIPProcessor.from_pretrained(MODEL_NAME)
         _model.eval()
+        if torch.cuda.is_available():
+            _model = _model.cuda()
+            logger.info("CLIP model moved to CUDA")
     return _model, _processor
+
+
+def _move_inputs_to_model(model, inputs: dict) -> dict:
+    """Move input tensors to the same device as the model."""
+    device = next(model.parameters()).device
+    moved = {}
+    for k, v in inputs.items():
+        if isinstance(v, torch.Tensor):
+            v = v.to(device)
+        moved[k] = v
+    return moved
 
 
 def _extract_text_features(model, **inputs) -> torch.Tensor:
@@ -48,6 +62,7 @@ def _extract_text_features(model, **inputs) -> torch.Tensor:
     instead of a plain tensor. The pooler_output is already projected through
     text_projection, so we return it directly.
     """
+    inputs = _move_inputs_to_model(model, inputs)
     out = model.get_text_features(**inputs)
     if isinstance(out, torch.Tensor):
         return out
@@ -62,6 +77,7 @@ def _extract_image_features(model, **inputs) -> torch.Tensor:
     instead of a plain tensor. The pooler_output is already projected through
     visual_projection, so we return it directly.
     """
+    inputs = _move_inputs_to_model(model, inputs)
     out = model.get_image_features(**inputs)
     if isinstance(out, torch.Tensor):
         return out

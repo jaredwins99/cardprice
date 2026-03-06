@@ -724,6 +724,7 @@ def _ocr_easyocr_all_from_image(image: Image.Image) -> list[tuple[str, float]]:
         img_array, detail=1, paragraph=False,
         text_threshold=0.3,
         low_text=0.3,
+        batch_size=8,
     )
 
     if not results:
@@ -893,7 +894,7 @@ def _ocr_easyocr(image: Image.Image, use_raw: bool = True) -> tuple[str, float]:
         _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
     img_array = np.array(image)
-    results = _easyocr_reader.readtext(img_array, detail=1)
+    results = _easyocr_reader.readtext(img_array, detail=1, batch_size=8)
 
     if not results:
         return "", 0.0
@@ -921,7 +922,7 @@ def _ocr_easyocr_all(image: Image.Image) -> list[tuple[str, float]]:
         _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
     img_array = np.array(image)
-    results = _easyocr_reader.readtext(img_array, detail=1)
+    results = _easyocr_reader.readtext(img_array, detail=1, batch_size=8)
 
     if not results:
         return []
@@ -1628,6 +1629,7 @@ def detect_pokemon_name(
             results = _easyocr_reader.readtext(
                 crop_up, detail=1, paragraph=False,
                 text_threshold=0.3, low_text=0.3,
+                batch_size=8,
             )
             for _bbox, text, conf in results:
                 text = text.strip()
@@ -1662,6 +1664,7 @@ def detect_pokemon_name(
         results = _easyocr_reader.readtext(
             enhanced, detail=1, paragraph=False,
             text_threshold=0.3, low_text=0.3,
+            batch_size=8,
         )
         for _bbox, text, conf in results:
             text = text.strip()

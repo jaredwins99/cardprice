@@ -122,7 +122,7 @@ def _ocr_easyocr(crop: np.ndarray) -> list[tuple[str, float]]:
     if reader is None:
         return []
     try:
-        results = reader.readtext(crop)
+        results = reader.readtext(crop, batch_size=8)
         return [(r[1], float(r[2])) for r in results]
     except Exception as e:
         logger.warning("EasyOCR failed: %s", e)

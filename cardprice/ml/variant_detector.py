@@ -27,9 +27,11 @@ Detection approach (pure OpenCV, no ML models):
    We compare holo signal strength inside the artwork region vs the border/text
    region to distinguish holofoil (art only) from reverse holofoil (border only).
 
-3. **1st Edition stamp** -- We look for the stamp using OCR (pytesseract) on
-   the expected stamp region (left side, just below the artwork frame).  Falls
-   back to contour-based circular blob detection.
+3. **1st Edition stamp** -- We look for the stamp using PaddleOCR on
+   the expected stamp region (left side, just below the artwork frame).
+   A contour-based circular blob check is used as supporting evidence
+   but never triggers alone (requires OCR confirmation to avoid false
+   positives from card artwork shadows).
 
 Design notes:
   - Reference card images (data/card_images/) are digital scans with NO holo
@@ -51,6 +53,417 @@ import cv2
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Era-to-variant constraint mapping
+# ---------------------------------------------------------------------------
+# Maps era numbers (from era_detector.py) to the set of valid variant strings
+# that can appear in that era.  Variant strings match the card_id format used
+# in dim_cards (e.g. "base1-4/holofoil").
+#
+# Era numbers:
+#   1 = WotC Classic (1999-2003)   -- Base Set through Skyridge
+#   2 = EX era (2003-2007)
+#   3 = Diamond & Pearl (2007-2010)
+#   4 = HeartGold SoulSilver (2010-2011)
+#   5 = Black & White (2011-2013)
+#   6 = XY (2014-2016)
+#   7 = Sun & Moon (2017-2019)
+#   8 = Sword & Shield (2020-2022)
+#   9 = Scarlet & Violet (2023+)
+#
+# Variant key reference (7 TCGCSV subtypes mapped to card_id suffixes):
+#   "normal"              -- flat print, no holo
+#   "holofoil"            -- holo artwork only
+#   "reverse_holofoil"    -- holo on border/text, not artwork
+#   "1st_edition"         -- 1st Edition stamp, non-holo (Unlimited = "normal")
+#   "1st_edition_holofoil"-- 1st Edition stamp + holo artwork
+#   "unlimited"           -- explicitly Unlimited print (WotC only, = normal)
+#   "unlimited_holofoil"  -- Unlimited holo (WotC only, = holofoil)
+# ---------------------------------------------------------------------------
+
+ERA_VALID_VARIANTS: dict[int, set[str]] = {
+    # Era 1: WotC Classic (1999-2003)
+    # Base Set through Neo Destiny had 1st Edition / Unlimited print runs.
+    # Legendary Collection (base6) and e-Card series (ecard1-3) introduced
+    # reverse holofoil but dropped 1st Edition.  We use a broad union here;
+    # set-specific overrides in SET_SPECIAL_VARIANTS handle the details.
+    1: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",   # Legendary Collection + e-Card sets only
+        "1st_edition",
+        "1st_edition_holofoil",
+        "unlimited",
+        "unlimited_holofoil",
+    },
+
+    # Era 2: EX era (2003-2007)
+    # No more 1st Edition.  Reverse holofoil standard from Ruby & Sapphire on.
+    2: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 3: Diamond & Pearl (2007-2010)
+    3: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 4: HeartGold SoulSilver (2010-2011)
+    4: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 5: Black & White (2011-2013)
+    5: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 6: XY (2014-2016)
+    6: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 7: Sun & Moon (2017-2019)
+    7: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 8: Sword & Shield (2020-2022)
+    8: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+
+    # Era 9: Scarlet & Violet (2023+)
+    # Reverse holofoil rebranded as "cosmos holo" in some sets but same
+    # pricing category.
+    9: {
+        "normal",
+        "holofoil",
+        "reverse_holofoil",
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Set-specific variant overrides
+# ---------------------------------------------------------------------------
+# Some individual sets have unique variant patterns that differ from their
+# era's defaults.  These override or extend ERA_VALID_VARIANTS for that set.
+#
+# Format: set_prefix -> dict with optional keys:
+#   "valid":   set of valid variants (replaces the era default entirely)
+#   "add":     set of extra variants to add to the era default
+#   "remove":  set of variants to remove from the era default
+#   "notes":   human-readable note about what's special
+# ---------------------------------------------------------------------------
+
+SET_SPECIAL_VARIANTS: dict[str, dict] = {
+    # --- Era 1 WotC sets with 1st Edition ---
+    # Base Set (base1): 1st Edition, Unlimited, AND Shadowless (unique).
+    # Shadowless = Unlimited print run without drop shadow on card frame,
+    # printed between 1st Edition and standard Unlimited runs.
+    "base1": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+            "shadowless", "shadowless_holofoil",
+        },
+        "notes": "Only set with Shadowless variant (no drop shadow on frame).",
+    },
+
+    # Base Set 2 (base4): reprint set, no 1st Edition, no reverse holo.
+    "base4": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Reprint of Base/Jungle. Unlimited only, no 1st Edition.",
+    },
+
+    # Jungle (base2), Fossil (base3): 1st Edition + Unlimited, no reverse holo.
+    "base2": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+    "base3": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+
+    # Team Rocket (base5): 1st Edition + Unlimited, no reverse holo.
+    "base5": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+
+    # Gym Heroes (gym1) and Gym Challenge (gym2): 1st Edition + Unlimited.
+    "gym1": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+    "gym2": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+
+    # Neo Genesis (neo1) through Neo Destiny (neo4): last 1st Edition sets.
+    "neo1": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+    "neo2": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+    "neo3": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+    },
+    "neo4": {
+        "valid": {
+            "normal", "holofoil",
+            "1st_edition", "1st_edition_holofoil",
+            "unlimited", "unlimited_holofoil",
+        },
+        "notes": "Last set to have 1st Edition print run.",
+    },
+
+    # Legendary Collection (base6): first set with reverse holofoil.
+    # Unique "fireworks" holographic pattern on reverse holo cards.
+    # No 1st Edition (all Unlimited).
+    "base6": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+        "notes": ("First reverse holofoil set. Unique 'fireworks' pattern "
+                  "reverse holo (not the standard linear reverse holo)."),
+    },
+
+    # e-Card sets: Expedition (ecard1), Aquapolis (ecard2), Skyridge (ecard3).
+    # Have reverse holofoil (introduced in LC), no 1st Edition.
+    "ecard1": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+        "notes": "Expedition Base Set. Reverse holo has unique 'cosmic' pattern.",
+    },
+    "ecard2": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+    },
+    "ecard3": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+    },
+
+    # WotC Black Star Promos (basep): promos, no reverse holo or 1st ed.
+    "basep": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Wizard's Black Star Promos. Some are holo, most are normal.",
+    },
+
+    # Best of Game (bp): promo cards, holo only.
+    "bp": {
+        "valid": {"holofoil"},
+        "notes": "Best of Game promo set. All cards are holofoil.",
+    },
+
+    # Southern Islands (si1): normal + some confetti holo.
+    "si1": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Southern Islands collection. Some cards have confetti holo.",
+    },
+
+    # --- Era 2 EX-era special sets ---
+    "np": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Nintendo Black Star Promos.",
+    },
+
+    # POP Series: normal/holo only, no reverse.
+    "pop1": {"valid": {"normal", "holofoil"}},
+    "pop2": {"valid": {"normal", "holofoil"}},
+    "pop3": {"valid": {"normal", "holofoil"}},
+    "pop4": {"valid": {"normal", "holofoil"}},
+    "pop5": {"valid": {"normal", "holofoil"}},
+    "pop6": {"valid": {"normal", "holofoil"}},
+    "pop7": {"valid": {"normal", "holofoil"}},
+    "pop8": {"valid": {"normal", "holofoil"}},
+    "pop9": {"valid": {"normal", "holofoil"}},
+
+    # Trainer Kits: normal only.
+    "tk1a": {"valid": {"normal"}},
+    "tk1b": {"valid": {"normal"}},
+    "tk2a": {"valid": {"normal"}},
+    "tk2b": {"valid": {"normal"}},
+
+    # --- Era 3-4 promo/special sets ---
+    "dpp": {"valid": {"normal", "holofoil"}},
+    "hsp": {"valid": {"normal", "holofoil"}},
+    "ru1": {
+        "valid": {"normal"},
+        "notes": "Pokemon Rumble promos. All normal with Rumble stamp.",
+    },
+    "col1": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+    },
+
+    # --- Era 5 BW special sets ---
+    "bwp": {"valid": {"normal", "holofoil"}},
+    "dv1": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Dragon Vault. All cards are holofoil.",
+    },
+    "dc1": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Double Crisis. No reverse holofoil.",
+    },
+
+    # --- Era 6 XY promo/special sets ---
+    "xyp": {"valid": {"normal", "holofoil"}},
+    "xy0": {"valid": {"normal"}},
+    "g1": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+        "notes": "Generations. Has radiant collection subset.",
+    },
+
+    # --- Era 7 SM special sets ---
+    "smp": {"valid": {"normal", "holofoil"}},
+    "sma": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Hidden Fates Shiny Vault. All shiny/holo.",
+    },
+    "det1": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Detective Pikachu. No reverse holofoil.",
+    },
+    "mcd18": {"valid": {"normal", "holofoil"}},
+    "mcd19": {"valid": {"normal", "holofoil"}},
+
+    # --- Era 8 SWSH special sets ---
+    "swshp": {"valid": {"normal", "holofoil"}},
+    "swsh35": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Champion's Path. No reverse holofoil.",
+    },
+    "swsh45": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+    },
+    "swsh45sv": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Shining Fates Shiny Vault. All shiny/holo.",
+    },
+    "cel25": {
+        "valid": {"normal", "holofoil"},
+        "notes": "Celebrations. All cards are holofoil (cosmos holo pattern).",
+    },
+    "cel25c": {
+        "valid": {"holofoil"},
+        "notes": "Celebrations Classic Collection. All holofoil reprints.",
+    },
+    "pgo": {
+        "valid": {"normal", "holofoil", "reverse_holofoil"},
+        "notes": "Pokemon GO. Has peelable ditto cards.",
+    },
+    "fut20": {"valid": {"normal", "holofoil"}},
+    "mcd21": {"valid": {"normal", "holofoil"}},
+    "mcd22": {"valid": {"normal", "holofoil"}},
+
+    # Trainer Gallery subsets: special art, no reverse holo.
+    "swsh9tg":     {"valid": {"normal", "holofoil"}},
+    "swsh10tg":    {"valid": {"normal", "holofoil"}},
+    "swsh11tg":    {"valid": {"normal", "holofoil"}},
+    "swsh12tg":    {"valid": {"normal", "holofoil"}},
+    "swsh12pt5":   {"valid": {"normal", "holofoil", "reverse_holofoil"}},
+    "swsh12pt5gg": {"valid": {"normal", "holofoil"}},
+
+    # --- Era 9 SV special sets ---
+    "svp": {"valid": {"normal", "holofoil"}},
+    "sve": {
+        "valid": {"normal"},
+        "notes": "SV basic Energy cards.",
+    },
+
+    # McDonald's promos (various eras): normal + holo only.
+    "mcd11": {"valid": {"normal", "holofoil"}},
+    "mcd12": {"valid": {"normal", "holofoil"}},
+    "mcd14": {"valid": {"normal", "holofoil"}},
+    "mcd15": {"valid": {"normal", "holofoil"}},
+    "mcd16": {"valid": {"normal", "holofoil"}},
+    "mcd17": {"valid": {"normal", "holofoil"}},
+}
+
+
+def get_valid_variants(set_id: str, era: int = 0) -> set[str]:
+    """Return the set of valid variant strings for a given set/era.
+
+    Checks SET_SPECIAL_VARIANTS first for set-specific overrides, then
+    falls back to ERA_VALID_VARIANTS.
+
+    Args:
+        set_id: Set prefix (e.g. "base1", "ex5", "sv3").
+        era: Era number (1-9).  If 0, falls back to all common variants.
+
+    Returns:
+        Set of valid variant strings (e.g. {"normal", "holofoil"}).
+    """
+    if set_id in SET_SPECIAL_VARIANTS:
+        spec = SET_SPECIAL_VARIANTS[set_id]
+        if "valid" in spec:
+            return set(spec["valid"])
+        base = set(ERA_VALID_VARIANTS.get(era, {"normal", "holofoil"}))
+        if "add" in spec:
+            base |= spec["add"]
+        if "remove" in spec:
+            base -= spec["remove"]
+        return base
+
+    return set(ERA_VALID_VARIANTS.get(era, {"normal", "holofoil"}))
+
+
+def is_valid_variant(set_id: str, era: int, variant: str) -> bool:
+    """Check whether a variant is valid for the given set/era.
+
+    Args:
+        set_id: Set prefix (e.g. "base1").
+        era: Era number (1-9).
+        variant: Variant string (e.g. "reverse_holofoil").
+
+    Returns:
+        True if the variant is valid for this set/era.
+    """
+    return variant in get_valid_variants(set_id, era)
+
 
 # ---------------------------------------------------------------------------
 # Region definitions (fractions of card width/height).
@@ -208,11 +621,125 @@ def _holo_score(region_bgr: np.ndarray) -> tuple[float, int, float]:
     return combined, spread, noise
 
 
+def _ocr_stamp_region(stamp_bgr: np.ndarray) -> str:
+    """Run PaddleOCR on the stamp region and return concatenated lowercase text.
+
+    Reuses the PaddleOCR TextDetection/TextRecognition singletons from
+    ocr_matcher to avoid loading separate models.  Upscales small regions
+    for better OCR accuracy.  Returns empty string on any failure.
+    """
+    try:
+        import os
+        os.environ.setdefault('PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK', 'True')
+        from cardprice.ml.ocr_matcher import _paddle_det, _paddle_rec
+        import cardprice.ml.ocr_matcher as _ocr_mod
+
+        # Initialize singletons if needed
+        det = _paddle_det
+        rec = _paddle_rec
+        if det is None or rec is None:
+            from paddleocr import TextDetection, TextRecognition
+            if _ocr_mod._paddle_det is None:
+                _ocr_mod._paddle_det = TextDetection(
+                    model_name='PP-OCRv5_server_det')
+            if _ocr_mod._paddle_rec is None:
+                _ocr_mod._paddle_rec = TextRecognition(
+                    model_name='en_PP-OCRv5_mobile_rec')
+            det = _ocr_mod._paddle_det
+            rec = _ocr_mod._paddle_rec
+
+        # Upscale small regions -- PaddleOCR struggles below ~150px
+        h, w = stamp_bgr.shape[:2]
+        scale = max(1, 150 // max(h, 1))
+        if scale > 1:
+            stamp_up = cv2.resize(stamp_bgr, None, fx=scale, fy=scale,
+                                  interpolation=cv2.INTER_CUBIC)
+        else:
+            stamp_up = stamp_bgr
+
+        # Add padding so text isn't at the edge
+        stamp_up = cv2.copyMakeBorder(stamp_up, 20, 20, 20, 20,
+                                      cv2.BORDER_REPLICATE)
+
+        # Upscale 3x for reliable detection on small stamp text
+        stamp_up = cv2.resize(stamp_up, None, fx=3, fy=3,
+                              interpolation=cv2.INTER_CUBIC)
+
+        # Run detection
+        det_results = list(det.predict(stamp_up))
+        if not det_results or not det_results[0]:
+            return ""
+
+        det_out = det_results[0]
+        polys = det_out.get('dt_polys', [])
+        scores = det_out.get('dt_scores', [])
+
+        texts = []
+        for poly, det_score in zip(polys, scores):
+            if det_score < 0.3:
+                continue
+            pts = np.array(poly, dtype=np.float32)
+            x, y, bw, bh = cv2.boundingRect(pts)
+            text_crop = stamp_up[max(0, y):y + bh, max(0, x):x + bw]
+            if text_crop.size == 0:
+                continue
+            rec_results = list(rec.predict(text_crop))
+            if rec_results and rec_results[0]:
+                text = rec_results[0].get('rec_text', '').strip()
+                conf = float(rec_results[0].get('rec_score', 0.0))
+                if text and conf > 0.3:
+                    texts.append(text)
+
+        return " ".join(texts).lower()
+    except Exception as e:
+        logger.debug("PaddleOCR stamp check failed: %s", e)
+        return ""
+
+
+def _has_dark_circular_blob(stamp_bgr: np.ndarray) -> bool:
+    """Check if the stamp region contains a dark circular blob consistent
+    with the 1st Edition stamp shape.
+
+    Uses stricter thresholds than a generic contour search:
+    - Circularity >= 0.65 (real stamp is quite round)
+    - Area between 3% and 30% of the region
+    """
+    try:
+        gray = cv2.cvtColor(stamp_bgr, cv2.COLOR_BGR2GRAY)
+        _, dark_mask = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        h_stamp, w_stamp = stamp_bgr.shape[:2]
+        min_area = h_stamp * w_stamp * 0.03
+        max_area = h_stamp * w_stamp * 0.30
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if min_area < area < max_area:
+                perimeter = cv2.arcLength(cnt, True)
+                if perimeter == 0:
+                    continue
+                circularity = 4 * np.pi * area / (perimeter ** 2)
+                if circularity > 0.65:
+                    logger.debug("Dark circular blob found "
+                                 "(area=%.0f, circ=%.2f)", area, circularity)
+                    return True
+    except Exception as e:
+        logger.debug("Contour-based blob check failed: %s", e)
+    return False
+
+
 def _check_1st_edition(img_bgr: np.ndarray) -> bool:
-    """Check for 1st Edition stamp using OCR or template matching.
+    """Check for 1st Edition stamp using OCR and contour analysis.
 
     The 1st Edition stamp appears as a small black "1" inside a circle with
     "EDITION" text, located on the left side just below the artwork.
+
+    Detection strategy:
+    1. OCR the stamp region with PaddleOCR -- if "1st" or "edition" is found,
+       return True immediately (high confidence).
+    2. Look for a dark circular blob AND require at least partial OCR evidence
+       (a "1" digit anywhere in the text) to confirm.  A blob alone is not
+       sufficient -- too many false positives from card artwork and shadows.
 
     Returns True if a 1st Edition indicator is found.
     """
@@ -221,52 +748,16 @@ def _check_1st_edition(img_bgr: np.ndarray) -> bool:
     if stamp_region.size == 0:
         return False
 
-    # Strategy 1: Try pytesseract OCR if available
-    try:
-        import pytesseract
+    # Strategy 1: OCR the stamp region
+    ocr_text = _ocr_stamp_region(stamp_region)
+    if "1st" in ocr_text or "edition" in ocr_text:
+        logger.debug("1st Edition detected via OCR: %r", ocr_text)
+        return True
 
-        gray = cv2.cvtColor(stamp_region, cv2.COLOR_BGR2GRAY)
-        # Resize up for better OCR accuracy on small regions
-        scale = max(1, 100 // max(gray.shape[0], 1))
-        if scale > 1:
-            gray = cv2.resize(gray, None, fx=scale, fy=scale,
-                              interpolation=cv2.INTER_CUBIC)
-        # Adaptive threshold to handle varied lighting
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY, 11, 2)
-
-        text = pytesseract.image_to_string(binary, config="--psm 7").strip()
-        text_lower = text.lower()
-        if "1st" in text_lower or "edition" in text_lower:
-            logger.debug("1st Edition detected via OCR: %r", text)
-            return True
-    except ImportError:
-        logger.debug("pytesseract not available, skipping OCR-based check")
-    except Exception as e:
-        logger.debug("OCR check failed: %s", e)
-
-    # Strategy 2: Look for the dark circular stamp shape
-    try:
-        gray = cv2.cvtColor(stamp_region, cv2.COLOR_BGR2GRAY)
-        _, dark_mask = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
-        contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_SIMPLE)
-        h_stamp, w_stamp = stamp_region.shape[:2]
-        min_area = h_stamp * w_stamp * 0.02
-        max_area = h_stamp * w_stamp * 0.40
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if min_area < area < max_area:
-                perimeter = cv2.arcLength(cnt, True)
-                if perimeter == 0:
-                    continue
-                circularity = 4 * np.pi * area / (perimeter ** 2)
-                if circularity > 0.5:
-                    logger.debug("1st Edition stamp candidate found "
-                                 "(area=%.0f, circ=%.2f)", area, circularity)
-                    return True
-    except Exception as e:
-        logger.debug("Contour-based 1st Edition check failed: %s", e)
+    # Strategy 2: Dark circular blob + partial OCR evidence ("1" in text)
+    if _has_dark_circular_blob(stamp_region) and "1" in ocr_text:
+        logger.debug("1st Edition detected via blob + '1' in OCR: %r", ocr_text)
+        return True
 
     return False
 

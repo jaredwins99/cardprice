@@ -119,6 +119,80 @@ def _cache_store(file_hash, result):
         _scan_cache.popitem(last=False)
 
 
+# ---------------------------------------------------------------------------
+# Era-to-variant allowlists for variant gating
+# ---------------------------------------------------------------------------
+_ERA_VARIANT_ALLOWED = {
+    1: {"normal", "holofoil", "1st_edition"},          # WotC
+    2: {"normal", "holofoil", "reverse_holofoil"},     # EX onwards
+    3: {"normal", "holofoil", "reverse_holofoil"},
+    4: {"normal", "holofoil", "reverse_holofoil"},
+    5: {"normal", "holofoil", "reverse_holofoil"},
+    6: {"normal", "holofoil", "reverse_holofoil"},
+    7: {"normal", "holofoil", "reverse_holofoil"},
+    8: {"normal", "holofoil", "reverse_holofoil"},
+    9: {"normal", "holofoil", "reverse_holofoil"},
+}
+
+
+def _apply_variant_detection(result, image_path):
+    """Apply variant detection to a v2 result dict (in-place).
+
+    Detects variant via OpenCV heuristics (~50ms), applies era gating,
+    attempts card_id remapping (currently all DB rows are /normal, so
+    remapping always falls back to original), and stores detection info
+    in the result dict for future use.
+
+    Safe to call on any result -- silently skips if card_id is None or
+    if detection fails for any reason.
+    """
+    card_id = result.get("card_id")
+    if not card_id:
+        return
+
+    try:
+        from cardprice.ml.variant_detector import detect_variant
+        from cardprice.ml.era_detector import get_card_era
+
+        variant = detect_variant(image_path)
+        confidence = 1.0  # placeholder; detect_variant doesn't return confidence
+
+        # Era gating: override to "normal" if variant is invalid for this era
+        era = get_card_era(card_id)
+        allowed = _ERA_VARIANT_ALLOWED.get(era, {"normal", "holofoil", "reverse_holofoil"})
+        if variant not in allowed:
+            logger.debug("variant %s not allowed for era %d, overriding to normal", variant, era)
+            variant = "normal"
+
+        # Attempt card_id remapping (for future when variant rows exist)
+        if variant != "normal":
+            base_id = card_id.rsplit("/", 1)[0]
+            remapped_id = f"{base_id}/{variant}"
+
+            # Check if remapped card_id exists in card_names.json
+            id_exists = False
+            try:
+                _names_path = _PROJECT_ROOT / "data" / "card_names.json"
+                if _names_path.exists():
+                    import json
+                    with open(_names_path) as f:
+                        card_names = json.load(f)
+                    id_exists = remapped_id in card_names
+            except Exception:
+                pass
+
+            if id_exists:
+                result["card_id"] = remapped_id
+                logger.info("variant remap: %s -> %s", card_id, remapped_id)
+            else:
+                logger.debug("variant remap %s not in DB, keeping %s", remapped_id, card_id)
+
+        result["detected_variant"] = variant
+        result["variant_confidence"] = confidence
+    except Exception as e:
+        logger.debug("variant detection failed: %s", e)
+
+
 def identify_card(image_path, session=None, page_context=None):
     """Identify a card using the cascade pipeline.
 
@@ -2712,7 +2786,7 @@ def _try_japanese_ocr(image_path: str) -> str | None:
         if _jp_easyocr_reader is None:
             _jp_easyocr_reader = easyocr.Reader(['ja', 'en'], gpu=True, verbose=False)
         reader = _jp_easyocr_reader
-        results = reader.readtext(tmp_path, detail=1)
+        results = reader.readtext(tmp_path, detail=1, batch_size=8)
 
         for _bbox, text, conf in results:
             # Check for Japanese characters
@@ -3109,6 +3183,44 @@ def _score_candidates_combined(
     return results
 
 
+def _is_card_back(image_path: str) -> bool:
+    """Detect Pokemon card backs via HSV blue-dominance check.
+
+    Card backs are uniformly blue (HSV hue ~100-130, medium+ saturation)
+    across both the center AND the edges.  Card fronts -- even blue Water-type
+    cards like Lapras -- have yellow/tan borders that keep edge blue ratio low.
+
+    Requires: >40% overall blue AND >70% blue in the outer edge strips.
+    """
+    try:
+        import cv2
+        import numpy as np
+        img = cv2.imread(image_path)
+        if img is None:
+            return False
+        h, w = img.shape[:2]
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        blue = (hsv[:, :, 0] > 90) & (hsv[:, :, 0] < 130) & (hsv[:, :, 1] > 50)
+        overall = float(np.mean(blue))
+        if overall < 0.40:
+            return False
+
+        # Check outer 10% edge strips -- card backs are blue edge-to-edge
+        eh, ew = int(h * 0.10), int(w * 0.10)
+        edge_pixels = np.concatenate([
+            blue[:eh, :].ravel(), blue[-eh:, :].ravel(),
+            blue[:, :ew].ravel(), blue[:, -ew:].ravel(),
+        ])
+        edge_ratio = float(np.mean(edge_pixels))
+        logger.debug("card_back: overall=%.3f edge=%.3f for %s",
+                      overall, edge_ratio, image_path)
+        return edge_ratio > 0.70
+    except Exception as e:
+        logger.warning("card_back check failed: %s", e)
+        return False
+
+
 def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=None,
                      _precomputed_dino_embedding=None, _precomputed_attacks=None,
                      _precomputed_clip_embedding=None, _precomputed_easyocr_name=None):
@@ -3163,6 +3275,24 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     except Exception:
         file_hash = None
         cache_key = None
+
+    # -----------------------------------------------------------------------
+    # Step 0: Card-back detection (reject before any expensive processing)
+    # -----------------------------------------------------------------------
+    if _is_card_back(image_path):
+        result = {
+            "card_id": None,
+            "confidence": 0.95,
+            "method": "v2_card_back",
+            "explanation": "Detected Pokemon card back (blue background with Pokeball)",
+            "raw_response": {},
+        }
+        if cache_key:
+            _scan_cache[cache_key] = result
+            if len(_scan_cache) > _SCAN_CACHE_MAX:
+                _scan_cache.popitem(last=False)
+        logger.info("v2: card back detected for %s", image_path)
+        return result
 
     # -----------------------------------------------------------------------
     # Step 1: Run cheap classifiers in parallel
@@ -3261,6 +3391,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         "dino_sanity": dino_score,
                     },
                 }
+                _apply_variant_detection(result, image_path)
                 _cache_store(cache_key, result)
                 return result
             else:
@@ -3315,6 +3446,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         logger.info("v2: ref_match dino=%.3f < 0.60, will also try attack path",
                                     best_detail['dino_score'])
                     else:
+                        _apply_variant_detection(ref_match_result, image_path)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                 else:
@@ -3434,6 +3566,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     if best_alt:
         logger.info("v2: %s (%.3f) > ensemble (%.3f)",
                      best_alt["method"], best_alt_conf, fallback_conf)
+        _apply_variant_detection(best_alt, image_path)
         _cache_store(cache_key, best_alt)
         return best_alt
 
@@ -3455,6 +3588,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     }
     fallback["raw_response"] = raw
 
+    _apply_variant_detection(fallback, image_path)
     _cache_store(cache_key, fallback)
     return fallback
 
@@ -3505,6 +3639,18 @@ def identify_page_v2(card_image_paths, session=None):
     if not card_image_paths:
         return []
 
+    # -------------------------------------------------------------------
+    # Limit OpenMP/MKL threads to reduce CPU over-subscription.
+    # With 3 parallel threads each running ML inference (PaddleOCR,
+    # EasyOCR, DINOv2/CLIP), uncapped OpenMP defaults (8-16 threads)
+    # cause 3×16=48 threads fighting over ~16 cores.  Capping at 4
+    # gives 3×4=12 threads, well within core count.
+    # setdefault() respects any user-set override.
+    # -------------------------------------------------------------------
+    os.environ.setdefault("OMP_NUM_THREADS", "4")
+    os.environ.setdefault("MKL_NUM_THREADS", "4")
+    os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
+
     n_cards = len(card_image_paths)
     logger.info("identify_page_v2: processing %d cards", n_cards)
 
@@ -3526,7 +3672,6 @@ def identify_page_v2(card_image_paths, session=None):
     # issues when multiple threads try to import torchvision simultaneously.
     from cardprice.ml.attack_ocr import extract_attack_names as _extract_attacks
     from cardprice.ml.dino_matcher import extract_embedding_batch as _extract_batch
-    from cardprice.ml.clip_matcher import extract_image_embedding_batch as _extract_clip_batch
     from cardprice.ml.preprocess import preprocess_for_matching as _preprocess
 
     t_precomp_start = _time.time()
@@ -3588,11 +3733,8 @@ def identify_page_v2(card_image_paths, session=None):
             dino_embeddings[i] = emb
         t_dino = _time.time() - t0
 
-        # CLIP batch (CPU) — uses original paths, not preprocessed
-        str_paths = [str(p) for p in card_image_paths]
-        c_embs = _extract_clip_batch(str_paths)
-        for i, emb in enumerate(c_embs):
-            clip_embeddings[i] = emb
+        # CLIP batch skipped — lazy-loaded only if ensemble tiebreaker fires
+        # (CLIP contributes 0 unique correct IDs; loading it here causes heap corruption)
 
         for tmp in preproc_temps:
             if tmp:

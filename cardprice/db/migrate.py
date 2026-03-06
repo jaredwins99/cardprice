@@ -228,6 +228,69 @@ CREATE TABLE IF NOT EXISTS dim_smogon_usage (
     fetched_at      TIMESTAMPTZ DEFAULT now(),
     UNIQUE(pokemon_name, format)
 );
+
+-- ============================================================
+-- Phase 3: Card condition assessment / grading
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS condition_scans (
+    scan_id         SERIAL PRIMARY KEY,
+    card_id         TEXT NOT NULL REFERENCES dim_cards(card_id),
+    inventory_id    INTEGER REFERENCES user_inventory(id),
+    overall_grade   REAL,
+    tcg_condition   TEXT CHECK (tcg_condition IN ('NM', 'LP', 'MP', 'HP', 'DMG')),
+    confidence      REAL,
+    grade_ci_low    REAL,
+    grade_ci_high   REAL,
+    model_version   TEXT,
+    raw_output      JSONB,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cond_scans_card ON condition_scans(card_id);
+CREATE INDEX IF NOT EXISTS idx_cond_scans_inventory ON condition_scans(inventory_id);
+CREATE INDEX IF NOT EXISTS idx_cond_scans_grade ON condition_scans(overall_grade);
+
+CREATE TABLE IF NOT EXISTS condition_images (
+    image_id        SERIAL PRIMARY KEY,
+    scan_id         INTEGER REFERENCES condition_scans(scan_id) ON DELETE CASCADE,
+    angle_type      TEXT CHECK (angle_type IN (
+                        'front', 'back',
+                        'oblique_front', 'oblique_back',
+                        'edge_top', 'edge_bottom', 'edge_left', 'edge_right',
+                        'corner_tl', 'corner_tr', 'corner_bl', 'corner_br'
+                    )),
+    image_path      TEXT NOT NULL,
+    image_quality   REAL,
+    resolution_w    INTEGER,
+    resolution_h    INTEGER,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cond_images_scan ON condition_images(scan_id);
+
+CREATE TABLE IF NOT EXISTS condition_scores (
+    score_id        SERIAL PRIMARY KEY,
+    scan_id         INTEGER REFERENCES condition_scans(scan_id) ON DELETE CASCADE,
+    category        TEXT CHECK (category IN ('centering', 'corners', 'edges', 'surface')),
+    score           REAL NOT NULL,
+    confidence      REAL,
+    defects         JSONB,
+    source_images   INTEGER[],
+    UNIQUE(scan_id, category)
+);
+CREATE INDEX IF NOT EXISTS idx_cond_scores_scan ON condition_scores(scan_id);
+
+CREATE TABLE IF NOT EXISTS condition_calibration (
+    id              SERIAL PRIMARY KEY,
+    scan_id         INTEGER REFERENCES condition_scans(scan_id),
+    grade_authority TEXT CHECK (grade_authority IN ('PSA', 'BGS', 'CGC')),
+    actual_grade    REAL NOT NULL,
+    actual_subgrades JSONB,
+    cert_number     TEXT,
+    predicted_grade REAL,
+    UNIQUE(scan_id, grade_authority)
+);
+CREATE INDEX IF NOT EXISTS idx_cond_calib_scan ON condition_calibration(scan_id);
+CREATE INDEX IF NOT EXISTS idx_cond_calib_cert ON condition_calibration(cert_number);
 """
 
 

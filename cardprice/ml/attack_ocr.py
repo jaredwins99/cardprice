@@ -24,6 +24,9 @@ import logging
 import pickle
 import re
 from difflib import SequenceMatcher
+
+from rapidfuzz import fuzz as _rfuzz
+from rapidfuzz import process as _rprocess
 from pathlib import Path
 from typing import Any
 
@@ -345,7 +348,7 @@ def extract_attack_names(
 
     # Run EasyOCR
     reader = _get_reader()
-    results = reader.readtext(processed, detail=1, paragraph=False)
+    results = reader.readtext(processed, detail=1, paragraph=False, batch_size=8)
 
     if not results:
         return []
@@ -456,19 +459,25 @@ def fuzzy_match_attacks(
             # Multi-word OCR fragments: try multi-word attacks first
             search_attacks = multiword_attacks if multiword_attacks else known_attacks
 
-        for attack in search_attacks:
-            score = _fuzzy_ratio(ocr_text, attack)
-            if score > best_score:
-                best_score = score
-                best_attack = attack
+        result = _rprocess.extractOne(
+            ocr_text.lower().strip(), search_attacks,
+            scorer=_rfuzz.ratio,
+            score_cutoff=effective_threshold * 100,
+            processor=lambda s: s.lower().strip(),
+        )
+        if result:
+            best_attack, best_score = result[0], result[1] / 100.0
 
         # Fallback to all attacks if no good match in filtered set
         if best_score < effective_threshold and search_attacks is not known_attacks:
-            for attack in known_attacks:
-                score = _fuzzy_ratio(ocr_text, attack)
-                if score > best_score:
-                    best_score = score
-                    best_attack = attack
+            result2 = _rprocess.extractOne(
+                ocr_text.lower().strip(), known_attacks,
+                scorer=_rfuzz.ratio,
+                score_cutoff=effective_threshold * 100,
+                processor=lambda s: s.lower().strip(),
+            )
+            if result2 and result2[1] / 100.0 > best_score:
+                best_attack, best_score = result2[0], result2[1] / 100.0
 
         if best_attack and best_score >= effective_threshold:
             # Keep the best-scoring OCR fragment for each attack
