@@ -625,6 +625,10 @@ def fuzzy_match_attacks(
     best_per_attack: dict[str, tuple[str, float]] = {}
 
     for raw_ocr_text, ocr_conf in ngram_candidates:
+        # Skip low-confidence OCR fragments — garbled text (e.g. Japanese
+        # misread as Latin) produces false fuzzy matches against real attacks.
+        if ocr_conf < 0.40:
+            continue
         # Strip trailing damage numbers that OCR merged with attack name
         # e.g. "Bite 20" -> "Bite", "Slash 30+" -> "Slash"
         ocr_text = re.sub(r'\s*\d{1,3}[+x]?\s*$', '', raw_ocr_text).strip()
@@ -639,7 +643,12 @@ def fuzzy_match_attacks(
         # and only match single-word attacks (prevents "Call" -> "recall")
         effective_threshold = threshold
         search_attacks = known_attacks
-        if word_count == 1 and len(ocr_text) <= 6:
+        if word_count == 1 and len(ocr_text) <= 3:
+            # Very short fragments need exact match — "Cut" is only 3 chars,
+            # fuzzy ratio("cunt","cut")=85% is a false match.
+            search_attacks = [a for a in known_attacks if " " not in a]
+            effective_threshold = 1.0
+        elif word_count == 1 and len(ocr_text) <= 6:
             search_attacks = [a for a in known_attacks if " " not in a]
             effective_threshold = max(threshold, 0.80)
         elif word_count >= 2:

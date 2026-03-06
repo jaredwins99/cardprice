@@ -3649,7 +3649,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                                     page_era, len(era_matched), len(atk_candidate_ids))
                         atk_candidate_ids = era_matched
 
-                era_filtered = page_era and len(atk_candidate_ids) < 50
+                # Track whether era filtering actually reduced the set
+                era_filtered = page_era and len(atk_candidate_ids) < len(atk_results[:50])
                 combined_results = _score_candidates_combined(image_path, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
                 if combined_results:
                     best_cid, best_score, best_detail = combined_results[0]
@@ -4126,6 +4127,13 @@ def identify_page_v2(card_image_paths, session=None):
             orig_era = _era_for_set(_extract_set_id(result.get("card_id", ""))) if result.get("card_id") else None
             era_improved = rerun_era == loo_era and orig_era != loo_era
             conf_improved = rerun.get("confidence", 0) > result["confidence"]
+            # Don't accept re-run from wrong era — attack fallback can pick
+            # wrong-era cards via garbled OCR fuzzy matches.
+            rerun_wrong_era = rerun_era is not None and rerun_era != loo_era
+            if rerun_wrong_era:
+                logger.info("identify_page_v2 pass3: card %d rejecting rerun %s (era %s != page %s)",
+                            i, rerun.get("card_id"), rerun_era, loo_era)
+                continue
             if conf_improved or (era_improved and rerun.get("confidence", 0) >= 0.40):
                 old_cid = result.get("card_id")
                 results[i] = rerun
