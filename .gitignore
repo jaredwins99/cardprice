@@ -84,6 +84,9 @@ scripts/debug_*.py
 METRICS_TABLE.txt
 QUICK_REFERENCE.txt
 CLIP_ANALYSIS.txt
+YOLO_*.md
+TYPE_DETECTOR_*.txt
+data/tcgcsv_orphan_products.json
 
 # Keep specific data files needed for tests/runtime
 !data/card_names.json
