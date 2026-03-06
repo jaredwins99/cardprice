@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
 _ocr_lock = threading.Lock()
 _jp_easyocr_reader = None  # Cached Japanese EasyOCR reader (slow to init)
 
+# Thread lock for GPU operations (DINOv2/CLIP forward passes)
+
+# Persistent process pool for parallel card identification
+_card_pool = None
+_card_pool_lock = threading.Lock()
+
 # In-memory LRU cache for identify_card results, keyed by md5 of file contents.
 _scan_cache: OrderedDict = OrderedDict()
 _SCAN_CACHE_MAX = 100
@@ -967,7 +973,7 @@ _ENSEMBLE_BOOST_FACTOR = 0.10           # bonus for appearing in both top-10 lis
 _ENSEMBLE_MIN_ACCEPT = 0.55             # minimum ensemble score to accept
 
 
-def _run_dino(image_path: str) -> list[tuple[str, float]]:
+def _run_dino(image_path: str, query_embedding=None) -> list[tuple[str, float]]:
     """Run DINOv2 identification, returning normalized (card_id, score) top-10.
 
     Applies CLAHE + glare removal preprocessing when available, matching
@@ -979,14 +985,16 @@ def _run_dino(image_path: str) -> list[tuple[str, float]]:
         return []
     query_path = image_path
     preproc_tmp = None
+    if query_embedding is None:
+        try:
+            from cardprice.ml.preprocess import preprocess_for_matching
+            preproc_tmp = preprocess_for_matching(image_path)
+            query_path = preproc_tmp
+        except Exception:
+            pass
     try:
-        from cardprice.ml.preprocess import preprocess_for_matching
-        preproc_tmp = preprocess_for_matching(image_path)
-        query_path = preproc_tmp
-    except Exception:
-        pass
-    try:
-        matches = dino_identify(query_path, faiss_index=dino_idx, card_ids_list=dino_cids, top_k=10)
+        matches = dino_identify(query_path, faiss_index=dino_idx, card_ids_list=dino_cids,
+                                top_k=10, query_embedding=query_embedding)
         return [(_normalize_card_id(cid), score) for cid, score in matches]
     finally:
         if preproc_tmp:
@@ -996,17 +1004,20 @@ def _run_dino(image_path: str) -> list[tuple[str, float]]:
                 pass
 
 
-def _run_clip(image_path: str) -> list[tuple[str, float]]:
+def _run_clip(image_path: str, query_embedding=None) -> list[tuple[str, float]]:
     """Run CLIP image-to-image identification, returning normalized (card_id, score) top-10."""
     from cardprice.ml.clip_matcher import identify_card_by_image
     clip_idx = _get_clip_image_index()
     if clip_idx is None:
         return []
-    matches = identify_card_by_image(image_path, preloaded_index=clip_idx, top_k=10)
+    matches = identify_card_by_image(image_path, preloaded_index=clip_idx, top_k=10,
+                                     query_embedding=query_embedding)
     return [(_normalize_card_id(cid), score) for cid, score in matches]
 
 
-def identify_card_ensemble(image_path, session=None, page_context=None):
+def identify_card_ensemble(image_path, session=None, page_context=None,
+                           _dino_embedding=None, _clip_embedding=None,
+                           _precomputed_ocr_name=None):
     """Identify a card using DINOv2 + CLIP ensemble voting.
 
     Runs both methods in parallel, then combines their results:
@@ -1017,6 +1028,8 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
     3. Cards appearing in both lists get a score boost
     4. If both top-1 agree, assign high confidence regardless of individual scores
     5. If they disagree, use the method with higher relative margin (top1 - top2)
+
+    When _dino_embedding and _clip_embedding are provided, no GPU is needed.
 
     Returns dict with keys: card_id, confidence, method, explanation, raw_response.
     """
@@ -1037,8 +1050,8 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = {
-            pool.submit(_run_dino, image_path): "dino",
-            pool.submit(_run_clip, image_path): "clip",
+            pool.submit(_run_dino, image_path, query_embedding=_dino_embedding): "dino",
+            pool.submit(_run_clip, image_path, query_embedding=_clip_embedding): "clip",
         }
         for future in as_completed(futures):
             method = futures[future]
@@ -1247,18 +1260,20 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
         return result
 
     # Neither top-1 in overlap -- try OCR tiebreaker before falling back to margin.
-    # OCR reads the card name and checks if it matches either method's top-1 card.
-    # If only one matches, that method wins regardless of margin.
+    # Uses pre-computed PaddleOCR name when available (zero cost), otherwise
+    # falls back to EasyOCR extract_card_name (~5s).
     ocr_override = None
     try:
-        from cardprice.ml.ocr_matcher import extract_card_name, _clean_ocr_text, fuzzy_match_card_name
-        ocr_text, ocr_conf = extract_card_name(image_path)
-        ocr_cleaned = _clean_ocr_text(ocr_text)
-        logger.info("Ensemble OCR tiebreaker: raw=%r cleaned=%r conf=%.2f",
-                     ocr_text, ocr_cleaned, ocr_conf)
+        ocr_cleaned = None
+        if _precomputed_ocr_name:
+            ocr_cleaned = _precomputed_ocr_name
+        else:
+            from cardprice.ml.ocr_matcher import extract_card_name, _clean_ocr_text
+            ocr_text, ocr_conf = extract_card_name(image_path)
+            ocr_cleaned = _clean_ocr_text(ocr_text)
+        logger.info("Ensemble OCR tiebreaker: name=%r", ocr_cleaned)
 
         if ocr_cleaned and len(ocr_cleaned) >= 2:
-            # Look up the card names for both candidates from the DB
             from cardprice.ml.ocr_matcher import _load_card_names
             card_names = _load_card_names()
             card_name_lookup = {cid: name for cid, name, _sid in card_names}
@@ -1266,7 +1281,6 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
             dino_name = card_name_lookup.get(dino_top1_id, "")
             clip_name = card_name_lookup.get(clip_top1_id, "")
 
-            # Fuzzy match OCR text against each candidate's name
             from rapidfuzz import fuzz
             dino_fuzzy = fuzz.token_set_ratio(ocr_cleaned.lower(), dino_name.lower()) if dino_name else 0
             clip_fuzzy = fuzz.token_set_ratio(ocr_cleaned.lower(), clip_name.lower()) if clip_name else 0
@@ -1275,10 +1289,7 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
                          dino_top1_id, dino_name, dino_fuzzy,
                          clip_top1_id, clip_name, clip_fuzzy)
 
-            # OCR can help when one name clearly matches and the other doesn't.
-            # Use a threshold: match >= 80, non-match < 70 (gap of 10+ needed).
             OCR_MATCH_THRESH = 80
-            OCR_REJECT_THRESH = 70
             OCR_MIN_GAP = 10
 
             dino_matches_ocr = dino_fuzzy >= OCR_MATCH_THRESH
@@ -1287,35 +1298,14 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
 
             if dino_matches_ocr and not clip_matches_ocr and gap >= OCR_MIN_GAP:
                 ocr_override = "dino"
-                logger.info("Ensemble OCR tiebreaker: OVERRIDE -> dino (OCR matches dino name %r but not clip name %r)",
-                             dino_name, clip_name)
             elif clip_matches_ocr and not dino_matches_ocr and gap >= OCR_MIN_GAP:
                 ocr_override = "clip"
-                logger.info("Ensemble OCR tiebreaker: OVERRIDE -> clip (OCR matches clip name %r but not dino name %r)",
-                             clip_name, dino_name)
-            else:
-                logger.info("Ensemble OCR tiebreaker: no override (both_match=%s/%s, gap=%d)",
-                             dino_matches_ocr, clip_matches_ocr, gap)
 
             result["raw_response"]["ocr_text"] = ocr_cleaned
-            result["raw_response"]["ocr_dino_fuzzy"] = dino_fuzzy
-            result["raw_response"]["ocr_clip_fuzzy"] = clip_fuzzy
             result["raw_response"]["ocr_override"] = ocr_override
-    except ImportError as e:
-        logger.info("Ensemble OCR tiebreaker: SKIPPED -- missing dependency: %s", e)
     except Exception as e:
         logger.warning("Ensemble OCR tiebreaker: ERROR -- %s", e)
 
-    # Use OCR override if available, otherwise fall back to margin decision.
-    # However, when margins are very close (within 0.02 of each other),
-    # prefer the method with the higher absolute score.  This prevents
-    # a tiny margin advantage from overriding a far more confident score.
-    #
-    # CRITICAL FIX: When one method's score is below its acceptance threshold,
-    # do not let it win via margin. DINOv2 at 0.62 with margin 0.039 should
-    # NOT override CLIP at 0.83 with margin 0.006 — the DINOv2 result is
-    # essentially noise. (See card_07 Suicune bug: CLIP had correct answer
-    # at rank 1 but DINOv2's margin overrode it with Kabutops.)
     DINO_ACCEPT_THRESHOLD = 0.65
     CLIP_ACCEPT_THRESHOLD = 0.75
     if ocr_override is not None:
@@ -1325,22 +1315,15 @@ def identify_card_ensemble(image_path, session=None, page_context=None):
         dino_below = dino_top1_score < DINO_ACCEPT_THRESHOLD
         clip_below = clip_top1_score < CLIP_ACCEPT_THRESHOLD
         if dino_below and not clip_below:
-            # CLIP scores 0.78-0.82 on wrong cards (semantic matching),
-            # so high CLIP score does NOT mean correct card.  DINOv2 is
-            # better at exact visual matching even with lower raw scores.
-            # Prefer DINOv2 when they disagree — was 0/3 trusting CLIP here.
             use_dino = True
             decision_reason = "confidence_gate"
         elif clip_below and not dino_below:
-            # CLIP score is noise — trust DINOv2 regardless of margin
             use_dino = True
             decision_reason = "confidence_gate"
         elif dino_below and clip_below:
-            # Both below threshold — pick the higher absolute score
             use_dino = dino_top1_score >= clip_top1_score
             decision_reason = "both_low"
         else:
-            # Both above threshold — use margin tiebreaker
             margin_diff = abs(dino_margin - clip_margin)
             if margin_diff < 0.02:
                 use_dino = dino_top1_score >= clip_top1_score
@@ -2297,11 +2280,383 @@ def _run_color_detect(image_path: str) -> tuple:
     return None, 0.0
 
 
+def _run_name_and_hp(image_path: str) -> tuple:
+    """Run a SINGLE PaddleOCR pass to extract both name and HP from a card.
+
+    Crops the top 25% of the card, upscales 3x with unsharp mask, and runs
+    PaddleOCR detection + recognition once.  Then splits the detected text
+    regions into name candidates (left/large) and HP candidates (right side,
+    numeric pattern).
+
+    Returns (cleaned_name, name_conf, raw_text, hp_value) or
+            (None, 0.0, None, None).
+
+    Uses thread lock since PaddleOCR models are not thread-safe.
+    """
+    with _ocr_lock:
+        try:
+            name, conf, raw, hp = _paddle_ocr_name_and_hp(image_path)
+            if name and len(name) >= 2:
+                return name, conf, raw, hp
+            # PaddleOCR found HP but no name -- still return HP
+            if hp is not None:
+                # Try Japanese OCR fallback for the name
+                try:
+                    jp_name = _try_japanese_ocr(image_path)
+                    if jp_name:
+                        return jp_name, 0.70, f"[JP]{jp_name}", hp
+                except Exception as e:
+                    logger.debug("v2 japanese_ocr failed: %s", e)
+                return None, 0.0, None, hp
+        except Exception as e:
+            logger.warning("v2 name_and_hp failed: %s", e)
+
+        # Japanese OCR fallback: if English OCR found nothing,
+        # try reading Japanese text and mapping to English name.
+        try:
+            jp_name = _try_japanese_ocr(image_path)
+            if jp_name:
+                return jp_name, 0.70, f"[JP]{jp_name}", None
+        except Exception as e:
+            logger.debug("v2 japanese_ocr failed: %s", e)
+
+    return None, 0.0, None, None
+
+
+def _paddle_ocr_name_and_hp(image_path: str):
+    """Single PaddleOCR pass on top 25% of card to extract name + HP.
+
+    Reuses the same PaddleOCR detection/recognition singletons and
+    preprocessing as _paddle_ocr_name(), but also extracts HP from the
+    right-side text regions instead of requiring a separate EasyOCR call.
+
+    Returns (matched_name, confidence, raw_ocr_text, hp_value).
+    Any field may be None if not detected.
+    """
+    import cv2
+    import re
+    import numpy as np
+    from pathlib import Path
+    from rapidfuzz import fuzz, process
+    from cardprice.ml.ocr_matcher import (
+        _paddle_det, _paddle_rec, _paddle_ocr_name,
+        _unsharp_mask_ocr, _clean_name_ocr,
+        _load_unique_pokemon_names,
+    )
+    from cardprice.ml.hp_detector import _parse_hp_from_texts, _is_valid_hp
+    from cardprice.ml.preprocess import upscale_for_ocr
+
+    # Ensure PaddleOCR singletons are initialized
+    import os
+    from cardprice.ml.ocr_matcher import _paddle_det as pd, _paddle_rec as pr
+    if pd is None:
+        os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+        from paddleocr import TextDetection, TextRecognition
+        import cardprice.ml.ocr_matcher as _ocr_mod
+        _ocr_mod._paddle_det = TextDetection(model_name='PP-OCRv5_server_det')
+        _ocr_mod._paddle_rec = TextRecognition(model_name='en_PP-OCRv5_mobile_rec')
+
+    from cardprice.ml.ocr_matcher import _paddle_det as det_model, _paddle_rec as rec_model
+
+    img = cv2.imread(str(image_path))
+    if img is None:
+        return None, 0.0, None, None
+
+    h, w = img.shape[:2]
+
+    # ------------------------------------------------------------------
+    # Run PaddleOCR on multiple crop regions of top 25%
+    # Collect ALL detected text regions with their bounding box positions
+    # ------------------------------------------------------------------
+    _NON_NAME_WORDS = {"stage", "basic", "hp", "stage i", "stage ii",
+                       "stage 1", "stage 2", "trainer", "supporter",
+                       "pokemon", "item", "energy", "stage i pokemon",
+                       "stage ii pokemon"}
+
+    # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, method)
+    all_detections = []
+
+    crop_specs = [
+        (0.00, 0.15, 0.05, 0.95, "top15"),
+        (0.00, 0.20, 0.05, 0.95, "top20"),
+        (0.00, 0.25, 0.03, 0.97, "top25"),
+        (0.03, 0.18, 0.05, 0.95, "skip3"),
+    ]
+
+    found_good_name = False
+
+    for top_frac, bot_frac, left_frac, right_frac, label in crop_specs:
+        y1 = int(h * top_frac)
+        y2 = int(h * bot_frac)
+        x1 = int(w * left_frac)
+        x2 = int(w * right_frac)
+        crop = img[y1:y2, x1:x2]
+        crop_h, crop_w = crop.shape[:2]
+
+        # Pad so text isn't at the very edge
+        pad = 30
+        crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+        crop = _unsharp_mask_ocr(crop)
+        crop_up = upscale_for_ocr(crop, scale=3)
+
+        det_results = list(det_model.predict(crop_up))
+        if not det_results or not det_results[0]:
+            continue
+        det_out = det_results[0]
+        polys = det_out.get('dt_polys', [])
+        scores = det_out.get('dt_scores', [])
+
+        up_h, up_w = crop_up.shape[:2]
+
+        for poly, det_score in zip(polys, scores):
+            if det_score < 0.3:
+                continue
+            pts = np.array(poly, dtype=np.float32)
+            x, y, bw, bh = cv2.boundingRect(pts)
+            text_crop = crop_up[max(0, y):y + bh, max(0, x):x + bw]
+            if text_crop.size == 0:
+                continue
+            rec_results = list(rec_model.predict(text_crop))
+            if not rec_results or not rec_results[0]:
+                continue
+            text = rec_results[0].get('rec_text', '').strip()
+            conf = float(rec_results[0].get('rec_score', 0.0))
+            if not text or len(text) < 2 or conf < 0.3:
+                continue
+
+            # Compute position as fraction of the crop region
+            # (account for the padding we added)
+            cx = (x + bw / 2 - pad * 3) / (crop_w * 3)  # 3x upscale
+            cy = (y + bh / 2 - pad * 3) / (crop_h * 3)
+            text_w_frac = bw / (crop_w * 3)
+
+            # Map x position back to full card width fraction
+            card_x_frac = left_frac + cx * (right_frac - left_frac)
+
+            all_detections.append((text, conf, card_x_frac, cy, text_w_frac, label))
+
+        # Early exit if we found a high-confidence name
+        if any(c > 0.8 and sum(1 for ch in t if ch.isalpha()) >= 3
+               and t.strip().lower() not in _NON_NAME_WORDS
+               for t, c, _, _, _, _ in all_detections):
+            found_good_name = True
+            break
+
+    # ------------------------------------------------------------------
+    # CLAHE grayscale fallback on top 25% if no good detections
+    # ------------------------------------------------------------------
+    if not any(c > 0.5 for _, c, _, _, _, _ in all_detections):
+        y2 = int(h * 0.25)
+        x1_clahe = int(w * 0.03)
+        x2_clahe = int(w * 0.97)
+        crop = img[0:y2, x1_clahe:x2_clahe]
+        crop_h, crop_w = crop.shape[:2]
+        pad = 30
+        crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+        crop_up = upscale_for_ocr(crop, scale=3)
+        gray = cv2.cvtColor(crop_up, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+
+        det_results = list(det_model.predict(enhanced_bgr))
+        if det_results and det_results[0]:
+            det_out = det_results[0]
+            polys = det_out.get('dt_polys', [])
+            scores = det_out.get('dt_scores', [])
+            up_h, up_w = enhanced_bgr.shape[:2]
+            for poly, det_score in zip(polys, scores):
+                if det_score < 0.3:
+                    continue
+                pts = np.array(poly, dtype=np.float32)
+                x, y, bw, bh = cv2.boundingRect(pts)
+                text_crop = enhanced_bgr[max(0, y):y + bh, max(0, x):x + bw]
+                if text_crop.size == 0:
+                    continue
+                rec_results = list(rec_model.predict(text_crop))
+                if not rec_results or not rec_results[0]:
+                    continue
+                text = rec_results[0].get('rec_text', '').strip()
+                conf = float(rec_results[0].get('rec_score', 0.0))
+                if not text or len(text) < 2 or conf < 0.3:
+                    continue
+                cx = (x + bw / 2 - pad * 3) / (crop_w * 3)
+                card_x_frac = 0.03 + cx * 0.94
+                text_w_frac = bw / (crop_w * 3)
+                all_detections.append((text, conf, card_x_frac, 0.5, text_w_frac, "clahe25"))
+
+    if not all_detections:
+        return None, 0.0, None, None
+
+    # ------------------------------------------------------------------
+    # Split detections into NAME candidates and HP candidates
+    # ------------------------------------------------------------------
+    # HP candidates: text on the right side (card_x > 0.50) matching
+    #   digits + "HP" or just digits in HP range
+    hp_value = None
+    hp_texts = []
+    name_raw_candidates = []
+
+    for text, conf, card_x, cy, text_w, label in all_detections:
+        text_upper = text.upper().strip()
+
+        # Check if this looks like an HP value
+        is_hp_candidate = False
+
+        # Explicit HP pattern anywhere in text
+        hp_match = re.search(r'HP\s*(\d{2,3})', text_upper)
+        if not hp_match:
+            hp_match = re.search(r'(\d{2,3})\s*HP', text_upper)
+        if hp_match:
+            is_hp_candidate = True
+            hp_texts.append((text, conf))
+
+        # Pure numeric on right side of card (x > 0.50)
+        digits_only = re.fullmatch(r'\d{2,3}', text.strip())
+        if digits_only and card_x > 0.50:
+            val = int(text.strip())
+            if _is_valid_hp(val):
+                is_hp_candidate = True
+                hp_texts.append((text, conf))
+
+        # Also check for "HP" near a number with OCR noise
+        from cardprice.ml.hp_detector import _normalize_ocr_digits
+        norm = _normalize_ocr_digits(text_upper)
+        hp_match_norm = re.search(r'HP\s*(\d{2,3})', norm)
+        if not hp_match_norm:
+            hp_match_norm = re.search(r'(\d{2,3})\s*HP', norm)
+        if hp_match_norm and not is_hp_candidate:
+            is_hp_candidate = True
+            hp_texts.append((text, conf))
+
+        # Name candidates: text that is NOT purely HP, on left/center,
+        # or wider text regions (the name is the largest text)
+        # Include even HP-region text as name candidate if it has alpha chars
+        alpha_count = sum(1 for c in text if c.isalpha())
+        if alpha_count >= 2:
+            name_raw_candidates.append((text, conf, label))
+
+    # Parse HP from collected HP-region texts
+    if hp_texts:
+        hp_value = _parse_hp_from_texts(hp_texts)
+
+    # ------------------------------------------------------------------
+    # Fuzzy-match name candidates (same logic as detect_pokemon_name)
+    # ------------------------------------------------------------------
+    # Clean and filter
+    name_candidates = []
+    for text, conf, method in name_raw_candidates:
+        cleaned = _clean_name_ocr(text)
+        if not cleaned or len(cleaned) < 3:
+            continue
+        alpha_count = sum(1 for c in cleaned if c.isalpha())
+        if alpha_count / len(cleaned) < 0.7:
+            continue
+        # Skip non-name words
+        if cleaned.lower() in _NON_NAME_WORDS:
+            continue
+        name_candidates.append((cleaned, conf, method))
+
+    if not name_candidates:
+        # Relaxed filter
+        for text, conf, method in name_raw_candidates:
+            cleaned = _clean_name_ocr(text)
+            if cleaned and len(cleaned) >= 2:
+                if cleaned.lower() not in _NON_NAME_WORDS:
+                    name_candidates.append((cleaned, conf, method))
+
+    if not name_candidates:
+        return None, 0.0, None, hp_value
+
+    # Deduplicate
+    seen = set()
+    deduped = []
+    for cleaned, conf, method in name_candidates:
+        key = cleaned.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append((cleaned, conf, method))
+
+    # Fuzzy match against Pokemon names DB
+    unique_names = _load_unique_pokemon_names()
+    name_list_lower = [n.lower() for n in unique_names]
+    lower_to_original = {n.lower(): n for n in unique_names}
+
+    _OCR_CONFUSIONS = {
+        'y': 'x', 'x': 'y', 'l': 'i', 'i': 'l',
+        'u': 'v', 'v': 'u', 'o': 'c', 'c': 'o',
+        'n': 'h', 'h': 'n', 'rn': 'm', 'm': 'rn', 'd': 'cl',
+    }
+
+    best_match = None
+    best_score = 0.0
+    best_ocr_text = ""
+
+    for cleaned, ocr_conf, method in deduped:
+        query = cleaned.lower()
+        if ocr_conf < 0.15 and len(cleaned) < 5:
+            continue
+
+        queries = [query]
+        for old_char, new_char in _OCR_CONFUSIONS.items():
+            if old_char in query:
+                alt = query.replace(old_char, new_char, 1)
+                if alt != query:
+                    queries.append(alt)
+
+        best_for_this = None
+        for q in queries:
+            if q in lower_to_original:
+                match_name = lower_to_original[q]
+                score = 100.0
+                if best_for_this is None or score > best_for_this[1]:
+                    best_for_this = (match_name, score)
+                continue
+            m = process.extractOne(q, name_list_lower, scorer=fuzz.ratio, score_cutoff=60.0)
+            if m is not None:
+                matched_lower, score, _idx = m
+                mn = lower_to_original[matched_lower]
+                if len(q) == len(matched_lower):
+                    score = min(100.0, score + 3.0)
+                if best_for_this is None or score > best_for_this[1]:
+                    best_for_this = (mn, score)
+
+        if best_for_this is None:
+            matches = process.extractOne(query, name_list_lower, scorer=fuzz.partial_ratio, score_cutoff=85.0)
+            if matches is not None:
+                matched_lower, score, _idx = matches
+                score = score * 0.85
+                best_for_this = (lower_to_original[matched_lower], score)
+
+        if best_for_this is None:
+            continue
+
+        match_name, score = best_for_this
+        if len(cleaned) <= 3 and score < 90:
+            continue
+        if len(cleaned) <= 4 and score < 75 and ocr_conf < 0.4:
+            continue
+
+        combined = score * 0.8 + min(ocr_conf, 1.0) * 100.0 * 0.2
+        if combined > best_score:
+            best_score = combined
+            best_match = match_name
+            best_ocr_text = cleaned
+
+    if best_match is None or best_score / 100.0 < 0.65:
+        return None, 0.0, None, hp_value
+
+    confidence = min(1.0, best_score / 100.0)
+    return best_match, confidence, best_ocr_text, hp_value
+
+
 def _run_name_ocr(image_path: str) -> tuple:
     """Run OCR to extract the Pokemon name from a card image.
 
     Returns (cleaned_name, confidence, raw_text) or (None, 0.0, None).
     Uses thread lock since PaddleOCR/EasyOCR models are not thread-safe.
+
+    DEPRECATED: Use _run_name_and_hp() instead for combined name+HP in one pass.
     """
     with _ocr_lock:
         try:
@@ -2355,7 +2710,7 @@ def _try_japanese_ocr(image_path: str) -> str | None:
         import easyocr
         global _jp_easyocr_reader
         if _jp_easyocr_reader is None:
-            _jp_easyocr_reader = easyocr.Reader(['ja', 'en'], gpu=False, verbose=False)
+            _jp_easyocr_reader = easyocr.Reader(['ja', 'en'], gpu=True, verbose=False)
         reader = _jp_easyocr_reader
         results = reader.readtext(tmp_path, detail=1)
 
@@ -2585,6 +2940,7 @@ def _filter_candidates_by_attacks(
 def _dino_dot_product_against_refs(
     image_path: str,
     candidate_card_ids: list,
+    query_embedding=None,
 ) -> list:
     """Compute DINOv2 dot product between query image and reference images.
 
@@ -2614,18 +2970,21 @@ def _dino_dot_product_against_refs(
         return []
 
     # Preprocess query image for DINOv2 (CLAHE + glare removal)
+    # Skip if we already have a pre-computed embedding
     query_path = image_path
     preproc_tmp = None
-    try:
-        from cardprice.ml.preprocess import preprocess_for_matching
-        preproc_tmp = preprocess_for_matching(image_path)
-        query_path = preproc_tmp
-    except Exception:
-        pass
+    if query_embedding is None:
+        try:
+            from cardprice.ml.preprocess import preprocess_for_matching
+            preproc_tmp = preprocess_for_matching(image_path)
+            query_path = preproc_tmp
+        except Exception:
+            pass
 
     try:
         similarities = compute_embedding_similarity(
             query_path, ref_paths, ref_card_ids,
+            query_embedding=query_embedding,
         )
 
         # Pair up and sort
@@ -2652,6 +3011,8 @@ def _dino_dot_product_against_refs(
 def _score_candidates_combined(
     image_path: str,
     candidate_card_ids: list,
+    query_embedding=None,
+    precomputed_attacks=None,
 ) -> list[tuple[str, float, dict]]:
     """Score candidates using both DINOv2 visual similarity and attack OCR overlap.
 
@@ -2660,17 +3021,21 @@ def _score_candidates_combined(
     """
     from cardprice.ml.attack_ocr import extract_attack_names, _load_attack_index
 
-    dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids)
+    dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids, query_embedding=query_embedding)
     if not dino_results:
         return []
     dino_scores = {cid: score for cid, score in dino_results}
 
-    # Attack OCR
-    ocr_candidates = []
-    try:
-        ocr_candidates = extract_attack_names(image_path)
-    except Exception as e:
-        logger.warning("v2 combined: attack OCR failed: %s", e)
+    # Attack OCR — use pre-computed if available, else run under lock
+    if precomputed_attacks is not None:
+        ocr_candidates = precomputed_attacks
+    else:
+        ocr_candidates = []
+        try:
+            with _ocr_lock:
+                ocr_candidates = extract_attack_names(image_path)
+        except Exception as e:
+            logger.warning("v2 combined: attack OCR failed: %s", e)
 
     detected_attacks = [text.lower().strip() for text, _conf in ocr_candidates if text]
 
@@ -2744,7 +3109,9 @@ def _score_candidates_combined(
     return results
 
 
-def identify_card_v2(image_path, session=None, page_era=None):
+def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=None,
+                     _precomputed_dino_embedding=None, _precomputed_attacks=None,
+                     _precomputed_clip_embedding=None, _precomputed_easyocr_name=None):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -2765,6 +3132,13 @@ def identify_card_v2(image_path, session=None, page_era=None):
         session: Optional SQLAlchemy DB session.
         page_era: Optional era string (e.g. "ex", "e-card") from page context.
             Used to filter attack fallback candidates.
+        _precomputed_ocr: Optional dict with pre-computed OCR results from
+            batch processing. Keys: ocr_name, ocr_conf, ocr_raw, hp_value,
+            color_type, color_conf.  When provided, Step 1 is skipped entirely.
+        _precomputed_dino_embedding: Optional pre-computed DINOv2 query embedding.
+            When provided, skips GPU DINOv2 extraction (used for batch processing).
+        _precomputed_attacks: Optional pre-computed attack OCR results.
+            When provided, skips EasyOCR attack extraction.
 
     Returns:
         Dict with keys: card_id, confidence, method, explanation, raw_response.
@@ -2793,6 +3167,8 @@ def identify_card_v2(image_path, session=None, page_era=None):
     # -----------------------------------------------------------------------
     # Step 1: Run cheap classifiers in parallel
     # -----------------------------------------------------------------------
+    # Name OCR + HP detection share a single PaddleOCR pass on the top 25%
+    # of the card (~3s saved vs separate PaddleOCR + EasyOCR calls).
     color_type = None
     color_conf = 0.0
     ocr_name = None
@@ -2800,25 +3176,28 @@ def identify_card_v2(image_path, session=None, page_era=None):
     ocr_raw = None
     hp_value = None
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        color_future = pool.submit(_run_color_detect, image_path)
-        name_future = pool.submit(_run_name_ocr, image_path)
-        hp_future = pool.submit(_run_hp_detect, image_path)
+    if _precomputed_ocr:
+        # Use pre-computed OCR results from batch processing
+        ocr_name = _precomputed_ocr.get("ocr_name")
+        ocr_conf = _precomputed_ocr.get("ocr_conf", 0.0)
+        ocr_raw = _precomputed_ocr.get("ocr_raw")
+        hp_value = _precomputed_ocr.get("hp_value")
+        color_type = _precomputed_ocr.get("color_type")
+        color_conf = _precomputed_ocr.get("color_conf", 0.0)
+    else:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            color_future = pool.submit(_run_color_detect, image_path)
+            name_hp_future = pool.submit(_run_name_and_hp, image_path)
 
-        try:
-            color_type, color_conf = color_future.result(timeout=10)
-        except Exception as e:
-            logger.warning("v2 step1: color_detect error: %s", e)
+            try:
+                color_type, color_conf = color_future.result(timeout=10)
+            except Exception as e:
+                logger.warning("v2 step1: color_detect error: %s", e)
 
-        try:
-            ocr_name, ocr_conf, ocr_raw = name_future.result(timeout=30)
-        except Exception as e:
-            logger.warning("v2 step1: name_ocr error: %s", e)
-
-        try:
-            hp_value = hp_future.result(timeout=10)
-        except Exception as e:
-            logger.warning("v2 step1: hp_detect error: %s", e)
+            try:
+                ocr_name, ocr_conf, ocr_raw, hp_value = name_hp_future.result(timeout=30)
+            except Exception as e:
+                logger.warning("v2 step1: name_and_hp error: %s", e)
 
     # Reject partial OCR names (< 3 chars) — they create bad candidate sets.
     # e.g. "tty" for Skitty, "ch" for Trapinch match wrong cards.
@@ -2862,7 +3241,7 @@ def identify_card_v2(image_path, session=None, page_era=None):
         # Single candidate: quick DINOv2 sanity check
         if len(candidates) == 1:
             only_cid = candidates[0]
-            dino_check = _dino_dot_product_against_refs(image_path, [only_cid])
+            dino_check = _dino_dot_product_against_refs(image_path, [only_cid], query_embedding=_precomputed_dino_embedding)
             dino_score = dino_check[0][1] if dino_check else 0.0
 
             if dino_score >= 0.30:
@@ -2890,7 +3269,7 @@ def identify_card_v2(image_path, session=None, page_era=None):
 
         # Multiple candidates: combined DINOv2 + attack scoring
         elif len(candidates) >= 2:
-            combined_results = _score_candidates_combined(image_path, candidates)
+            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks)
             if combined_results:
                 best_cid, best_score, best_detail = combined_results[0]
                 alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
@@ -2953,7 +3332,11 @@ def identify_card_v2(image_path, session=None, page_era=None):
         logger.info("v2 step5: no OCR name, trying attack-based identification")
         try:
             from cardprice.ml.attack_ocr import identify_by_attacks
-            atk_results = identify_by_attacks(image_path)
+            if _precomputed_attacks is not None:
+                atk_results = identify_by_attacks(image_path, precomputed_ocr_candidates=_precomputed_attacks)
+            else:
+                with _ocr_lock:
+                    atk_results = identify_by_attacks(image_path)
             if atk_results:
                 atk_candidate_ids = [cid for cid, _s in atk_results[:50]]
 
@@ -2974,7 +3357,7 @@ def identify_card_v2(image_path, session=None, page_era=None):
                         atk_candidate_ids = era_matched
 
                 era_filtered = page_era and len(atk_candidate_ids) < 50
-                combined_results = _score_candidates_combined(image_path, atk_candidate_ids)
+                combined_results = _score_candidates_combined(image_path, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks)
                 if combined_results:
                     best_cid, best_score, best_detail = combined_results[0]
                     # Boost confidence when era filtering significantly reduced
@@ -3028,7 +3411,9 @@ def identify_card_v2(image_path, session=None, page_era=None):
         "v2 step6: running ensemble (ocr_name=%r, candidates=%d)",
         ocr_name, len(candidates),
     )
-    fallback = identify_card_ensemble(image_path, session=session)
+    fallback = identify_card_ensemble(image_path, session=session,
+                                      _dino_embedding=_precomputed_dino_embedding,
+                                      _clip_embedding=_precomputed_clip_embedding)
     fallback_conf = fallback.get("confidence", 0.0)
 
     # Pick best among ref_match_result (if pending), attack_result, and ensemble.
@@ -3074,6 +3459,30 @@ def identify_card_v2(image_path, session=None, page_era=None):
     return fallback
 
 
+def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None):
+    """Worker function for ProcessPoolExecutor — runs in a separate process.
+
+    Each process loads its own OCR models (PaddleOCR, EasyOCR).
+    DINOv2 embedding is pre-computed and passed in as a list (for pickling),
+    so no GPU is needed in workers.
+    """
+    import numpy as np
+    try:
+        dino_emb = np.array(dino_embedding_list, dtype=np.float32) if dino_embedding_list else None
+        return identify_card_v2(
+            image_path, session=None,
+            _precomputed_ocr=precomputed_ocr,
+            _precomputed_dino_embedding=dino_emb,
+        )
+    except Exception as e:
+        return {
+            "card_id": None, "confidence": 0.0,
+            "method": "v2_error",
+            "explanation": f"Worker error: {e}",
+            "raw_response": {},
+        }
+
+
 def identify_page_v2(card_image_paths, session=None):
     """V2 page identification: runs identify_card_v2 on each card, then
     applies page context reranking for low-confidence results.
@@ -3100,21 +3509,147 @@ def identify_page_v2(card_image_paths, session=None):
     logger.info("identify_page_v2: processing %d cards", n_cards)
 
     # -----------------------------------------------------------------------
-    # Pass 1: Run identify_card_v2 sequentially (PaddleOCR is not thread-safe)
+    # Pass 1a: Batch pre-compute ALL expensive operations in parallel.
+    #
+    # Three concurrent threads, each running a different engine:
+    #   Thread 1: PaddleOCR — name + HP + color for all cards (sequential per card)
+    #   Thread 2: EasyOCR  — attack names for all cards (sequential per card)
+    #   Thread 3: DINOv2   — batch GPU embedding for all cards (single pass)
+    #
+    # PaddleOCR and EasyOCR are different engines with separate models,
+    # so they can safely run in parallel threads. Each engine processes
+    # cards sequentially within its thread.
     # -----------------------------------------------------------------------
+    import time as _time
+
+    # Eagerly import modules that threads will use to avoid circular import
+    # issues when multiple threads try to import torchvision simultaneously.
+    from cardprice.ml.attack_ocr import extract_attack_names as _extract_attacks
+    from cardprice.ml.dino_matcher import extract_embedding_batch as _extract_batch
+    from cardprice.ml.clip_matcher import extract_image_embedding_batch as _extract_clip_batch
+    from cardprice.ml.preprocess import preprocess_for_matching as _preprocess
+
+    t_precomp_start = _time.time()
+
+    precomputed = [None] * n_cards
+    attack_results = [[] for _ in range(n_cards)]
+    dino_embeddings = [None] * n_cards
+    clip_embeddings = [None] * n_cards
+
+    def _batch_name_ocr():
+        """Thread 1: PaddleOCR name + HP + color for all cards."""
+        t0 = _time.time()
+        for i, path in enumerate(card_image_paths):
+            ocr_data = {}
+            try:
+                name, conf, raw, hp = _run_name_and_hp(str(path))
+                ocr_data["ocr_name"] = name
+                ocr_data["ocr_conf"] = conf
+                ocr_data["ocr_raw"] = raw
+                ocr_data["hp_value"] = hp
+            except Exception as e:
+                logger.warning("identify_page_v2: OCR card %d failed: %s", i, e)
+            try:
+                ctype, cconf = _run_color_detect(str(path))
+                ocr_data["color_type"] = ctype
+                ocr_data["color_conf"] = cconf
+            except Exception as e:
+                logger.warning("identify_page_v2: color card %d failed: %s", i, e)
+            precomputed[i] = ocr_data
+        logger.info("identify_page_v2: PaddleOCR thread done in %.1fs", _time.time()-t0)
+
+    def _batch_attack_ocr():
+        """Thread 2: EasyOCR attack names for all cards."""
+        t0 = _time.time()
+        for i, path in enumerate(card_image_paths):
+            try:
+                attack_results[i] = _extract_attacks(str(path))
+            except Exception as e:
+                logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
+        logger.info("identify_page_v2: EasyOCR thread done in %.1fs", _time.time()-t0)
+
+    def _batch_embeddings():
+        """Thread 3: DINOv2 + CLIP batch embeddings."""
+        t0 = _time.time()
+        preproc_paths = []
+        preproc_temps = []
+        for path in card_image_paths:
+            try:
+                tmp = _preprocess(str(path))
+                preproc_paths.append(tmp)
+                preproc_temps.append(tmp)
+            except Exception:
+                preproc_paths.append(str(path))
+                preproc_temps.append(None)
+
+        # DINOv2 batch (GPU)
+        d_embs = _extract_batch(preproc_paths)
+        for i, emb in enumerate(d_embs):
+            dino_embeddings[i] = emb
+        t_dino = _time.time() - t0
+
+        # CLIP batch (CPU) — uses original paths, not preprocessed
+        str_paths = [str(p) for p in card_image_paths]
+        c_embs = _extract_clip_batch(str_paths)
+        for i, emb in enumerate(c_embs):
+            clip_embeddings[i] = emb
+
+        for tmp in preproc_temps:
+            if tmp:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+        logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
+
+    # Run all three in parallel
+    with ThreadPoolExecutor(max_workers=3) as precomp_pool:
+        f_name = precomp_pool.submit(_batch_name_ocr)
+        f_atk = precomp_pool.submit(_batch_attack_ocr)
+        f_dino = precomp_pool.submit(_batch_embeddings)
+        # Wait for all to complete
+        for f in [f_name, f_atk, f_dino]:
+            f.result()
+
+    t_precomp_total = _time.time() - t_precomp_start
+    logger.info("identify_page_v2: all pre-computation done in %.1fs", t_precomp_total)
+
+    # -----------------------------------------------------------------------
+    # Pass 1b: Run identify_card_v2 for ALL cards in parallel THREADS.
+    # With OCR, attacks, DINOv2 and CLIP embeddings pre-computed, each call
+    # is 100% CPU: DB queries, numpy dot products, fuzzy string matching.
+    # -----------------------------------------------------------------------
+    t_id_start = _time.time()
     results = [None] * n_cards
 
-    for i, path in enumerate(card_image_paths):
+    def _thread_worker(i):
         try:
-            results[i] = identify_card_v2(str(path), session=session)
+            return identify_card_v2(
+                str(card_image_paths[i]),
+                session=None,
+                _precomputed_ocr=precomputed[i],
+                _precomputed_dino_embedding=dino_embeddings[i],
+                _precomputed_attacks=attack_results[i],
+                _precomputed_clip_embedding=clip_embeddings[i],
+            )
         except Exception as e:
             logger.warning("identify_page_v2: card %d failed: %s", i, e)
-            results[i] = {
+            return {
                 "card_id": None, "confidence": 0.0,
                 "method": "v2_error",
                 "explanation": f"identify_card_v2 failed: {e}",
                 "raw_response": {},
             }
+
+    with ThreadPoolExecutor(max_workers=n_cards) as pool:
+        futures = {pool.submit(_thread_worker, i): i for i in range(n_cards)}
+        for fut in as_completed(futures):
+            i = futures[fut]
+            results[i] = fut.result()
+
+    t_id_elapsed = _time.time() - t_id_start
+    logger.info("identify_page_v2: parallel identification done in %.1fs (%.1fs/card)",
+                t_id_elapsed, t_id_elapsed / n_cards)
 
     # -----------------------------------------------------------------------
     # Pass 2: Page context reranking
@@ -3207,6 +3742,7 @@ def identify_page_v2(card_image_paths, session=None):
                 if set_filtered:
                     dino_set_results = _dino_dot_product_against_refs(
                         str(path), set_filtered,
+                        query_embedding=dino_embeddings[i] if dino_embeddings[i] is not None else None,
                     )
                     if dino_set_results and dino_set_results[0][1] >= _V2_FALLBACK_CONFIDENCE:
                         best_cid, best_score = dino_set_results[0]
@@ -3253,7 +3789,13 @@ def identify_page_v2(card_image_paths, session=None):
                 i, method, result["confidence"], loo_era,
             )
             _scan_cache.clear()  # force re-run without cache
-            rerun = identify_card_v2(str(path), session=session, page_era=loo_era)
+            rerun = identify_card_v2(
+                str(path), session=session, page_era=loo_era,
+                _precomputed_ocr=precomputed[i],
+                _precomputed_dino_embedding=dino_embeddings[i],
+                _precomputed_attacks=attack_results[i],
+                _precomputed_clip_embedding=clip_embeddings[i],
+            )
 
             # Accept re-run if: (a) confidence improved, OR (b) the re-run
             # result is from the correct era and original wasn't.

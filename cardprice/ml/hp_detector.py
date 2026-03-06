@@ -58,7 +58,7 @@ def _get_easyocr_reader():
         try:
             import easyocr
             logger.info("Initializing EasyOCR reader (first call, may take a few seconds)...")
-            _easyocr_reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+            _easyocr_reader = easyocr.Reader(["en"], gpu=True, verbose=False)
         except ImportError:
             logger.warning("easyocr not installed; will fall back to pytesseract")
             return None

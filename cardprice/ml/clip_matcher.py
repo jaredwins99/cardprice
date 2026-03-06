@@ -328,12 +328,63 @@ def build_image_index(
 # Image -> image matching
 # ---------------------------------------------------------------------------
 
+def extract_image_embedding(image_path: str) -> np.ndarray:
+    """Extract a CLIP image embedding for a single image.
+
+    Returns an L2-normalized float32 vector of shape (D,).
+    """
+    model, processor = _get_model_and_processor()
+    image = Image.open(image_path).convert("RGB")
+    inputs = processor(images=image, return_tensors="pt")
+    with torch.no_grad():
+        image_features = _extract_image_features(model, **inputs)
+    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    return image_features.cpu().numpy().squeeze().astype(np.float32)
+
+
+def extract_image_embedding_batch(image_paths: list[str]) -> list[np.ndarray]:
+    """Extract CLIP image embeddings for multiple images in a single batch.
+
+    Returns a list of L2-normalized float32 vectors, one per image.
+    """
+    if not image_paths:
+        return []
+
+    model, processor = _get_model_and_processor()
+
+    images = []
+    valid_indices = []
+    for i, p in enumerate(image_paths):
+        try:
+            images.append(Image.open(p).convert("RGB"))
+            valid_indices.append(i)
+        except Exception:
+            logger.warning("CLIP batch: failed to load %s", p)
+
+    if not images:
+        dim = 512  # CLIP ViT-B/32 default
+        return [np.zeros(dim, dtype=np.float32)] * len(image_paths)
+
+    inputs = processor(images=images, return_tensors="pt")
+    with torch.no_grad():
+        image_features = _extract_image_features(model, **inputs)
+    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    vecs = image_features.cpu().numpy().astype(np.float32)
+
+    dim = vecs.shape[1]
+    results = [np.zeros(dim, dtype=np.float32)] * len(image_paths)
+    for j, orig_i in enumerate(valid_indices):
+        results[orig_i] = vecs[j]
+    return results
+
+
 def identify_card_by_image(
     image_path: str,
     index_path: str = "data/clip_image_index.pkl",
     top_k: int = 5,
     *,
     preloaded_index: dict | None = None,
+    query_embedding: np.ndarray | None = None,
 ) -> list[tuple[str, float]]:
     """Identify a card from a photo using CLIP image-to-image matching.
 
@@ -346,6 +397,7 @@ def identify_card_by_image(
         top_k: Number of top matches to return.
         preloaded_index: Pre-loaded index dict with 'card_ids' and 'embeddings'.
             If provided, *index_path* is ignored.
+        query_embedding: Pre-computed CLIP embedding. Skips model inference.
 
     Returns:
         List of (card_id, similarity_score) tuples, sorted descending.
@@ -366,14 +418,16 @@ def identify_card_by_image(
         card_ids = index["card_ids"]
         embeddings = index["embeddings"]  # (N, D)
 
-    model, processor = _get_model_and_processor()
-
-    image = Image.open(image_path).convert("RGB")
-    inputs = processor(images=image, return_tensors="pt")
-    with torch.no_grad():
-        image_features = _extract_image_features(model, **inputs)
-    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-    query = image_features.cpu().numpy().squeeze()  # (D,)
+    if query_embedding is not None:
+        query = query_embedding
+    else:
+        model, processor = _get_model_and_processor()
+        image = Image.open(image_path).convert("RGB")
+        inputs = processor(images=image, return_tensors="pt")
+        with torch.no_grad():
+            image_features = _extract_image_features(model, **inputs)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        query = image_features.cpu().numpy().squeeze()  # (D,)
 
     scores = _cosine_similarity(query, embeddings)
     top_indices = np.argsort(scores)[::-1][:top_k]

@@ -717,7 +717,7 @@ def _ocr_easyocr_all_from_image(image: Image.Image) -> list[tuple[str, float]]:
 
     if _easyocr_reader is None:
         import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
     img_array = np.array(image)
     results = _easyocr_reader.readtext(
@@ -890,7 +890,7 @@ def _ocr_easyocr(image: Image.Image, use_raw: bool = True) -> tuple[str, float]:
 
     if _easyocr_reader is None:
         import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
     img_array = np.array(image)
     results = _easyocr_reader.readtext(img_array, detail=1)
@@ -918,7 +918,7 @@ def _ocr_easyocr_all(image: Image.Image) -> list[tuple[str, float]]:
 
     if _easyocr_reader is None:
         import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
     img_array = np.array(image)
     results = _easyocr_reader.readtext(img_array, detail=1)
@@ -1609,7 +1609,7 @@ def detect_pokemon_name(
         global _easyocr_reader
         if _easyocr_reader is None:
             import easyocr
-            _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+            _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
         for top_pct, bot_pct, left_pct, right_pct, label in crop_specs:
             y1 = int(h * top_pct / 100)
@@ -1657,7 +1657,7 @@ def detect_pokemon_name(
         # Ensure EasyOCR reader for CLAHE fallback
         if _easyocr_reader is None:
             import easyocr
-            _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+            _easyocr_reader = easyocr.Reader(["en"], gpu=True)
 
         results = _easyocr_reader.readtext(
             enhanced, detail=1, paragraph=False,

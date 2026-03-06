@@ -91,6 +91,49 @@ def extract_embedding(image_path: str | Path) -> np.ndarray:
     return vec
 
 
+def extract_embedding_batch(image_paths: list[str | Path]) -> list[np.ndarray]:
+    """Extract 768-dim L2-normalized DINOv2 CLS embeddings for multiple images.
+
+    Batches all images into a single GPU forward pass for efficiency.
+    """
+    if not image_paths:
+        return []
+
+    model, device = _load_model()
+
+    tensors = []
+    valid_indices = []
+    for i, p in enumerate(image_paths):
+        try:
+            img = Image.open(p).convert("RGB")
+            tensors.append(_transform(img))
+            valid_indices.append(i)
+        except Exception:
+            logger.warning("Batch embed: failed to load %s", p)
+
+    if not tensors:
+        return [np.zeros(768, dtype=np.float32)] * len(image_paths)
+
+    batch = torch.stack(tensors).to(device)  # (N, 3, 224, 224)
+
+    with torch.no_grad():
+        embeddings = model(batch)  # (N, 768)
+
+    vecs = embeddings.cpu().numpy().astype(np.float32)  # (N, 768)
+
+    # L2-normalize each
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    vecs /= norms
+
+    # Map back to original indices
+    results = [np.zeros(768, dtype=np.float32)] * len(image_paths)
+    for j, orig_i in enumerate(valid_indices):
+        results[orig_i] = vecs[j]
+
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Reference index building
 # ---------------------------------------------------------------------------
@@ -203,6 +246,7 @@ def identify_card(
     *,
     faiss_index: Optional["faiss.Index"] = None,
     card_ids_list: Optional[list[str]] = None,
+    query_embedding: Optional[np.ndarray] = None,
 ) -> list[tuple[str, float]]:
     """Identify a card by searching the FAISS index for nearest neighbors.
 
@@ -220,6 +264,8 @@ def identify_card(
         Pre-loaded FAISS index. If provided, *index_path* is ignored.
     card_ids_list : list[str], optional
         Pre-loaded card-ID list. If provided, *mapping_path* is ignored.
+    query_embedding : np.ndarray, optional
+        Pre-computed 768-dim L2-normalized embedding. Skips GPU extraction.
 
     Returns
     -------
@@ -240,8 +286,11 @@ def identify_card(
         with open(mapping_path, "rb") as f:
             card_ids = pickle.load(f)
 
-    # Extract query embedding
-    query = extract_embedding(image_path).reshape(1, -1)
+    # Use pre-computed embedding or extract on demand
+    if query_embedding is not None:
+        query = query_embedding.reshape(1, -1)
+    else:
+        query = extract_embedding(image_path).reshape(1, -1)
 
     # Search
     k = min(top_k, index.ntotal)

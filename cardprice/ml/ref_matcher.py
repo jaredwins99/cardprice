@@ -291,6 +291,7 @@ def compute_embedding_similarity(
     query_path: str | Path,
     ref_paths: list[Path],
     ref_card_ids: Optional[list[str]] = None,
+    query_embedding: Optional[np.ndarray] = None,
 ) -> list[float]:
     """Compute DINOv2 cosine similarity between a query image and reference images.
 
@@ -308,6 +309,9 @@ def compute_embedding_similarity(
     ref_card_ids : list[str], optional
         Card IDs corresponding to each ref_path, used to look up pre-computed
         embeddings.  If not provided, embeddings are always computed on the fly.
+    query_embedding : np.ndarray, optional
+        Pre-computed 768-dim L2-normalized DINOv2 embedding for the query image.
+        When provided, skips GPU extraction entirely (used for batch processing).
 
     Returns
     -------
@@ -319,8 +323,11 @@ def compute_embedding_similarity(
     if not ref_paths:
         return []
 
-    # Extract query embedding once
-    query_emb = extract_embedding(query_path)  # (768,), L2-normalized
+    # Use pre-computed embedding or extract on demand
+    if query_embedding is not None:
+        query_emb = query_embedding
+    else:
+        query_emb = extract_embedding(query_path)  # (768,), L2-normalized
 
     # Try to use pre-computed reference embeddings
     precomputed = _load_ref_embeddings()

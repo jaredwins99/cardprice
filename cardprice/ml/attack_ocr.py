@@ -80,7 +80,7 @@ def _get_reader():
     global _easyocr_reader
     if _easyocr_reader is None:
         import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=False)
+        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
     return _easyocr_reader
 
 
@@ -494,6 +494,7 @@ def identify_by_attacks(
     pokemon_name: str | None = None,
     candidate_card_ids: list[str] | None = None,
     fuzzy_threshold: float = 0.60,
+    precomputed_ocr_candidates: list | None = None,
 ) -> list[tuple[str, float]]:
     """Identify a card by OCR-reading its attack names and matching the index.
 
@@ -526,7 +527,7 @@ def identify_by_attacks(
     card_to_atks = idx.get("card_to_attacks", {})
 
     # Step 1-3: Extract attack name candidates from image
-    ocr_candidates = extract_attack_names(image_path)
+    ocr_candidates = precomputed_ocr_candidates if precomputed_ocr_candidates is not None else extract_attack_names(image_path)
     if not ocr_candidates:
         logger.info("No attack candidates extracted from %s", Path(image_path).name)
         return []
