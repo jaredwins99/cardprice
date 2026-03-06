@@ -118,6 +118,13 @@ def cmd_migrate(args):
     run()
 
 
+def cmd_synthesize_variants(args):
+    """Synthesize variant rows in dim_cards from fact_market_prices subtypes."""
+    from cardprice.db.migrate import synthesize_variants
+
+    synthesize_variants()
+
+
 def cmd_mapping(args):
     """Run TCGCSV product-to-card mapping."""
     from cardprice.scrapers.mapping import run_mapping
@@ -887,6 +894,10 @@ def main():
     # migrate
     sub.add_parser("migrate", help="Run DB migrations (create tables)")
 
+    # synthesize-variants
+    sub.add_parser("synthesize-variants",
+                   help="Create variant dim_cards rows from market price subtypes")
+
     # mapping
     sub.add_parser("mapping", help="Run TCGCSV product-to-card mapping")
 
@@ -1024,6 +1035,7 @@ def main():
         "refresh": cmd_refresh,
         "backfill": cmd_backfill,
         "migrate": cmd_migrate,
+        "synthesize-variants": cmd_synthesize_variants,
         "mapping": cmd_mapping,
         "pokeapi": cmd_pokeapi,
         "download-images": cmd_download_images,

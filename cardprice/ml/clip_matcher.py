@@ -38,9 +38,8 @@ def _get_model_and_processor() -> tuple[CLIPModel, CLIPProcessor]:
         _model = CLIPModel.from_pretrained(MODEL_NAME)
         _processor = CLIPProcessor.from_pretrained(MODEL_NAME)
         _model.eval()
-        if torch.cuda.is_available():
-            _model = _model.cuda()
-            logger.info("CLIP model moved to CUDA")
+        # NOTE: CLIP on CUDA causes SIGSEGV when PaddlePaddle is also loaded
+        # in the same process. Keep on CPU.
     return _model, _processor
 
 

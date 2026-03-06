@@ -5,6 +5,9 @@ Variant types:
   - holofoil:        Holographic pattern on the artwork area only
   - reverse_holofoil: Holographic pattern on everything EXCEPT the artwork
   - 1st_edition:     Has a "1st Edition" stamp (left side, below artwork)
+  - full_art:        Artwork extends to card edges, no visible border
+  - gold:            Gold/secret rare -- entire card dominated by gold hue
+  - rainbow_rare:    Rainbow rare -- high saturation across multiple hue peaks
 
 Detection approach (pure OpenCV, no ML models):
 
@@ -32,6 +35,20 @@ Detection approach (pure OpenCV, no ML models):
    A contour-based circular blob check is used as supporting evidence
    but never triggers alone (requires OCR confirmation to avoid false
    positives from card artwork shadows).
+
+4. **Gold / secret rare detection** -- Gold cards have a distinctive gold
+   (HSV hue ~15-45) color scheme dominating >40% of the card surface including
+   the borders.  Rainbow rares have high saturation spread across 4+ of 6 hue
+   segments.  Both are era-gated to era >= 7 (Sun & Moon, 2017+).
+
+5. **Full art detection** -- Full art / alt art cards have artwork extending
+   to the card edges with NO visible border.  Normal cards have a uniform
+   yellow/silver/white border (low saturation, low hue variance) in the
+   outer ~5% strip.  Full art cards show complex, colorful artwork in that
+   same outer strip (high saturation, high hue variance).  We measure both
+   metrics on the four edge strips and compare against thresholds.  Era-gated
+   to eras 5+ (Black & White onward, 2011+) since full arts did not exist
+   before then.
 
 Design notes:
   - Reference card images (data/card_images/) are digital scans with NO holo
@@ -121,10 +138,12 @@ ERA_VALID_VARIANTS: dict[int, set[str]] = {
     },
 
     # Era 5: Black & White (2011-2013)
+    # First era with full art cards (EX full arts).
     5: {
         "normal",
         "holofoil",
         "reverse_holofoil",
+        "full_art",
     },
 
     # Era 6: XY (2014-2016)
@@ -132,29 +151,41 @@ ERA_VALID_VARIANTS: dict[int, set[str]] = {
         "normal",
         "holofoil",
         "reverse_holofoil",
+        "full_art",
     },
 
     # Era 7: Sun & Moon (2017-2019)
+    # Gold/secret rares and rainbow rares introduced in this era.
     7: {
         "normal",
         "holofoil",
         "reverse_holofoil",
+        "gold",
+        "rainbow_rare",
+        "full_art",
     },
 
     # Era 8: Sword & Shield (2020-2022)
+    # Alt art / full art variants common (V, VMAX, VSTAR full arts).
     8: {
         "normal",
         "holofoil",
         "reverse_holofoil",
+        "gold",
+        "rainbow_rare",
+        "full_art",
     },
 
     # Era 9: Scarlet & Violet (2023+)
     # Reverse holofoil rebranded as "cosmos holo" in some sets but same
-    # pricing category.
+    # pricing category.  Alt arts / illustration rares are full art.
     9: {
         "normal",
         "holofoil",
         "reverse_holofoil",
+        "gold",
+        "rainbow_rare",
+        "full_art",
     },
 }
 
@@ -509,6 +540,35 @@ HOLO_COMBINED_THRESHOLD = 60.0
 ART_HOLO_RATIO = 1.3
 BORDER_HOLO_RATIO = 1.2
 
+# ---------------------------------------------------------------------------
+# Full art detection thresholds
+# ---------------------------------------------------------------------------
+# Width of the edge strip as a fraction of image dimensions.
+# 5% captures the border area without reaching into the artwork on normal cards.
+FULL_ART_EDGE_FRAC = 0.05
+
+# Mean saturation of edge pixels.  Normal card borders (yellow/silver/white)
+# have low saturation (typically 20-60).  Full art edges with colorful artwork
+# extending to the border have higher saturation (typically 80+).
+FULL_ART_MEAN_SAT_THRESHOLD = 65.0
+
+# Standard deviation of hue across edge pixels.  Normal card borders have
+# uniform hue (std < 15).  Full art edges with varied artwork have diverse
+# hues (std > 20).
+FULL_ART_HUE_STD_THRESHOLD = 18.0
+
+# Fraction of edge pixels that must exceed MIN_SATURATION to be considered
+# "colorful".  Normal borders: < 30% colorful.  Full art: > 40% colorful.
+FULL_ART_COLORFUL_FRAC_THRESHOLD = 0.35
+
+# Minimum number of the 4 edge strips that must pass the full art test.
+# Requiring 3/4 prevents false positives from cards with one colorful edge
+# (e.g., cards photographed on a colored surface with bleed).
+FULL_ART_MIN_EDGES_PASSING = 3
+
+# Eras where full art cards can exist (Black & White onward).
+FULL_ART_MIN_ERA = 5
+
 
 def _extract_region(img: np.ndarray, x0: float, y0: float,
                     x1: float, y1: float) -> np.ndarray:
@@ -728,6 +788,219 @@ def _has_dark_circular_blob(stamp_bgr: np.ndarray) -> bool:
     return False
 
 
+def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> bool:
+    """Check if a card is full art by analyzing the outer edge strips.
+
+    Full art cards have artwork extending to the card edges -- the outer ~5%
+    of the image contains colorful, varied artwork rather than a uniform
+    yellow/silver/white border.
+
+    We extract the four edge strips (top, bottom, left, right), convert to
+    HSV, and measure:
+      1. Mean saturation -- high for colorful artwork, low for plain borders.
+      2. Hue standard deviation -- high for varied artwork, low for uniform borders.
+      3. Fraction of colorful pixels -- what % of edge pixels are saturated.
+
+    A strip "passes" if at least 2 of the 3 metrics exceed their thresholds.
+    The card is classified as full art if >= 3 of the 4 strips pass.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        era: Era number (1-9).  Full art is era-gated to era >= 5 (BW+).
+             If 0 (unknown), the check runs without era gating.
+
+    Returns:
+        True if the card appears to be full art.
+    """
+    # Era gate: full art cards only exist from Black & White onward.
+    if era != 0 and era < FULL_ART_MIN_ERA:
+        logger.debug("Full art check skipped: era %d < %d", era, FULL_ART_MIN_ERA)
+        return False
+
+    h, w = img_bgr.shape[:2]
+    if h < 50 or w < 50:
+        return False
+
+    edge_h = max(3, int(h * FULL_ART_EDGE_FRAC))
+    edge_w = max(3, int(w * FULL_ART_EDGE_FRAC))
+
+    # Extract the four edge strips
+    strips = {
+        "top":    img_bgr[:edge_h, :, :],
+        "bottom": img_bgr[h - edge_h:, :, :],
+        "left":   img_bgr[:, :edge_w, :],
+        "right":  img_bgr[:, w - edge_w:, :],
+    }
+
+    passing = 0
+    for name, strip in strips.items():
+        if strip.size == 0:
+            continue
+
+        hsv = cv2.cvtColor(strip, cv2.COLOR_BGR2HSV)
+        h_chan = hsv[:, :, 0].astype(np.float32)
+        s_chan = hsv[:, :, 1].astype(np.float32)
+        v_chan = hsv[:, :, 2]
+
+        # Metric 1: mean saturation
+        mean_sat = float(np.mean(s_chan))
+
+        # Metric 2: hue std (only among sufficiently bright pixels to
+        # avoid dark corners skewing the result)
+        bright_mask = v_chan >= MIN_VALUE
+        if np.sum(bright_mask) > 10:
+            hue_std = float(np.std(h_chan[bright_mask]))
+        else:
+            hue_std = 0.0
+
+        # Metric 3: fraction of colorful pixels
+        total_pixels = s_chan.size
+        colorful_count = int(np.sum(s_chan >= MIN_SATURATION))
+        colorful_frac = colorful_count / total_pixels if total_pixels > 0 else 0.0
+
+        # A strip passes if at least 2 of 3 metrics exceed threshold
+        signals = 0
+        if mean_sat >= FULL_ART_MEAN_SAT_THRESHOLD:
+            signals += 1
+        if hue_std >= FULL_ART_HUE_STD_THRESHOLD:
+            signals += 1
+        if colorful_frac >= FULL_ART_COLORFUL_FRAC_THRESHOLD:
+            signals += 1
+
+        strip_pass = signals >= 2
+        if strip_pass:
+            passing += 1
+
+        logger.debug(
+            "Full art %s strip: mean_sat=%.1f, hue_std=%.1f, "
+            "colorful_frac=%.2f, signals=%d, pass=%s",
+            name, mean_sat, hue_std, colorful_frac, signals, strip_pass,
+        )
+
+    is_full_art = passing >= FULL_ART_MIN_EDGES_PASSING
+    logger.debug("Full art check: %d/%d edges passing (need %d), result=%s",
+                 passing, len(strips), FULL_ART_MIN_EDGES_PASSING, is_full_art)
+    return is_full_art
+
+
+
+# ---------------------------------------------------------------------------
+# Shadowless detection (Base Set only)
+# ---------------------------------------------------------------------------
+# Unlimited Base Set cards have a visible drop shadow on the right and bottom
+# edges of the artwork frame -- a 3-5px dark band between the art border and
+# the yellow card border.  Shadowless cards lack this band entirely.
+#
+# Detection: extract a narrow vertical strip along the right edge of the
+# artwork frame, compute the gradient magnitude in the blue channel (best
+# contrast for the dark shadow against yellow border), and use row-by-row
+# median filtering for robustness against noise.
+#
+# Measured reference values:
+#   Unlimited:  combined_gradient 44-112  (strong dark band)
+#   Shadowless: combined_gradient 0-15    (smooth transition)
+#   Threshold:  > 30 = Unlimited (has shadow)
+#
+# Bottom edge gradient is used as a confirmation signal.
+# ---------------------------------------------------------------------------
+
+# Right-edge strip: narrow band straddling the art frame's right border
+_SHADOW_RIGHT_X0 = 0.87   # just inside the art frame right edge
+_SHADOW_RIGHT_X1 = 0.93   # just outside into the border
+_SHADOW_RIGHT_Y0 = 0.15   # skip the top corner
+_SHADOW_RIGHT_Y1 = 0.50   # stop before bottom of art
+
+# Bottom-edge strip: narrow band along the art frame's bottom border
+_SHADOW_BOTTOM_X0 = 0.15
+_SHADOW_BOTTOM_X1 = 0.85
+_SHADOW_BOTTOM_Y0 = 0.53  # just above art frame bottom
+_SHADOW_BOTTOM_Y1 = 0.59  # just below into the border
+
+# Threshold for shadow gradient magnitude
+_SHADOW_GRADIENT_THRESHOLD = 30.0
+
+
+def _edge_gradient_magnitude(strip_bgr: np.ndarray, axis: int = 1) -> float:
+    """Compute median-of-row gradient magnitude in the blue channel.
+
+    Args:
+        strip_bgr: BGR image strip (narrow rectangle along an edge).
+        axis: 1 for horizontal gradient (right edge), 0 for vertical (bottom).
+
+    Returns:
+        Median of per-row (or per-col) max gradient magnitudes.
+        Higher values indicate a sharp dark-to-light transition (shadow).
+    """
+    if strip_bgr.size == 0:
+        return 0.0
+
+    # Blue channel has best contrast for dark shadow against yellow border
+    blue = strip_bgr[:, :, 0].astype(np.float32)
+
+    if axis == 1:
+        # Horizontal gradient (right edge shadow runs vertically)
+        grad = np.abs(np.diff(blue, axis=1))
+        if grad.size == 0:
+            return 0.0
+        # Max gradient per row, then median across rows for robustness
+        row_maxes = np.max(grad, axis=1)
+        return float(np.median(row_maxes))
+    else:
+        # Vertical gradient (bottom edge shadow runs horizontally)
+        grad = np.abs(np.diff(blue, axis=0))
+        if grad.size == 0:
+            return 0.0
+        col_maxes = np.max(grad, axis=0)
+        return float(np.median(col_maxes))
+
+
+def _check_shadowless(img_bgr: np.ndarray) -> bool | None:
+    """Detect whether a Base Set card is Shadowless or Unlimited.
+
+    Analyses the right and bottom edges of the artwork frame for the
+    characteristic drop shadow present on Unlimited prints.
+
+    Returns:
+        True  -- card is Shadowless (no shadow detected)
+        False -- card is Unlimited (shadow detected)
+        None  -- inconclusive (image too small or edge region invalid)
+    """
+    h, w = img_bgr.shape[:2]
+    if h < 100 or w < 100:
+        logger.debug("Image too small for shadowless detection: %dx%d", w, h)
+        return None
+
+    # Extract right-edge strip
+    right_strip = _extract_region(
+        img_bgr, _SHADOW_RIGHT_X0, _SHADOW_RIGHT_Y0,
+        _SHADOW_RIGHT_X1, _SHADOW_RIGHT_Y1,
+    )
+    right_grad = _edge_gradient_magnitude(right_strip, axis=1)
+
+    # Extract bottom-edge strip
+    bottom_strip = _extract_region(
+        img_bgr, _SHADOW_BOTTOM_X0, _SHADOW_BOTTOM_Y0,
+        _SHADOW_BOTTOM_X1, _SHADOW_BOTTOM_Y1,
+    )
+    bottom_grad = _edge_gradient_magnitude(bottom_strip, axis=0)
+
+    # Combined: weighted average (right is primary signal, bottom confirms)
+    combined = (right_grad * 0.7) + (bottom_grad * 0.3)
+
+    logger.debug(
+        "Shadow detection -- right_grad=%.1f, bottom_grad=%.1f, combined=%.1f "
+        "(threshold=%.1f)",
+        right_grad, bottom_grad, combined, _SHADOW_GRADIENT_THRESHOLD,
+    )
+
+    if combined > _SHADOW_GRADIENT_THRESHOLD:
+        logger.debug("Shadow detected -> Unlimited")
+        return False  # has shadow = Unlimited
+    else:
+        logger.debug("No shadow detected -> Shadowless")
+        return True   # no shadow = Shadowless
+
+
 def _check_1st_edition(img_bgr: np.ndarray) -> bool:
     """Check for 1st Edition stamp using OCR and contour analysis.
 
@@ -762,33 +1035,231 @@ def _check_1st_edition(img_bgr: np.ndarray) -> bool:
     return False
 
 
-def detect_variant(image_path: str | Path) -> str:
+# ---------------------------------------------------------------------------
+# Gold / Secret Rare and Rainbow Rare detection
+# ---------------------------------------------------------------------------
+# Gold/secret rare cards have a distinctive gold color scheme that dominates
+# the entire card (border, text areas, and often artwork background).  The
+# gold hue sits in the ~15-45 range in OpenCV HSV (yellow-gold).
+#
+# Rainbow rare cards have high saturation across multiple distinct hue peaks,
+# producing a visible rainbow gradient across the card surface.
+#
+# Both types only exist in modern eras (Sun & Moon onwards, era >= 7).
+# ---------------------------------------------------------------------------
+
+# Gold hue range in OpenCV HSV (0-180 scale)
+GOLD_HUE_LOW = 15
+GOLD_HUE_HIGH = 45
+
+# Minimum fraction of card pixels in the gold hue range to classify as gold.
+# Gold cards have the gold tint across the majority of the card surface.
+GOLD_COVERAGE_THRESHOLD = 0.40
+
+# Minimum saturation for gold pixels (gold is saturated, not washed out)
+GOLD_MIN_SATURATION = 40
+
+# Minimum brightness for gold pixels (gold is bright, not dark)
+GOLD_MIN_VALUE = 80
+
+# Minimum gold coverage on the border strips specifically.  Gold cards have
+# distinctively gold borders unlike any normal card.
+GOLD_BORDER_THRESHOLD = 0.50
+
+# Rainbow rare: minimum number of distinct hue segments (out of 6) with
+# significant pixel count.  Rainbow rares span most of the hue wheel.
+RAINBOW_MIN_PEAKS = 4
+
+# Rainbow rare: minimum fraction of pixels at high saturation
+RAINBOW_MIN_SAT_COVERAGE = 0.35
+
+# Minimum era for gold/rainbow rare detection
+GOLD_RAINBOW_MIN_ERA = 7
+
+
+def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> str | None:
+    """Detect gold/secret rare or rainbow rare cards from HSV color analysis.
+
+    Gold cards have a dominant yellow-gold hue (HSV hue ~15-45) across the
+    majority of the card surface, including borders and text areas.
+
+    Rainbow rare cards have high saturation spread across many different hues,
+    producing a visible rainbow gradient.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        era: Era number.  Gold/rainbow rares only exist in era >= 7.
+             If era < 7 and era != 0, returns None immediately.
+
+    Returns:
+        "gold" if gold/secret rare detected,
+        "rainbow_rare" if rainbow rare detected,
+        None if neither detected.
+    """
+    # Only applicable for modern era cards (Sun & Moon onwards)
+    if era != 0 and era < GOLD_RAINBOW_MIN_ERA:
+        return None
+
+    h_img, w_img = img_bgr.shape[:2]
+    if h_img < 50 or w_img < 50:
+        return None
+
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    h_chan = hsv[:, :, 0]
+    s_chan = hsv[:, :, 1]
+    v_chan = hsv[:, :, 2]
+
+    total_pixels = h_img * w_img
+
+    # --- Gold detection ---
+    # Find pixels with gold hue + sufficient saturation + brightness
+    gold_mask = (
+        (h_chan >= GOLD_HUE_LOW) & (h_chan <= GOLD_HUE_HIGH)
+        & (s_chan >= GOLD_MIN_SATURATION)
+        & (v_chan >= GOLD_MIN_VALUE)
+    )
+    gold_count = int(np.count_nonzero(gold_mask))
+    gold_coverage = gold_count / total_pixels
+
+    # Check the border strips specifically -- gold cards have gold borders
+    # which is very distinctive (normal cards have grey/white/yellow borders
+    # but at low saturation).
+    border_regions_hsv = [
+        _extract_region(hsv, 0.0, 0.0, 1.0, 0.08),    # top
+        _extract_region(hsv, 0.0, 0.92, 1.0, 1.0),     # bottom
+        _extract_region(hsv, 0.0, 0.08, 0.08, 0.92),    # left
+        _extract_region(hsv, 0.92, 0.08, 1.0, 0.92),    # right
+    ]
+
+    border_gold_pixels = 0
+    border_total_pixels = 0
+    for region in border_regions_hsv:
+        if region.size == 0:
+            continue
+        bh, bs, bv = region[:, :, 0], region[:, :, 1], region[:, :, 2]
+        b_gold = (
+            (bh >= GOLD_HUE_LOW) & (bh <= GOLD_HUE_HIGH)
+            & (bs >= GOLD_MIN_SATURATION)
+            & (bv >= GOLD_MIN_VALUE)
+        )
+        border_gold_pixels += int(np.count_nonzero(b_gold))
+        border_total_pixels += region.shape[0] * region.shape[1]
+
+    border_gold_coverage = (
+        border_gold_pixels / border_total_pixels
+        if border_total_pixels > 0 else 0.0
+    )
+
+    logger.debug(
+        "Gold check: overall_coverage=%.3f, border_coverage=%.3f",
+        gold_coverage, border_gold_coverage,
+    )
+
+    # Gold card: high gold coverage overall AND strong gold borders
+    if (gold_coverage >= GOLD_COVERAGE_THRESHOLD
+            and border_gold_coverage >= GOLD_BORDER_THRESHOLD):
+        logger.info(
+            "Detected gold/secret rare (coverage=%.2f, border=%.2f)",
+            gold_coverage, border_gold_coverage,
+        )
+        return "gold"
+
+    # --- Rainbow rare detection ---
+    # Rainbow rares have high saturation across multiple distinct hue ranges.
+    # We divide the hue space into 6 segments of 30 degrees each and check
+    # how many segments have significant representation among saturated pixels.
+    sat_mask = (s_chan >= 60) & (v_chan >= MIN_VALUE)
+    sat_pixels = h_chan[sat_mask]
+    sat_coverage = len(sat_pixels) / total_pixels
+
+    if sat_coverage >= RAINBOW_MIN_SAT_COVERAGE and len(sat_pixels) >= 100:
+        # 6 hue segments: 0-30, 30-60, 60-90, 90-120, 120-150, 150-180
+        segment_counts = np.zeros(6, dtype=int)
+        for i in range(6):
+            lo = i * 30
+            hi = (i + 1) * 30
+            segment_counts[i] = int(np.count_nonzero(
+                (sat_pixels >= lo) & (sat_pixels < hi)
+            ))
+
+        # A segment is "present" if it holds >= 5% of the saturated pixels
+        min_segment_pixels = len(sat_pixels) * 0.05
+        active_segments = int(np.sum(segment_counts >= min_segment_pixels))
+
+        logger.debug(
+            "Rainbow check: sat_coverage=%.3f, active_segments=%d, "
+            "segment_counts=%s",
+            sat_coverage, active_segments, segment_counts.tolist(),
+        )
+
+        if active_segments >= RAINBOW_MIN_PEAKS:
+            logger.info(
+                "Detected rainbow rare (sat_coverage=%.2f, segments=%d)",
+                sat_coverage, active_segments,
+            )
+            return "rainbow_rare"
+
+    return None
+
+
+def detect_variant(image_path: str | Path, era: int = 0,
+                   card_id: str | None = None) -> str:
     """Detect the variant of a Pokemon card from a photo.
 
     Args:
         image_path: Path to the card image (phone photo or scan).
+        era: Era number (1-9) for era-gated checks.  0 = unknown (no gating).
+        card_id: Optional card identifier (e.g. "base1-4").  When the card
+            belongs to base1, shadowless detection is enabled.
 
     Returns:
-        One of: "normal", "holofoil", "reverse_holofoil", "1st_edition".
+        One of: "normal", "holofoil", "reverse_holofoil", "1st_edition",
+        "full_art", "shadowless", "gold", "rainbow_rare".
 
-    The function first checks for a 1st Edition stamp (which overrides other
-    variant detection -- 1st Edition cards can also be holo, but the stamp is
-    the primary distinguishing feature for pricing purposes).
-
-    Then it analyses holographic characteristics in the artwork vs border
-    regions to distinguish normal / holofoil / reverse_holofoil.
+    Detection priority:
+      1. 1st Edition stamp (highest priority -- overrides all others).
+      2. Gold / rainbow rare (era >= 7 only, checked early since gold
+         cards also trigger holo/full-art detectors).
+      3. Shadowless (base1 only -- right/bottom edge gradient analysis).
+      5. Full art (artwork extends to card edges, no border).  Era-gated
+         to era >= 5 (Black & White, 2011+).
+      4. Holographic analysis (holofoil vs reverse_holofoil vs normal).
     """
     image_path = str(image_path)
     img = cv2.imread(image_path)
     if img is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
-    logger.debug("Analyzing variant for %s (shape=%s)", image_path, img.shape)
+    logger.debug("Analyzing variant for %s (shape=%s, era=%d, card_id=%s)",
+                 image_path, img.shape, era, card_id)
 
     # --- 1st Edition check (highest priority) ---
     if _check_1st_edition(img):
         logger.info("Detected variant: 1st_edition for %s", image_path)
         return "1st_edition"
+
+    # --- Gold / Rainbow Rare check (era >= 7, before shadowless/full-art/holo) ---
+    gold_result = _check_gold_rare(img, era)
+    if gold_result is not None:
+        logger.info("Detected variant: %s for %s", gold_result, image_path)
+        return gold_result
+
+    # --- Shadowless check (base1 only, after 1st edition) ---
+    # 1st Edition Base Set cards are never Shadowless (they predate it),
+    # so this runs only after the 1st edition check passes.
+    set_prefix = (card_id or "").split("-")[0] if card_id else ""
+    if set_prefix == "base1":
+        shadowless_result = _check_shadowless(img)
+        if shadowless_result is True:
+            logger.info("Detected variant: shadowless for %s", image_path)
+            return "shadowless"
+        # shadowless_result is False (Unlimited) or None (inconclusive):
+        # fall through to holo analysis which will return normal/holofoil
+
+    # --- Full art check (before holo -- full art cards often trigger holo) ---
+    if _check_full_art(img, era=era):
+        logger.info("Detected variant: full_art for %s", image_path)
+        return "full_art"
 
     # --- Holographic analysis ---
     art_region = _extract_region(img, ART_X0, ART_Y0, ART_X1, ART_Y1)
@@ -823,8 +1294,13 @@ def detect_variant(image_path: str | Path) -> str:
     return variant
 
 
-def detect_variant_detailed(image_path: str | Path) -> dict:
+def detect_variant_detailed(image_path: str | Path, era: int = 0,
+                           card_id: str | None = None) -> dict:
     """Like detect_variant() but returns detailed analysis for debugging.
+
+    Args:
+        image_path: Path to the card image.
+        era: Era number (1-9) for era-gated checks.  0 = unknown.
 
     Returns dict with keys:
       - variant: str -- the detected variant
@@ -837,6 +1313,12 @@ def detect_variant_detailed(image_path: str | Path) -> dict:
       - art_saturation_std: float
       - border_saturation_std: float
       - has_1st_edition_stamp: bool
+      - is_full_art: bool
+      - gold_rare_result: str | None -- "gold", "rainbow_rare", or None
+      - is_shadowless: bool | None  (only for base1 cards)
+      - shadow_right_grad: float | None
+      - shadow_bottom_grad: float | None
+      - shadow_combined: float | None
     """
     image_path = str(image_path)
     img = cv2.imread(image_path)
@@ -844,6 +1326,30 @@ def detect_variant_detailed(image_path: str | Path) -> dict:
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
     has_stamp = _check_1st_edition(img)
+    gold_rare_result = _check_gold_rare(img, era)
+    is_full_art = _check_full_art(img, era=era)
+
+    # Shadowless analysis (base1 only)
+    set_prefix = (card_id or "").split("-")[0] if card_id else ""
+    is_shadowless = None
+    shadow_right_grad = None
+    shadow_bottom_grad = None
+    shadow_combined = None
+    if set_prefix == "base1" and not has_stamp:
+        h, w = img.shape[:2]
+        if h >= 100 and w >= 100:
+            right_strip = _extract_region(
+                img, _SHADOW_RIGHT_X0, _SHADOW_RIGHT_Y0,
+                _SHADOW_RIGHT_X1, _SHADOW_RIGHT_Y1,
+            )
+            shadow_right_grad = _edge_gradient_magnitude(right_strip, axis=1)
+            bottom_strip = _extract_region(
+                img, _SHADOW_BOTTOM_X0, _SHADOW_BOTTOM_Y0,
+                _SHADOW_BOTTOM_X1, _SHADOW_BOTTOM_Y1,
+            )
+            shadow_bottom_grad = _edge_gradient_magnitude(bottom_strip, axis=0)
+            shadow_combined = (shadow_right_grad * 0.7) + (shadow_bottom_grad * 0.3)
+            is_shadowless = shadow_combined <= _SHADOW_GRADIENT_THRESHOLD
 
     art_region = _extract_region(img, ART_X0, ART_Y0, ART_X1, ART_Y1)
     border_region = _extract_region(img, 0.05, BORDER_Y0, 0.95, 0.95)
@@ -857,6 +1363,12 @@ def detect_variant_detailed(image_path: str | Path) -> dict:
     # Determine variant using same logic as detect_variant
     if has_stamp:
         variant = "1st_edition"
+    elif is_shadowless is True:
+        variant = "shadowless"
+    elif gold_rare_result is not None:
+        variant = gold_rare_result
+    elif is_full_art:
+        variant = "full_art"
     elif max(art_combined, border_combined) < HOLO_COMBINED_THRESHOLD:
         variant = "normal"
     elif art_combined > border_combined * ART_HOLO_RATIO:
@@ -877,4 +1389,13 @@ def detect_variant_detailed(image_path: str | Path) -> dict:
         "art_saturation_std": round(art_sat, 2),
         "border_saturation_std": round(border_sat, 2),
         "has_1st_edition_stamp": has_stamp,
+        "is_full_art": is_full_art,
+        "gold_rare_result": gold_rare_result,
+        "is_shadowless": is_shadowless,
+        "shadow_right_grad": (round(shadow_right_grad, 2)
+                              if shadow_right_grad is not None else None),
+        "shadow_bottom_grad": (round(shadow_bottom_grad, 2)
+                               if shadow_bottom_grad is not None else None),
+        "shadow_combined": (round(shadow_combined, 2)
+                            if shadow_combined is not None else None),
     }

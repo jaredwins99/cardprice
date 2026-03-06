@@ -21,6 +21,8 @@ Endpoints:
     GET  /inventory  -> Current inventory as JSON
     GET  /export     -> Export inventory as CSV attachment
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
+    GET  /condition  -> Condition assessment capture UI (4-angle wizard)
+    POST /condition/assess -> Receive 4 photos, run condition assessment pipeline
 """
 
 import argparse
@@ -595,6 +597,37 @@ def _parse_multipart(body, content_type):
     return None, None
 
 
+def _parse_multipart_named(body, content_type):
+    """Extract all named files from multipart/form-data body.
+
+    Returns dict of {field_name: (filename, file_bytes)}.
+    """
+    m = re.search(r'boundary="?([^\s";]+)"?', content_type)
+    if not m:
+        return {}
+    boundary = m.group(1).encode()
+    parts = body.split(b"--" + boundary)
+    result = {}
+    for part in parts:
+        if b"Content-Disposition" not in part:
+            continue
+        header_end = part.find(b"\r\n\r\n")
+        if header_end < 0:
+            continue
+        header_block = part[:header_end].decode(errors="replace")
+        file_data = part[header_end + 4:]
+        # Strip trailing CRLF and closing boundary marker (--)
+        if file_data.endswith(b"--\r\n"):
+            file_data = file_data[:-4]
+        if file_data.endswith(b"\r\n"):
+            file_data = file_data[:-2]
+        name_match = re.search(r'name="([^"]*)"', header_block)
+        fn_match = re.search(r'filename="([^"]*)"', header_block)
+        if name_match and fn_match and fn_match.group(1):
+            result[name_match.group(1)] = (fn_match.group(1), file_data)
+    return result
+
+
 def _local_image_url(card_id):
     """Return local /card-image/ URL for a card_id if the image file exists.
 
@@ -651,6 +684,9 @@ class ScanHandler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             seg_path = unquote(self.path.split("/segment-image/", 1)[1])
             self._send_segment_image(seg_path)
+        elif self.path == "/condition":
+            from cardprice.condition_ui import CONDITION_HTML
+            self._send_html(CONDITION_HTML)
         else:
             self.send_error(404)
 
@@ -669,6 +705,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_inventory_add()
         elif self.path == "/inventory/remove":
             self._handle_inventory_remove()
+        elif self.path == "/condition/assess":
+            self._handle_condition_assess()
         else:
             self.send_error(404)
 
@@ -791,6 +829,23 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(row.market_price) if row.market_price else None
                         )
                         response["image_url"] = row.image_small
+
+                        # Condition-adjusted prices for all raw conditions
+                        if row.market_price:
+                            from cardprice.models.condition_pricing import (
+                                CONDITION_MULTIPLIERS_WITH_CI,
+                            )
+                            nm = float(row.market_price)
+                            cond_prices = {}
+                            for cond in ("NM", "LP", "MP", "HP", "DMG"):
+                                mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
+                                cond_prices[cond] = {
+                                    "price": round(nm * mult, 2),
+                                    "multiplier": mult,
+                                    "range_low": round(nm * ci_lo, 2),
+                                    "range_high": round(nm * ci_hi, 2),
+                                }
+                            response["condition_prices"] = cond_prices
                 else:
                     # No confident ML match — queue for Claude Code identification
                     scan_id = timestamp
@@ -1127,6 +1182,23 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(row.market_price) if row.market_price else None
                         )
                         response["image_url"] = row.image_small
+
+                        # Condition-adjusted prices for all raw conditions
+                        if row.market_price:
+                            from cardprice.models.condition_pricing import (
+                                CONDITION_MULTIPLIERS_WITH_CI,
+                            )
+                            nm = float(row.market_price)
+                            cond_prices = {}
+                            for cond in ("NM", "LP", "MP", "HP", "DMG"):
+                                mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
+                                cond_prices[cond] = {
+                                    "price": round(nm * mult, 2),
+                                    "multiplier": mult,
+                                    "range_low": round(nm * ci_lo, 2),
+                                    "range_high": round(nm * ci_hi, 2),
+                                }
+                            response["condition_prices"] = cond_prices
                 else:
                     # No confident ML match — queue for Claude Code identification
                     scan_id = timestamp
@@ -1480,6 +1552,191 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Inventory remove error: %s", e)
             self._send_json({"error": str(e)}, status=500)
+
+    def _handle_condition_assess(self):
+        """Receive up to 4 card photos, run condition assessment pipeline.
+
+        Accepts multipart/form-data with fields: front, back, oblique, edge.
+        Each field contains a JPEG image.
+
+        Returns JSON with overall grade, sub-grades, defect annotations,
+        and condition-adjusted pricing.
+        """
+        import tempfile
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        # Condition assess can receive 4 images — allow up to 80 MB
+        max_bytes = 80 * 1024 * 1024
+        if length > max_bytes:
+            self.send_error(413, f"Upload too large (max {max_bytes // (1024*1024)} MB)")
+            return
+
+        body = self.rfile.read(length)
+        files = _parse_multipart_named(body, content_type)
+
+        if "front" not in files:
+            self._send_json(
+                {"error": "At least a front image is required"}, status=400
+            )
+            return
+
+        # Save images to a temp directory
+        tmpdir = tempfile.mkdtemp(prefix="condition_")
+        saved_paths = {}
+        angle_names = ["front", "back", "oblique", "edge"]
+        for name in angle_names:
+            if name not in files:
+                continue
+            filename, file_data = files[name]
+            ext = Path(filename).suffix or ".jpg"
+            save_path = Path(tmpdir) / f"{name}{ext}"
+            save_path.write_bytes(file_data)
+            saved_paths[name] = str(save_path)
+
+        logger.info(
+            "Condition assess: received %d images, saved to %s",
+            len(saved_paths), tmpdir,
+        )
+
+        # --- Run assessment pipeline on the front image ---
+        front_path = saved_paths.get("front")
+        response = {
+            "overall_grade": 0.0,
+            "condition": "NM",
+            "sub_grades": {
+                "centering": 0.0,
+                "surface": 0.0,
+                "edges": 0.0,
+                "corners": 0.0,
+            },
+            "defects": [],
+            "card_id": None,
+            "card_name": None,
+            "set_name": None,
+            "image_url": None,
+            "local_image_url": None,
+            "nm_price": None,
+            "assessed_price": None,
+            "angles_received": list(saved_paths.keys()),
+            "temp_dir": tmpdir,
+        }
+
+        # Centering detector
+        try:
+            from cardprice.ml.centering_detector import measure_centering
+            centering = measure_centering(image_path=front_path)
+            centering_score = centering.get("centering_score", 0.0)
+            response["sub_grades"]["centering"] = round(centering_score, 1)
+            response["centering_detail"] = {
+                "lr": centering.get("front_lr", ""),
+                "tb": centering.get("front_tb", ""),
+                "confidence": centering.get("confidence", 0.0),
+            }
+        except Exception as e:
+            logger.warning("Centering detector failed: %s", e)
+            response["centering_detail"] = {"error": str(e)}
+
+        # Edge whitening detector
+        try:
+            from cardprice.ml.edge_whitening import measure_edge_whitening
+            whitening = measure_edge_whitening(front_path)
+            tcg_cond = whitening.get("tcg_condition", "NM")
+            # Map whitening result to an edge sub-grade (10 = NM, 7 = LP, 4 = MP, 2 = HP)
+            edge_grade_map = {"NM": 9.5, "LP": 7.0, "MP": 4.5, "HP": 2.0}
+            response["sub_grades"]["edges"] = edge_grade_map.get(tcg_cond, 5.0)
+            response["whitening_detail"] = {
+                "overall_ratio": whitening.get("overall_ratio", 0.0),
+                "worst_edge": whitening.get("worst_edge", ""),
+                "worst_ratio": whitening.get("worst_ratio", 0.0),
+                "condition_label": whitening.get("condition_label", ""),
+                "tcg_condition": tcg_cond,
+            }
+        except Exception as e:
+            logger.warning("Edge whitening detector failed: %s", e)
+            response["whitening_detail"] = {"error": str(e)}
+
+        # --- Compute overall grade from available sub-grades ---
+        # Only average sub-grades that have been populated (> 0)
+        populated = [
+            v for v in response["sub_grades"].values() if v > 0
+        ]
+        if populated:
+            overall = sum(populated) / len(populated)
+            response["overall_grade"] = round(overall, 1)
+            # Map overall score to TCG condition
+            if overall >= 8.5:
+                response["condition"] = "NM"
+            elif overall >= 6.5:
+                response["condition"] = "LP"
+            elif overall >= 4.0:
+                response["condition"] = "MP"
+            elif overall >= 2.0:
+                response["condition"] = "HP"
+            else:
+                response["condition"] = "DMG"
+
+        # --- Identify the card from the front image and apply pricing ---
+        try:
+            from cardprice.ml import identify_card
+            from cardprice.db.session import SessionLocal
+            from cardprice.models.condition_pricing import get_conditioned_price
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                id_result = identify_card(front_path, session=session)
+                card_id = id_result.get("card_id")
+
+                if card_id:
+                    response["card_id"] = card_id
+                    response["identification_confidence"] = id_result.get("confidence")
+                    response["identification_method"] = id_result.get("method")
+
+                    # Look up card name, set, image
+                    row = session.execute(
+                        sql_text("""
+                            SELECT c.name, s.name as set_name, c.image_small
+                            FROM dim_cards c
+                            JOIN dim_sets s ON s.set_id = c.set_id
+                            WHERE c.card_id = :cid
+                        """),
+                        {"cid": card_id},
+                    ).fetchone()
+                    if row:
+                        response["card_name"] = row.name
+                        response["set_name"] = row.set_name
+                        response["image_url"] = row.image_small
+                        response["local_image_url"] = _local_image_url(card_id)
+
+                    # Apply condition-adjusted pricing
+                    pricing = get_conditioned_price(
+                        card_id, response["condition"], session=session
+                    )
+                    response["nm_price"] = pricing["nm_price"]
+                    response["assessed_price"] = pricing["assessed_price"]
+                    response["multiplier"] = pricing["multiplier"]
+                    response["price_range_low"] = pricing["price_range_low"]
+                    response["price_range_high"] = pricing["price_range_high"]
+                    response["price_date"] = pricing["price_date"]
+        except Exception as e:
+            logger.warning("Condition assess: card identification/pricing failed: %s", e)
+
+        self._send_json(response)
 
     def _send_inventory(self):
         try:
@@ -1938,11 +2195,141 @@ class ScanHandler(BaseHTTPRequestHandler):
         logger.info(fmt, *args)
 
 
+def warmup():
+    """Pre-load all ML models and data files so the first request is fast.
+
+    Loads resources in order: GPU models first (biggest latency), then
+    data files (pickle indexes, DB caches).  Each step is timed and logged.
+    Failures are logged as warnings but do not prevent the server from starting.
+
+    Note: There are 3 separate EasyOCR reader globals that each lazily create
+    their own easyocr.Reader(["en"], gpu=True):
+      - cardprice.ml.ocr_matcher._easyocr_reader  (name OCR)
+      - cardprice.ml.attack_ocr._easyocr_reader    (attack OCR)
+      - cardprice.ml.hp_detector._easyocr_reader    (HP detection)
+    These are NOT consolidated — each module owns its own reader singleton.
+    Warming up ocr_matcher's reader is sufficient since it's the most-used;
+    the other two share the same EasyOCR model weights (cached on disk after
+    first load) so their init is fast.
+    """
+    total_start = time.time()
+    logger.info("=== ML warmup starting ===")
+
+    steps = []
+
+    # --- GPU models (heaviest, load first) ---
+
+    def _warmup_dinov2():
+        from cardprice.ml.dino_matcher import _load_model
+        _load_model()
+
+    def _warmup_clip():
+        from cardprice.ml.clip_matcher import _get_model_and_processor
+        _get_model_and_processor()
+
+    def _warmup_paddleocr():
+        from cardprice.ml.ocr_matcher import _paddle_ocr_name
+        import numpy as np
+        # Trigger PaddleOCR model load with a tiny dummy image
+        dummy = np.zeros((100, 300, 3), dtype=np.uint8)
+        _paddle_ocr_name(dummy, 100, 300)
+
+    def _warmup_easyocr_ocr_matcher():
+        """Load ocr_matcher's EasyOCR reader (name OCR)."""
+        import cardprice.ml.ocr_matcher as om
+        if om._easyocr_reader is None:
+            import easyocr
+            om._easyocr_reader = easyocr.Reader(["en"], gpu=True)
+
+    def _warmup_easyocr_attack_ocr():
+        """Load attack_ocr's EasyOCR reader."""
+        from cardprice.ml.attack_ocr import _get_reader
+        _get_reader()
+
+    def _warmup_easyocr_hp_detector():
+        """Load hp_detector's EasyOCR reader."""
+        from cardprice.ml.hp_detector import _get_easyocr_reader
+        _get_easyocr_reader()
+
+    # --- Data files (pickle indexes, DB caches) ---
+
+    def _warmup_hash_db():
+        from cardprice.ml import _get_hash_db
+        _get_hash_db()
+
+    def _warmup_dino_faiss():
+        from cardprice.ml import _get_dino_index
+        _get_dino_index()
+
+    def _warmup_clip_image_index():
+        from cardprice.ml import _get_clip_image_index
+        _get_clip_image_index()
+
+    def _warmup_ref_embeddings():
+        from cardprice.ml.ref_matcher import _load_ref_embeddings
+        _load_ref_embeddings()
+
+    def _warmup_attack_index():
+        from cardprice.ml.attack_ocr import _load_attack_index
+        _load_attack_index()
+
+    def _warmup_card_names():
+        from cardprice.ml.ocr_matcher import _load_card_names
+        _load_card_names()
+
+    def _warmup_card_metadata():
+        from cardprice.ml import _get_card_metadata
+        _get_card_metadata()
+
+    def _warmup_card_names_fallback():
+        from cardprice.ml.ref_matcher import _load_card_names_fallback
+        _load_card_names_fallback()
+
+    # Ordered: GPU models first, then data files
+    steps = [
+        ("DINOv2 ViT-B/14",            _warmup_dinov2),
+        ("CLIP ViT-L/14",              _warmup_clip),
+        ("PaddleOCR (PP-OCRv5)",       _warmup_paddleocr),
+        ("EasyOCR (ocr_matcher)",      _warmup_easyocr_ocr_matcher),
+        ("EasyOCR (attack_ocr)",       _warmup_easyocr_attack_ocr),
+        ("EasyOCR (hp_detector)",      _warmup_easyocr_hp_detector),
+        ("Hash DB",                    _warmup_hash_db),
+        ("FAISS index (DINOv2)",       _warmup_dino_faiss),
+        ("CLIP image index",           _warmup_clip_image_index),
+        ("Ref embeddings (DINOv2)",    _warmup_ref_embeddings),
+        ("Attack index",               _warmup_attack_index),
+        ("Card names (DB/JSON)",       _warmup_card_names),
+        ("Card metadata (DB)",         _warmup_card_metadata),
+        ("Card names fallback (JSON)", _warmup_card_names_fallback),
+    ]
+
+    loaded = 0
+    failed = 0
+    for name, fn in steps:
+        step_start = time.time()
+        try:
+            fn()
+            elapsed = time.time() - step_start
+            logger.info("  [OK] %-30s  %.1fs", name, elapsed)
+            loaded += 1
+        except Exception as e:
+            elapsed = time.time() - step_start
+            logger.warning("  [FAIL] %-30s  %.1fs — %s", name, elapsed, e)
+            failed += 1
+
+    total = time.time() - total_start
+    logger.info("=== ML warmup complete: %d loaded, %d failed, %.1fs total ===",
+                loaded, failed, total)
+
+
 def run_server(host="0.0.0.0", port=8888):
     """Start the HTTP server."""
     global _server_port
     _server_port = port
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+
+    warmup()
+
     server = HTTPServer((host, port), ScanHandler)
     lan_ip = _get_lan_ip()
     print(f"Card scanner server running at http://{host}:{port}")

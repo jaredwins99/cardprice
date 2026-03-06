@@ -123,15 +123,15 @@ def _cache_store(file_hash, result):
 # Era-to-variant allowlists for variant gating
 # ---------------------------------------------------------------------------
 _ERA_VARIANT_ALLOWED = {
-    1: {"normal", "holofoil", "1st_edition"},          # WotC
+    1: {"normal", "holofoil", "1st_edition", "shadowless"},  # WotC
     2: {"normal", "holofoil", "reverse_holofoil"},     # EX onwards
     3: {"normal", "holofoil", "reverse_holofoil"},
     4: {"normal", "holofoil", "reverse_holofoil"},
-    5: {"normal", "holofoil", "reverse_holofoil"},
-    6: {"normal", "holofoil", "reverse_holofoil"},
-    7: {"normal", "holofoil", "reverse_holofoil"},
-    8: {"normal", "holofoil", "reverse_holofoil"},
-    9: {"normal", "holofoil", "reverse_holofoil"},
+    5: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # BW: first full arts
+    6: {"normal", "holofoil", "reverse_holofoil", "full_art"},
+    7: {"normal", "holofoil", "reverse_holofoil", "full_art"},
+    8: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # SWSH: alt arts common
+    9: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # SV: illustration rares
 }
 
 
@@ -154,11 +154,11 @@ def _apply_variant_detection(result, image_path):
         from cardprice.ml.variant_detector import detect_variant
         from cardprice.ml.era_detector import get_card_era
 
-        variant = detect_variant(image_path)
+        era = get_card_era(card_id)
+        variant = detect_variant(image_path, era=era, card_id=card_id)
         confidence = 1.0  # placeholder; detect_variant doesn't return confidence
 
         # Era gating: override to "normal" if variant is invalid for this era
-        era = get_card_era(card_id)
         allowed = _ERA_VARIANT_ALLOWED.get(era, {"normal", "holofoil", "reverse_holofoil"})
         if variant not in allowed:
             logger.debug("variant %s not allowed for era %d, overriding to normal", variant, era)
@@ -305,8 +305,7 @@ def identify_card(image_path, session=None, page_context=None):
                         "top_alternatives": alt_list
                     }
                     logger.info("Tier 2 (dino): MATCH %s (similarity=%.4f)", card_id, similarity)
-                    if file_hash:
-                        _scan_cache[file_hash] = result
+                    _cache_store(file_hash, result)
                     return result
                 else:
                     logger.info("Tier 2 (dino): best similarity=%.4f < threshold 0.65, falling through",
@@ -328,54 +327,11 @@ def identify_card(image_path, session=None, page_context=None):
             except OSError:
                 pass
 
-    # Tier 2.5: CLIP image-to-image (good on phone photos, no API cost)
-    try:
-        from cardprice.ml.clip_matcher import identify_card_by_image
-        clip_idx = _get_clip_image_index()
-        if clip_idx is not None:
-            logger.info("Tier 2.5 (clip): searching CLIP image index ...")
-            matches = identify_card_by_image(image_path, preloaded_index=clip_idx)
-            if matches:
-                # CLIP image index may store card_ids with set dir prefix like DINOv2:
-                # "bw5/bw5-107/normal" -> strip first segment to get "bw5-107/normal"
-                raw_cid = matches[0][0]
-                parts = raw_cid.split("/", 1)
-                card_id = parts[1] if len(parts) > 1 and "/" in parts[1] else raw_cid
-                similarity = float(matches[0][1])
-                if similarity > 0.75:
-                    # Build explanation with top alternatives
-                    alt_list = []
-                    for alt_raw, alt_score in matches[1:4]:
-                        alt_parts = alt_raw.split("/", 1)
-                        alt_id = alt_parts[1] if len(alt_parts) > 1 else alt_raw
-                        alt_list.append((alt_id, float(alt_score)))
-
-                    alt_str = ", ".join(f"{a[0]} ({a[1]:.0%})" for a in alt_list)
-                    result["card_id"] = card_id
-                    result["confidence"] = similarity
-                    result["method"] = "clip"
-                    result["explanation"] = f"Visual similarity match ({similarity:.0%}). Top alternatives: {alt_str}" if alt_str else f"Visual similarity match ({similarity:.0%})"
-                    result["raw_response"] = {
-                        "top_matches": matches[:5],
-                        "top_alternatives": alt_list
-                    }
-                    logger.info("Tier 2.5 (clip): MATCH %s (similarity=%.4f)", card_id, similarity)
-                    if file_hash:
-                        _scan_cache[file_hash] = result
-                    return result
-                else:
-                    logger.info("Tier 2.5 (clip): best similarity=%.4f < threshold 0.75, falling through",
-                                similarity)
-            else:
-                logger.info("Tier 2.5 (clip): no matches found")
-        else:
-            logger.info("Tier 2.5 (clip): SKIPPED -- image index not found at %s "
-                        "(build with: python -m cardprice.ml.clip_matcher build_image_index)",
-                        _CLIP_IMAGE_INDEX_PATH)
-    except ImportError as e:
-        logger.info("Tier 2.5 (clip): SKIPPED -- missing dependency: %s", e)
-    except Exception as e:
-        logger.warning("Tier 2.5 (clip): ERROR -- %s", e)
+    # Tier 2.5: CLIP image-to-image — DISABLED
+    # CLIP loading causes SIGSEGV when PaddlePaddle is resident (safetensors +
+    # PaddlePaddle memory corruption).  CLIP contributes 0 unique correct IDs
+    # in eval, so disabling has zero accuracy impact.
+    logger.debug("Tier 2.5 (clip): DISABLED — PaddlePaddle SIGSEGV incompatibility")
 
     # Tier 2.7: OCR card name reading (free, fast, complements visual matchers)
     try:
@@ -1079,14 +1035,14 @@ def _run_dino(image_path: str, query_embedding=None) -> list[tuple[str, float]]:
 
 
 def _run_clip(image_path: str, query_embedding=None) -> list[tuple[str, float]]:
-    """Run CLIP image-to-image identification, returning normalized (card_id, score) top-10."""
-    from cardprice.ml.clip_matcher import identify_card_by_image
-    clip_idx = _get_clip_image_index()
-    if clip_idx is None:
-        return []
-    matches = identify_card_by_image(image_path, preloaded_index=clip_idx, top_k=10,
-                                     query_embedding=query_embedding)
-    return [(_normalize_card_id(cid), score) for cid, score in matches]
+    """Run CLIP image-to-image identification, returning normalized (card_id, score) top-10.
+
+    DISABLED: CLIP loading causes SIGSEGV when PaddlePaddle is resident in the
+    same process (safetensors weight materializer + PaddlePaddle memory corruption).
+    CLIP also contributes 0 unique correct identifications in eval, so disabling
+    it has zero accuracy impact while eliminating a major crash vector.
+    """
+    return []
 
 
 def identify_card_ensemble(image_path, session=None, page_context=None,
@@ -3184,13 +3140,20 @@ def _score_candidates_combined(
 
 
 def _is_card_back(image_path: str) -> bool:
-    """Detect Pokemon card backs via HSV blue-dominance check.
+    """Detect Pokemon card backs via HSV analysis.
 
-    Card backs are uniformly blue (HSV hue ~100-130, medium+ saturation)
-    across both the center AND the edges.  Card fronts -- even blue Water-type
-    cards like Lapras -- have yellow/tan borders that keep edge blue ratio low.
+    Two detection strategies (either triggers detection):
 
-    Requires: >40% overall blue AND >70% blue in the outer edge strips.
+    1. **Blue-dominance** (original): Card backs are uniformly blue
+       (HSV hue ~90-130, medium+ saturation) across center AND edges.
+       Requires: >40% overall blue AND >70% blue in outer edge strips.
+
+    2. **Color uniformity** (handles color-cast sleeves): Card backs seen
+       through tinted binder sleeves lose their blue hue but remain
+       *extremely* uniform -- a single 5-degree hue bin covers 90%+ of
+       all pixels, with high saturation everywhere.  No card front is
+       this uniform because artwork/text/borders create hue diversity.
+       Requires: top hue bin >= 85% of pixels AND mean saturation > 150.
     """
     try:
         import cv2
@@ -3201,21 +3164,36 @@ def _is_card_back(image_path: str) -> bool:
         h, w = img.shape[:2]
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
+        # --- Strategy 1: Blue-dominance ---
         blue = (hsv[:, :, 0] > 90) & (hsv[:, :, 0] < 130) & (hsv[:, :, 1] > 50)
         overall = float(np.mean(blue))
-        if overall < 0.40:
-            return False
 
-        # Check outer 10% edge strips -- card backs are blue edge-to-edge
-        eh, ew = int(h * 0.10), int(w * 0.10)
-        edge_pixels = np.concatenate([
-            blue[:eh, :].ravel(), blue[-eh:, :].ravel(),
-            blue[:, :ew].ravel(), blue[:, -ew:].ravel(),
-        ])
-        edge_ratio = float(np.mean(edge_pixels))
-        logger.debug("card_back: overall=%.3f edge=%.3f for %s",
-                      overall, edge_ratio, image_path)
-        return edge_ratio > 0.70
+        if overall >= 0.40:
+            eh, ew = int(h * 0.10), int(w * 0.10)
+            edge_pixels = np.concatenate([
+                blue[:eh, :].ravel(), blue[-eh:, :].ravel(),
+                blue[:, :ew].ravel(), blue[:, -ew:].ravel(),
+            ])
+            edge_ratio = float(np.mean(edge_pixels))
+            logger.debug("card_back: blue overall=%.3f edge=%.3f for %s",
+                          overall, edge_ratio, image_path)
+            if edge_ratio > 0.70:
+                return True
+
+        # --- Strategy 2: Color uniformity (handles tinted sleeves) ---
+        # Card backs through any color sleeve are a single solid hue.
+        # Bin hues into 5-degree buckets (36 bins over 0-179 range).
+        hue_flat = hsv[:, :, 0].ravel()
+        sat_flat = hsv[:, :, 1].ravel()
+        bins = np.bincount(hue_flat // 5, minlength=36)
+        top_bin_ratio = float(bins.max()) / len(hue_flat)
+        sat_mean = float(np.mean(sat_flat))
+        logger.debug("card_back: top_bin=%.3f sat_mean=%.1f for %s",
+                      top_bin_ratio, sat_mean, image_path)
+        if top_bin_ratio >= 0.85 and sat_mean > 150:
+            return True
+
+        return False
     except Exception as e:
         logger.warning("card_back check failed: %s", e)
         return False
@@ -3287,10 +3265,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             "explanation": "Detected Pokemon card back (blue background with Pokeball)",
             "raw_response": {},
         }
-        if cache_key:
-            _scan_cache[cache_key] = result
-            if len(_scan_cache) > _SCAN_CACHE_MAX:
-                _scan_cache.popitem(last=False)
+        _cache_store(cache_key, result)
         logger.info("v2: card back detected for %s", image_path)
         return result
 
@@ -3930,7 +3905,12 @@ def identify_page_v2(card_image_paths, session=None):
                 "with page_era=%s",
                 i, method, result["confidence"], loo_era,
             )
-            _scan_cache.clear()  # force re-run without cache
+            # Evict only this card's cache entry so identify_card_v2 re-runs it
+            try:
+                _path_hash = hashlib.md5(Path(path).read_bytes()).hexdigest()
+                _scan_cache.pop(f"v2_{_path_hash}", None)
+            except Exception:
+                pass
             rerun = identify_card_v2(
                 str(path), session=session, page_era=loo_era,
                 _precomputed_ocr=precomputed[i],

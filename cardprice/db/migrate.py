@@ -301,5 +301,161 @@ def run():
     print("Migration complete: all tables created.")
 
 
+# ---------------------------------------------------------------------------
+# Variant row synthesis: explode /normal rows into per-variant dim_cards rows
+# and repoint fact_market_prices.card_id accordingly.
+# ---------------------------------------------------------------------------
+
+# Map fact_market_prices.subtype_name → variant suffix for dim_cards.card_id
+SUBTYPE_TO_VARIANT = {
+    "Normal":            "normal",
+    "Holofoil":          "holofoil",
+    "Reverse Holofoil":  "reverse_holofoil",
+    "1st Edition Normal": "1st_edition",
+    "1st Edition Holofoil": "1st_edition_holofoil",
+    "Unlimited":         "unlimited",
+    "Unlimited Holofoil": "unlimited_holofoil",
+}
+
+
+def synthesize_variants():
+    """Create variant dim_cards rows from fact_market_prices.subtype_name.
+
+    For every (base_card_id, subtype_name) pair in fact_market_prices where
+    subtype_name != 'Normal', this migration:
+      1. INSERTs a new dim_cards row with card_id = '{base}/{variant}'
+         (copied from the /normal row).
+      2. UPDATEs fact_market_prices rows to point to the new variant card_id.
+
+    Normal rows are also updated to ensure card_id is set (for rows that were
+    previously NULL or pointed at the wrong card).
+
+    Runs in a single transaction with rollback on error.
+    """
+    from sqlalchemy import text as sa_text
+
+    with engine.connect() as conn:
+        try:
+            # ---------------------------------------------------------------
+            # Step 1: Discover all (base_id, subtype_name) pairs that need
+            #         variant rows.  base_id is card_id with /normal stripped.
+            # ---------------------------------------------------------------
+            pairs = conn.execute(sa_text("""
+                SELECT DISTINCT
+                    CASE
+                        WHEN dc.card_id LIKE '%%/normal'
+                        THEN LEFT(dc.card_id, LENGTH(dc.card_id) - 7)
+                        ELSE dc.card_id
+                    END AS base_id,
+                    fmp.subtype_name
+                FROM fact_market_prices fmp
+                JOIN dim_cards dc ON dc.card_id = fmp.card_id
+                WHERE fmp.subtype_name IS NOT NULL
+                  AND fmp.subtype_name != 'Normal'
+            """)).fetchall()
+
+            print(f"Found {len(pairs)} (base_id, subtype) pairs to synthesize.")
+
+            # ---------------------------------------------------------------
+            # Step 2: For each pair, INSERT a variant row (if not exists) by
+            #         copying from the /normal row.
+            # ---------------------------------------------------------------
+            inserted = 0
+            skipped = 0
+            for base_id, subtype_name in pairs:
+                variant_suffix = SUBTYPE_TO_VARIANT.get(subtype_name)
+                if variant_suffix is None:
+                    print(f"  WARNING: unknown subtype_name '{subtype_name}', skipping")
+                    continue
+
+                new_card_id = f"{base_id}/{variant_suffix}"
+                normal_card_id = f"{base_id}/normal"
+
+                # Check if variant row already exists
+                exists = conn.execute(sa_text(
+                    "SELECT 1 FROM dim_cards WHERE card_id = :cid"
+                ), {"cid": new_card_id}).fetchone()
+
+                if exists:
+                    skipped += 1
+                    continue
+
+                # Copy from the /normal row
+                result = conn.execute(sa_text("""
+                    INSERT INTO dim_cards (
+                        card_id, tcg_product_id, name, set_id, pokemon_id,
+                        card_number, rarity, supertype, subtypes, types,
+                        variant, hp, artist, image_small, image_large,
+                        tcgplayer_url
+                    )
+                    SELECT
+                        :new_card_id,
+                        tcg_product_id,
+                        name,
+                        set_id,
+                        pokemon_id,
+                        card_number,
+                        rarity,
+                        supertype,
+                        subtypes,
+                        types,
+                        :variant,
+                        hp,
+                        artist,
+                        image_small,
+                        image_large,
+                        tcgplayer_url
+                    FROM dim_cards
+                    WHERE card_id = :normal_card_id
+                """), {
+                    "new_card_id": new_card_id,
+                    "normal_card_id": normal_card_id,
+                    "variant": variant_suffix,
+                })
+
+                if result.rowcount > 0:
+                    inserted += 1
+                else:
+                    print(f"  WARNING: no /normal row for {normal_card_id}, "
+                          f"cannot create {new_card_id}")
+
+            print(f"Inserted {inserted} variant rows, skipped {skipped} "
+                  f"(already exist).")
+
+            # ---------------------------------------------------------------
+            # Step 3: UPDATE fact_market_prices.card_id to point to the
+            #         correct variant row.  We join through dim_cards to get
+            #         the base_id and then build the target card_id.
+            # ---------------------------------------------------------------
+            for subtype_name, variant_suffix in SUBTYPE_TO_VARIANT.items():
+                if subtype_name == "Normal":
+                    continue  # Normal rows already point to /normal
+
+                result = conn.execute(sa_text("""
+                    UPDATE fact_market_prices fmp
+                    SET card_id = LEFT(fmp.card_id, LENGTH(fmp.card_id) - 7)
+                                  || '/' || :variant
+                    FROM dim_cards dc_new
+                    WHERE fmp.subtype_name = :subtype
+                      AND fmp.card_id LIKE '%%/normal'
+                      AND dc_new.card_id = LEFT(fmp.card_id, LENGTH(fmp.card_id) - 7)
+                                           || '/' || :variant
+                """), {
+                    "subtype": subtype_name,
+                    "variant": variant_suffix,
+                })
+
+                print(f"  Updated {result.rowcount:>9,} rows: "
+                      f"{subtype_name} -> /{variant_suffix}")
+
+            conn.commit()
+            print("Variant synthesis complete.")
+
+        except Exception:
+            conn.rollback()
+            print("ERROR: variant synthesis failed, transaction rolled back.")
+            raise
+
+
 if __name__ == "__main__":
     run()

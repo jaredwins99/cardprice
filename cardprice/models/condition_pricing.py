@@ -612,3 +612,144 @@ def analyze_condition_premiums(session: Session) -> dict[str, Any]:
         "premium_ratios": premium_ratios,
         "suggested_multipliers": suggested_multipliers,
     }
+
+
+# ---------------------------------------------------------------------------
+# 4. get_conditioned_price -- high-level integration point
+# ---------------------------------------------------------------------------
+
+def get_conditioned_price(
+    card_id: str,
+    condition_grade: str,
+    session: Session | None = None,
+    *,
+    grade_authority: str | None = None,
+    grade: str | None = None,
+) -> dict[str, Any]:
+    """Get both NM baseline and condition-adjusted price for a card.
+
+    This is the primary integration point between the price prediction
+    pipeline and the condition pricing system.  It fetches the latest
+    NM market price from the database and applies the condition multiplier
+    with confidence intervals.
+
+    Parameters
+    ----------
+    card_id : str
+        dim_cards.card_id (e.g. ``"base1-4/holofoil"``).
+    condition_grade : str
+        Condition string: a raw condition like ``"LP"`` or ``"NM"``,
+        or a graded label like ``"PSA 10"``.
+    session : Session | None
+        An open SQLAlchemy session.  If None, creates one internally.
+    grade_authority : str | None
+        Optional grading authority (``"PSA"``, ``"BGS"``, ``"CGC"``).
+        Takes priority over parsing *condition_grade* for graded cards.
+    grade : str | None
+        Optional numeric grade string (``"10"``, ``"9.5"``).
+        Used together with *grade_authority*.
+
+    Returns
+    -------
+    dict with keys:
+        card_id            -- the input card_id
+        nm_price           -- float | None, latest NM market price
+        condition          -- str, resolved condition label
+        multiplier         -- float, condition multiplier applied
+        assessed_price     -- float | None, nm_price * multiplier
+        price_range_low    -- float | None, lower bound (80% CI)
+        price_range_high   -- float | None, upper bound (80% CI)
+        subtype            -- str | None, price subtype from DB
+        price_date         -- str | None, date of the price data
+
+    Examples
+    --------
+    >>> get_conditioned_price("base1-4/holofoil", "LP", session)
+    {'card_id': 'base1-4/holofoil', 'nm_price': 120.0,
+     'condition': 'LP', 'multiplier': 0.8,
+     'assessed_price': 96.0, 'price_range_low': 84.0,
+     'price_range_high': 108.0, ...}
+    """
+    own_session = False
+    if session is None:
+        try:
+            from cardprice.db.session import SessionLocal
+            session = SessionLocal()
+            own_session = True
+        except Exception:
+            logger.warning("get_conditioned_price: no DB session available")
+            # Return with None prices but valid multiplier info
+            cond_key, mult, ci_lo, ci_hi = get_multiplier_with_ci(
+                condition_grade, grade_authority, grade
+            )
+            return {
+                "card_id": card_id,
+                "nm_price": None,
+                "condition": cond_key,
+                "multiplier": mult,
+                "assessed_price": None,
+                "price_range_low": None,
+                "price_range_high": None,
+                "subtype": None,
+                "price_date": None,
+            }
+
+    try:
+        row = session.execute(_LATEST_PRICE_SQL, {"card_id": card_id}).fetchone()
+
+        if row is None:
+            cond_key, mult, ci_lo, ci_hi = get_multiplier_with_ci(
+                condition_grade, grade_authority, grade
+            )
+            return {
+                "card_id": card_id,
+                "nm_price": None,
+                "condition": cond_key,
+                "multiplier": mult,
+                "assessed_price": None,
+                "price_range_low": None,
+                "price_range_high": None,
+                "subtype": None,
+                "price_date": None,
+            }
+
+        nm_price = float(row.market_price)
+        low_price = float(row.low_price) if row.low_price else nm_price * 0.8
+        high_price = float(row.high_price) if row.high_price else nm_price * 1.2
+
+        # Get multiplier with CI, applying value-tier scaling for graded cards
+        cond_key, mult, ci_lo, ci_hi = get_multiplier_with_ci(
+            condition_grade, grade_authority, grade,
+            raw_nm_price=nm_price,
+        )
+
+        return {
+            "card_id": card_id,
+            "nm_price": round(nm_price, 2),
+            "condition": cond_key,
+            "multiplier": mult,
+            "assessed_price": round(nm_price * mult, 2),
+            "price_range_low": round(low_price * ci_lo, 2),
+            "price_range_high": round(high_price * ci_hi, 2),
+            "subtype": row.subtype_name,
+            "price_date": str(row.price_date),
+        }
+    except Exception as e:
+        logger.warning("get_conditioned_price: DB query failed: %s", e)
+        cond_key, mult, ci_lo, ci_hi = get_multiplier_with_ci(
+            condition_grade, grade_authority, grade
+        )
+        return {
+            "card_id": card_id,
+            "nm_price": None,
+            "condition": cond_key,
+            "multiplier": mult,
+            "assessed_price": None,
+            "price_range_low": None,
+            "price_range_high": None,
+            "subtype": None,
+            "price_date": None,
+        }
+    finally:
+        if own_session:
+            session.close()

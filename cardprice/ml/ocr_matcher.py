@@ -1423,6 +1423,22 @@ _paddle_det = None
 _paddle_rec = None
 
 
+def get_paddle_engines():
+    """Return (TextDetection, TextRecognition) singletons.
+
+    Shared across modules to avoid creating duplicate PaddleOCR instances
+    (PaddleOCR is NOT thread-safe and heavy on GPU memory).
+    """
+    import os
+    global _paddle_det, _paddle_rec
+    if _paddle_det is None:
+        os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+        from paddleocr import TextDetection, TextRecognition
+        _paddle_det = TextDetection(model_name='PP-OCRv5_server_det')
+        _paddle_rec = TextRecognition(model_name='en_PP-OCRv5_mobile_rec')
+    return _paddle_det, _paddle_rec
+
+
 def _paddle_ocr_name(img, h, w, *, debug=False):
     """Run PaddleOCR on the name region of a card image.
 
@@ -1443,12 +1459,7 @@ def _paddle_ocr_name(img, h, w, *, debug=False):
     import numpy as np
 
     global _paddle_det, _paddle_rec
-
-    if _paddle_det is None:
-        os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
-        from paddleocr import TextDetection, TextRecognition
-        _paddle_det = TextDetection(model_name='PP-OCRv5_server_det')
-        _paddle_rec = TextRecognition(model_name='en_PP-OCRv5_mobile_rec')
+    _paddle_det, _paddle_rec = get_paddle_engines()
 
     results = []
 
