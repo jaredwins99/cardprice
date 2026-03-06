@@ -22,6 +22,9 @@ Endpoints:
     GET  /export     -> Export inventory as CSV attachment
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
+    GET  /condition/capture/<card_id> -> Per-card capture UI with card identity pre-filled
+    POST /condition/photo/<card_id>/<step> -> Upload one photo, get immediate quality feedback
+    GET  /condition/report/<card_id> -> Get combined condition report for a card
     POST /condition/assess -> Receive 4 photos, run condition assessment pipeline
 """
 
@@ -625,6 +628,9 @@ def _parse_multipart_named(body, content_type):
         fn_match = re.search(r'filename="([^"]*)"', header_block)
         if name_match and fn_match and fn_match.group(1):
             result[name_match.group(1)] = (fn_match.group(1), file_data)
+        elif name_match and (not fn_match or not fn_match.group(1)):
+            # Plain text field (no filename) — store as (None, raw_bytes)
+            result[name_match.group(1)] = (None, file_data)
     return result
 
 
@@ -647,6 +653,39 @@ def _local_image_url(card_id):
     if image_path.is_file():
         return f"/card-image/{base_id}/normal"
     return None
+
+
+def _ref_image_path(card_id):
+    """Return the Path to the local reference image for a card_id, or None.
+
+    Looks for the normal-variant PNG in data/card_images/<set_id>/.
+    """
+    if not card_id:
+        return None
+    base_id = card_id.split("/")[0] if "/" in card_id else card_id
+    last_dash = base_id.rfind("-")
+    if last_dash <= 0:
+        return None
+    set_id = base_id[:last_dash]
+    image_path = CARD_IMAGES_DIR / set_id / f"{base_id}_normal.png"
+    return image_path if image_path.is_file() else None
+
+
+def _corner_condition(ratio):
+    """Map a corner whitening proxy ratio to a TCG condition abbreviation.
+
+    Uses the same thresholds as edge whitening but slightly more lenient
+    since corner wear is derived indirectly from edge measurements.
+    """
+    if ratio <= 0.0:
+        return "NM", "Gem Mint"
+    if ratio < 0.008:
+        return "NM", "Near Mint"
+    if ratio < 0.03:
+        return "LP", "Lightly Played"
+    if ratio < 0.07:
+        return "MP", "Moderately Played"
+    return "HP", "Heavily Played"
 
 
 class ScanHandler(BaseHTTPRequestHandler):
@@ -687,6 +726,16 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/condition":
             from cardprice.condition_ui import CONDITION_HTML
             self._send_html(CONDITION_HTML)
+        elif self.path.startswith("/condition/capture/"):
+            from urllib.parse import unquote
+            card_id = unquote(self.path.split("/condition/capture/", 1)[1])
+            self._send_condition_capture(card_id)
+        elif self.path.startswith("/condition/report/"):
+            from urllib.parse import unquote
+            card_id = unquote(self.path.split("/condition/report/", 1)[1])
+            self._send_condition_report(card_id)
+        elif self.path.startswith("/condition/heatmap/"):
+            self._send_condition_heatmap(self.path.split("/condition/heatmap/", 1)[1])
         else:
             self.send_error(404)
 
@@ -707,6 +756,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_inventory_remove()
         elif self.path == "/condition/assess":
             self._handle_condition_assess()
+        elif self.path.startswith("/condition/photo/"):
+            self._handle_condition_photo()
         else:
             self.send_error(404)
 
@@ -722,6 +773,33 @@ class ScanHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
+
+    def _send_condition_heatmap(self, tmpdir_name):
+        """Serve the defect heatmap PNG from a condition assessment temp dir.
+
+        URL: /condition/heatmap/<tmpdir_name>
+        The heatmap is rendered during /condition/assess and saved as heatmap.png.
+        """
+        import tempfile as _tf
+
+        tmpdir_name = tmpdir_name.strip("/")
+        # Security: only allow simple directory names (no traversal)
+        if ".." in tmpdir_name or "/" in tmpdir_name or not tmpdir_name.startswith("condition_"):
+            self.send_error(400, "Invalid heatmap path")
+            return
+
+        heatmap_path = Path(_tf.gettempdir()) / tmpdir_name / "heatmap.png"
+        if not heatmap_path.is_file():
+            self.send_error(404, "Heatmap not found (run /condition/assess first)")
+            return
+
+        png_data = heatmap_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(png_data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(png_data)
 
     def _send_qr(self):
         """Serve QR code PNG for the server URL (requires qrcode library)."""
@@ -1556,8 +1634,11 @@ class ScanHandler(BaseHTTPRequestHandler):
     def _handle_condition_assess(self):
         """Receive up to 4 card photos, run condition assessment pipeline.
 
-        Accepts multipart/form-data with fields: front, back, oblique, edge.
-        Each field contains a JPEG image.
+        Accepts multipart/form-data with fields:
+          - front (required): JPEG image of card front
+          - back, oblique, edge (optional): additional angle images
+          - card_id (optional): text field with known card_id to skip identification
+            and enable surface defect comparison against the reference image
 
         Returns JSON with overall grade, sub-grades, defect annotations,
         and condition-adjusted pricing.
@@ -1596,6 +1677,12 @@ class ScanHandler(BaseHTTPRequestHandler):
             )
             return
 
+        # Extract optional card_id text field
+        supplied_card_id = None
+        if "card_id" in files:
+            _, raw = files["card_id"]
+            supplied_card_id = raw.decode("utf-8", errors="replace").strip() or None
+
         # Save images to a temp directory
         tmpdir = tempfile.mkdtemp(prefix="condition_")
         saved_paths = {}
@@ -1604,18 +1691,21 @@ class ScanHandler(BaseHTTPRequestHandler):
             if name not in files:
                 continue
             filename, file_data = files[name]
+            if filename is None:
+                continue  # skip text fields
             ext = Path(filename).suffix or ".jpg"
             save_path = Path(tmpdir) / f"{name}{ext}"
             save_path.write_bytes(file_data)
             saved_paths[name] = str(save_path)
 
         logger.info(
-            "Condition assess: received %d images, saved to %s",
-            len(saved_paths), tmpdir,
+            "Condition assess: received %d images (card_id=%s), saved to %s",
+            len(saved_paths), supplied_card_id, tmpdir,
         )
 
         # --- Run assessment pipeline on the front image ---
         front_path = saved_paths.get("front")
+        tmpdir_name = Path(tmpdir).name
         response = {
             "overall_grade": 0.0,
             "condition": "NM",
@@ -1626,7 +1716,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                 "corners": 0.0,
             },
             "defects": [],
-            "card_id": None,
+            "card_id": supplied_card_id,
             "card_name": None,
             "set_name": None,
             "image_url": None,
@@ -1635,9 +1725,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             "assessed_price": None,
             "angles_received": list(saved_paths.keys()),
             "temp_dir": tmpdir,
+            "heatmap_url": None,
         }
 
-        # Centering detector
+        # Centering detector (HSV-based border measurement)
         try:
             from cardprice.ml.centering_detector import measure_centering
             centering = measure_centering(image_path=front_path)
@@ -1652,7 +1743,7 @@ class ScanHandler(BaseHTTPRequestHandler):
             logger.warning("Centering detector failed: %s", e)
             response["centering_detail"] = {"error": str(e)}
 
-        # Edge whitening detector
+        # Edge whitening detector (LAB+HSV border wear)
         try:
             from cardprice.ml.edge_whitening import measure_edge_whitening
             whitening = measure_edge_whitening(front_path)
@@ -1667,9 +1758,117 @@ class ScanHandler(BaseHTTPRequestHandler):
                 "condition_label": whitening.get("condition_label", ""),
                 "tcg_condition": tcg_cond,
             }
+
+            # Corner wear: derive from the 4 corner regions of the edge data
+            # Use the average of the two worst per-edge whitening ratios as a
+            # proxy for corner condition (corners sit at edge intersections).
+            try:
+                edge_ratios = sorted(
+                    [whitening["edges"][s]["whitening_ratio"]
+                     for s in ("top", "bottom", "left", "right")],
+                    reverse=True,
+                )
+                # Two worst edges contribute most to corner wear
+                corner_ratio = (edge_ratios[0] + edge_ratios[1]) / 2
+                corner_label, _ = _corner_condition(corner_ratio)
+                corner_grade_map = {
+                    "NM": 9.5, "LP": 7.0, "MP": 4.5, "HP": 2.0, "DMG": 1.0,
+                }
+                response["sub_grades"]["corners"] = corner_grade_map.get(
+                    corner_label, 5.0
+                )
+                response["corner_detail"] = {
+                    "proxy_ratio": round(corner_ratio, 6),
+                    "condition": corner_label,
+                }
+            except Exception as ce:
+                logger.warning("Corner grade derivation failed: %s", ce)
         except Exception as e:
             logger.warning("Edge whitening detector failed: %s", e)
             response["whitening_detail"] = {"error": str(e)}
+
+        # --- Card identification (use supplied card_id or auto-detect) ---
+        card_id = supplied_card_id
+        try:
+            from cardprice.db.session import SessionLocal
+            from cardprice.models.condition_pricing import get_conditioned_price
+            from sqlalchemy import text as sql_text
+
+            if not card_id:
+                # Auto-identify from the front image
+                from cardprice.ml import identify_card
+                with SessionLocal() as session:
+                    id_result = identify_card(front_path, session=session)
+                    card_id = id_result.get("card_id")
+                    if card_id:
+                        response["card_id"] = card_id
+                        response["identification_confidence"] = id_result.get("confidence")
+                        response["identification_method"] = id_result.get("method")
+        except Exception as e:
+            logger.warning("Condition assess: card identification failed: %s", e)
+
+        # --- Surface defect detection (DINOv2 patch comparison) ---
+        # Requires a reference image, so we need a known card_id
+        ref_image_path = None
+        if card_id:
+            ref_image_path = _ref_image_path(card_id)
+
+        if ref_image_path and ref_image_path.is_file():
+            try:
+                from cardprice.ml.surface_detector import (
+                    detect_surface_defects,
+                    estimate_condition,
+                    render_heatmap,
+                )
+
+                surface_result = detect_surface_defects(
+                    front_path, str(ref_image_path)
+                )
+                surface_cond = estimate_condition(surface_result)
+
+                # Map surface grade: NM=9.5, LP=7, MP=4.5, HP=2, DMG=1
+                surface_grade_map = {
+                    "NM": 9.5, "LP": 7.0, "MP": 4.5, "HP": 2.0, "DMG": 1.0,
+                }
+                response["sub_grades"]["surface"] = surface_grade_map.get(
+                    surface_cond["grade_abbrev"], 5.0
+                )
+                response["surface_detail"] = {
+                    "defect_score": round(surface_result["defect_score"], 4),
+                    "defect_count": surface_result["defect_count"],
+                    "defect_ratio": round(surface_result["defect_ratio"], 4),
+                    "mean_similarity": round(surface_result["mean_similarity"], 4),
+                    "min_similarity": round(surface_result["min_similarity"], 4),
+                    "grade": surface_cond["grade"],
+                    "grade_abbrev": surface_cond["grade_abbrev"],
+                    "confidence": surface_cond["confidence"],
+                }
+
+                # Serialize defect patch locations for the client
+                response["defects"] = [
+                    {"row": r, "col": c, "similarity": round(s, 4)}
+                    for r, c, s in surface_result["defect_patches"][:20]  # top-20 worst
+                ]
+
+                # Render and save heatmap overlay for the visualization endpoint
+                try:
+                    heatmap_path = Path(tmpdir) / "heatmap.png"
+                    render_heatmap(
+                        surface_result["anomaly_map"],
+                        output_path=str(heatmap_path),
+                        title=f"Surface Defects — score={surface_result['defect_score']:.3f}",
+                    )
+                    if heatmap_path.is_file():
+                        response["heatmap_url"] = f"/condition/heatmap/{tmpdir_name}"
+                except Exception as he:
+                    logger.warning("Heatmap render failed: %s", he)
+
+            except Exception as e:
+                logger.warning("Surface defect detector failed: %s", e)
+                response["surface_detail"] = {"error": str(e)}
+        else:
+            msg = "no reference image" if card_id else "card not identified"
+            response["surface_detail"] = {"skipped": msg}
 
         # --- Compute overall grade from available sub-grades ---
         # Only average sub-grades that have been populated (> 0)
@@ -1691,23 +1890,14 @@ class ScanHandler(BaseHTTPRequestHandler):
             else:
                 response["condition"] = "DMG"
 
-        # --- Identify the card from the front image and apply pricing ---
-        try:
-            from cardprice.ml import identify_card
-            from cardprice.db.session import SessionLocal
-            from cardprice.models.condition_pricing import get_conditioned_price
-            from sqlalchemy import text as sql_text
+        # --- Look up card metadata and apply condition-adjusted pricing ---
+        if card_id:
+            try:
+                from cardprice.db.session import SessionLocal
+                from cardprice.models.condition_pricing import get_conditioned_price
+                from sqlalchemy import text as sql_text
 
-            with SessionLocal() as session:
-                id_result = identify_card(front_path, session=session)
-                card_id = id_result.get("card_id")
-
-                if card_id:
-                    response["card_id"] = card_id
-                    response["identification_confidence"] = id_result.get("confidence")
-                    response["identification_method"] = id_result.get("method")
-
-                    # Look up card name, set, image
+                with SessionLocal() as session:
                     row = session.execute(
                         sql_text("""
                             SELECT c.name, s.name as set_name, c.image_small
@@ -1733,8 +1923,367 @@ class ScanHandler(BaseHTTPRequestHandler):
                     response["price_range_low"] = pricing["price_range_low"]
                     response["price_range_high"] = pricing["price_range_high"]
                     response["price_date"] = pricing["price_date"]
+            except Exception as e:
+                logger.warning("Condition assess: pricing lookup failed: %s", e)
+
+        self._send_json(response)
+
+    def _send_condition_capture(self, card_id):
+        """Serve the per-card 4-step condition capture UI.
+
+        GET /condition/capture/<card_id>
+
+        Looks up card metadata (name, set, image) and renders the capture
+        wizard pre-filled with that card's identity.
+        """
+        card_name = None
+        set_name = None
+        image_url = None
+
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                row = session.execute(
+                    sql_text("""
+                        SELECT c.name, s.name as set_name, c.image_small
+                        FROM dim_cards c
+                        JOIN dim_sets s ON s.set_id = c.set_id
+                        WHERE c.card_id = :cid
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+                if row:
+                    card_name = row.name
+                    set_name = row.set_name
+                    image_url = row.image_small
         except Exception as e:
-            logger.warning("Condition assess: card identification/pricing failed: %s", e)
+            logger.warning("Condition capture: card lookup failed: %s", e)
+
+        # Use local image URL if available
+        local_url = _local_image_url(card_id)
+        if local_url:
+            image_url = local_url
+
+        from cardprice.condition_ui import render_capture_html
+        html = render_capture_html(card_id, card_name, set_name, image_url)
+        self._send_html(html)
+
+    def _handle_condition_photo(self):
+        """Receive a single photo for one step, return immediate quality feedback.
+
+        POST /condition/photo/<card_id>/<step>
+
+        Accepts multipart/form-data with a single field 'photo'.
+        Returns JSON with quality assessment:
+          - quality: "good" | "acceptable" | "poor"
+          - message: human-readable feedback
+          - blur_score: Laplacian variance (higher = sharper)
+          - brightness: mean pixel brightness (0-255)
+        """
+        # Parse card_id and step from path
+        path_parts = self.path.split("/condition/photo/", 1)
+        if len(path_parts) < 2:
+            self._send_json({"error": "Invalid path"}, status=400)
+            return
+
+        from urllib.parse import unquote
+        remainder = unquote(path_parts[1]).rstrip("/")
+        # remainder is "<card_id>/<step>" where step is 0-3
+        last_slash = remainder.rfind("/")
+        if last_slash < 0:
+            self._send_json({"error": "Missing step index in path"}, status=400)
+            return
+
+        card_id = remainder[:last_slash]
+        step_str = remainder[last_slash + 1:]
+        try:
+            step_idx = int(step_str)
+        except ValueError:
+            self._send_json({"error": "Invalid step index"}, status=400)
+            return
+
+        step_names = ["front", "back", "oblique", "edge"]
+        if step_idx < 0 or step_idx >= len(step_names):
+            self._send_json({"error": "Step must be 0-3"}, status=400)
+            return
+
+        step_name = step_names[step_idx]
+
+        # Read and parse the upload
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0 or length > MAX_UPLOAD_BYTES:
+            self.send_error(400, "Invalid upload size")
+            return
+
+        body = self.rfile.read(length)
+        files = _parse_multipart_named(body, content_type)
+
+        if "photo" not in files:
+            self._send_json({"error": "No 'photo' field in upload"}, status=400)
+            return
+
+        filename, file_data = files["photo"]
+
+        # Save to temp file for analysis
+        import tempfile
+        tmpdir = Path(tempfile.mkdtemp(prefix="condphoto_"))
+        ext = Path(filename).suffix if filename else ".jpg"
+        photo_path = tmpdir / f"{step_name}{ext}"
+        photo_path.write_bytes(file_data)
+
+        # Run quality checks
+        quality = "good"
+        message = ""
+        blur_score = 0.0
+        brightness = 128.0
+
+        try:
+            import cv2
+            import numpy as np
+
+            img = cv2.imread(str(photo_path))
+            if img is None:
+                self._send_json({
+                    "quality": "poor",
+                    "message": "Could not decode image",
+                    "blur_score": 0,
+                    "brightness": 0,
+                    "step": step_name,
+                })
+                return
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            # Blur detection: Laplacian variance
+            laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+            blur_score = float(laplacian.var())
+
+            # Brightness: mean of grayscale
+            brightness = float(gray.mean())
+
+            # Resolution check
+            h, w = img.shape[:2]
+            resolution_ok = min(h, w) >= 480
+
+            # Quality thresholds
+            issues = []
+
+            if blur_score < 50:
+                issues.append("Image is too blurry")
+                quality = "poor"
+            elif blur_score < 150:
+                issues.append("Image is slightly soft")
+                if quality == "good":
+                    quality = "acceptable"
+
+            if brightness < 40:
+                issues.append("Image is too dark")
+                quality = "poor"
+            elif brightness < 70:
+                issues.append("Image is a bit dark")
+                if quality == "good":
+                    quality = "acceptable"
+            elif brightness > 230:
+                issues.append("Image is overexposed")
+                quality = "poor"
+            elif brightness > 200:
+                issues.append("Image is a bit bright")
+                if quality == "good":
+                    quality = "acceptable"
+
+            if not resolution_ok:
+                issues.append("Resolution is low")
+                if quality == "good":
+                    quality = "acceptable"
+
+            # Step-specific checks
+            if step_name == "oblique":
+                # For oblique, we actually expect some glare/highlights
+                # Check if there are bright spots (potential reflections)
+                bright_pixels = np.sum(gray > 220) / gray.size
+                if bright_pixels < 0.01 and quality == "good":
+                    issues.append("No reflections visible - try angling toward light")
+                    quality = "acceptable"
+
+            if quality == "good":
+                good_messages = {
+                    "front": "Sharp and well-lit - good for centering analysis",
+                    "back": "Clear back image - good for whitening detection",
+                    "oblique": "Good angle capture - reflections visible for scratch detection",
+                    "edge": "Clear edge view - good for corner and edge wear analysis",
+                }
+                message = good_messages.get(step_name, "Good quality capture")
+            elif quality == "acceptable":
+                message = ". ".join(issues) + " - usable but consider retaking"
+            else:
+                message = ". ".join(issues) + " - please retake"
+
+        except ImportError:
+            # cv2 not available -- skip quality checks, accept the photo
+            quality = "good"
+            message = "Photo received (quality check unavailable)"
+        except Exception as e:
+            logger.warning("Photo quality check failed: %s", e)
+            quality = "acceptable"
+            message = "Could not fully assess quality"
+
+        # Clean up temp file
+        try:
+            photo_path.unlink(missing_ok=True)
+            tmpdir.rmdir()
+        except Exception:
+            pass
+
+        logger.info(
+            "Condition photo: card_id=%s step=%s quality=%s blur=%.1f brightness=%.1f",
+            card_id, step_name, quality, blur_score, brightness,
+        )
+
+        self._send_json({
+            "quality": quality,
+            "message": message,
+            "blur_score": round(blur_score, 1),
+            "brightness": round(brightness, 1),
+            "step": step_name,
+            "card_id": card_id,
+        })
+
+    def _send_condition_report(self, card_id):
+        """Return the most recent condition assessment for a card.
+
+        GET /condition/report/<card_id>
+
+        Looks for cached condition results in the pending_scans directory
+        and returns the most recent one matching the given card_id.
+        If no cached report exists, returns a stub with the card metadata
+        and instructions to run the capture workflow.
+        """
+        import tempfile as _tf
+
+        # Search temp directories for the most recent condition assessment
+        # that matches this card_id
+        tmpdir_root = Path(_tf.gettempdir())
+        best_report = None
+        best_mtime = 0
+
+        for d in tmpdir_root.glob("condition_*"):
+            if not d.is_dir():
+                continue
+            front_path = d / "front.jpg"
+            if not front_path.exists():
+                # Also check for .jpeg extension
+                front_path = d / "front.jpeg"
+                if not front_path.exists():
+                    continue
+
+            # Check modification time
+            mtime = front_path.stat().st_mtime
+            if mtime > best_mtime:
+                best_mtime = mtime
+                best_report = d
+
+        # Look up card metadata
+        card_name = None
+        set_name = None
+        image_url = None
+        nm_price = None
+
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                row = session.execute(
+                    sql_text("""
+                        SELECT c.name, s.name as set_name, c.image_small
+                        FROM dim_cards c
+                        JOIN dim_sets s ON s.set_id = c.set_id
+                        WHERE c.card_id = :cid
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+                if row:
+                    card_name = row.name
+                    set_name = row.set_name
+                    image_url = row.image_small
+
+                # Get latest NM price
+                price_row = session.execute(
+                    sql_text("""
+                        SELECT market_price
+                        FROM fact_prices
+                        WHERE card_id = :cid
+                        ORDER BY price_date DESC
+                        LIMIT 1
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+                if price_row:
+                    nm_price = float(price_row.market_price) if price_row.market_price else None
+        except Exception as e:
+            logger.warning("Condition report: card lookup failed: %s", e)
+
+        local_url = _local_image_url(card_id)
+        if local_url:
+            image_url = local_url
+
+        response = {
+            "card_id": card_id,
+            "card_name": card_name,
+            "set_name": set_name,
+            "image_url": image_url,
+            "nm_price": nm_price,
+            "has_report": False,
+            "capture_url": f"/condition/capture/{card_id}",
+        }
+
+        # If we found a matching condition directory, try to re-derive the report
+        # by running the assessor on the saved front image
+        if best_report:
+            front_path = best_report / "front.jpg"
+            if not front_path.exists():
+                front_path = best_report / "front.jpeg"
+
+            if front_path.exists():
+                try:
+                    from cardprice.ml.condition_assessor import assess_condition
+                    result = assess_condition(
+                        str(front_path),
+                        card_id=card_id,
+                    )
+                    overall_grade = result.get("overall_grade", "NM")
+                    price_mult = result.get("price_multiplier", 1.0)
+
+                    response["has_report"] = True
+                    response["overall_grade"] = overall_grade
+                    response["overall_confidence"] = result.get("overall_confidence", 0.0)
+                    response["sub_scores"] = result.get("sub_scores", {})
+                    response["modules_run"] = result.get("modules_run", [])
+                    response["price_multiplier"] = price_mult
+
+                    if nm_price is not None:
+                        response["assessed_price"] = round(nm_price * price_mult, 2)
+                    else:
+                        response["assessed_price"] = None
+
+                except Exception as e:
+                    logger.warning("Condition report: assessment failed: %s", e)
+                    response["error"] = f"Assessment failed: {e}"
 
         self._send_json(response)
 

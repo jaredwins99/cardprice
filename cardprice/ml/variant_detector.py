@@ -456,6 +456,86 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     "mcd17": {"valid": {"normal", "holofoil"}},
 }
 
+# ---------------------------------------------------------------------------
+# TCGCSV subtype -> our variant mapping
+# ---------------------------------------------------------------------------
+# TCGCSV price data uses "subTypeName" to distinguish print variants within a
+# single product.  Pokemon TCG (category 3) uses exactly 7 subtypes.  The
+# remaining 21 subtypes belong to other TCGs (Flesh and Blood, MetaZoo,
+# Digimon, etc.) and are mapped to None.
+#
+# Our variant system also includes visual-only variants that TCGCSV does NOT
+# track as separate subtypes (they share the same product/subtype):
+#   shadowless, shadowless_holofoil  -- Base Set only, detected visually
+#   full_art                         -- BW+ era, detected visually
+#   gold                             -- SM+ era, detected visually
+#   rainbow_rare                     -- SM+ era, detected visually
+#
+# These visual variants require the detect_variant() CV pipeline below and
+# cannot be derived from TCGCSV data alone.
+# ---------------------------------------------------------------------------
+
+TCGCSV_SUBTYPE_TO_VARIANT: dict[str, str | None] = {
+    # --- Pokemon TCG subtypes (7) ---
+    "Normal":               "normal",
+    "Holofoil":             "holofoil",
+    "Reverse Holofoil":     "reverse_holofoil",
+    "1st Edition":          "1st_edition",
+    "1st Edition Holofoil": "1st_edition_holofoil",
+    "Unlimited":            "unlimited",
+    "Unlimited Holofoil":   "unlimited_holofoil",
+
+    # --- Non-Pokemon subtypes (mapped to None -- not applicable) ---
+    "Foil":                          None,  # Flesh and Blood, Digimon, etc.
+    "Cold Foil":                     None,  # Flesh and Blood
+    "Rainbow Foil":                  None,  # Flesh and Blood
+    "1st Edition Foil":              None,  # Flesh and Blood
+    "1st Edition Cold Foil":         None,  # Flesh and Blood
+    "1st Edition Normal":            None,  # Flesh and Blood
+    "1st Edition Rainbow Foil":      None,  # Flesh and Blood
+    "1st Wave Foil":                 None,  # Flesh and Blood
+    "Unlimited Edition Foil":        None,  # Flesh and Blood
+    "Unlimited Edition Normal":      None,  # Flesh and Blood
+    "Unlimited Edition Rainbow Foil": None,  # Flesh and Blood
+    "Holo":                          None,  # Digimon, other TCGs
+    "Reverse Holo":                  None,  # Digimon, other TCGs
+    "Holohex":                       None,  # MetaZoo
+    "Parallel Foil":                 None,  # Digimon
+    "Limited":                       None,  # Various non-Pokemon
+    "Card and Die":                  None,  # Dice Masters, etc.
+    "Card Only":                     None,  # Dice Masters, etc.
+    "Die Only":                      None,  # Dice Masters, etc.
+    "Metal":                         None,  # Metal card variants
+    "Plastic":                       None,  # Plastic/oversized cards
+}
+
+# All valid variant suffixes used in our card_id system
+ALL_VARIANTS = {
+    "normal",
+    "holofoil",
+    "reverse_holofoil",
+    "1st_edition",
+    "1st_edition_holofoil",
+    "unlimited",
+    "unlimited_holofoil",
+    "shadowless",
+    "shadowless_holofoil",
+    "full_art",
+    "gold",
+    "rainbow_rare",
+}
+
+
+def tcgcsv_subtype_to_variant(subtype_name: str) -> str | None:
+    """Convert a TCGCSV subTypeName to our variant string.
+
+    Returns None if the subtype is not a Pokemon TCG subtype.
+    Raises KeyError if the subtype is completely unknown.
+    """
+    if subtype_name in TCGCSV_SUBTYPE_TO_VARIANT:
+        return TCGCSV_SUBTYPE_TO_VARIANT[subtype_name]
+    raise KeyError(f"Unknown TCGCSV subtype: {subtype_name!r}")
+
 
 def get_valid_variants(set_id: str, era: int = 0) -> set[str]:
     """Return the set of valid variant strings for a given set/era.
@@ -513,6 +593,11 @@ BORDER_Y0 = 0.60  # text area starts below artwork
 # On a 1008x1530 segment the stamp sits at approximately x=30-200, y=700-950.
 # We use slightly wider margins to handle alignment/rotation variance.
 STAMP_X0, STAMP_Y0, STAMP_X1, STAMP_Y1 = 0.02, 0.44, 0.24, 0.65
+
+# Tighter stamp region focused on the expected stamp location.
+# The stamp is a small ~30-40px circle at x: 5-12%, y: 55-65% of card.
+STAMP_TIGHT_X0, STAMP_TIGHT_Y0 = 0.03, 0.53
+STAMP_TIGHT_X1, STAMP_TIGHT_Y1 = 0.15, 0.67
 
 # Sets that had 1st Edition print runs (Base Set through Neo Destiny).
 # Used for era-gating: only check for 1st Edition stamp on these sets.
@@ -848,6 +933,61 @@ def _has_dark_circular_blob(stamp_bgr: np.ndarray) -> bool:
     return False
 
 
+def _has_dark_circle_hough(stamp_bgr: np.ndarray) -> bool:
+    """Detect dark circles using HoughCircles on the stamp region.
+
+    The 1st Edition stamp is a small black circle (~30-40px diameter on a
+    1008x1530 segment).  HoughCircles is more robust to partial occlusion
+    and noisy backgrounds than contour-based circularity.
+
+    Returns True if a dark circle of the expected size is found.
+    """
+    try:
+        gray = cv2.cvtColor(stamp_bgr, cv2.COLOR_BGR2GRAY)
+        h_stamp, w_stamp = stamp_bgr.shape[:2]
+
+        # Blur to reduce noise before circle detection
+        blurred = cv2.GaussianBlur(gray, (5, 5), 1.5)
+
+        # Expected radius: the stamp circle is ~3-8% of region width
+        min_radius = max(3, int(w_stamp * 0.05))
+        max_radius = max(10, int(w_stamp * 0.40))
+        min_dist = max(5, int(w_stamp * 0.10))
+
+        circles = cv2.HoughCircles(
+            blurred,
+            cv2.HOUGH_GRADIENT,
+            dp=1.2,
+            minDist=min_dist,
+            param1=80,
+            param2=25,
+            minRadius=min_radius,
+            maxRadius=max_radius,
+        )
+
+        if circles is None:
+            return False
+
+        # Check if any detected circle is dark (low mean intensity inside)
+        for circle in circles[0]:
+            cx, cy, r = int(circle[0]), int(circle[1]), int(circle[2])
+            # Create a circular mask
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            cv2.circle(mask, (cx, cy), r, 255, -1)
+            mean_val = cv2.mean(gray, mask=mask)[0]
+
+            if mean_val < 100:  # dark circle
+                logger.debug(
+                    "HoughCircles found dark circle at (%d,%d) r=%d, "
+                    "mean_intensity=%.1f",
+                    cx, cy, r, mean_val,
+                )
+                return True
+    except Exception as e:
+        logger.debug("HoughCircles check failed: %s", e)
+    return False
+
+
 def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> tuple[bool, float]:
     """Check if a card is full art by analyzing the outer edge strips.
 
@@ -1075,21 +1215,38 @@ def _check_reverse_holo(img_bgr: np.ndarray, era: int = 0,
     )
 
     # --- Decision logic ---
-    # Condition 1: combined border+text variance exceeds thresholds
+    # Condition 1: combined border+text variance exceeds thresholds.
+    # Require BOTH saturation and hue variance to be elevated -- using OR
+    # causes too many false positives on binder scans where plastic sleeves
+    # create high saturation variance without the rainbow hue diversity
+    # characteristic of real reverse holofoil.
     sat_passes = combined_sat_std >= REVERSE_HOLO_SAT_STD_THRESHOLD
     hue_passes = combined_hue_std >= REVERSE_HOLO_HUE_STD_THRESHOLD
 
-    if not (sat_passes or hue_passes):
-        logger.debug("Reverse holo: neither sat nor hue threshold met")
-        return False
+    if not (sat_passes and hue_passes):
+        logger.debug("Reverse holo: sat_passes=%s, hue_passes=%s (need both)",
+                     sat_passes, hue_passes)
+        return False, 0.0
+
+    # Condition 1b: the TEXT region specifically must show elevated hue variance.
+    # Real reverse holos have foil on the text box, producing rainbow hue shifts.
+    # Binder sleeve reflections affect the outer border but not the inner text
+    # area.  Require text_hue_std >= 15 to confirm the signal isn't just border
+    # contamination from the binder sleeve environment.
+    if text_hue_std < 15.0:
+        logger.debug("Reverse holo: text_hue_std=%.1f too low (need >= 15.0), "
+                     "likely binder sleeve artifact", text_hue_std)
+        return False, 0.0
 
     # Condition 2: border+text variance must be higher than artwork variance
-    # (distinguishes reverse holo from regular holo or colorful normal cards)
+    # (distinguishes reverse holo from regular holo or colorful normal cards).
+    # Require BOTH ratios to exceed threshold -- a single elevated ratio
+    # is not sufficient evidence.
     sat_ratio = combined_sat_std / max(art_sat_std, 1.0)
     hue_ratio = combined_hue_std / max(art_hue_std, 1.0)
 
     ratio_passes = (sat_ratio >= REVERSE_HOLO_BORDER_ART_RATIO
-                    or hue_ratio >= REVERSE_HOLO_BORDER_ART_RATIO)
+                    and hue_ratio >= REVERSE_HOLO_BORDER_ART_RATIO)
 
     logger.debug(
         "Reverse holo -- sat_ratio=%.2f, hue_ratio=%.2f, "
@@ -1099,12 +1256,15 @@ def _check_reverse_holo(img_bgr: np.ndarray, era: int = 0,
 
     if not ratio_passes:
         logger.debug("Reverse holo: border/art ratio too low")
-        return False
+        return False, 0.0
 
+    # Confidence based on how far above threshold the ratios are.
+    max_ratio = max(sat_ratio, hue_ratio)
+    rh_conf = min(0.95, 0.60 + (max_ratio - REVERSE_HOLO_BORDER_ART_RATIO) * 0.30)
     logger.debug("Reverse holo detected: combined_sat_std=%.1f, "
-                 "combined_hue_std=%.1f, sat_ratio=%.2f, hue_ratio=%.2f",
-                 combined_sat_std, combined_hue_std, sat_ratio, hue_ratio)
-    return True
+                 "combined_hue_std=%.1f, sat_ratio=%.2f, hue_ratio=%.2f, conf=%.2f",
+                 combined_sat_std, combined_hue_std, sat_ratio, hue_ratio, rh_conf)
+    return True, rh_conf
 
 
 # ---------------------------------------------------------------------------
@@ -1238,32 +1398,35 @@ def _check_shadowless(img_bgr: np.ndarray) -> tuple[bool | None, float]:
 
 
 def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
-    """Check for 1st Edition stamp using OCR and contour analysis.
+    """Check for 1st Edition stamp using OCR, contour, and HoughCircles.
 
-    The 1st Edition stamp appears as a small black "1" inside a circle with
-    "EDITION" text, located on the left side just below the artwork.
+    The 1st Edition stamp appears as a small black circle containing "1"
+    with "EDITION" text below, located on the left side just below artwork.
 
-    Detection strategy:
-    1. OCR the stamp region with PaddleOCR -- if "1st" or "edition" is found,
-       return True immediately (high confidence).
-    2. Look for a dark circular blob AND require at least partial OCR evidence
-       (a "1" digit anywhere in the text) to confirm.  A blob alone is not
-       sufficient -- too many false positives from card artwork and shadows.
+    Detection strategy (multi-signal):
+    1. OCR the wide stamp region with PaddleOCR -- if "1st" or "edition"
+       is found, return True immediately (high confidence).
+    2. OCR the tight stamp region (more focused) as a second pass.
+    3. Look for a dark circular blob (contour-based) AND/OR dark circle
+       (HoughCircles) plus partial OCR evidence ("1" in text).
+    4. A circle alone (no OCR evidence at all) is NOT sufficient -- too
+       many false positives from card artwork and shadows.
 
     Returns:
         (detected, confidence) -- detected is True if 1st Edition found,
-        confidence reflects OCR evidence strength:
+        confidence reflects evidence strength:
           - 0.95 if both "1st" AND "edition" found in OCR text
           - 0.85 if only "1st" OR "edition" found
-          - 0.65 if blob + partial "1" digit found
+          - 0.70 if circle (contour or Hough) + partial "1" digit found
           - 0.0 if not detected
     """
+    # --- Wide stamp region (original, catches off-center stamps) ---
     stamp_region = _extract_region(img_bgr, STAMP_X0, STAMP_Y0,
                                    STAMP_X1, STAMP_Y1)
     if stamp_region.size == 0:
         return False, 0.0
 
-    # Strategy 1: OCR the stamp region
+    # Strategy 1: OCR the wide stamp region
     ocr_text = _ocr_stamp_region(stamp_region)
     has_1st = "1st" in ocr_text
     has_edition = "edition" in ocr_text
@@ -1275,12 +1438,81 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
         logger.debug("1st Edition detected via OCR (one token): %r", ocr_text)
         return True, 0.85
 
-    # Strategy 2: Dark circular blob + partial OCR evidence ("1" in text)
-    if _has_dark_circular_blob(stamp_region) and "1" in ocr_text:
-        logger.debug("1st Edition detected via blob + '1' in OCR: %r", ocr_text)
-        return True, 0.65
+    # --- Tight stamp region (focused, better for small stamps) ---
+    stamp_tight = _extract_region(img_bgr, STAMP_TIGHT_X0, STAMP_TIGHT_Y0,
+                                  STAMP_TIGHT_X1, STAMP_TIGHT_Y1)
+    if stamp_tight.size > 0:
+        ocr_tight = _ocr_stamp_region(stamp_tight)
+        has_1st_t = "1st" in ocr_tight
+        has_edition_t = "edition" in ocr_tight
+
+        if has_1st_t and has_edition_t:
+            logger.debug("1st Edition detected via tight OCR (both): %r",
+                         ocr_tight)
+            return True, 0.95
+        if has_1st_t or has_edition_t:
+            logger.debug("1st Edition detected via tight OCR (one): %r",
+                         ocr_tight)
+            return True, 0.85
+
+        # Merge OCR text from both regions for circle confirmation
+        combined_ocr = ocr_text + " " + ocr_tight
+    else:
+        combined_ocr = ocr_text
+
+    # Strategy 2: Circle detection + partial OCR evidence ("1" in text)
+    has_blob = _has_dark_circular_blob(stamp_region)
+    has_hough = _has_dark_circle_hough(stamp_tight if stamp_tight.size > 0
+                                       else stamp_region)
+    has_circle = has_blob or has_hough
+
+    if has_circle and "1" in combined_ocr:
+        method = "blob" if has_blob else "hough"
+        logger.debug("1st Edition detected via %s + '1' in OCR: %r",
+                     method, combined_ocr)
+        return True, 0.70
 
     return False, 0.0
+
+
+# ---------------------------------------------------------------------------
+# Public API: detect_first_edition
+# ---------------------------------------------------------------------------
+
+def detect_first_edition(image_path: str) -> tuple[bool, float]:
+    """Detect if a card has a 1st Edition stamp.
+
+    The 1st Edition stamp is a small black circle with "1" and "EDITION"
+    text, located on the left side of the card between the artwork and the
+    text box, roughly at x: 5-12%, y: 55-65% of card dimensions.  The stamp
+    is approximately 30-40px diameter on a 1008x1530 segment.
+
+    Detection uses three complementary signals:
+      1. PaddleOCR on the stamp region -- looks for "1st" and/or "edition"
+      2. Contour-based dark circular blob detection (circularity >= 0.65)
+      3. HoughCircles dark circle detection (more robust to noise)
+
+    A circle detection alone is NOT sufficient (too many false positives
+    from card artwork and shadows).  OCR evidence is always required,
+    even if just a partial "1" digit alongside a detected circle.
+
+    Args:
+        image_path: Path to the card image (phone photo or segment).
+
+    Returns:
+        (is_first_edition, confidence) where:
+          - is_first_edition: True if a 1st Edition stamp was detected.
+          - confidence: Detection confidence (0.0 to 0.95):
+              0.95 -- both "1st" AND "edition" found in OCR
+              0.85 -- only "1st" OR "edition" found in OCR
+              0.70 -- circle detected + partial "1" digit in OCR
+              0.0  -- not detected
+    """
+    img = cv2.imread(str(image_path))
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    return _check_1st_edition(img)
 
 
 # ---------------------------------------------------------------------------
@@ -1492,41 +1724,85 @@ def detect_variant(image_path: str | Path, era: int = 0,
     logger.debug("Analyzing variant for %s (shape=%s, era=%d, card_id=%s)",
                  image_path, img.shape, era, card_id)
 
-    # --- 1st Edition check (highest priority) ---
-    if _check_1st_edition(img):
-        logger.info("Detected variant: 1st_edition for %s", image_path)
-        return "1st_edition"
+    # --- Derive set prefix for era/set-specific gating ---
+    set_prefix = (card_id or "").split("-")[0] if card_id else ""
 
-    # --- Gold / Rainbow Rare check (era >= 7, before shadowless/full-art/holo) ---
-    gold_result = _check_gold_rare(img, era)
-    if gold_result is not None:
-        logger.info("Detected variant: %s for %s", gold_result, image_path)
-        return gold_result
+    # --- 1st Edition check (highest priority, era-gated) ---
+    # Only check for 1st Edition stamp on known WotC sets that actually had
+    # 1st Edition print runs.  When era/card_id is unknown (era=0, no card_id),
+    # require high-confidence OCR (>= 0.85) to avoid false positives from
+    # random "1" digits in attack text or HP values.
+    if set_prefix in FIRST_EDITION_SETS:
+        stamp_detected, stamp_conf = _check_1st_edition(img)
+        if stamp_detected:
+            logger.info("Detected variant: 1st_edition for %s (conf=%.2f)",
+                        image_path, stamp_conf)
+            return "1st_edition"
+    elif not set_prefix:
+        # Unknown card: only trust high-confidence OCR detections
+        stamp_detected, stamp_conf = _check_1st_edition(img)
+        if stamp_detected and stamp_conf >= 0.85:
+            logger.info("Detected variant: 1st_edition for %s (conf=%.2f, unknown card)",
+                        image_path, stamp_conf)
+            return "1st_edition"
+
+    # --- Gold / Rainbow Rare check (era >= 7 only) ---
+    # When era is unknown (0), skip gold/rainbow detection entirely.
+    # These are rare variants that produce many false positives on binder
+    # scans due to warm lighting and color casts.  Only check when we
+    # have confirmed era context.
+    if era >= GOLD_RAINBOW_MIN_ERA:
+        gold_variant, gold_conf = _check_gold_rare(img, era)
+        if gold_variant is not None:
+            logger.info("Detected variant: %s for %s (conf=%.2f)",
+                        gold_variant, image_path, gold_conf)
+            return gold_variant
 
     # --- Shadowless check (base1 only, after 1st edition) ---
     # 1st Edition Base Set cards are never Shadowless (they predate it),
     # so this runs only after the 1st edition check passes.
-    set_prefix = (card_id or "").split("-")[0] if card_id else ""
     if set_prefix == "base1":
-        shadowless_result = _check_shadowless(img)
+        shadowless_result, shadow_conf = _check_shadowless(img)
         if shadowless_result is True:
-            logger.info("Detected variant: shadowless for %s", image_path)
+            logger.info("Detected variant: shadowless for %s (conf=%.2f)",
+                        image_path, shadow_conf)
             return "shadowless"
         # shadowless_result is False (Unlimited) or None (inconclusive):
         # fall through to holo analysis which will return normal/holofoil
 
     # --- Full art check (before holo -- full art cards often trigger holo) ---
-    if _check_full_art(img, era=era):
-        logger.info("Detected variant: full_art for %s", image_path)
-        return "full_art"
+    # When era is unknown (0), skip full art detection.  Full art cards only
+    # exist from Black & White onward (era >= 5) and the edge-strip analysis
+    # produces many false positives on binder scans (warm lighting causes
+    # high saturation in the border areas).
+    if era >= FULL_ART_MIN_ERA:
+        fa_detected, fa_conf = _check_full_art(img, era=era)
+        if fa_detected:
+            logger.info("Detected variant: full_art for %s (conf=%.2f)",
+                        image_path, fa_conf)
+            return "full_art"
 
     # --- Reverse holo check (after full art, before general holo analysis) ---
     # Reverse holo has foil on border/text but NOT artwork.  Check this before
     # the general holo analysis so we can give a definitive answer when the
     # border/text variance signal is strong.
-    if _check_reverse_holo(img, era=era, set_id=set_prefix):
-        logger.info("Detected variant: reverse_holofoil for %s", image_path)
-        return "reverse_holofoil"
+    # When era is unknown (0), still run reverse holo but require the era
+    # to be at least 2 (EX era+) or a known era 1 reverse holo set.
+    # With era=0, we run the check but the _check_reverse_holo function
+    # itself does not era-gate when era=0, so we add extra caution here.
+    if era >= REVERSE_HOLO_MIN_ERA or (era == 1 and set_prefix in _ERA1_REVERSE_HOLO_SETS):
+        rh_detected, rh_conf = _check_reverse_holo(img, era=era, set_id=set_prefix)
+        if rh_detected:
+            logger.info("Detected variant: reverse_holofoil for %s (conf=%.2f)",
+                        image_path, rh_conf)
+            return "reverse_holofoil"
+    elif era == 0 and not set_prefix:
+        # Unknown era: still run reverse holo but require higher confidence
+        rh_detected, rh_conf = _check_reverse_holo(img, era=0, set_id="")
+        if rh_detected and rh_conf >= 0.75:
+            logger.info("Detected variant: reverse_holofoil for %s (conf=%.2f, unknown era)",
+                        image_path, rh_conf)
+            return "reverse_holofoil"
 
     # --- Holographic analysis ---
     art_region = _extract_region(img, ART_X0, ART_Y0, ART_X1, ART_Y1)
@@ -1593,13 +1869,39 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     if img is None:
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
-    has_stamp = _check_1st_edition(img)
-    gold_rare_result = _check_gold_rare(img, era)
-    is_full_art = _check_full_art(img, era=era)
-
-    # Reverse holo analysis
+    # Era-gated 1st Edition check: only on WotC sets that had 1st Ed runs,
+    # or high-confidence OCR when card is unknown.
     set_prefix = (card_id or "").split("-")[0] if card_id else ""
-    is_reverse_holo = _check_reverse_holo(img, era=era, set_id=set_prefix)
+    if set_prefix in FIRST_EDITION_SETS:
+        has_stamp, stamp_conf = _check_1st_edition(img)
+    elif not set_prefix:
+        has_stamp, stamp_conf = _check_1st_edition(img)
+        if has_stamp and stamp_conf < 0.85:
+            has_stamp = False  # Reject low-confidence detections on unknown cards
+    else:
+        has_stamp, stamp_conf = False, 0.0
+
+    # Gold/rainbow: only when era is known and >= 7
+    if era >= GOLD_RAINBOW_MIN_ERA:
+        gold_rare_result, gold_conf = _check_gold_rare(img, era)
+    else:
+        gold_rare_result, gold_conf = None, 0.0
+
+    # Full art: only when era is known and >= 5
+    if era >= FULL_ART_MIN_ERA:
+        is_full_art, full_art_conf = _check_full_art(img, era=era)
+    else:
+        is_full_art, full_art_conf = False, 0.0
+
+    # Reverse holo: era-gated, or high-confidence when era unknown
+    if era >= REVERSE_HOLO_MIN_ERA or (era == 1 and set_prefix in _ERA1_REVERSE_HOLO_SETS):
+        is_reverse_holo, rh_conf = _check_reverse_holo(img, era=era, set_id=set_prefix)
+    elif era == 0:
+        is_reverse_holo, rh_conf = _check_reverse_holo(img, era=0, set_id="")
+        if is_reverse_holo and rh_conf < 0.75:
+            is_reverse_holo = False
+    else:
+        is_reverse_holo, rh_conf = False, 0.0
 
     # Shadowless analysis (base1 only)
     is_shadowless = None
@@ -1632,12 +1934,13 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     border_sat = _saturation_std(border_region)
 
     # Determine variant using same logic as detect_variant
+    # Priority: 1st Ed > Gold/Rainbow > Shadowless > Full Art > Reverse Holo > Holo
     if has_stamp:
         variant = "1st_edition"
-    elif is_shadowless is True:
-        variant = "shadowless"
     elif gold_rare_result is not None:
         variant = gold_rare_result
+    elif is_shadowless is True:
+        variant = "shadowless"
     elif is_full_art:
         variant = "full_art"
     elif is_reverse_holo:
@@ -1662,6 +1965,7 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
         "art_saturation_std": round(art_sat, 2),
         "border_saturation_std": round(border_sat, 2),
         "has_1st_edition_stamp": has_stamp,
+        "stamp_confidence": round(stamp_conf, 2),
         "is_full_art": is_full_art,
         "is_reverse_holo": is_reverse_holo,
         "gold_rare_result": gold_rare_result,

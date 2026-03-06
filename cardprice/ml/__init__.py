@@ -19,6 +19,7 @@ import tempfile
 import threading
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -3156,11 +3157,54 @@ def _dino_dot_product_against_refs(
                 pass
 
 
+@lru_cache(maxsize=2000)
+def _get_card_type_cached(card_id: str) -> str | None:
+    """Look up the primary Pokemon type for a card_id.
+
+    Uses DB (dim_pokemon.types via dim_cards.pokemon_id) with JSON fallback.
+    Returns the first type string (e.g. "Fire") or None.
+    """
+    # Try DB first
+    try:
+        from cardprice.ml.ref_matcher import _get_session
+        session = _get_session()
+        if session is not None:
+            try:
+                from sqlalchemy import text
+                row = session.execute(text("""
+                    SELECT p.types
+                    FROM dim_cards c
+                    JOIN dim_pokemon p ON c.pokemon_id = p.pokemon_id
+                    WHERE c.card_id = :cid
+                    LIMIT 1
+                """), {"cid": card_id}).fetchone()
+                if row and row[0]:
+                    return row[0][0]  # First type
+            finally:
+                session.close()
+    except Exception:
+        pass
+
+    # JSON fallback
+    try:
+        from cardprice.ml.ref_matcher import _load_card_names_fallback
+        entries = _load_card_names_fallback()
+        for entry in entries:
+            if entry[0] == card_id and len(entry) > 4 and entry[4]:
+                return entry[4][0]  # First type
+    except Exception:
+        pass
+
+    return None
+
+
 def _score_candidates_combined(
     image_path: str,
     candidate_card_ids: list,
     query_embedding=None,
     precomputed_attacks=None,
+    type_detected: str | None = None,
+    type_confidence: float = 0.0,
 ) -> list[tuple[str, float, dict]]:
     """Score candidates using both DINOv2 visual similarity and attack OCR overlap.
 
@@ -3238,22 +3282,42 @@ def _score_candidates_combined(
     any_attacks = any(s > 0 for s in attack_scores.values())
     w_dino, w_attack = (0.5, 0.5) if any_attacks else (1.0, 0.0)
 
+    # Type bonus/penalty — small tie-breaker signal
+    use_type_signal = (
+        type_detected is not None
+        and type_confidence >= 0.40
+        and type_detected != "Colorless"
+    )
+
     results = []
     for cid in candidate_card_ids:
         d = dino_scores.get(cid, 0.0)
         a = attack_scores.get(cid, 0.0)
         combined = w_dino * d + w_attack * a
+
+        type_bonus = 0.0
+        if use_type_signal:
+            card_type = _get_card_type_cached(cid)
+            if card_type is not None:
+                if card_type == type_detected:
+                    type_bonus = 0.05
+                elif type_confidence >= 0.60:
+                    type_bonus = -0.03
+            # else: unknown type, no adjustment
+        combined += type_bonus
+
         results.append((cid, combined, {
             "dino_score": round(d, 4),
             "attack_score": round(a, 4),
             "matched_attacks": attack_details.get(cid, []),
+            "type_bonus": round(type_bonus, 4),
         }))
 
     results.sort(key=lambda x: x[1], reverse=True)
     if results:
         t = results[0]
-        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f) %d candidates",
-                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], len(results))
+        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f, type_bonus=%.4f) %d candidates",
+                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], t[2]["type_bonus"], len(results))
     return results
 
 
@@ -3437,8 +3501,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     # -----------------------------------------------------------------------
     # Step 2: Query DB for candidates
     # -----------------------------------------------------------------------
-    # Only use color_type if confidence is reasonable and it's not Colorless
-    # (Colorless is the fallback/default and too broad to be useful)
+    # Type detection: used as a SCORING signal (not a hard DB filter).
+    # This avoids dropping correct candidates when color detection is wrong.
     use_type = None
     if color_type and color_conf >= 0.40 and color_type != "Colorless":
         use_type = color_type
@@ -3448,11 +3512,11 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         candidates = _get_candidates_from_db(
             name=ocr_name,
             hp=hp_value,
-            card_type=use_type,
+            card_type=None,  # Type used for scoring, not filtering
             session=session,
         )
         logger.info(
-            "v2 step2: %d candidates for name=%r, hp=%s, type=%s",
+            "v2 step2: %d candidates for name=%r, hp=%s (type=%s for scoring only)",
             len(candidates), ocr_name, hp_value, use_type,
         )
 
@@ -3493,7 +3557,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
         # Multiple candidates: combined DINOv2 + attack scoring
         elif len(candidates) >= 2:
-            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks)
+            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
             if combined_results:
                 best_cid, best_score, best_detail = combined_results[0]
                 alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
@@ -3535,9 +3599,13 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     }
                     # If DINOv2 score is low (< 0.60), OCR name might be wrong.
                     # Save result but don't return yet — also try attack path.
-                    if best_detail['dino_score'] < 0.60:
-                        logger.info("v2: ref_match dino=%.3f < 0.60, will also try attack path",
-                                    best_detail['dino_score'])
+                    # EXCEPTION: if OCR confidence is very high (>0.90), trust the
+                    # name path. The attack path can pick the wrong card when multiple
+                    # cards share the same attack (e.g., "Psychic Pulse" on 4 cards).
+                    if best_detail['dino_score'] < 0.60 and ocr_conf < 0.90:
+                        logger.info("v2: ref_match dino=%.3f < 0.60 and ocr_conf=%.2f < 0.90, "
+                                    "will also try attack path",
+                                    best_detail['dino_score'], ocr_conf)
                     else:
                         _apply_variant_detection(ref_match_result, image_path)
                         _cache_store(cache_key, ref_match_result)
@@ -3582,7 +3650,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         atk_candidate_ids = era_matched
 
                 era_filtered = page_era and len(atk_candidate_ids) < 50
-                combined_results = _score_candidates_combined(image_path, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks)
+                combined_results = _score_candidates_combined(image_path, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
                 if combined_results:
                     best_cid, best_score, best_detail = combined_results[0]
                     # Boost confidence when era filtering significantly reduced

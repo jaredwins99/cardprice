@@ -294,6 +294,110 @@ def _is_valid_damage(val: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# PaddleOCR HP extraction
+# ---------------------------------------------------------------------------
+
+def _ocr_paddle(crop: np.ndarray, upscale: int = 3) -> list[tuple[str, float]]:
+    """Run PaddleOCR detection+recognition on a BGR crop.
+
+    Uses the shared PaddleOCR engines from ocr_matcher to avoid duplicate
+    GPU memory usage.  Returns list of (text, confidence).
+    """
+    try:
+        from cardprice.ml.ocr_matcher import get_paddle_engines
+        det, rec = get_paddle_engines()
+    except Exception as e:
+        logger.debug("PaddleOCR not available: %s", e)
+        return []
+
+    if upscale > 1:
+        crop = cv2.resize(crop, None, fx=upscale, fy=upscale,
+                          interpolation=cv2.INTER_CUBIC)
+
+    try:
+        det_result = det.predict(crop, batch_size=1)
+        if not det_result:
+            return []
+
+        polys = det_result[0].get('dt_polys')
+        if polys is None:
+            return []
+        if hasattr(polys, 'size') and polys.size == 0:
+            return []
+        if isinstance(polys, list) and len(polys) == 0:
+            return []
+
+        texts = []
+        for poly in polys:
+            pts = np.array(poly, dtype=np.float32)
+            x_min, y_min = pts.min(axis=0).astype(int)
+            x_max, y_max = pts.max(axis=0).astype(int)
+            x_min = max(0, x_min)
+            y_min = max(0, y_min)
+            x_max = min(crop.shape[1], x_max)
+            y_max = min(crop.shape[0], y_max)
+            if x_max <= x_min or y_max <= y_min:
+                continue
+            text_crop = crop[y_min:y_max, x_min:x_max]
+            rec_result = rec.predict(text_crop, batch_size=1)
+            if rec_result and rec_result[0].get('rec_text'):
+                text = rec_result[0]['rec_text']
+                score = rec_result[0].get('rec_score', 0.0)
+                texts.append((text, score))
+        return texts
+    except Exception as e:
+        logger.warning("PaddleOCR HP failed: %s", e)
+        return []
+
+
+def extract_hp_paddle(image_path: str) -> Optional[int]:
+    """Extract HP using PaddleOCR only.
+
+    Same crop strategy as detect_hp() but uses PaddleOCR instead of EasyOCR.
+    PaddleOCR is better on some cards (e.g. "70 HP" with explicit HP label),
+    while EasyOCR handles noisy digit-only detections better.
+
+    Parameters
+    ----------
+    image_path : str or Path
+        Path to the card image.
+
+    Returns
+    -------
+    int or None
+        The HP value, or None if not detected.
+    """
+    image_path = str(image_path)
+    img = cv2.imread(image_path)
+    if img is None:
+        logger.warning("Could not read image: %s", image_path)
+        return None
+
+    h, w = img.shape[:2]
+    crop = _crop_region(img, _HP_REGION)
+    if crop.size == 0:
+        return None
+
+    crops = [
+        ("narrow", img[0:int(h * 0.10), int(w * 0.55):int(w * 0.95)]),
+        ("default", crop),
+        ("wide_right", img[0:int(h * 0.13), int(w * 0.45):w]),
+    ]
+
+    for crop_name, hp_crop in crops:
+        if hp_crop.size == 0:
+            continue
+        texts = _ocr_paddle(hp_crop)
+        if texts:
+            logger.debug("HP PaddleOCR (%s): %s", crop_name, texts)
+            hp = _parse_hp_from_texts(texts)
+            if hp is not None:
+                return hp
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -338,13 +442,64 @@ def detect_hp(image_path: str) -> Optional[int]:
         if hp_crop.size == 0:
             continue
 
-        # Strategy 1: EasyOCR on the raw crop
-        texts = _ocr_easyocr(hp_crop)
-        if texts:
-            logger.debug("HP EasyOCR (%s): %s", crop_name, texts)
-            hp = _parse_hp_from_texts(texts)
-            if hp is not None:
-                return hp
+        # Strategy 1: Run both EasyOCR and PaddleOCR, pick best.
+        # PaddleOCR is better on explicit "HP 70" labels; EasyOCR is
+        # better on noisy digit-only detections.  When both return a
+        # value, prefer the one with an explicit "HP" pattern match
+        # (higher confidence), otherwise prefer EasyOCR.
+        easy_texts = _ocr_easyocr(hp_crop)
+        paddle_texts = _ocr_paddle(hp_crop)
+
+        easy_hp = None
+        paddle_hp = None
+        easy_has_hp_label = False
+        paddle_has_hp_label = False
+        easy_max_conf = 0.0
+        paddle_max_conf = 0.0
+
+        if easy_texts:
+            logger.debug("HP EasyOCR (%s): %s", crop_name, easy_texts)
+            easy_hp = _parse_hp_from_texts(easy_texts)
+            # Check for explicit "HP" adjacent to digits (not buried in words)
+            easy_has_hp_label = any(
+                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\w)', t.upper()) for t, _ in easy_texts
+            )
+            easy_max_conf = max((c for _, c in easy_texts), default=0.0)
+
+        if paddle_texts:
+            logger.debug("HP PaddleOCR (%s): %s", crop_name, paddle_texts)
+            paddle_hp = _parse_hp_from_texts(paddle_texts)
+            paddle_has_hp_label = any(
+                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\w)', t.upper()) for t, _ in paddle_texts
+            )
+            paddle_max_conf = max((c for _, c in paddle_texts), default=0.0)
+
+        # Decision logic:
+        # 1. If one has explicit "HP" + digits label and the other doesn't,
+        #    trust the one with the label (strong signal).
+        # 2. If both agree, return the shared value.
+        # 3. If they disagree and neither has a label, prefer the higher-
+        #    confidence engine.
+        # 4. If only one returned a result, use it.
+        if easy_hp is not None and paddle_hp is not None:
+            if easy_hp == paddle_hp:
+                return easy_hp
+            if paddle_has_hp_label and not easy_has_hp_label:
+                logger.debug("HP: preferring PaddleOCR (%d, has HP label) over EasyOCR (%d)", paddle_hp, easy_hp)
+                return paddle_hp
+            elif easy_has_hp_label and not paddle_has_hp_label:
+                return easy_hp
+            else:
+                # Both or neither have labels; prefer higher confidence
+                if paddle_max_conf > easy_max_conf + 0.3:
+                    logger.debug("HP: preferring PaddleOCR (%d, conf=%.2f) over EasyOCR (%d, conf=%.2f)",
+                                 paddle_hp, paddle_max_conf, easy_hp, easy_max_conf)
+                    return paddle_hp
+                return easy_hp
+        elif easy_hp is not None:
+            return easy_hp
+        elif paddle_hp is not None:
+            return paddle_hp
 
         # Strategy 2: Tesseract with multiple preprocessing methods
         for preprocess_fn in (_preprocess_otsu, _preprocess_otsu_inv, _preprocess_clahe):
