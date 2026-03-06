@@ -50,29 +50,40 @@ data/right_col/
 data/debug_right_col/
 df_master_set_*.jpg
 
-# Eval test images (large, not needed in repo)
+# Eval test images and generated results
 data/eval/ebay_test_images/
+data/eval/*.json
+data/eval/*.txt
+data/eval/alignment_test/
+data/eval/corner_crops/
+data/eval/surface_heatmaps/
+data/eval/type_symbol_crops/
+
+# Condition training data (scraped from eBay)
+data/condition_training/
+
+# Generated data directories
+data/align_test_output/
+data/debug_card_number/
+data/type_templates/
+
+# One-off test and debug scripts
+scripts/test_*.py
+scripts/debug_*.py
 
 # Logs at project root
 *.log
 
 # Analysis and report files (generated, not source)
-ANALYSIS_OUTPUT.log
-DIMENSION_ANALYSIS_DETAILED.md
-HASH_MATCHER_TEST_REPORT.txt
-IMAGE_ANALYSIS_INDEX.md
-IMAGE_DIMENSION_ANALYSIS.md
-IMAGE_SIZE_SUMMARY.txt
+*_REPORT*.md
+*_REPORT*.txt
+*_ANALYSIS*.md
+*_SUMMARY*.txt
+*_INDEX*.md
+*_INDEX*.txt
 METRICS_TABLE.txt
 QUICK_REFERENCE.txt
-TYPE_DETECTOR_FINDINGS_SUMMARY.txt
-TYPE_DETECTOR_TEST_COMPLETE.txt
-TYPE_DETECTOR_TEST_INDEX.txt
-TYPE_DETECTOR_TEST_REPORT.md
-YOLO_ARCHITECTURE_COMPARISON.md
-YOLO_IMPLEMENTATION_CHECKLIST.md
-YOLO_RESEARCH_INDEX.md
-YOLO_RESEARCH_SUMMARY_2026.md
+CLIP_ANALYSIS.txt
 
 # Keep specific data files needed for tests/runtime
 !data/card_names.json

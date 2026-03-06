@@ -1,0 +1,3503 @@
+{
+  "dialga|68": [
+    "dp1-1",
+    "dp4-16",
+    "dpp-DP26"
+  ],
+  "dusknoir|42": [
+    "dp1-2"
+  ],
+  "electivire|46": [
+    "dp1-3"
+  ],
+  "empoleon|42": [
+    "dp1-4"
+  ],
+  "infernape|40": [
+    "dp1-5"
+  ],
+  "lucario|30": [
+    "dp1-6"
+  ],
+  "luxray|48": [
+    "dp1-7"
+  ],
+  "magnezone|48": [
+    "dp1-8"
+  ],
+  "manaphy|20": [
+    "dp1-9"
+  ],
+  "mismagius|37": [
+    "dp1-10"
+  ],
+  "palkia|67": [
+    "dp1-11",
+    "dp4-26",
+    "dpp-DP27"
+  ],
+  "rhyperior|61": [
+    "dp1-12"
+  ],
+  "roserade|33": [
+    "dp1-13"
+  ],
+  "shiftry|48": [
+    "dp1-14"
+  ],
+  "skuntank|36": [
+    "dp1-15"
+  ],
+  "staraptor|54": [
+    "dp1-16"
+  ],
+  "torterra|45": [
+    "dp1-17"
+  ],
+  "azumarill|35": [
+    "dp1-18"
+  ],
+  "beautifly|29": [
+    "dp1-19"
+  ],
+  "bibarel|26": [
+    "dp1-20"
+  ],
+  "carnivine|32": [
+    "dp1-21"
+  ],
+  "clefable|37": [
+    "dp1-22"
+  ],
+  "drapion|41": [
+    "dp1-23"
+  ],
+  "drifblim|40": [
+    "dp1-24",
+    "dpp-DP34"
+  ],
+  "dustox|34": [
+    "dp1-25"
+  ],
+  "floatzel|29": [
+    "dp1-26"
+  ],
+  "gengar|39": [
+    "dp1-27"
+  ],
+  "heracross|29": [
+    "dp1-28"
+  ],
+  "hippowdon|45": [
+    "dp1-29"
+  ],
+  "lopunny|33": [
+    "dp1-30"
+  ],
+  "machamp|59": [
+    "dp1-31"
+  ],
+  "medicham|42": [
+    "dp1-32"
+  ],
+  "munchlax|8": [
+    "dp1-33"
+  ],
+  "noctowl|40": [
+    "dp1-34"
+  ],
+  "pachirisu|23": [
+    "dp1-35",
+    "dpp-DP04"
+  ],
+  "purugly|44": [
+    "dp1-36"
+  ],
+  "snorlax|35": [
+    "dp1-37"
+  ],
+  "steelix|50": [
+    "dp1-38"
+  ],
+  "vespiquen|40": [
+    "dp1-39"
+  ],
+  "weavile|37": [
+    "dp1-40"
+  ],
+  "wobbuffet|25": [
+    "dp1-41"
+  ],
+  "wynaut|6": [
+    "dp1-42"
+  ],
+  "budew|6": [
+    "dp1-43"
+  ],
+  "cascoon|8": [
+    "dp1-44"
+  ],
+  "cherrim|26": [
+    "dp1-45"
+  ],
+  "drifloon|17": [
+    "dp1-46"
+  ],
+  "dusclops|38": [
+    "dp1-47"
+  ],
+  "elekid|6": [
+    "dp1-48"
+  ],
+  "grotle|21": [
+    "dp1-49"
+  ],
+  "haunter|32": [
+    "dp1-50"
+  ],
+  "hippopotas|23": [
+    "dp1-51"
+  ],
+  "luxio|19": [
+    "dp1-52"
+  ],
+  "machoke|39": [
+    "dp1-53"
+  ],
+  "magneton|35": [
+    "dp1-54"
+  ],
+  "mantyke|6": [
+    "dp1-55"
+  ],
+  "monferno|18": [
+    "dp1-56"
+  ],
+  "nuzleaf|28": [
+    "dp1-57"
+  ],
+  "prinplup|20": [
+    "dp1-58"
+  ],
+  "rapidash|34": [
+    "dp1-59"
+  ],
+  "rhydon|43": [
+    "dp1-60"
+  ],
+  "riolu|7": [
+    "dp1-61"
+  ],
+  "seaking|41": [
+    "dp1-62"
+  ],
+  "silcoon|8": [
+    "dp1-63"
+  ],
+  "staravia|21": [
+    "dp1-64"
+  ],
+  "unown [a]|15": [
+    "dp1-65"
+  ],
+  "unown [b]|12": [
+    "dp1-66"
+  ],
+  "unown [c]|18": [
+    "dp1-67"
+  ],
+  "unown [d]|14": [
+    "dp1-68"
+  ],
+  "azurill|6": [
+    "dp1-69"
+  ],
+  "bidoof|10": [
+    "dp1-70"
+  ],
+  "bonsly|6": [
+    "dp1-71"
+  ],
+  "buizel|10": [
+    "dp1-72",
+    "dpp-DP13"
+  ],
+  "buneary|11": [
+    "dp1-73",
+    "dpp-DP06"
+  ],
+  "chatot|27": [
+    "dp1-74",
+    "dpp-DP14"
+  ],
+  "cherubi|7": [
+    "dp1-75"
+  ],
+  "chimchar|8": [
+    "dp1-76",
+    "dpp-DP02"
+  ],
+  "clefairy|18": [
+    "dp1-77"
+  ],
+  "cleffa|5": [
+    "dp1-78"
+  ],
+  "combee|8": [
+    "dp1-79"
+  ],
+  "duskull|15": [
+    "dp1-80"
+  ],
+  "electabuzz|29": [
+    "dp1-81"
+  ],
+  "gastly|12": [
+    "dp1-82"
+  ],
+  "glameow|12": [
+    "dp1-83",
+    "dpp-DP23"
+  ],
+  "goldeen|14": [
+    "dp1-84"
+  ],
+  "hoothoot|7": [
+    "dp1-85"
+  ],
+  "machop|20": [
+    "dp1-86"
+  ],
+  "magnemite|10": [
+    "dp1-87"
+  ],
+  "marill|12": [
+    "dp1-88"
+  ],
+  "meditite|19": [
+    "dp1-89"
+  ],
+  "mime jr.|5": [
+    "dp1-90",
+    "dpp-DP22"
+  ],
+  "misdreavus|16": [
+    "dp1-91"
+  ],
+  "onix|22": [
+    "dp1-92"
+  ],
+  "piplup|9": [
+    "dp1-93",
+    "dpp-DP03"
+  ],
+  "ponyta|12": [
+    "dp1-94"
+  ],
+  "rhyhorn|19": [
+    "dp1-95"
+  ],
+  "roselia|31": [
+    "dp1-96"
+  ],
+  "seedot|9": [
+    "dp1-97"
+  ],
+  "shinx|7": [
+    "dp1-98",
+    "dpp-DP15"
+  ],
+  "skorupi|9": [
+    "dp1-99"
+  ],
+  "sneasel|21": [
+    "dp1-100"
+  ],
+  "starly|8": [
+    "dp1-101"
+  ],
+  "stunky|17": [
+    "dp1-102"
+  ],
+  "turtwig|10": [
+    "dp1-103",
+    "dpp-DP01"
+  ],
+  "wurmple|7": [
+    "dp1-104"
+  ],
+  "aggron|49": [
+    "dp2-1"
+  ],
+  "alakazam|47": [
+    "dp2-2"
+  ],
+  "ambipom|36": [
+    "dp2-3"
+  ],
+  "azelf|50": [
+    "dp2-4"
+  ],
+  "blissey|44": [
+    "dp2-5"
+  ],
+  "bronzong|40": [
+    "dp2-6"
+  ],
+  "celebi|39": [
+    "dp2-7"
+  ],
+  "feraligatr|53": [
+    "dp2-8"
+  ],
+  "garchomp|66": [
+    "dp2-9"
+  ],
+  "honchkrow|42": [
+    "dp2-10"
+  ],
+  "lumineon|34": [
+    "dp2-11"
+  ],
+  "magmortar|48": [
+    "dp2-12",
+    "dpp-DP20"
+  ],
+  "meganium|48": [
+    "dp2-13"
+  ],
+  "mesprit|50": [
+    "dp2-14"
+  ],
+  "raichu|40": [
+    "dp2-15",
+    "dpp-DP21"
+  ],
+  "typhlosion|46": [
+    "dp2-16"
+  ],
+  "tyranitar|57": [
+    "dp2-17"
+  ],
+  "uxie|50": [
+    "dp2-18"
+  ],
+  "abomasnow|40": [
+    "dp2-19"
+  ],
+  "ariados|32": [
+    "dp2-20"
+  ],
+  "bastiodon|51": [
+    "dp2-21"
+  ],
+  "chimecho|21": [
+    "dp2-22"
+  ],
+  "crobat|45": [
+    "dp2-23"
+  ],
+  "exeggutor|46": [
+    "dp2-24"
+  ],
+  "glalie|43": [
+    "dp2-25"
+  ],
+  "gyarados|49": [
+    "dp2-26"
+  ],
+  "kricketune|38": [
+    "dp2-27"
+  ],
+  "manectric|38": [
+    "dp2-28"
+  ],
+  "mantine|25": [
+    "dp2-29"
+  ],
+  "mr. mime|33": [
+    "dp2-30"
+  ],
+  "nidoqueen|50": [
+    "dp2-31"
+  ],
+  "ninetales|37": [
+    "dp2-32"
+  ],
+  "rampardos|48": [
+    "dp2-33"
+  ],
+  "slaking|56": [
+    "dp2-34"
+  ],
+  "sudowoodo|22": [
+    "dp2-35"
+  ],
+  "toxicroak|39": [
+    "dp2-36"
+  ],
+  "unown [i]|16": [
+    "dp2-37"
+  ],
+  "ursaring|38": [
+    "dp2-38"
+  ],
+  "walrein|51": [
+    "dp2-39"
+  ],
+  "whiscash|41": [
+    "dp2-40"
+  ],
+  "bayleef|28": [
+    "dp2-41"
+  ],
+  "chingling|6": [
+    "dp2-42"
+  ],
+  "cranidos|24": [
+    "dp2-43",
+    "dpp-DP07"
+  ],
+  "croconaw|27": [
+    "dp2-44"
+  ],
+  "dewgong|36": [
+    "dp2-45"
+  ],
+  "dodrio|34": [
+    "dp2-46"
+  ],
+  "dunsparce|21": [
+    "dp2-47"
+  ],
+  "gabite|32": [
+    "dp2-48"
+  ],
+  "girafarig|27": [
+    "dp2-49"
+  ],
+  "golbat|22": [
+    "dp2-50"
+  ],
+  "graveler|34": [
+    "dp2-51"
+  ],
+  "happiny|8": [
+    "dp2-52"
+  ],
+  "lairon|32": [
+    "dp2-53"
+  ],
+  "magmar|30": [
+    "dp2-54"
+  ],
+  "masquerain|32": [
+    "dp2-55"
+  ],
+  "nidorina|25": [
+    "dp2-56"
+  ],
+  "octillery|32": [
+    "dp2-57"
+  ],
+  "parasect|36": [
+    "dp2-58"
+  ],
+  "pupitar|31": [
+    "dp2-59"
+  ],
+  "quilava|25": [
+    "dp2-60"
+  ],
+  "sandslash|37": [
+    "dp2-61"
+  ],
+  "sealeo|27": [
+    "dp2-62"
+  ],
+  "shieldon|26": [
+    "dp2-63",
+    "dpp-DP08"
+  ],
+  "tropius|28": [
+    "dp2-64"
+  ],
+  "unown [e]|18": [
+    "dp2-65"
+  ],
+  "unown [m]|15": [
+    "dp2-66"
+  ],
+  "unown [t]|14": [
+    "dp2-67"
+  ],
+  "vigoroth|24": [
+    "dp2-68"
+  ],
+  "abra|8": [
+    "dp2-69"
+  ],
+  "aipom|17": [
+    "dp2-70"
+  ],
+  "aron|15": [
+    "dp2-71"
+  ],
+  "barboach|12": [
+    "dp2-72"
+  ],
+  "bidoof|11": [
+    "dp2-73"
+  ],
+  "bronzor|8": [
+    "dp2-74"
+  ],
+  "buizel|12": [
+    "dp2-75"
+  ],
+  "chansey|31": [
+    "dp2-76"
+  ],
+  "chikorita|10": [
+    "dp2-77"
+  ],
+  "croagunk|17": [
+    "dp2-78"
+  ],
+  "cyndaquil|12": [
+    "dp2-79"
+  ],
+  "doduo|18": [
+    "dp2-80"
+  ],
+  "electrike|16": [
+    "dp2-81"
+  ],
+  "exeggcute|12": [
+    "dp2-82"
+  ],
+  "finneon|12": [
+    "dp2-83"
+  ],
+  "geodude|12": [
+    "dp2-84"
+  ],
+  "gible|9": [
+    "dp2-85"
+  ],
+  "kricketot|9": [
+    "dp2-86"
+  ],
+  "larvitar|18": [
+    "dp2-87"
+  ],
+  "magby|5": [
+    "dp2-88"
+  ],
+  "magikarp|13": [
+    "dp2-89"
+  ],
+  "murkrow|20": [
+    "dp2-90"
+  ],
+  "nidoran \u2640|12": [
+    "dp2-91"
+  ],
+  "paras|16": [
+    "dp2-92"
+  ],
+  "pichu|6": [
+    "dp2-93"
+  ],
+  "pikachu|15": [
+    "dp2-94",
+    "dpp-DP16"
+  ],
+  "remoraid|15": [
+    "dp2-95"
+  ],
+  "sandshrew|16": [
+    "dp2-96"
+  ],
+  "seel|18": [
+    "dp2-97"
+  ],
+  "shinx|9": [
+    "dp2-98"
+  ],
+  "slakoth|7": [
+    "dp2-99"
+  ],
+  "snorunt|14": [
+    "dp2-100"
+  ],
+  "snover|20": [
+    "dp2-101"
+  ],
+  "spheal|17": [
+    "dp2-102"
+  ],
+  "spinarak|18": [
+    "dp2-103"
+  ],
+  "surskit|14": [
+    "dp2-104"
+  ],
+  "teddiursa|20": [
+    "dp2-105"
+  ],
+  "totodile|15": [
+    "dp2-106"
+  ],
+  "vulpix|16": [
+    "dp2-107"
+  ],
+  "zubat|8": [
+    "dp2-108"
+  ],
+  "ampharos|52": [
+    "dp3-1"
+  ],
+  "blastoise|52": [
+    "dp3-2"
+  ],
+  "charizard|55": [
+    "dp3-3"
+  ],
+  "entei|43": [
+    "dp3-4"
+  ],
+  "flygon|60": [
+    "dp3-5"
+  ],
+  "gallade|55": [
+    "dp3-6"
+  ],
+  "gardevoir|55": [
+    "dp3-7"
+  ],
+  "gastrodon east sea|43": [
+    "dp3-8"
+  ],
+  "gastrodon west sea|44": [
+    "dp3-9"
+  ],
+  "ho-oh|45": [
+    "dp3-10"
+  ],
+  "jumpluff|42": [
+    "dp3-11"
+  ],
+  "lickilicky|46": [
+    "dp3-12"
+  ],
+  "ludicolo|47": [
+    "dp3-13"
+  ],
+  "lugia|43": [
+    "dp3-14"
+  ],
+  "mew|40": [
+    "dp3-15"
+  ],
+  "raikou|42": [
+    "dp3-16"
+  ],
+  "roserade|37": [
+    "dp3-17"
+  ],
+  "salamence|62": [
+    "dp3-18"
+  ],
+  "suicune|44": [
+    "dp3-19"
+  ],
+  "venusaur|51": [
+    "dp3-20"
+  ],
+  "absol|31": [
+    "dp3-21"
+  ],
+  "arcanine|48": [
+    "dp3-22"
+  ],
+  "banette|42": [
+    "dp3-23"
+  ],
+  "dugtrio|46": [
+    "dp3-24"
+  ],
+  "electivire|50": [
+    "dp3-25"
+  ],
+  "electrode|42": [
+    "dp3-26"
+  ],
+  "furret|35": [
+    "dp3-27"
+  ],
+  "golduck|39": [
+    "dp3-28"
+  ],
+  "golem|52": [
+    "dp3-29"
+  ],
+  "jynx|30": [
+    "dp3-30"
+  ],
+  "magmortar|52": [
+    "dp3-31"
+  ],
+  "minun|30": [
+    "dp3-32"
+  ],
+  "mothim|39": [
+    "dp3-33"
+  ],
+  "nidoking|55": [
+    "dp3-34"
+  ],
+  "pidgeot|50": [
+    "dp3-35"
+  ],
+  "plusle|30": [
+    "dp3-36"
+  ],
+  "sharpedo|39": [
+    "dp3-37"
+  ],
+  "sunflora|35": [
+    "dp3-38"
+  ],
+  "unown [s]|18": [
+    "dp3-39"
+  ],
+  "weavile|30": [
+    "dp3-40"
+  ],
+  "wormadam plant cloak|36": [
+    "dp3-41"
+  ],
+  "wormadam sandy cloak|37": [
+    "dp3-42"
+  ],
+  "wormadam trash cloak|38": [
+    "dp3-43"
+  ],
+  "xatu|44": [
+    "dp3-44"
+  ],
+  "breloom|40": [
+    "dp3-45"
+  ],
+  "charmeleon|29": [
+    "dp3-46"
+  ],
+  "cloyster|40": [
+    "dp3-47"
+  ],
+  "donphan|48": [
+    "dp3-48"
+  ],
+  "farfetch'd|26": [
+    "dp3-49"
+  ],
+  "flaaffy|26": [
+    "dp3-50"
+  ],
+  "ivysaur|24": [
+    "dp3-51"
+  ],
+  "kecleon|28": [
+    "dp3-52"
+  ],
+  "kirlia|28": [
+    "dp3-53"
+  ],
+  "lombre|26": [
+    "dp3-54"
+  ],
+  "miltank|32": [
+    "dp3-55"
+  ],
+  "muk|43": [
+    "dp3-56"
+  ],
+  "nidorino|28": [
+    "dp3-57"
+  ],
+  "pidgeotto|21": [
+    "dp3-58"
+  ],
+  "pinsir|30": [
+    "dp3-59"
+  ],
+  "quagsire|38": [
+    "dp3-60"
+  ],
+  "raticate|29": [
+    "dp3-61"
+  ],
+  "roselia|32": [
+    "dp3-62"
+  ],
+  "sableye|26": [
+    "dp3-63"
+  ],
+  "shelgon|32": [
+    "dp3-64"
+  ],
+  "skiploom|20": [
+    "dp3-65"
+  ],
+  "smeargle|31": [
+    "dp3-66"
+  ],
+  "smoochum|6": [
+    "dp3-67"
+  ],
+  "unown [k]|15": [
+    "dp3-68"
+  ],
+  "unown [n]|16": [
+    "dp3-69"
+  ],
+  "unown [o]|12": [
+    "dp3-70"
+  ],
+  "unown [x]|11": [
+    "dp3-71"
+  ],
+  "unown [z]|16": [
+    "dp3-72"
+  ],
+  "venomoth|42": [
+    "dp3-73"
+  ],
+  "vibrava|37": [
+    "dp3-74"
+  ],
+  "wartortle|28": [
+    "dp3-75"
+  ],
+  "bagon|11": [
+    "dp3-76"
+  ],
+  "bulbasaur|14": [
+    "dp3-77"
+  ],
+  "burmy plant cloak|10": [
+    "dp3-78"
+  ],
+  "burmy sandy cloak|10": [
+    "dp3-79"
+  ],
+  "burmy trash cloak|10": [
+    "dp3-80"
+  ],
+  "carvanha|18": [
+    "dp3-81"
+  ],
+  "charmander|8": [
+    "dp3-82"
+  ],
+  "clefairy|17": [
+    "dp3-83"
+  ],
+  "corsola|32": [
+    "dp3-84"
+  ],
+  "diglett|10": [
+    "dp3-85"
+  ],
+  "duskull|11": [
+    "dp3-86"
+  ],
+  "electabuzz|32": [
+    "dp3-87"
+  ],
+  "grimer|15": [
+    "dp3-88"
+  ],
+  "growlithe|20": [
+    "dp3-89"
+  ],
+  "hoppip|7": [
+    "dp3-90"
+  ],
+  "lickitung|27": [
+    "dp3-91"
+  ],
+  "lotad|13": [
+    "dp3-92"
+  ],
+  "magmar|27": [
+    "dp3-93"
+  ],
+  "mareep|11": [
+    "dp3-94"
+  ],
+  "murkrow|10": [
+    "dp3-95"
+  ],
+  "natu|9": [
+    "dp3-96"
+  ],
+  "nidoran \u2642|13": [
+    "dp3-97"
+  ],
+  "phanpy|14": [
+    "dp3-98"
+  ],
+  "pidgey|8": [
+    "dp3-99"
+  ],
+  "psyduck|15": [
+    "dp3-100"
+  ],
+  "qwilfish|31": [
+    "dp3-101"
+  ],
+  "ralts|13": [
+    "dp3-102"
+  ],
+  "rattata|10": [
+    "dp3-103"
+  ],
+  "sentret|11": [
+    "dp3-104"
+  ],
+  "shellder|10": [
+    "dp3-105"
+  ],
+  "shellos east sea|23": [
+    "dp3-106"
+  ],
+  "shellos west sea|25": [
+    "dp3-107"
+  ],
+  "shroomish|10": [
+    "dp3-108"
+  ],
+  "shuckle|25": [
+    "dp3-109"
+  ],
+  "shuppet|13": [
+    "dp3-110"
+  ],
+  "spinda|25": [
+    "dp3-111"
+  ],
+  "squirtle|15": [
+    "dp3-112"
+  ],
+  "stantler|28": [
+    "dp3-113"
+  ],
+  "sunkern|10": [
+    "dp3-114"
+  ],
+  "trapinch|9": [
+    "dp3-115"
+  ],
+  "venonat|25": [
+    "dp3-116"
+  ],
+  "voltorb|29": [
+    "dp3-117"
+  ],
+  "wooper|11": [
+    "dp3-118"
+  ],
+  "blaziken|56": [
+    "dp4-1"
+  ],
+  "cresselia|48": [
+    "dp4-2"
+  ],
+  "darkrai|38": [
+    "dp4-3"
+  ],
+  "darkrai|40": [
+    "dp4-4"
+  ],
+  "pachirisu|30": [
+    "dp4-5"
+  ],
+  "porygon-z|54": [
+    "dp4-6"
+  ],
+  "rotom|38": [
+    "dp4-7"
+  ],
+  "sceptile|52": [
+    "dp4-8"
+  ],
+  "swampert|53": [
+    "dp4-9"
+  ],
+  "tangrowth|38": [
+    "dp4-10"
+  ],
+  "togekiss|51": [
+    "dp4-11"
+  ],
+  "altaria|42": [
+    "dp4-12"
+  ],
+  "beedrill|41": [
+    "dp4-13"
+  ],
+  "butterfree|36": [
+    "dp4-14"
+  ],
+  "claydol|45": [
+    "dp4-15"
+  ],
+  "exploud|58": [
+    "dp4-17"
+  ],
+  "houndoom|41": [
+    "dp4-18"
+  ],
+  "hypno|28": [
+    "dp4-19"
+  ],
+  "kingler|33": [
+    "dp4-20"
+  ],
+  "lapras|47": [
+    "dp4-21"
+  ],
+  "latias|45": [
+    "dp4-22"
+  ],
+  "latios|47": [
+    "dp4-23"
+  ],
+  "mawile|32": [
+    "dp4-24"
+  ],
+  "milotic|47": [
+    "dp4-25"
+  ],
+  "primeape|41": [
+    "dp4-27"
+  ],
+  "slowking|41": [
+    "dp4-28"
+  ],
+  "unown [h]|12": [
+    "dp4-29"
+  ],
+  "wailord|43": [
+    "dp4-30"
+  ],
+  "weezing|42": [
+    "dp4-31"
+  ],
+  "wigglytuff|46": [
+    "dp4-32"
+  ],
+  "arbok|31": [
+    "dp4-33"
+  ],
+  "cacturne|36": [
+    "dp4-34"
+  ],
+  "combusken|24": [
+    "dp4-35"
+  ],
+  "delibird|26": [
+    "dp4-36"
+  ],
+  "floatzel|32": [
+    "dp4-37"
+  ],
+  "gorebyss|34": [
+    "dp4-38"
+  ],
+  "granbull|34": [
+    "dp4-39"
+  ],
+  "grovyle|26": [
+    "dp4-40"
+  ],
+  "hariyama|38": [
+    "dp4-41"
+  ],
+  "huntail|33": [
+    "dp4-42"
+  ],
+  "linoone|24": [
+    "dp4-43"
+  ],
+  "loudred|31": [
+    "dp4-44"
+  ],
+  "magcargo|35": [
+    "dp4-45"
+  ],
+  "marshtomp|23": [
+    "dp4-46"
+  ],
+  "metapod|9": [
+    "dp4-47"
+  ],
+  "pelipper|45": [
+    "dp4-48"
+  ],
+  "porygon2|39": [
+    "dp4-49"
+  ],
+  "purugly|47": [
+    "dp4-50"
+  ],
+  "relicanth|31": [
+    "dp4-51"
+  ],
+  "seviper|26": [
+    "dp4-52"
+  ],
+  "skarmory|31": [
+    "dp4-53"
+  ],
+  "slowbro|39": [
+    "dp4-54"
+  ],
+  "togetic|23": [
+    "dp4-55"
+  ],
+  "unown [f]|13": [
+    "dp4-56"
+  ],
+  "unown [g]|17": [
+    "dp4-57"
+  ],
+  "wailmer|14": [
+    "dp4-58"
+  ],
+  "zangoose|23": [
+    "dp4-59"
+  ],
+  "baltoy|11": [
+    "dp4-60"
+  ],
+  "buizel|14": [
+    "dp4-61"
+  ],
+  "cacnea|12": [
+    "dp4-62"
+  ],
+  "caterpie|6": [
+    "dp4-63"
+  ],
+  "clamperl|15": [
+    "dp4-64"
+  ],
+  "drowzee|13": [
+    "dp4-65"
+  ],
+  "ekans|16": [
+    "dp4-66"
+  ],
+  "feebas|4": [
+    "dp4-67"
+  ],
+  "glameow|14": [
+    "dp4-68"
+  ],
+  "houndour|13": [
+    "dp4-69"
+  ],
+  "igglybuff|6": [
+    "dp4-70"
+  ],
+  "illumise|29": [
+    "dp4-71"
+  ],
+  "jigglypuff|23": [
+    "dp4-72"
+  ],
+  "kakuna|9": [
+    "dp4-73"
+  ],
+  "koffing|18": [
+    "dp4-74"
+  ],
+  "krabby|8": [
+    "dp4-75"
+  ],
+  "lunatone|31": [
+    "dp4-76"
+  ],
+  "luvdisc|28": [
+    "dp4-77"
+  ],
+  "makuhita|15": [
+    "dp4-78"
+  ],
+  "mankey|14": [
+    "dp4-79"
+  ],
+  "mudkip|7": [
+    "dp4-80"
+  ],
+  "porygon|7": [
+    "dp4-81"
+  ],
+  "slowpoke|10": [
+    "dp4-82"
+  ],
+  "slugma|11": [
+    "dp4-83"
+  ],
+  "snubbull|11": [
+    "dp4-84"
+  ],
+  "solrock|29": [
+    "dp4-85"
+  ],
+  "swablu|7": [
+    "dp4-86"
+  ],
+  "tangela|12": [
+    "dp4-87"
+  ],
+  "togepi|4": [
+    "dp4-88"
+  ],
+  "torchic|7": [
+    "dp4-89"
+  ],
+  "treecko|7": [
+    "dp4-90"
+  ],
+  "unown [l]|18": [
+    "dp4-91"
+  ],
+  "volbeat|34": [
+    "dp4-92"
+  ],
+  "weedle|5": [
+    "dp4-93"
+  ],
+  "whismur|8": [
+    "dp4-94"
+  ],
+  "wingull|6": [
+    "dp4-95"
+  ],
+  "zigzagoon|6": [
+    "dp4-96"
+  ],
+  "articuno|46": [
+    "dp5-1"
+  ],
+  "cresselia|43": [
+    "dp5-2"
+  ],
+  "darkrai|48": [
+    "dp5-3"
+  ],
+  "dialga|63": [
+    "dp5-4"
+  ],
+  "glaceon|44": [
+    "dp5-5"
+  ],
+  "kabutops|56": [
+    "dp5-6"
+  ],
+  "leafeon|42": [
+    "dp5-7"
+  ],
+  "manaphy|32": [
+    "dp5-8"
+  ],
+  "mewtwo|51": [
+    "dp5-9"
+  ],
+  "moltres|47": [
+    "dp5-10"
+  ],
+  "palkia|62": [
+    "dp5-11"
+  ],
+  "phione|23": [
+    "dp5-12"
+  ],
+  "rotom|37": [
+    "dp5-13"
+  ],
+  "zapdos|45": [
+    "dp5-14"
+  ],
+  "aerodactyl|44": [
+    "dp5-15"
+  ],
+  "bronzong|44": [
+    "dp5-16"
+  ],
+  "empoleon|49": [
+    "dp5-17"
+  ],
+  "espeon|44": [
+    "dp5-18"
+  ],
+  "flareon|43": [
+    "dp5-19"
+  ],
+  "glaceon|46": [
+    "dp5-20"
+  ],
+  "hippowdon|44": [
+    "dp5-21"
+  ],
+  "infernape|46": [
+    "dp5-22"
+  ],
+  "jolteon|39": [
+    "dp5-23"
+  ],
+  "leafeon|40": [
+    "dp5-24"
+  ],
+  "minun|24": [
+    "dp5-25"
+  ],
+  "omastar|53": [
+    "dp5-26"
+  ],
+  "phione|20": [
+    "dp5-27"
+  ],
+  "plusle|27": [
+    "dp5-28"
+  ],
+  "scizor|42": [
+    "dp5-29"
+  ],
+  "torterra|51": [
+    "dp5-30"
+  ],
+  "toxicroak|32": [
+    "dp5-31"
+  ],
+  "umbreon|43": [
+    "dp5-32"
+  ],
+  "unown [p]|17": [
+    "dp5-33"
+  ],
+  "vaporeon|45": [
+    "dp5-34"
+  ],
+  "ambipom|34": [
+    "dp5-35"
+  ],
+  "fearow|29": [
+    "dp5-36"
+  ],
+  "grotle|23": [
+    "dp5-37"
+  ],
+  "kangaskhan|28": [
+    "dp5-38"
+  ],
+  "lickitung|23": [
+    "dp5-39"
+  ],
+  "manectric|34": [
+    "dp5-40"
+  ],
+  "monferno|20": [
+    "dp5-41"
+  ],
+  "mothim|41": [
+    "dp5-42"
+  ],
+  "pachirisu|25": [
+    "dp5-43"
+  ],
+  "prinplup|24": [
+    "dp5-44"
+  ],
+  "raichu|37": [
+    "dp5-45"
+  ],
+  "scyther|12": [
+    "dp5-46"
+  ],
+  "staravia|23": [
+    "dp5-47"
+  ],
+  "sudowoodo|25": [
+    "dp5-48"
+  ],
+  "unown [q]|15": [
+    "dp5-49"
+  ],
+  "aipom|16": [
+    "dp5-50"
+  ],
+  "aipom|15": [
+    "dp5-51"
+  ],
+  "bronzor|11": [
+    "dp5-52"
+  ],
+  "buneary|13": [
+    "dp5-53"
+  ],
+  "burmy sandy cloak|12": [
+    "dp5-54"
+  ],
+  "chatot|30": [
+    "dp5-55"
+  ],
+  "chimchar|6": [
+    "dp5-56"
+  ],
+  "chimchar|7": [
+    "dp5-57"
+  ],
+  "chingling|5": [
+    "dp5-58"
+  ],
+  "combee|6": [
+    "dp5-59"
+  ],
+  "croagunk|13": [
+    "dp5-60"
+  ],
+  "drifloon|18": [
+    "dp5-61"
+  ],
+  "eevee|14": [
+    "dp5-62"
+  ],
+  "eevee|12": [
+    "dp5-63"
+  ],
+  "electrike|18": [
+    "dp5-64"
+  ],
+  "glameow|15": [
+    "dp5-65"
+  ],
+  "hippopotas|25": [
+    "dp5-66"
+  ],
+  "kabuto|38": [
+    "dp5-67"
+  ],
+  "munchlax|7": [
+    "dp5-68"
+  ],
+  "omanyte|37": [
+    "dp5-69"
+  ],
+  "pikachu|12": [
+    "dp5-70",
+    "pl2-112"
+  ],
+  "piplup|10": [
+    "dp5-71"
+  ],
+  "piplup|8": [
+    "dp5-72"
+  ],
+  "shellos east sea|19": [
+    "dp5-73"
+  ],
+  "spearow|10": [
+    "dp5-74"
+  ],
+  "starly|10": [
+    "dp5-75"
+  ],
+  "stunky|14": [
+    "dp5-76"
+  ],
+  "turtwig|11": [
+    "dp5-77"
+  ],
+  "turtwig|9": [
+    "dp5-78"
+  ],
+  "deoxys normal forme|50": [
+    "dp6-1"
+  ],
+  "dragonite|61": [
+    "dp6-2"
+  ],
+  "froslass|46": [
+    "dp6-3"
+  ],
+  "giratina|52": [
+    "dp6-4"
+  ],
+  "gliscor|42": [
+    "dp6-5"
+  ],
+  "heatran|47": [
+    "dp6-6"
+  ],
+  "kingdra|52": [
+    "dp6-7"
+  ],
+  "luxray|51": [
+    "dp6-8"
+  ],
+  "mamoswine|54": [
+    "dp6-9"
+  ],
+  "metagross|58": [
+    "dp6-10"
+  ],
+  "mewtwo|42": [
+    "dp6-11"
+  ],
+  "politoed|49": [
+    "dp6-12"
+  ],
+  "probopass|46": [
+    "dp6-13"
+  ],
+  "rayquaza|56": [
+    "dp6-14"
+  ],
+  "regigigas|52": [
+    "dp6-15"
+  ],
+  "spiritomb|44": [
+    "dp6-16"
+  ],
+  "yanmega|47": [
+    "dp6-17"
+  ],
+  "armaldo|52": [
+    "dp6-18"
+  ],
+  "azelf|55": [
+    "dp6-19"
+  ],
+  "bellossom|38": [
+    "dp6-20"
+  ],
+  "cradily|49": [
+    "dp6-21"
+  ],
+  "crawdaunt|32": [
+    "dp6-22"
+  ],
+  "delcatty|46": [
+    "dp6-23"
+  ],
+  "deoxys attack forme|50": [
+    "dp6-24"
+  ],
+  "deoxys defense forme|50": [
+    "dp6-25"
+  ],
+  "deoxys speed forme|50": [
+    "dp6-26"
+  ],
+  "ditto|33": [
+    "dp6-27"
+  ],
+  "forretress|43": [
+    "dp6-28"
+  ],
+  "groudon|45": [
+    "dp6-29"
+  ],
+  "heatran|45": [
+    "dp6-30"
+  ],
+  "jirachi|42": [
+    "dp6-31"
+  ],
+  "kyogre|47": [
+    "dp6-32"
+  ],
+  "lopunny|37": [
+    "dp6-33"
+  ],
+  "mesprit|55": [
+    "dp6-34"
+  ],
+  "poliwrath|46": [
+    "dp6-35"
+  ],
+  "regice|43": [
+    "dp6-36"
+  ],
+  "regigigas|48": [
+    "dp6-37"
+  ],
+  "regirock|51": [
+    "dp6-38"
+  ],
+  "registeel|50": [
+    "dp6-39"
+  ],
+  "shedinja|34": [
+    "dp6-40"
+  ],
+  "torkoal|32": [
+    "dp6-41"
+  ],
+  "unown [!]|16": [
+    "dp6-42"
+  ],
+  "uxie|55": [
+    "dp6-43"
+  ],
+  "victreebel|40": [
+    "dp6-44"
+  ],
+  "vileplume|41": [
+    "dp6-45"
+  ],
+  "anorith|29": [
+    "dp6-46"
+  ],
+  "camerupt|41": [
+    "dp6-47"
+  ],
+  "castform|35": [
+    "dp6-48"
+  ],
+  "castform rain form|35": [
+    "dp6-49"
+  ],
+  "castform snow-cloud form|35": [
+    "dp6-50"
+  ],
+  "castform sunny form|35": [
+    "dp6-51"
+  ],
+  "dragonair|31": [
+    "dp6-52"
+  ],
+  "drifblim|43": [
+    "dp6-53"
+  ],
+  "exeggutor|43": [
+    "dp6-54"
+  ],
+  "gliscor|44": [
+    "dp6-55"
+  ],
+  "grumpig|36": [
+    "dp6-56"
+  ],
+  "houndoom|45": [
+    "dp6-57"
+  ],
+  "lanturn|39": [
+    "dp6-58"
+  ],
+  "lanturn|43": [
+    "dp6-59"
+  ],
+  "ledian|39": [
+    "dp6-60"
+  ],
+  "lucario|35": [
+    "dp6-61"
+  ],
+  "luxio|23": [
+    "dp6-62"
+  ],
+  "marowak|30": [
+    "dp6-63"
+  ],
+  "metang|24": [
+    "dp6-64"
+  ],
+  "metang|22": [
+    "dp6-65"
+  ],
+  "mightyena|42": [
+    "dp6-66"
+  ],
+  "ninjask|42": [
+    "dp6-67"
+  ],
+  "persian|32": [
+    "dp6-68"
+  ],
+  "piloswine|35": [
+    "dp6-69"
+  ],
+  "seadra|35": [
+    "dp6-70"
+  ],
+  "starmie|39": [
+    "dp6-71"
+  ],
+  "swalot|35": [
+    "dp6-72"
+  ],
+  "swellow|30": [
+    "dp6-73"
+  ],
+  "tauros|26": [
+    "dp6-74"
+  ],
+  "tentacruel|37": [
+    "dp6-75"
+  ],
+  "unown [j]|12": [
+    "dp6-76"
+  ],
+  "unown [r]|16": [
+    "dp6-77"
+  ],
+  "unown [u]|15": [
+    "dp6-78"
+  ],
+  "unown [v]|17": [
+    "dp6-79"
+  ],
+  "unown [w]|21": [
+    "dp6-80"
+  ],
+  "unown [y]|15": [
+    "dp6-81"
+  ],
+  "unown [?]|18": [
+    "dp6-82"
+  ],
+  "beldum|9": [
+    "dp6-83"
+  ],
+  "beldum|7": [
+    "dp6-84"
+  ],
+  "bellsprout|5": [
+    "dp6-85"
+  ],
+  "buneary|10": [
+    "dp6-86"
+  ],
+  "chinchou|15": [
+    "dp6-87"
+  ],
+  "chinchou|13": [
+    "dp6-88"
+  ],
+  "corphish|6": [
+    "dp6-89"
+  ],
+  "cubone|16": [
+    "dp6-90"
+  ],
+  "dratini|8": [
+    "dp6-91"
+  ],
+  "drifloon|14": [
+    "dp6-92"
+  ],
+  "exeggcute|11": [
+    "dp6-93"
+  ],
+  "gligar|19": [
+    "dp6-94"
+  ],
+  "gligar|14": [
+    "dp6-95"
+  ],
+  "gloom|22": [
+    "dp6-96"
+  ],
+  "gloom|24": [
+    "dp6-97"
+  ],
+  "gulpin|17": [
+    "dp6-98"
+  ],
+  "hitmonchan|27": [
+    "dp6-99"
+  ],
+  "hitmonlee|24": [
+    "dp6-100"
+  ],
+  "hitmontop|25": [
+    "dp6-101"
+  ],
+  "horsea|8": [
+    "dp6-102"
+  ],
+  "houndour|12": [
+    "dp6-103"
+  ],
+  "ledyba|12": [
+    "dp6-104"
+  ],
+  "lileep|27": [
+    "dp6-105"
+  ],
+  "meowth|13": [
+    "dp6-106"
+  ],
+  "misdreavus|18": [
+    "dp6-107"
+  ],
+  "nincada|10": [
+    "dp6-108"
+  ],
+  "nosepass|15": [
+    "dp6-109"
+  ],
+  "numel|16": [
+    "dp6-110"
+  ],
+  "oddish|6": [
+    "dp6-111"
+  ],
+  "oddish|7": [
+    "dp6-112"
+  ],
+  "pineco|11": [
+    "dp6-113"
+  ],
+  "poliwag|5": [
+    "dp6-114"
+  ],
+  "poliwhirl|28": [
+    "dp6-115"
+  ],
+  "poochyena|17": [
+    "dp6-116"
+  ],
+  "riolu|11": [
+    "dp6-117"
+  ],
+  "shinx|6": [
+    "dp6-118"
+  ],
+  "skitty|14": [
+    "dp6-119"
+  ],
+  "sneasel|23": [
+    "dp6-120"
+  ],
+  "spoink|10": [
+    "dp6-121"
+  ],
+  "staryu|14": [
+    "dp6-122"
+  ],
+  "swinub|13": [
+    "dp6-123"
+  ],
+  "taillow|12": [
+    "dp6-124"
+  ],
+  "tentacool|16": [
+    "dp6-125"
+  ],
+  "tyrogue|10": [
+    "dp6-126"
+  ],
+  "weepinbell|23": [
+    "dp6-127"
+  ],
+  "yanma|13": [
+    "dp6-128"
+  ],
+  "dusknoir|48": [
+    "dp7-1"
+  ],
+  "empoleon|52": [
+    "dp7-2"
+  ],
+  "infernape|49": [
+    "dp7-3"
+  ],
+  "lumineon|38": [
+    "dp7-4"
+  ],
+  "magnezone|44": [
+    "dp7-5"
+  ],
+  "magnezone|46": [
+    "dp7-6"
+  ],
+  "mismagius|33": [
+    "dp7-7"
+  ],
+  "raichu|45": [
+    "dp7-8"
+  ],
+  "regigigas|47": [
+    "dp7-9"
+  ],
+  "sceptile|56": [
+    "dp7-10"
+  ],
+  "torterra|47": [
+    "dp7-11"
+  ],
+  "abomasnow|42": [
+    "dp7-12"
+  ],
+  "bronzong|46": [
+    "dp7-13"
+  ],
+  "cherrim|30": [
+    "dp7-14"
+  ],
+  "drapion|44": [
+    "dp7-15"
+  ],
+  "drifblim|48": [
+    "dp7-16"
+  ],
+  "dusknoir|47": [
+    "dp7-17"
+  ],
+  "gengar|43": [
+    "dp7-18"
+  ],
+  "gyarados|52": [
+    "dp7-19"
+  ],
+  "machamp|62": [
+    "dp7-20"
+  ],
+  "mamoswine|56": [
+    "dp7-21"
+  ],
+  "rapidash|43": [
+    "dp7-22"
+  ],
+  "roserade|40": [
+    "dp7-23"
+  ],
+  "salamence|66": [
+    "dp7-24"
+  ],
+  "scizor|47": [
+    "dp7-25"
+  ],
+  "skuntank|40": [
+    "dp7-26"
+  ],
+  "staraptor|64": [
+    "dp7-27"
+  ],
+  "steelix|63": [
+    "dp7-28"
+  ],
+  "tangrowth|41": [
+    "dp7-29"
+  ],
+  "tyranitar|61": [
+    "dp7-30"
+  ],
+  "vespiquen|44": [
+    "dp7-31"
+  ],
+  "bibarel|29": [
+    "dp7-32"
+  ],
+  "budew|8": [
+    "dp7-33"
+  ],
+  "dusclops|41": [
+    "dp7-34"
+  ],
+  "dusclops|40": [
+    "dp7-35"
+  ],
+  "electrode|46": [
+    "dp7-36"
+  ],
+  "electrode|45": [
+    "dp7-37"
+  ],
+  "farfetch'd|29": [
+    "dp7-38"
+  ],
+  "grovyle|23": [
+    "dp7-39"
+  ],
+  "haunter|35": [
+    "dp7-40"
+  ],
+  "machoke|41": [
+    "dp7-41"
+  ],
+  "magneton|40": [
+    "dp7-42"
+  ],
+  "magneton|38": [
+    "dp7-43"
+  ],
+  "miltank|27": [
+    "dp7-44"
+  ],
+  "pichu|8": [
+    "dp7-45"
+  ],
+  "piloswine|34": [
+    "dp7-46"
+  ],
+  "pupitar|33": [
+    "dp7-47"
+  ],
+  "sableye|31": [
+    "dp7-48"
+  ],
+  "scyther|11": [
+    "dp7-49"
+  ],
+  "shelgon|35": [
+    "dp7-50"
+  ],
+  "skarmory|34": [
+    "dp7-51"
+  ],
+  "staravia|18": [
+    "dp7-52"
+  ],
+  "bagon|13": [
+    "dp7-53"
+  ],
+  "bidoof|13": [
+    "dp7-54"
+  ],
+  "bronzor|14": [
+    "dp7-55"
+  ],
+  "cherubi|9": [
+    "dp7-56"
+  ],
+  "combee|12": [
+    "dp7-57"
+  ],
+  "drifloon|15": [
+    "dp7-58"
+  ],
+  "duskull|12": [
+    "dp7-59"
+  ],
+  "duskull|10": [
+    "dp7-60"
+  ],
+  "finneon|16": [
+    "dp7-61"
+  ],
+  "gastly|14": [
+    "dp7-62"
+  ],
+  "larvitar|19": [
+    "dp7-63"
+  ],
+  "machop|18": [
+    "dp7-64"
+  ],
+  "magikarp|10": [
+    "dp7-65"
+  ],
+  "magnemite|15": [
+    "dp7-66"
+  ],
+  "magnemite|13": [
+    "dp7-67"
+  ],
+  "misdreavus|19": [
+    "dp7-68"
+  ],
+  "onix|25": [
+    "dp7-69"
+  ],
+  "pikachu|20": [
+    "dp7-70"
+  ],
+  "ponyta|11": [
+    "dp7-71"
+  ],
+  "roselia|27": [
+    "dp7-72"
+  ],
+  "skorupi|11": [
+    "dp7-73"
+  ],
+  "snover|17": [
+    "dp7-74"
+  ],
+  "starly|7": [
+    "dp7-75"
+  ],
+  "stunky|18": [
+    "dp7-76"
+  ],
+  "swinub|12": [
+    "dp7-77"
+  ],
+  "tangela|10": [
+    "dp7-78"
+  ],
+  "treecko|11": [
+    "dp7-79"
+  ],
+  "voltorb|28": [
+    "dp7-80"
+  ],
+  "voltorb|31": [
+    "dp7-81"
+  ],
+  "charmander|10": [
+    "dp7-101"
+  ],
+  "charmeleon|32": [
+    "dp7-102"
+  ],
+  "charizard|76": [
+    "dp7-103"
+  ],
+  "drifloon|16": [
+    "dp7-SH1"
+  ],
+  "duskull|18": [
+    "dp7-SH2"
+  ],
+  "voltorb|33": [
+    "dp7-SH3"
+  ],
+  "darkrai|50": [
+    "dpp-DP24"
+  ],
+  "magnezone|51": [
+    "dpp-DP32"
+  ],
+  "dusknoir|49": [
+    "dpp-DP33"
+  ],
+  "porygon-z|56": [
+    "dpp-DP35"
+  ],
+  "gliscor|47": [
+    "dpp-DP36"
+  ],
+  "regigigas|46": [
+    "dpp-DP40"
+  ],
+  "toxicroak g|45": [
+    "dpp-DP41"
+  ],
+  "carnivine g|43": [
+    "dpp-DP42"
+  ],
+  "probopass g|53": [
+    "dpp-DP43"
+  ],
+  "magnezone|53": [
+    "dpp-DP44"
+  ],
+  "dialga|69": [
+    "dpp-DP49"
+  ],
+  "arceus|100": [
+    "dpp-DP50",
+    "pl4-AR1",
+    "pl4-AR2",
+    "pl4-AR3",
+    "pl4-AR4",
+    "pl4-AR5",
+    "pl4-AR6",
+    "pl4-AR7",
+    "pl4-AR8",
+    "pl4-AR9"
+  ],
+  "cresselia|62": [
+    "dpp-DP51"
+  ],
+  "darkrai|61": [
+    "dpp-DP52"
+  ],
+  "ampharos|57": [
+    "pl1-1"
+  ],
+  "blastoise|60": [
+    "pl1-2"
+  ],
+  "blaziken|59": [
+    "pl1-3"
+  ],
+  "delcatty|53": [
+    "pl1-4"
+  ],
+  "dialga|72": [
+    "pl1-5"
+  ],
+  "dialga|70": [
+    "pl1-6"
+  ],
+  "dialga g|79": [
+    "pl1-7"
+  ],
+  "gardevoir|61": [
+    "pl1-8"
+  ],
+  "giratina|55": [
+    "pl1-9"
+  ],
+  "giratina|63": [
+    "pl1-10"
+  ],
+  "manectric|45": [
+    "pl1-11"
+  ],
+  "palkia g|78": [
+    "pl1-12"
+  ],
+  "rampardos|54": [
+    "pl1-13"
+  ],
+  "shaymin|42": [
+    "pl1-14"
+  ],
+  "shaymin|56": [
+    "pl1-15"
+  ],
+  "slaking|62": [
+    "pl1-16"
+  ],
+  "weavile g|48": [
+    "pl1-17"
+  ],
+  "altaria|48": [
+    "pl1-18"
+  ],
+  "banette|48": [
+    "pl1-19"
+  ],
+  "bastiodon|56": [
+    "pl1-20"
+  ],
+  "beautifly|37": [
+    "pl1-21"
+  ],
+  "blissey|40": [
+    "pl1-22"
+  ],
+  "dialga|73": [
+    "pl1-23"
+  ],
+  "dugtrio|50": [
+    "pl1-24"
+  ],
+  "dustox|42": [
+    "pl1-25"
+  ],
+  "empoleon|47": [
+    "pl1-26"
+  ],
+  "giratina|59": [
+    "pl1-27"
+  ],
+  "giratina|70": [
+    "pl1-28"
+  ],
+  "golduck|47": [
+    "pl1-29"
+  ],
+  "gyarados g|46": [
+    "pl1-30"
+  ],
+  "infernape|44": [
+    "pl1-31"
+  ],
+  "kricketune|46": [
+    "pl1-32"
+  ],
+  "lickilicky|52": [
+    "pl1-33"
+  ],
+  "ludicolo|52": [
+    "pl1-34"
+  ],
+  "luvdisc|33": [
+    "pl1-35"
+  ],
+  "ninetales|43": [
+    "pl1-36"
+  ],
+  "palkia|72": [
+    "pl1-37"
+  ],
+  "shaymin|44": [
+    "pl1-38"
+  ],
+  "torterra|48": [
+    "pl1-39"
+  ],
+  "toxicroak g|40": [
+    "pl1-40"
+  ],
+  "bronzong g|58": [
+    "pl1-41"
+  ],
+  "cacturne|44": [
+    "pl1-42"
+  ],
+  "carnivine|38": [
+    "pl1-43"
+  ],
+  "cascoon|10": [
+    "pl1-44"
+  ],
+  "combusken|27": [
+    "pl1-45"
+  ],
+  "cranidos|27": [
+    "pl1-46"
+  ],
+  "crobat g|44": [
+    "pl1-47"
+  ],
+  "flaaffy|22": [
+    "pl1-48"
+  ],
+  "grotle|26": [
+    "pl1-49"
+  ],
+  "houndoom g|45": [
+    "pl1-50"
+  ],
+  "kirlia|24": [
+    "pl1-51"
+  ],
+  "lombre|30": [
+    "pl1-52"
+  ],
+  "lucario|42": [
+    "pl1-53"
+  ],
+  "mightyena|47": [
+    "pl1-54"
+  ],
+  "mismagius|40": [
+    "pl1-55"
+  ],
+  "monferno|27": [
+    "pl1-56"
+  ],
+  "muk|49": [
+    "pl1-57"
+  ],
+  "octillery|40": [
+    "pl1-58"
+  ],
+  "prinplup|25": [
+    "pl1-59"
+  ],
+  "probopass|49": [
+    "pl1-60"
+  ],
+  "seviper|30": [
+    "pl1-61"
+  ],
+  "shieldon|21": [
+    "pl1-62"
+  ],
+  "silcoon|10": [
+    "pl1-63"
+  ],
+  "vigoroth|28": [
+    "pl1-64"
+  ],
+  "wartortle|25": [
+    "pl1-65"
+  ],
+  "zangoose|29": [
+    "pl1-66"
+  ],
+  "cacnea|16": [
+    "pl1-67"
+  ],
+  "carnivine|39": [
+    "pl1-68"
+  ],
+  "chansey|26": [
+    "pl1-69"
+  ],
+  "chimchar|10": [
+    "pl1-70"
+  ],
+  "combee|19": [
+    "pl1-71"
+  ],
+  "diglett|13": [
+    "pl1-72"
+  ],
+  "dunsparce|17": [
+    "pl1-73"
+  ],
+  "electrike|10": [
+    "pl1-74"
+  ],
+  "grimer|23": [
+    "pl1-75"
+  ],
+  "happiny|5": [
+    "pl1-76"
+  ],
+  "honchkrow g|47": [
+    "pl1-77"
+  ],
+  "kricketot|6": [
+    "pl1-78"
+  ],
+  "lapras|41": [
+    "pl1-79"
+  ],
+  "lickitung|30": [
+    "pl1-80"
+  ],
+  "lotad|11": [
+    "pl1-81"
+  ],
+  "mareep|13": [
+    "pl1-82"
+  ],
+  "misdreavus|12": [
+    "pl1-83"
+  ],
+  "nosepass|10": [
+    "pl1-84"
+  ],
+  "piplup|12": [
+    "pl1-85"
+  ],
+  "poochyena|12": [
+    "pl1-86"
+  ],
+  "psyduck|19": [
+    "pl1-87"
+  ],
+  "purugly g|40": [
+    "pl1-88"
+  ],
+  "ralts|16": [
+    "pl1-89"
+  ],
+  "remoraid|18": [
+    "pl1-90"
+  ],
+  "riolu|15": [
+    "pl1-91"
+  ],
+  "shuppet|17": [
+    "pl1-92"
+  ],
+  "skitty|20": [
+    "pl1-93"
+  ],
+  "skuntank g|46": [
+    "pl1-94"
+  ],
+  "slakoth|11": [
+    "pl1-95"
+  ],
+  "squirtle|16": [
+    "pl1-96"
+  ],
+  "swablu|11": [
+    "pl1-97"
+  ],
+  "tauros|23": [
+    "pl1-98"
+  ],
+  "torchic|12": [
+    "pl1-99"
+  ],
+  "torkoal|28": [
+    "pl1-100"
+  ],
+  "turtwig|14": [
+    "pl1-101"
+  ],
+  "vulpix|12": [
+    "pl1-102"
+  ],
+  "wurmple|5": [
+    "pl1-103"
+  ],
+  "electabuzz|35": [
+    "pl1-128"
+  ],
+  "hitmonchan|33": [
+    "pl1-129"
+  ],
+  "scyther|25": [
+    "pl1-130"
+  ],
+  "lotad|14": [
+    "pl1-SH4"
+  ],
+  "swablu|16": [
+    "pl1-SH5"
+  ],
+  "vulpix|20": [
+    "pl1-SH6"
+  ],
+  "arcanine|53": [
+    "pl2-1"
+  ],
+  "bastiodon gl|41": [
+    "pl2-2"
+  ],
+  "darkrai g|58": [
+    "pl2-3"
+  ],
+  "floatzel gl|37": [
+    "pl2-4"
+  ],
+  "flygon|65": [
+    "pl2-5"
+  ],
+  "froslass gl|44": [
+    "pl2-6"
+  ],
+  "jirachi|39": [
+    "pl2-7"
+  ],
+  "lucario gl|32": [
+    "pl2-8"
+  ],
+  "luxray gl|48": [
+    "pl2-9"
+  ],
+  "mismagius gl|26": [
+    "pl2-10"
+  ],
+  "rampardos gl|63": [
+    "pl2-11"
+  ],
+  "roserade gl|22": [
+    "pl2-12"
+  ],
+  "shiftry|55": [
+    "pl2-13"
+  ],
+  "aggron|53": [
+    "pl2-14"
+  ],
+  "beedrill|47": [
+    "pl2-15"
+  ],
+  "bronzong e4|54": [
+    "pl2-16"
+  ],
+  "drapion e4|53": [
+    "pl2-17"
+  ],
+  "espeon e4|55": [
+    "pl2-18"
+  ],
+  "flareon|38": [
+    "pl2-19"
+  ],
+  "gallade e4|59": [
+    "pl2-20"
+  ],
+  "gastrodon east sea|40": [
+    "pl2-21"
+  ],
+  "gastrodon west sea|50": [
+    "pl2-22"
+  ],
+  "golem e4|52": [
+    "pl2-23"
+  ],
+  "heracross e4|51": [
+    "pl2-24"
+  ],
+  "hippowdon|48": [
+    "pl2-25"
+  ],
+  "jolteon|43": [
+    "pl2-26"
+  ],
+  "mamoswine gl|61": [
+    "pl2-27"
+  ],
+  "mr. mime e4|53": [
+    "pl2-28"
+  ],
+  "nidoking|59": [
+    "pl2-29"
+  ],
+  "nidoqueen|54": [
+    "pl2-30"
+  ],
+  "raichu gl|46": [
+    "pl2-31"
+  ],
+  "rhyperior e4|55": [
+    "pl2-32"
+  ],
+  "snorlax|37": [
+    "pl2-33"
+  ],
+  "vaporeon|48": [
+    "pl2-34"
+  ],
+  "vespiquen e4|50": [
+    "pl2-35"
+  ],
+  "walrein|59": [
+    "pl2-36"
+  ],
+  "yanmega e4|49": [
+    "pl2-37"
+  ],
+  "alakazam e4|56": [
+    "pl2-38"
+  ],
+  "electrode g|38": [
+    "pl2-39"
+  ],
+  "gengar gl|65": [
+    "pl2-40"
+  ],
+  "glaceon|42": [
+    "pl2-41"
+  ],
+  "hippowdon e4|52": [
+    "pl2-42"
+  ],
+  "infernape e4|55": [
+    "pl2-43"
+  ],
+  "lairon|37": [
+    "pl2-44"
+  ],
+  "leafeon|49": [
+    "pl2-45"
+  ],
+  "machamp gl|64": [
+    "pl2-46"
+  ],
+  "rapidash e4|53": [
+    "pl2-47"
+  ],
+  "scizor e4|49": [
+    "pl2-48"
+  ],
+  "sharpedo|43": [
+    "pl2-49"
+  ],
+  "starmie|44": [
+    "pl2-50"
+  ],
+  "steelix gl|38": [
+    "pl2-51"
+  ],
+  "tropius|35": [
+    "pl2-52"
+  ],
+  "vibrava|36": [
+    "pl2-53"
+  ],
+  "whiscash e4|50": [
+    "pl2-54"
+  ],
+  "aerodactyl gl|62": [
+    "pl2-55"
+  ],
+  "ambipom g|40": [
+    "pl2-56"
+  ],
+  "aron|21": [
+    "pl2-57"
+  ],
+  "carvanha|13": [
+    "pl2-58"
+  ],
+  "eevee|10": [
+    "pl2-59"
+  ],
+  "flareon e4|55": [
+    "pl2-60"
+  ],
+  "forretress g|35": [
+    "pl2-61"
+  ],
+  "gliscor e4|53": [
+    "pl2-62"
+  ],
+  "growlithe|26": [
+    "pl2-63"
+  ],
+  "hippopotas|31": [
+    "pl2-64"
+  ],
+  "houndoom e4|52": [
+    "pl2-65"
+  ],
+  "kakuna|8": [
+    "pl2-66"
+  ],
+  "kecleon|34": [
+    "pl2-67"
+  ],
+  "koffing|22": [
+    "pl2-68"
+  ],
+  "munchlax|13": [
+    "pl2-69"
+  ],
+  "munchlax|15": [
+    "pl2-70"
+  ],
+  "nidoran \u2640|14": [
+    "pl2-71"
+  ],
+  "nidoran \u2642|9": [
+    "pl2-72"
+  ],
+  "nidorina|29": [
+    "pl2-73"
+  ],
+  "nidorino|30": [
+    "pl2-74"
+  ],
+  "nuzleaf|25": [
+    "pl2-75"
+  ],
+  "quagsire gl|34": [
+    "pl2-76"
+  ],
+  "sealeo|31": [
+    "pl2-77"
+  ],
+  "seedot|8": [
+    "pl2-78"
+  ],
+  "shellos east sea|21": [
+    "pl2-79"
+  ],
+  "shellos west sea|27": [
+    "pl2-80"
+  ],
+  "snorlax|40": [
+    "pl2-81"
+  ],
+  "spheal|18": [
+    "pl2-82"
+  ],
+  "staryu|18": [
+    "pl2-83"
+  ],
+  "trapinch|14": [
+    "pl2-84"
+  ],
+  "turtwig gl|20": [
+    "pl2-85"
+  ],
+  "weedle|6": [
+    "pl2-86"
+  ],
+  "weezing|47": [
+    "pl2-87"
+  ],
+  "flying pikachu|12": [
+    "pl2-113"
+  ],
+  "surfing pikachu|13": [
+    "pl2-114"
+  ],
+  "fan rotom|46": [
+    "pl2-RT1"
+  ],
+  "frost rotom|46": [
+    "pl2-RT2"
+  ],
+  "heat rotom|46": [
+    "pl2-RT3"
+  ],
+  "mow rotom|46": [
+    "pl2-RT4"
+  ],
+  "wash rotom|46": [
+    "pl2-RT5"
+  ],
+  "absol g|59": [
+    "pl3-1"
+  ],
+  "blaziken fb|50": [
+    "pl3-2"
+  ],
+  "drifblim fb|50": [
+    "pl3-3"
+  ],
+  "electivire fb|50": [
+    "pl3-4"
+  ],
+  "garchomp|71": [
+    "pl3-5"
+  ],
+  "magmortar|54": [
+    "pl3-6"
+  ],
+  "metagross|68": [
+    "pl3-7"
+  ],
+  "rayquaza c|73": [
+    "pl3-8"
+  ],
+  "regigigas fb|50": [
+    "pl3-9"
+  ],
+  "rhyperior|66": [
+    "pl3-10"
+  ],
+  "staraptor fb|50": [
+    "pl3-11"
+  ],
+  "swampert|60": [
+    "pl3-12"
+  ],
+  "venusaur|55": [
+    "pl3-13"
+  ],
+  "yanmega|53": [
+    "pl3-14"
+  ],
+  "arcanine g|60": [
+    "pl3-15"
+  ],
+  "articuno|41": [
+    "pl3-16"
+  ],
+  "butterfree fb|50": [
+    "pl3-17"
+  ],
+  "camerupt|49": [
+    "pl3-18"
+  ],
+  "camerupt g|57": [
+    "pl3-19"
+  ],
+  "charizard g|65": [
+    "pl3-20"
+  ],
+  "chimecho|30": [
+    "pl3-21"
+  ],
+  "claydol|51": [
+    "pl3-22"
+  ],
+  "crawdaunt g|61": [
+    "pl3-23"
+  ],
+  "dewgong|40": [
+    "pl3-24"
+  ],
+  "dodrio|32": [
+    "pl3-25"
+  ],
+  "dusknoir fb|50": [
+    "pl3-26"
+  ],
+  "empoleon fb|50": [
+    "pl3-27"
+  ],
+  "exploud|60": [
+    "pl3-28"
+  ],
+  "honchkrow|46": [
+    "pl3-29"
+  ],
+  "lickilicky c|57": [
+    "pl3-30"
+  ],
+  "lucario c|60": [
+    "pl3-31"
+  ],
+  "lunatone|38": [
+    "pl3-32"
+  ],
+  "mawile|41": [
+    "pl3-33"
+  ],
+  "medicham|48": [
+    "pl3-34"
+  ],
+  "milotic c|58": [
+    "pl3-35"
+  ],
+  "moltres|42": [
+    "pl3-36"
+  ],
+  "mr. mime|40": [
+    "pl3-37"
+  ],
+  "parasect|33": [
+    "pl3-38"
+  ],
+  "primeape|45": [
+    "pl3-39"
+  ],
+  "roserade c|58": [
+    "pl3-40"
+  ],
+  "sableye g|58": [
+    "pl3-41"
+  ],
+  "sandslash|32": [
+    "pl3-42"
+  ],
+  "seaking|43": [
+    "pl3-43"
+  ],
+  "shedinja|40": [
+    "pl3-44"
+  ],
+  "solrock|41": [
+    "pl3-45"
+  ],
+  "spinda|27": [
+    "pl3-46"
+  ],
+  "wailord|41": [
+    "pl3-47"
+  ],
+  "zapdos|40": [
+    "pl3-48"
+  ],
+  "altaria c|59": [
+    "pl3-49"
+  ],
+  "arcanine|32": [
+    "pl3-50"
+  ],
+  "bibarel|20": [
+    "pl3-51"
+  ],
+  "breloom|37": [
+    "pl3-52"
+  ],
+  "carnivine|34": [
+    "pl3-53"
+  ],
+  "chatot g|49": [
+    "pl3-54"
+  ],
+  "cherrim|29": [
+    "pl3-55"
+  ],
+  "dragonite fb|50": [
+    "pl3-56"
+  ],
+  "drifblim|33": [
+    "pl3-57"
+  ],
+  "floatzel|27": [
+    "pl3-58"
+  ],
+  "gabite|36": [
+    "pl3-59"
+  ],
+  "garchomp c|62": [
+    "pl3-60"
+  ],
+  "hippopotas|29": [
+    "pl3-61"
+  ],
+  "ivysaur|26": [
+    "pl3-62"
+  ],
+  "lopunny|34": [
+    "pl3-63"
+  ],
+  "loudred|35": [
+    "pl3-64"
+  ],
+  "magmar|28": [
+    "pl3-65"
+  ],
+  "manectric g|58": [
+    "pl3-66"
+  ],
+  "marshtomp|21": [
+    "pl3-67"
+  ],
+  "masquerain|36": [
+    "pl3-68"
+  ],
+  "metang|28": [
+    "pl3-69"
+  ],
+  "milotic|49": [
+    "pl3-70"
+  ],
+  "minun|33": [
+    "pl3-71"
+  ],
+  "murkrow|22": [
+    "pl3-72"
+  ],
+  "ninjask|38": [
+    "pl3-73"
+  ],
+  "numel|21": [
+    "pl3-74"
+  ],
+  "pinsir|32": [
+    "pl3-75"
+  ],
+  "plusle|33": [
+    "pl3-76"
+  ],
+  "raichu|35": [
+    "pl3-77"
+  ],
+  "raticate g|57": [
+    "pl3-78"
+  ],
+  "relicanth|36": [
+    "pl3-79"
+  ],
+  "rhydon|45": [
+    "pl3-80"
+  ],
+  "roserade|25": [
+    "pl3-81"
+  ],
+  "rotom|40": [
+    "pl3-82"
+  ],
+  "skarmory fb|50": [
+    "pl3-83"
+  ],
+  "spiritomb c|58": [
+    "pl3-84"
+  ],
+  "staravia|16": [
+    "pl3-85"
+  ],
+  "togekiss c|60": [
+    "pl3-86"
+  ],
+  "wailmer|10": [
+    "pl3-87"
+  ],
+  "yanma|17": [
+    "pl3-88"
+  ],
+  "baltoy|19": [
+    "pl3-89"
+  ],
+  "beldum|10": [
+    "pl3-90"
+  ],
+  "bidoof|12": [
+    "pl3-91"
+  ],
+  "buizel|7": [
+    "pl3-92"
+  ],
+  "bulbasaur|13": [
+    "pl3-93"
+  ],
+  "buneary|9": [
+    "pl3-94"
+  ],
+  "chatot|28": [
+    "pl3-95"
+  ],
+  "cherubi|10": [
+    "pl3-96"
+  ],
+  "chimchar|11": [
+    "pl3-97"
+  ],
+  "chingling|7": [
+    "pl3-98"
+  ],
+  "combee|4": [
+    "pl3-99"
+  ],
+  "corphish|11": [
+    "pl3-100"
+  ],
+  "croagunk|10": [
+    "pl3-101"
+  ],
+  "doduo|12": [
+    "pl3-102"
+  ],
+  "drifloon|10": [
+    "pl3-103"
+  ],
+  "feebas|5": [
+    "pl3-104"
+  ],
+  "geodude|9": [
+    "pl3-105"
+  ],
+  "gible|12": [
+    "pl3-106"
+  ],
+  "goldeen|7": [
+    "pl3-107"
+  ],
+  "growlithe|15": [
+    "pl3-108"
+  ],
+  "kricketot|4": [
+    "pl3-109"
+  ],
+  "magikarp|9": [
+    "pl3-110"
+  ],
+  "magnemite|7": [
+    "pl3-111"
+  ],
+  "mankey|19": [
+    "pl3-112"
+  ],
+  "meditite|22": [
+    "pl3-113"
+  ],
+  "meowth|18": [
+    "pl3-114"
+  ],
+  "mime jr.|8": [
+    "pl3-115"
+  ],
+  "mudkip|6": [
+    "pl3-116"
+  ],
+  "nincada|8": [
+    "pl3-117"
+  ],
+  "pachirisu|14": [
+    "pl3-118"
+  ],
+  "paras|10": [
+    "pl3-119"
+  ],
+  "pikachu|11": [
+    "pl3-120"
+  ],
+  "piplup|13": [
+    "pl3-121"
+  ],
+  "rhyhorn|23": [
+    "pl3-122"
+  ],
+  "roselia|17": [
+    "pl3-123"
+  ],
+  "sandshrew|10": [
+    "pl3-124"
+  ],
+  "seel|20": [
+    "pl3-125"
+  ],
+  "shinx|8": [
+    "pl3-126"
+  ],
+  "shroomish|11": [
+    "pl3-127"
+  ],
+  "skorupi|6": [
+    "pl3-128"
+  ],
+  "starly|5": [
+    "pl3-129"
+  ],
+  "surskit|9": [
+    "pl3-130"
+  ],
+  "turtwig|8": [
+    "pl3-131"
+  ],
+  "whismur|11": [
+    "pl3-132"
+  ],
+  "zubat|6": [
+    "pl3-133"
+  ],
+  "articuno|34": [
+    "pl3-148"
+  ],
+  "moltres|33": [
+    "pl3-149"
+  ],
+  "zapdos|30": [
+    "pl3-150"
+  ],
+  "milotic|52": [
+    "pl3-SH7"
+  ],
+  "relicanth|39": [
+    "pl3-SH8"
+  ],
+  "yanma|22": [
+    "pl3-SH9"
+  ],
+  "charizard|60": [
+    "pl4-1"
+  ],
+  "froslass|45": [
+    "pl4-2"
+  ],
+  "heatran|58": [
+    "pl4-3"
+  ],
+  "kabutops|59": [
+    "pl4-4"
+  ],
+  "luxray|53": [
+    "pl4-5"
+  ],
+  "mothim|43": [
+    "pl4-6"
+  ],
+  "probopass|55": [
+    "pl4-7"
+  ],
+  "salamence|68": [
+    "pl4-8"
+  ],
+  "swalot|40": [
+    "pl4-9"
+  ],
+  "tangrowth|48": [
+    "pl4-10"
+  ],
+  "toxicroak|44": [
+    "pl4-11"
+  ],
+  "zapdos g|60": [
+    "pl4-12"
+  ],
+  "aerodactyl|47": [
+    "pl4-13"
+  ],
+  "bronzong|49": [
+    "pl4-14"
+  ],
+  "cherrim|33": [
+    "pl4-15"
+  ],
+  "gengar|44": [
+    "pl4-16"
+  ],
+  "gengar|46": [
+    "pl4-17"
+  ],
+  "glalie|46": [
+    "pl4-18"
+  ],
+  "golem|56": [
+    "pl4-19"
+  ],
+  "hariyama|42": [
+    "pl4-20"
+  ],
+  "lopunny|40": [
+    "pl4-21"
+  ],
+  "manectric|46": [
+    "pl4-22"
+  ],
+  "omastar|55": [
+    "pl4-23"
+  ],
+  "pelipper|50": [
+    "pl4-24"
+  ],
+  "pichu|9": [
+    "pl4-25"
+  ],
+  "porygon-z g|56": [
+    "pl4-26"
+  ],
+  "raichu|46": [
+    "pl4-27"
+  ],
+  "rapidash|41": [
+    "pl4-28"
+  ],
+  "raticate|31": [
+    "pl4-29"
+  ],
+  "sceptile|57": [
+    "pl4-30"
+  ],
+  "sceptile|59": [
+    "pl4-31"
+  ],
+  "spiritomb|39": [
+    "pl4-32"
+  ],
+  "bronzong|45": [
+    "pl4-33"
+  ],
+  "bronzor|9": [
+    "pl4-34"
+  ],
+  "charmeleon|31": [
+    "pl4-35"
+  ],
+  "gastly|16": [
+    "pl4-36"
+  ],
+  "graveler|37": [
+    "pl4-37"
+  ],
+  "grovyle|28": [
+    "pl4-38"
+  ],
+  "grovyle|24": [
+    "pl4-39"
+  ],
+  "gulpin|21": [
+    "pl4-40"
+  ],
+  "haunter|31": [
+    "pl4-41"
+  ],
+  "haunter|37": [
+    "pl4-42"
+  ],
+  "luxio|25": [
+    "pl4-43"
+  ],
+  "manectric|44": [
+    "pl4-44"
+  ],
+  "pelipper|49": [
+    "pl4-45"
+  ],
+  "ponyta|8": [
+    "pl4-46"
+  ],
+  "rapidash|45": [
+    "pl4-47"
+  ],
+  "shelgon|34": [
+    "pl4-48"
+  ],
+  "wormadam plant cloak|46": [
+    "pl4-49"
+  ],
+  "wormadam sandy cloak|45": [
+    "pl4-50"
+  ],
+  "wormadam trash cloak|44": [
+    "pl4-51"
+  ],
+  "bagon|18": [
+    "pl4-52"
+  ],
+  "beedrill g|56": [
+    "pl4-53"
+  ],
+  "bronzor|15": [
+    "pl4-54"
+  ],
+  "buneary|17": [
+    "pl4-55"
+  ],
+  "burmy plant cloak|11": [
+    "pl4-56"
+  ],
+  "burmy sandy cloak|11": [
+    "pl4-57"
+  ],
+  "burmy trash cloak|11": [
+    "pl4-58"
+  ],
+  "charmander|13": [
+    "pl4-59"
+  ],
+  "cherubi|12": [
+    "pl4-60"
+  ],
+  "croagunk|15": [
+    "pl4-61"
+  ],
+  "electrike|22": [
+    "pl4-62"
+  ],
+  "electrike|20": [
+    "pl4-63"
+  ],
+  "gastly|15": [
+    "pl4-64"
+  ],
+  "geodude|14": [
+    "pl4-65"
+  ],
+  "gulpin|19": [
+    "pl4-66"
+  ],
+  "kabuto|33": [
+    "pl4-67"
+  ],
+  "makuhita|21": [
+    "pl4-68"
+  ],
+  "nosepass|13": [
+    "pl4-69"
+  ],
+  "omanyte|38": [
+    "pl4-70"
+  ],
+  "pikachu|17": [
+    "pl4-71"
+  ],
+  "ponyta|13": [
+    "pl4-72"
+  ],
+  "rattata|12": [
+    "pl4-73"
+  ],
+  "shinx|13": [
+    "pl4-74"
+  ],
+  "snorunt|16": [
+    "pl4-75"
+  ],
+  "tangela|15": [
+    "pl4-76"
+  ],
+  "tangela|9": [
+    "pl4-77"
+  ],
+  "treecko|14": [
+    "pl4-78"
+  ],
+  "treecko|13": [
+    "pl4-79"
+  ],
+  "wingull|5": [
+    "pl4-80"
+  ],
+  "wingull|8": [
+    "pl4-81"
+  ],
+  "bagon|15": [
+    "pl4-SH10"
+  ],
+  "ponyta|17": [
+    "pl4-SH11"
+  ],
+  "shinx|11": [
+    "pl4-SH12"
+  ]
+}

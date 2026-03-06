@@ -207,6 +207,7 @@ input[type=file] { display: none; }
     <label class="upload-btn" for="pageGallery" style="background:#16213e;border:2px solid #4ecca3;color:#4ecca3;">Page from Gallery</label>
     <input type="file" id="pageGallery" accept="image/*">
 </form>
+<a href="/condition" class="upload-btn" style="display:block;background:#e94560;color:#fff;margin-top:20px;text-decoration:none;text-align:center;">Grade Card Condition</a>
 <img id="preview">
 <div class="spinner" id="spinner">Scanning...</div>
 <div class="result" id="result">
