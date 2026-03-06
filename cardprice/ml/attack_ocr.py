@@ -7,7 +7,7 @@ are nearly unique per card printing.
 Pipeline:
   1. Crop to attack region (roughly 40-75% of card height, center 80% width)
   2. Preprocess: upscale, CLAHE, optional sharpen
-  3. Run EasyOCR on the region
+  3. Run PaddleOCR on the region (preferred) or EasyOCR (fallback)
   4. Filter OCR fragments: keep likely attack names, discard damage numbers,
      energy costs, description text, and other noise
   5. Fuzzy-match surviving fragments against the attack_index.pkl
@@ -172,7 +172,7 @@ _NOISE_PATTERNS = [
     # Common non-attack text fragments
     re.compile(
         r"^(weakness|resistance|retreat|cost|hp|lv\b|stage|basic|"
-        r"pokemon|power|poke-body|poke-power|ability|pokedex|"
+        r"pokemon|power|poke-body|poke-power|pok\u00e9-body|pok\u00e9-power|ability|pokedex|"
         r"illustrator|illus|rarity|\d+/\d+|no\.|put|this|the|and|"
         r"your|each|from|does|coin|flip|damage|energy|attach|"
         r"discard|shuffle|deck|hand|active|bench|turn|"
@@ -181,6 +181,8 @@ _NOISE_PATTERNS = [
     ),
     # Fragments that are mostly digits
     re.compile(r"^\d[\d\s/\-\.]{2,}$"),
+    # Stage indicators: "STAGE 1", "STAGE 2" (matches "strange bell" at 0.632)
+    re.compile(r"^stage\s*\d?$", re.IGNORECASE),
 ]
 
 # Additional heuristics for description text (smaller font, longer phrases)
@@ -386,6 +388,186 @@ def extract_attack_names(
 
 
 # ---------------------------------------------------------------------------
+# PaddleOCR-based attack extraction (10x faster than EasyOCR)
+# ---------------------------------------------------------------------------
+
+def _recombine_paddle_fragments(
+    fragments: list[dict],
+) -> list[tuple[str, float, list]]:
+    """Recombine PaddleOCR fragments that are on the same text line.
+
+    PaddleOCR returns per-word detections. We group fragments at similar
+    Y positions and merge them left-to-right, same logic as EasyOCR.
+
+    Parameters
+    ----------
+    fragments : list of dict
+        Each dict has keys: text, conf, cx, cy, h.
+
+    Returns
+    -------
+    list of (text, confidence, bbox_list) tuples
+        Merged fragments grouped by text line.
+    """
+    if not fragments:
+        return []
+
+    items = sorted(fragments, key=lambda it: (it["cy"], it["cx"]))
+
+    lines: list[list[dict]] = []
+    current_line = [items[0]]
+    for it in items[1:]:
+        prev = current_line[-1]
+        threshold = max(prev["h"], it["h"]) * 0.6
+        if abs(it["cy"] - prev["cy"]) <= threshold:
+            current_line.append(it)
+        else:
+            lines.append(current_line)
+            current_line = [it]
+    lines.append(current_line)
+
+    merged = []
+    for line in lines:
+        line.sort(key=lambda it: it["cx"])
+        combined_text = " ".join(it["text"] for it in line if it["text"])
+        avg_conf = sum(it["conf"] for it in line) / len(line)
+        merged.append((combined_text, avg_conf, []))
+
+    return merged
+
+
+def extract_attack_names_paddle(
+    image_path: str | Path,
+    det_model=None,
+    rec_model=None,
+) -> list[tuple[str, float]]:
+    """Extract likely attack names using PaddleOCR (10x faster than EasyOCR).
+
+    Uses the same crop region, preprocessing, and filtering as
+    extract_attack_names(), but runs PaddleOCR detection + recognition
+    instead of EasyOCR.
+
+    Parameters
+    ----------
+    image_path : str or Path
+        Path to the card segment image.
+    det_model : TextDetection, optional
+        Pre-initialized PaddleOCR detection model. If None, creates one
+        (but callers should pass pre-initialized engines to avoid
+        thread-safety issues).
+    rec_model : TextRecognition, optional
+        Pre-initialized PaddleOCR recognition model.
+
+    Returns
+    -------
+    list of (text, confidence) tuples
+        Extracted attack name candidates with OCR confidence.
+    """
+    image_path = str(Path(image_path).resolve())
+
+    img = cv2.imread(image_path)
+    if img is None:
+        logger.warning("Failed to read image: %s", image_path)
+        return []
+
+    # Initialize PaddleOCR if not provided (single-thread usage only)
+    if det_model is None or rec_model is None:
+        from cardprice.ml.ocr_matcher import get_paddle_engines
+        det_model, rec_model = get_paddle_engines()
+
+    # Crop to attack region
+    attack_crop = crop_attack_region(img)
+    processed = preprocess_attack_region(attack_crop)
+
+    # PaddleOCR expects 3-channel BGR input
+    if len(processed.shape) == 2:
+        processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
+
+    # Upscale for better detection (same rationale as name OCR)
+    h, w = processed.shape[:2]
+    if h < 600:
+        scale = max(2, 600 // max(h, 1))
+        processed = cv2.resize(
+            processed, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC
+        )
+
+    # Pad edges so text isn't at the very border
+    processed = cv2.copyMakeBorder(
+        processed, 20, 20, 20, 20, cv2.BORDER_REPLICATE
+    )
+
+    # Run PaddleOCR detection
+    try:
+        det_results = list(det_model.predict(processed))
+    except Exception as e:
+        logger.warning("PaddleOCR attack detection failed: %s", e)
+        return []
+
+    if not det_results or not det_results[0]:
+        return []
+
+    det_out = det_results[0]
+    polys = det_out.get("dt_polys", [])
+    scores = det_out.get("dt_scores", [])
+
+    fragments = []
+    for poly, det_score in zip(polys, scores):
+        if det_score < 0.3:
+            continue
+        pts = np.array(poly, dtype=np.float32)
+        x, y, bw, bh = cv2.boundingRect(pts)
+        text_crop = processed[max(0, y):y + bh, max(0, x):x + bw]
+        if text_crop.size == 0:
+            continue
+        try:
+            rec_results = list(rec_model.predict(text_crop))
+        except Exception:
+            continue
+        if rec_results and rec_results[0]:
+            text = rec_results[0].get("rec_text", "").strip()
+            conf = float(rec_results[0].get("rec_score", 0.0))
+            if text and len(text) >= 2 and conf > 0.2:
+                cy = y + bh / 2
+                cx = x + bw / 2
+                fragments.append({
+                    "text": text, "conf": conf,
+                    "cx": cx, "cy": cy, "h": max(bh, 1),
+                })
+
+    if not fragments:
+        return []
+
+    # Recombine fragments on the same text line
+    merged_lines = _recombine_paddle_fragments(fragments)
+
+    # Also keep individual fragments as separate candidates
+    individual = [(f["text"], f["conf"]) for f in fragments if f["text"]]
+
+    # Filter merged lines to likely attack names
+    candidates = []
+    seen = set()
+    for text, conf, _ in merged_lines:
+        text = text.strip()
+        if text and _is_likely_attack_name(text, conf):
+            key = text.lower()
+            if key not in seen:
+                candidates.append((text, conf))
+                seen.add(key)
+                logger.debug("  KEEP (merged/paddle): '%s' (conf=%.2f)", text, conf)
+
+    # Also add individual fragments that pass the filter
+    for text, conf in individual:
+        if _is_likely_attack_name(text, conf):
+            key = text.lower()
+            if key not in seen:
+                candidates.append((text, conf))
+                seen.add(key)
+                logger.debug("  KEEP (single/paddle): '%s' (conf=%.2f)", text, conf)
+
+    return candidates
+
+
+# ---------------------------------------------------------------------------
 # Fuzzy matching against attack index
 # ---------------------------------------------------------------------------
 
@@ -442,7 +624,12 @@ def fuzzy_match_attacks(
     # Track best match per attack (prefer higher-scoring n-gram matches)
     best_per_attack: dict[str, tuple[str, float]] = {}
 
-    for ocr_text, ocr_conf in ngram_candidates:
+    for raw_ocr_text, ocr_conf in ngram_candidates:
+        # Strip trailing damage numbers that OCR merged with attack name
+        # e.g. "Bite 20" -> "Bite", "Slash 30+" -> "Slash"
+        ocr_text = re.sub(r'\s*\d{1,3}[+x]?\s*$', '', raw_ocr_text).strip()
+        if not ocr_text:
+            continue
         best_attack = None
         best_score = 0.0
 
@@ -456,8 +643,10 @@ def fuzzy_match_attacks(
             search_attacks = [a for a in known_attacks if " " not in a]
             effective_threshold = max(threshold, 0.80)
         elif word_count >= 2:
-            # Multi-word OCR fragments: try multi-word attacks first
-            search_attacks = multiword_attacks if multiword_attacks else known_attacks
+            # Multi-word OCR fragments: search ALL attacks, not just multi-word.
+            # OCR noise can append garbage to single-word attack names
+            # (e.g. "Foresight L"), so we must not exclude single-word attacks.
+            search_attacks = known_attacks
 
         result = _rprocess.extractOne(
             ocr_text.lower().strip(), search_attacks,

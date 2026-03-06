@@ -78,32 +78,62 @@ def extract_set_from_card_id(card_id: str) -> str:
     return parts[0] if len(parts) == 2 else base
 
 
-def run_eval():
-    """Run the v2 eval pipeline."""
-    eval_path = PROJECT_ROOT / "data" / "eval" / "binder_eval.json"
-    output_path = PROJECT_ROOT / "data" / "eval" / "v2_eval_results.json"
+def _build_result_entry(i, gt, result, elapsed):
+    """Build a result dict from ground truth and prediction."""
+    segment_path = gt["segment_path"]
+    expected_id = gt["card_id"]
+    expected_name = gt["name"]
 
-    if not eval_path.exists():
-        logger.error("Ground truth not found: %s", eval_path)
-        sys.exit(1)
+    pred_id = result.get("card_id")
+    pred_method = result.get("method", "?")
+    pred_conf = result.get("confidence", 0.0)
+    pred_expl = result.get("explanation", "")
 
-    # Load ground truth
-    gt_cards = load_ground_truth(eval_path)
-    logger.info("Loaded %d ground truth cards from %s", len(gt_cards), eval_path)
+    # Exact card_id match
+    exact = (pred_id == expected_id)
 
-    # Import v2 pipeline
+    # Name-level match: same base card code (ignoring variant)
+    name_match = (
+        extract_name_from_card_id(pred_id) == extract_name_from_card_id(expected_id)
+        if pred_id and expected_id else False
+    )
+
+    # Set-level match
+    set_match = (
+        extract_set_from_card_id(pred_id) == extract_set_from_card_id(expected_id)
+        if pred_id and expected_id else False
+    )
+
+    # Serialize raw_response for JSON (handle non-serializable types)
+    raw = result.get("raw_response", {})
+    try:
+        json.dumps(raw)
+    except (TypeError, ValueError):
+        raw = str(raw)
+
+    return {
+        "index": i,
+        "page_index": gt["page_index"],
+        "position": gt["position"],
+        "segment_path": segment_path,
+        "expected_card_id": expected_id,
+        "expected_name": expected_name,
+        "predicted_card_id": pred_id,
+        "predicted_method": pred_method,
+        "predicted_confidence": pred_conf,
+        "predicted_explanation": pred_expl,
+        "exact_match": exact,
+        "name_match": name_match,
+        "set_match": set_match,
+        "time_seconds": round(elapsed, 2),
+        "raw_response": raw,
+    }
+
+
+def _run_per_card(gt_cards, session):
+    """Run per-card evaluation (no page context)."""
     from cardprice.ml import identify_card_v2
 
-    # Get a DB session
-    session = None
-    try:
-        from cardprice.db.session import SessionLocal
-        session = SessionLocal()
-        logger.info("DB session acquired")
-    except Exception as e:
-        logger.warning("Could not get DB session (will limit functionality): %s", e)
-
-    # Run identification on each card
     results = []
     total_time = 0.0
     for i, gt in enumerate(gt_cards):
@@ -112,7 +142,6 @@ def run_eval():
         expected_name = gt["name"]
 
         if expected_id is None:
-            # Empty slot - skip
             logger.info(
                 "[%2d/%d] SKIP empty slot at page %d pos %s",
                 i + 1, len(gt_cards), gt["page_index"], gt["position"],
@@ -128,7 +157,7 @@ def run_eval():
                 "predicted_method": "skip",
                 "predicted_confidence": 0.0,
                 "predicted_explanation": "Empty slot, skipped",
-                "exact_match": True,  # null == null
+                "exact_match": True,
                 "name_match": True,
                 "set_match": True,
                 "time_seconds": 0.0,
@@ -155,7 +184,6 @@ def run_eval():
             })
             continue
 
-        # Run v2 pipeline
         logger.info(
             "[%2d/%d] Processing: %s (expected: %s / %s)",
             i + 1, len(gt_cards),
@@ -177,56 +205,158 @@ def run_eval():
         elapsed = time.time() - t0
         total_time += elapsed
 
-        pred_id = result.get("card_id")
-        pred_method = result.get("method", "?")
-        pred_conf = result.get("confidence", 0.0)
-        pred_expl = result.get("explanation", "")
+        entry = _build_result_entry(i, gt, result, elapsed)
 
-        # Exact card_id match
-        exact = (pred_id == expected_id)
-
-        # Name-level match: same base card code (ignoring variant)
-        name_match = (
-            extract_name_from_card_id(pred_id) == extract_name_from_card_id(expected_id)
-            if pred_id and expected_id else False
-        )
-
-        # Set-level match
-        set_match = (
-            extract_set_from_card_id(pred_id) == extract_set_from_card_id(expected_id)
-            if pred_id and expected_id else False
-        )
-
-        marker = "OK" if exact else ("NAME" if name_match else "MISS")
+        marker = "OK" if entry["exact_match"] else ("NAME" if entry["name_match"] else "MISS")
         logger.info(
             "  [%4s] predicted=%s (conf=%.3f, method=%s, %.1fs)",
-            marker, pred_id, pred_conf, pred_method, elapsed,
+            marker, entry["predicted_card_id"], entry["predicted_confidence"],
+            entry["predicted_method"], elapsed,
         )
 
-        # Serialize raw_response for JSON (handle non-serializable types)
-        raw = result.get("raw_response", {})
-        try:
-            json.dumps(raw)
-        except (TypeError, ValueError):
-            raw = str(raw)
+        results.append(entry)
 
-        results.append({
-            "index": i,
-            "page_index": gt["page_index"],
-            "position": gt["position"],
-            "segment_path": segment_path,
-            "expected_card_id": expected_id,
-            "expected_name": expected_name,
-            "predicted_card_id": pred_id,
-            "predicted_method": pred_method,
-            "predicted_confidence": pred_conf,
-            "predicted_explanation": pred_expl,
-            "exact_match": exact,
-            "name_match": name_match,
-            "set_match": set_match,
-            "time_seconds": round(elapsed, 2),
-            "raw_response": raw,
-        })
+    return results, total_time
+
+
+def _run_page_level(gt_cards, session):
+    """Run page-level evaluation (with page context passes 2/3)."""
+    from cardprice.ml import identify_page_v2
+
+    # Group ground truth cards by page_index
+    pages = defaultdict(list)
+    for i, gt in enumerate(gt_cards):
+        pages[gt["page_index"]].append((i, gt))
+
+    results = [None] * len(gt_cards)
+    total_time = 0.0
+
+    for page_idx in sorted(pages.keys()):
+        page_entries = pages[page_idx]
+        logger.info("Page %d: %d cards", page_idx, len(page_entries))
+
+        # Collect segment paths for this page (in order)
+        seg_paths = []
+        for i, gt in page_entries:
+            seg_paths.append(gt["segment_path"])
+
+        # Call identify_page_v2 for the whole page
+        t0 = time.time()
+        try:
+            page_results = identify_page_v2(seg_paths, session=session)
+        except Exception as e:
+            logger.error("  identify_page_v2 failed for page %d: %s", page_idx, e, exc_info=True)
+            page_results = [
+                {"card_id": None, "confidence": 0.0, "method": "error",
+                 "explanation": str(e), "raw_response": {}}
+            ] * len(page_entries)
+        page_elapsed = time.time() - t0
+        total_time += page_elapsed
+
+        per_card_time = page_elapsed / len(page_entries) if page_entries else 0.0
+
+        # Match results back to ground truth
+        for j, (i, gt) in enumerate(page_entries):
+            expected_id = gt["card_id"]
+            expected_name = gt["name"]
+
+            if expected_id is None:
+                logger.info(
+                    "[%2d/%d] SKIP empty slot at page %d pos %s",
+                    i + 1, len(gt_cards), gt["page_index"], gt["position"],
+                )
+                results[i] = {
+                    "index": i,
+                    "page_index": gt["page_index"],
+                    "position": gt["position"],
+                    "segment_path": gt["segment_path"],
+                    "expected_card_id": None,
+                    "expected_name": expected_name,
+                    "predicted_card_id": None,
+                    "predicted_method": "skip",
+                    "predicted_confidence": 0.0,
+                    "predicted_explanation": "Empty slot, skipped",
+                    "exact_match": True,
+                    "name_match": True,
+                    "set_match": True,
+                    "time_seconds": 0.0,
+                }
+                continue
+
+            if not Path(gt["segment_path"]).exists():
+                logger.warning("[%2d/%d] Segment not found: %s", i + 1, len(gt_cards), gt["segment_path"])
+                results[i] = {
+                    "index": i,
+                    "page_index": gt["page_index"],
+                    "position": gt["position"],
+                    "segment_path": gt["segment_path"],
+                    "expected_card_id": expected_id,
+                    "expected_name": expected_name,
+                    "predicted_card_id": None,
+                    "predicted_method": "missing_segment",
+                    "predicted_confidence": 0.0,
+                    "predicted_explanation": "Segment file not found",
+                    "exact_match": False,
+                    "name_match": False,
+                    "set_match": False,
+                    "time_seconds": 0.0,
+                }
+                continue
+
+            result = page_results[j] if j < len(page_results) else {
+                "card_id": None, "confidence": 0.0, "method": "error",
+                "explanation": "No result returned", "raw_response": {},
+            }
+
+            entry = _build_result_entry(i, gt, result, per_card_time)
+
+            marker = "OK" if entry["exact_match"] else ("NAME" if entry["name_match"] else "MISS")
+            logger.info(
+                "  [%4s] %s predicted=%s (conf=%.3f, method=%s)",
+                marker, Path(gt["segment_path"]).name,
+                entry["predicted_card_id"], entry["predicted_confidence"],
+                entry["predicted_method"],
+            )
+
+            results[i] = entry
+
+        logger.info("  Page %d total: %.1fs (%.1fs/card)", page_idx, page_elapsed, per_card_time)
+
+    # Filter out any None entries (shouldn't happen, but be safe)
+    results = [r for r in results if r is not None]
+    return results, total_time
+
+
+def run_eval(page_level=False):
+    """Run the v2 eval pipeline."""
+    eval_path = PROJECT_ROOT / "data" / "eval" / "binder_eval.json"
+    output_path = PROJECT_ROOT / "data" / "eval" / "v2_eval_results.json"
+
+    if not eval_path.exists():
+        logger.error("Ground truth not found: %s", eval_path)
+        sys.exit(1)
+
+    # Load ground truth
+    gt_cards = load_ground_truth(eval_path)
+    logger.info("Loaded %d ground truth cards from %s", len(gt_cards), eval_path)
+
+    mode_label = "PAGE-LEVEL (with context)" if page_level else "PER-CARD (no context)"
+    logger.info("Evaluation mode: %s", mode_label)
+
+    # Get a DB session
+    session = None
+    try:
+        from cardprice.db.session import SessionLocal
+        session = SessionLocal()
+        logger.info("DB session acquired")
+    except Exception as e:
+        logger.warning("Could not get DB session (will limit functionality): %s", e)
+
+    # Run identification
+    if page_level:
+        results, total_time = _run_page_level(gt_cards, session)
+    else:
+        results, total_time = _run_per_card(gt_cards, session)
 
     # -----------------------------------------------------------------------
     # Compute summary statistics
@@ -299,6 +429,7 @@ def run_eval():
     avg_conf_wrong = sum(wrong_confs) / len(wrong_confs) if wrong_confs else 0.0
 
     summary = {
+        "mode": mode_label,
         "total_cards": len(gt_cards),
         "scored_cards": n_scored,
         "skipped_empty": len(gt_cards) - n_scored,
@@ -335,7 +466,7 @@ def run_eval():
     # Print report
     # -----------------------------------------------------------------------
     print("\n" + "=" * 80)
-    print("V2 PIPELINE EVALUATION RESULTS")
+    print(f"V2 PIPELINE EVALUATION RESULTS — {mode_label}")
     print("=" * 80)
 
     print(f"\nCards scored: {n_scored} (+ {len(gt_cards) - n_scored} empty slots skipped)")
@@ -408,4 +539,11 @@ def run_eval():
 
 
 if __name__ == "__main__":
-    run_eval()
+    import argparse
+    parser = argparse.ArgumentParser(description="Evaluate v2 card identification pipeline")
+    parser.add_argument(
+        "--page-level", action="store_true",
+        help="Use identify_page_v2() with page context (passes 2/3) instead of per-card identify_card_v2()",
+    )
+    args = parser.parse_args()
+    run_eval(page_level=args.page_level)

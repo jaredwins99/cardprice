@@ -2198,109 +2198,105 @@ class ScanHandler(BaseHTTPRequestHandler):
 def warmup():
     """Pre-load all ML models and data files so the first request is fast.
 
-    Loads resources in order: GPU models first (biggest latency), then
-    data files (pickle indexes, DB caches).  Each step is timed and logged.
-    Failures are logged as warnings but do not prevent the server from starting.
+    Loads resources in dependency order:
+      1. PaddleOCR (name OCR) + dummy inference to trigger JIT compilation
+      2. EasyOCR (attack OCR fallback)
+      3. DINOv2 + dummy inference to trigger JIT/CUDA warmup
+      4. FAISS index + card_ids
+      5. Reference embeddings
+      6. Card names JSON
+      7. Card attacks JSON
 
-    Note: There are 3 separate EasyOCR reader globals that each lazily create
-    their own easyocr.Reader(["en"], gpu=True):
-      - cardprice.ml.ocr_matcher._easyocr_reader  (name OCR)
-      - cardprice.ml.attack_ocr._easyocr_reader    (attack OCR)
-      - cardprice.ml.hp_detector._easyocr_reader    (HP detection)
-    These are NOT consolidated — each module owns its own reader singleton.
-    Warming up ocr_matcher's reader is sufficient since it's the most-used;
-    the other two share the same EasyOCR model weights (cached on disk after
-    first load) so their init is fast.
+    Each step is timed and logged.  Failures are logged as warnings but do
+    not prevent the server from starting.
+
+    IMPORTANT: CLIP is deliberately NOT loaded here.  Loading CLIP alongside
+    PaddlePaddle causes a SIGSEGV (segmentation fault) due to conflicting
+    protobuf/ONNX internals.  CLIP is not used in the v2 pipeline anyway.
     """
     total_start = time.time()
     logger.info("=== ML warmup starting ===")
 
-    steps = []
-
-    # --- GPU models (heaviest, load first) ---
-
-    def _warmup_dinov2():
-        from cardprice.ml.dino_matcher import _load_model
-        _load_model()
-
-    def _warmup_clip():
-        from cardprice.ml.clip_matcher import _get_model_and_processor
-        _get_model_and_processor()
+    # --- 1. PaddleOCR (name OCR) + dummy inference ---
 
     def _warmup_paddleocr():
         from cardprice.ml.ocr_matcher import _paddle_ocr_name
         import numpy as np
-        # Trigger PaddleOCR model load with a tiny dummy image
+        # Trigger PaddleOCR model load AND first inference (JIT warmup)
         dummy = np.zeros((100, 300, 3), dtype=np.uint8)
         _paddle_ocr_name(dummy, 100, 300)
 
-    def _warmup_easyocr_ocr_matcher():
-        """Load ocr_matcher's EasyOCR reader (name OCR)."""
-        import cardprice.ml.ocr_matcher as om
-        if om._easyocr_reader is None:
-            import easyocr
-            om._easyocr_reader = easyocr.Reader(["en"], gpu=True)
+    # --- 2. EasyOCR (attack OCR fallback) ---
 
     def _warmup_easyocr_attack_ocr():
         """Load attack_ocr's EasyOCR reader."""
         from cardprice.ml.attack_ocr import _get_reader
         _get_reader()
 
-    def _warmup_easyocr_hp_detector():
-        """Load hp_detector's EasyOCR reader."""
-        from cardprice.ml.hp_detector import _get_easyocr_reader
-        _get_easyocr_reader()
+    # --- 3. DINOv2 + dummy inference ---
 
-    # --- Data files (pickle indexes, DB caches) ---
+    def _warmup_dinov2():
+        from cardprice.ml.dino_matcher import _load_model, _transform
+        import torch
+        from PIL import Image
+        model, device = _load_model()
+        # Run a dummy inference to trigger CUDA/JIT warmup
+        dummy_img = Image.new("RGB", (224, 224), color=(128, 128, 128))
+        tensor = _transform(dummy_img).unsqueeze(0).to(device)
+        with torch.no_grad():
+            model(tensor)
 
-    def _warmup_hash_db():
-        from cardprice.ml import _get_hash_db
-        _get_hash_db()
+    # --- 4. FAISS index + card_ids ---
 
     def _warmup_dino_faiss():
         from cardprice.ml import _get_dino_index
         _get_dino_index()
 
-    def _warmup_clip_image_index():
-        from cardprice.ml import _get_clip_image_index
-        _get_clip_image_index()
+    # --- 5. Reference embeddings ---
 
     def _warmup_ref_embeddings():
         from cardprice.ml.ref_matcher import _load_ref_embeddings
         _load_ref_embeddings()
 
-    def _warmup_attack_index():
-        from cardprice.ml.attack_ocr import _load_attack_index
-        _load_attack_index()
+    # --- 6. Card names JSON ---
 
     def _warmup_card_names():
         from cardprice.ml.ocr_matcher import _load_card_names
         _load_card_names()
 
-    def _warmup_card_metadata():
-        from cardprice.ml import _get_card_metadata
-        _get_card_metadata()
+    # --- 7. Card attacks JSON ---
+
+    def _warmup_attack_index():
+        from cardprice.ml.attack_ocr import _load_attack_index
+        _load_attack_index()
+
+    # --- Supplementary (nice to have, not critical path) ---
 
     def _warmup_card_names_fallback():
         from cardprice.ml.ref_matcher import _load_card_names_fallback
         _load_card_names_fallback()
 
-    # Ordered: GPU models first, then data files
+    def _warmup_card_metadata():
+        from cardprice.ml import _get_card_metadata
+        _get_card_metadata()
+
+    def _warmup_hash_db():
+        from cardprice.ml import _get_hash_db
+        _get_hash_db()
+
+    # Ordered: critical models first with dummy inference, then data files.
+    # CLIP is deliberately excluded (SIGSEGV with PaddlePaddle).
     steps = [
-        ("DINOv2 ViT-B/14",            _warmup_dinov2),
-        ("CLIP ViT-L/14",              _warmup_clip),
         ("PaddleOCR (PP-OCRv5)",       _warmup_paddleocr),
-        ("EasyOCR (ocr_matcher)",      _warmup_easyocr_ocr_matcher),
         ("EasyOCR (attack_ocr)",       _warmup_easyocr_attack_ocr),
-        ("EasyOCR (hp_detector)",      _warmup_easyocr_hp_detector),
-        ("Hash DB",                    _warmup_hash_db),
+        ("DINOv2 ViT-B/14",           _warmup_dinov2),
         ("FAISS index (DINOv2)",       _warmup_dino_faiss),
-        ("CLIP image index",           _warmup_clip_image_index),
         ("Ref embeddings (DINOv2)",    _warmup_ref_embeddings),
-        ("Attack index",               _warmup_attack_index),
         ("Card names (DB/JSON)",       _warmup_card_names),
-        ("Card metadata (DB)",         _warmup_card_metadata),
+        ("Attack index",               _warmup_attack_index),
         ("Card names fallback (JSON)", _warmup_card_names_fallback),
+        ("Card metadata (DB)",         _warmup_card_metadata),
+        ("Hash DB",                    _warmup_hash_db),
     ]
 
     loaded = 0

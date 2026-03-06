@@ -113,6 +113,8 @@ ERA_VALID_VARIANTS: dict[int, set[str]] = {
         "1st_edition_holofoil",
         "unlimited",
         "unlimited_holofoil",
+        "shadowless",          # Base Set (base1) only
+        "shadowless_holofoil", # Base Set (base1) only
     },
 
     # Era 2: EX era (2003-2007)
@@ -507,8 +509,18 @@ ART_X0, ART_Y0, ART_X1, ART_Y1 = 0.10, 0.10, 0.90, 0.55
 # below and around the artwork.
 BORDER_Y0 = 0.60  # text area starts below artwork
 
-# 1st Edition stamp region (left side, just below artwork frame)
-STAMP_X0, STAMP_Y0, STAMP_X1, STAMP_Y1 = 0.04, 0.54, 0.28, 0.66
+# 1st Edition stamp region (left side, just below artwork frame).
+# On a 1008x1530 segment the stamp sits at approximately x=30-200, y=700-950.
+# We use slightly wider margins to handle alignment/rotation variance.
+STAMP_X0, STAMP_Y0, STAMP_X1, STAMP_Y1 = 0.02, 0.44, 0.24, 0.65
+
+# Sets that had 1st Edition print runs (Base Set through Neo Destiny).
+# Used for era-gating: only check for 1st Edition stamp on these sets.
+FIRST_EDITION_SETS = frozenset({
+    "base1", "base2", "base3", "base5",  # Base, Jungle, Fossil, Team Rocket
+    "gym1", "gym2",                        # Gym Heroes, Gym Challenge
+    "neo1", "neo2", "neo3", "neo4",        # Neo Genesis through Neo Destiny
+})
 
 # ---------------------------------------------------------------------------
 # Thresholds (tuned heuristically)
@@ -568,6 +580,54 @@ FULL_ART_MIN_EDGES_PASSING = 3
 
 # Eras where full art cards can exist (Black & White onward).
 FULL_ART_MIN_ERA = 5
+
+# ---------------------------------------------------------------------------
+# Reverse holofoil detection thresholds
+# ---------------------------------------------------------------------------
+# Reverse holo cards have holographic foil on the BORDER and TEXT BOX, but
+# NOT on the artwork.  In phone photos through binder sleeves this manifests
+# as higher color variance (saturation std dev, hue std dev) in the border
+# and text box regions compared to normal cards.
+#
+# We measure HSV saturation std dev and hue std dev in:
+#   - Border strips (outer 6% on each side)
+#   - Text box region (bottom 35-45% of card, excluding outer border)
+#   - Artwork region (for comparison -- should be lower on reverse holo)
+#
+# Reverse holo exists from era 2 (EX era) onward, plus Legendary Collection
+# and e-Card sets in era 1.  Era-gated accordingly.
+# ---------------------------------------------------------------------------
+
+# Minimum era for reverse holo (EX era onward).
+# Era 1 sets base6/ecard1-3 also have reverse holo (handled via set override).
+REVERSE_HOLO_MIN_ERA = 2
+
+# Border strip width as fraction of card dimensions for reverse holo analysis.
+REVERSE_HOLO_BORDER_FRAC = 0.06
+
+# Text box region (below artwork, above bottom border)
+REVERSE_HOLO_TEXT_Y0 = 0.58
+REVERSE_HOLO_TEXT_Y1 = 0.92
+REVERSE_HOLO_TEXT_X0 = 0.08
+REVERSE_HOLO_TEXT_X1 = 0.92
+
+# Saturation std dev threshold for border+text regions.
+# Normal cards: border sat_std ~15-30 (uniform yellow/grey border).
+# Reverse holo: border sat_std ~35-60+ (foil creates color patches).
+REVERSE_HOLO_SAT_STD_THRESHOLD = 33.0
+
+# Hue std dev threshold for border+text regions.
+# Normal cards: border hue_std ~10-20 (uniform border color).
+# Reverse holo: border hue_std ~25-45+ (foil refracts into rainbow patches).
+REVERSE_HOLO_HUE_STD_THRESHOLD = 22.0
+
+# Ratio: border/text variance must exceed artwork variance by this factor.
+# This distinguishes reverse holo (foil on border, flat art) from regular holo
+# (foil on art) or colorful normal cards.
+REVERSE_HOLO_BORDER_ART_RATIO = 1.25
+
+# Era 1 sets that have reverse holofoil (before EX era)
+_ERA1_REVERSE_HOLO_SETS = {"base6", "ecard1", "ecard2", "ecard3"}
 
 
 def _extract_region(img: np.ndarray, x0: float, y0: float,
@@ -788,7 +848,7 @@ def _has_dark_circular_blob(stamp_bgr: np.ndarray) -> bool:
     return False
 
 
-def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> bool:
+def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> tuple[bool, float]:
     """Check if a card is full art by analyzing the outer edge strips.
 
     Full art cards have artwork extending to the card edges -- the outer ~5%
@@ -810,16 +870,19 @@ def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> bool:
              If 0 (unknown), the check runs without era gating.
 
     Returns:
-        True if the card appears to be full art.
+        (is_full_art, confidence) -- confidence based on edges passing:
+          - 3/4 edges: 0.70
+          - 4/4 edges: 0.90
+          - 0-2 edges: 0.0 (not full art)
     """
     # Era gate: full art cards only exist from Black & White onward.
     if era != 0 and era < FULL_ART_MIN_ERA:
         logger.debug("Full art check skipped: era %d < %d", era, FULL_ART_MIN_ERA)
-        return False
+        return False, 0.0
 
     h, w = img_bgr.shape[:2]
     if h < 50 or w < 50:
-        return False
+        return False, 0.0
 
     edge_h = max(3, int(h * FULL_ART_EDGE_FRAC))
     edge_w = max(3, int(w * FULL_ART_EDGE_FRAC))
@@ -878,14 +941,175 @@ def _check_full_art(img_bgr: np.ndarray, era: int = 0) -> bool:
         )
 
     is_full_art = passing >= FULL_ART_MIN_EDGES_PASSING
-    logger.debug("Full art check: %d/%d edges passing (need %d), result=%s",
-                 passing, len(strips), FULL_ART_MIN_EDGES_PASSING, is_full_art)
-    return is_full_art
+    # Confidence: 3/4 edges = 0.70, 4/4 edges = 0.90
+    if is_full_art:
+        full_art_conf = 0.70 if passing == 3 else 0.90
+    else:
+        full_art_conf = 0.0
+    logger.debug("Full art check: %d/%d edges passing (need %d), result=%s, conf=%.2f",
+                 passing, len(strips), FULL_ART_MIN_EDGES_PASSING, is_full_art,
+                 full_art_conf)
+    return is_full_art, full_art_conf
 
+
+def _check_reverse_holo(img_bgr: np.ndarray, era: int = 0,
+                        set_id: str = "") -> tuple[bool, float]:
+    """Detect reverse holofoil by comparing color variance in border/text vs artwork.
+
+    Reverse holo cards have holographic foil on the BORDER and TEXT BOX regions
+    but NOT on the artwork.  This produces higher saturation and hue variance
+    in the border/text areas compared to the artwork area.
+
+    The detection measures HSV saturation std dev and hue std dev in three
+    regions:
+      1. Border strips (outer 6% on each side)
+      2. Text box (bottom 35-45% of card, inside borders)
+      3. Artwork (center top portion, for comparison)
+
+    The card is classified as reverse holo if the border+text regions show
+    significantly higher variance than the artwork region.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        era: Era number (1-9).  Reverse holo exists from era 2+, plus
+             select era 1 sets (base6, ecard1-3).  If 0, no era gating.
+        set_id: Set prefix (e.g. "base6", "ex5").  Used for era 1 overrides.
+
+    Returns:
+        (is_reverse_holo, confidence) -- confidence based on how far the
+        border vs artwork contrast ratio exceeds the threshold.
+    """
+    # Era gate: reverse holo only from era 2+, or specific era 1 sets
+    if era != 0:
+        if era < REVERSE_HOLO_MIN_ERA:
+            if set_id not in _ERA1_REVERSE_HOLO_SETS:
+                logger.debug(
+                    "Reverse holo check skipped: era %d, set %s not eligible",
+                    era, set_id,
+                )
+                return False, 0.0
+
+    h_img, w_img = img_bgr.shape[:2]
+    if h_img < 100 or w_img < 80:
+        return False, 0.0
+
+    # --- Extract regions ---
+    bf = REVERSE_HOLO_BORDER_FRAC
+
+    # Border strips (4 strips, combined into one pixel array)
+    border_top = img_bgr[:int(h_img * bf), :, :]
+    border_bottom = img_bgr[int(h_img * (1.0 - bf)):, :, :]
+    border_left = img_bgr[int(h_img * bf):int(h_img * (1.0 - bf)),
+                          :int(w_img * bf), :]
+    border_right = img_bgr[int(h_img * bf):int(h_img * (1.0 - bf)),
+                           int(w_img * (1.0 - bf)):, :]
+
+    # Stack all border pixels for aggregate statistics
+    border_pixels = []
+    for strip in [border_top, border_bottom, border_left, border_right]:
+        if strip.size > 0:
+            border_pixels.append(strip.reshape(-1, 3))
+
+    if not border_pixels:
+        return False, 0.0
+    border_all = np.vstack(border_pixels)
+
+    # Text box region (below artwork, inside borders)
+    text_region = _extract_region(
+        img_bgr,
+        REVERSE_HOLO_TEXT_X0, REVERSE_HOLO_TEXT_Y0,
+        REVERSE_HOLO_TEXT_X1, REVERSE_HOLO_TEXT_Y1,
+    )
+
+    # Artwork region (center-top)
+    art_region = _extract_region(img_bgr, ART_X0, ART_Y0, ART_X1, ART_Y1)
+
+    if text_region.size == 0 or art_region.size == 0:
+        return False, 0.0
+
+    # --- Compute HSV statistics ---
+    def _region_hsv_stats(region_bgr: np.ndarray) -> tuple[float, float]:
+        """Return (saturation_std, hue_std) for bright pixels."""
+        hsv = cv2.cvtColor(region_bgr, cv2.COLOR_BGR2HSV)
+        h_ch = hsv[:, :, 0].astype(np.float32).ravel()
+        s_ch = hsv[:, :, 1].astype(np.float32).ravel()
+        v_ch = hsv[:, :, 2].ravel()
+
+        bright = v_ch >= MIN_VALUE
+        if np.sum(bright) < 30:
+            return 0.0, 0.0
+        return float(np.std(s_ch[bright])), float(np.std(h_ch[bright]))
+
+    def _pixels_hsv_stats(pixels_bgr: np.ndarray) -> tuple[float, float]:
+        """Same as _region_hsv_stats but for an Nx3 pixel array."""
+        if len(pixels_bgr) < 30:
+            return 0.0, 0.0
+        row_img = pixels_bgr.reshape(1, -1, 3)
+        hsv = cv2.cvtColor(row_img, cv2.COLOR_BGR2HSV)
+        h_ch = hsv[0, :, 0].astype(np.float32)
+        s_ch = hsv[0, :, 1].astype(np.float32)
+        v_ch = hsv[0, :, 2]
+
+        bright = v_ch >= MIN_VALUE
+        if np.sum(bright) < 30:
+            return 0.0, 0.0
+        return float(np.std(s_ch[bright])), float(np.std(h_ch[bright]))
+
+    border_sat_std, border_hue_std = _pixels_hsv_stats(border_all)
+    text_sat_std, text_hue_std = _region_hsv_stats(text_region)
+    art_sat_std, art_hue_std = _region_hsv_stats(art_region)
+
+    # Combined border+text score: average of border and text box variances
+    combined_sat_std = (border_sat_std + text_sat_std) / 2.0
+    combined_hue_std = (border_hue_std + text_hue_std) / 2.0
+
+    logger.debug(
+        "Reverse holo -- border: sat_std=%.1f hue_std=%.1f | "
+        "text: sat_std=%.1f hue_std=%.1f | "
+        "art: sat_std=%.1f hue_std=%.1f | "
+        "combined: sat_std=%.1f hue_std=%.1f",
+        border_sat_std, border_hue_std,
+        text_sat_std, text_hue_std,
+        art_sat_std, art_hue_std,
+        combined_sat_std, combined_hue_std,
+    )
+
+    # --- Decision logic ---
+    # Condition 1: combined border+text variance exceeds thresholds
+    sat_passes = combined_sat_std >= REVERSE_HOLO_SAT_STD_THRESHOLD
+    hue_passes = combined_hue_std >= REVERSE_HOLO_HUE_STD_THRESHOLD
+
+    if not (sat_passes or hue_passes):
+        logger.debug("Reverse holo: neither sat nor hue threshold met")
+        return False
+
+    # Condition 2: border+text variance must be higher than artwork variance
+    # (distinguishes reverse holo from regular holo or colorful normal cards)
+    sat_ratio = combined_sat_std / max(art_sat_std, 1.0)
+    hue_ratio = combined_hue_std / max(art_hue_std, 1.0)
+
+    ratio_passes = (sat_ratio >= REVERSE_HOLO_BORDER_ART_RATIO
+                    or hue_ratio >= REVERSE_HOLO_BORDER_ART_RATIO)
+
+    logger.debug(
+        "Reverse holo -- sat_ratio=%.2f, hue_ratio=%.2f, "
+        "sat_passes=%s, hue_passes=%s, ratio_passes=%s",
+        sat_ratio, hue_ratio, sat_passes, hue_passes, ratio_passes,
+    )
+
+    if not ratio_passes:
+        logger.debug("Reverse holo: border/art ratio too low")
+        return False
+
+    logger.debug("Reverse holo detected: combined_sat_std=%.1f, "
+                 "combined_hue_std=%.1f, sat_ratio=%.2f, hue_ratio=%.2f",
+                 combined_sat_std, combined_hue_std, sat_ratio, hue_ratio)
+    return True
 
 
 # ---------------------------------------------------------------------------
 # Shadowless detection (Base Set only)
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Unlimited Base Set cards have a visible drop shadow on the right and bottom
 # edges of the artwork frame -- a 3-5px dark band between the art border and
@@ -954,21 +1178,27 @@ def _edge_gradient_magnitude(strip_bgr: np.ndarray, axis: int = 1) -> float:
         return float(np.median(col_maxes))
 
 
-def _check_shadowless(img_bgr: np.ndarray) -> bool | None:
+def _check_shadowless(img_bgr: np.ndarray) -> tuple[bool | None, float]:
     """Detect whether a Base Set card is Shadowless or Unlimited.
 
     Analyses the right and bottom edges of the artwork frame for the
     characteristic drop shadow present on Unlimited prints.
 
     Returns:
-        True  -- card is Shadowless (no shadow detected)
-        False -- card is Unlimited (shadow detected)
-        None  -- inconclusive (image too small or edge region invalid)
+        (result, confidence) where result is:
+          True  -- card is Shadowless (no shadow detected)
+          False -- card is Unlimited (shadow detected)
+          None  -- inconclusive (image too small or edge region invalid)
+
+        Confidence is based on distance from the threshold:
+          - At threshold boundary (combined ~30): confidence ~0.50
+          - Far below threshold (combined ~0, clearly shadowless): ~0.90
+          - Far above threshold (combined ~80+, clearly unlimited): ~0.90
     """
     h, w = img_bgr.shape[:2]
     if h < 100 or w < 100:
         logger.debug("Image too small for shadowless detection: %dx%d", w, h)
-        return None
+        return None, 0.0
 
     # Extract right-edge strip
     right_strip = _extract_region(
@@ -987,21 +1217,27 @@ def _check_shadowless(img_bgr: np.ndarray) -> bool | None:
     # Combined: weighted average (right is primary signal, bottom confirms)
     combined = (right_grad * 0.7) + (bottom_grad * 0.3)
 
+    # Confidence: distance from threshold, normalized.
+    # At threshold (30): 0.50.  At 0 or 60+: approaches 0.90+.
+    distance_from_threshold = abs(combined - _SHADOW_GRADIENT_THRESHOLD)
+    shadow_conf = min(0.95, 0.50 + (distance_from_threshold / _SHADOW_GRADIENT_THRESHOLD) * 0.40)
+
     logger.debug(
         "Shadow detection -- right_grad=%.1f, bottom_grad=%.1f, combined=%.1f "
-        "(threshold=%.1f)",
+        "(threshold=%.1f, conf=%.2f)",
         right_grad, bottom_grad, combined, _SHADOW_GRADIENT_THRESHOLD,
+        shadow_conf,
     )
 
     if combined > _SHADOW_GRADIENT_THRESHOLD:
         logger.debug("Shadow detected -> Unlimited")
-        return False  # has shadow = Unlimited
+        return False, shadow_conf  # has shadow = Unlimited
     else:
         logger.debug("No shadow detected -> Shadowless")
-        return True   # no shadow = Shadowless
+        return True, shadow_conf   # no shadow = Shadowless
 
 
-def _check_1st_edition(img_bgr: np.ndarray) -> bool:
+def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
     """Check for 1st Edition stamp using OCR and contour analysis.
 
     The 1st Edition stamp appears as a small black "1" inside a circle with
@@ -1014,25 +1250,37 @@ def _check_1st_edition(img_bgr: np.ndarray) -> bool:
        (a "1" digit anywhere in the text) to confirm.  A blob alone is not
        sufficient -- too many false positives from card artwork and shadows.
 
-    Returns True if a 1st Edition indicator is found.
+    Returns:
+        (detected, confidence) -- detected is True if 1st Edition found,
+        confidence reflects OCR evidence strength:
+          - 0.95 if both "1st" AND "edition" found in OCR text
+          - 0.85 if only "1st" OR "edition" found
+          - 0.65 if blob + partial "1" digit found
+          - 0.0 if not detected
     """
     stamp_region = _extract_region(img_bgr, STAMP_X0, STAMP_Y0,
                                    STAMP_X1, STAMP_Y1)
     if stamp_region.size == 0:
-        return False
+        return False, 0.0
 
     # Strategy 1: OCR the stamp region
     ocr_text = _ocr_stamp_region(stamp_region)
-    if "1st" in ocr_text or "edition" in ocr_text:
-        logger.debug("1st Edition detected via OCR: %r", ocr_text)
-        return True
+    has_1st = "1st" in ocr_text
+    has_edition = "edition" in ocr_text
+
+    if has_1st and has_edition:
+        logger.debug("1st Edition detected via OCR (both tokens): %r", ocr_text)
+        return True, 0.95
+    if has_1st or has_edition:
+        logger.debug("1st Edition detected via OCR (one token): %r", ocr_text)
+        return True, 0.85
 
     # Strategy 2: Dark circular blob + partial OCR evidence ("1" in text)
     if _has_dark_circular_blob(stamp_region) and "1" in ocr_text:
         logger.debug("1st Edition detected via blob + '1' in OCR: %r", ocr_text)
-        return True
+        return True, 0.65
 
-    return False
+    return False, 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -1077,7 +1325,7 @@ RAINBOW_MIN_SAT_COVERAGE = 0.35
 GOLD_RAINBOW_MIN_ERA = 7
 
 
-def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> str | None:
+def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> tuple[str | None, float]:
     """Detect gold/secret rare or rainbow rare cards from HSV color analysis.
 
     Gold cards have a dominant yellow-gold hue (HSV hue ~15-45) across the
@@ -1092,17 +1340,17 @@ def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> str | None:
              If era < 7 and era != 0, returns None immediately.
 
     Returns:
-        "gold" if gold/secret rare detected,
-        "rainbow_rare" if rainbow rare detected,
-        None if neither detected.
+        (variant, confidence) -- variant is "gold", "rainbow_rare", or None.
+        Confidence for gold is based on gold pixel coverage (higher = more confident).
+        Confidence for rainbow is based on active hue segment count.
     """
     # Only applicable for modern era cards (Sun & Moon onwards)
     if era != 0 and era < GOLD_RAINBOW_MIN_ERA:
-        return None
+        return None, 0.0
 
     h_img, w_img = img_bgr.shape[:2]
     if h_img < 50 or w_img < 50:
-        return None
+        return None, 0.0
 
     hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
     h_chan = hsv[:, :, 0]
@@ -1158,11 +1406,17 @@ def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> str | None:
     # Gold card: high gold coverage overall AND strong gold borders
     if (gold_coverage >= GOLD_COVERAGE_THRESHOLD
             and border_gold_coverage >= GOLD_BORDER_THRESHOLD):
+        # Confidence scales with how far above thresholds the coverage is.
+        # At threshold (0.40 overall, 0.50 border) = 0.70 confidence.
+        # At 0.60 overall + 0.70 border = ~0.90 confidence.
+        gold_excess = ((gold_coverage - GOLD_COVERAGE_THRESHOLD) / 0.30
+                       + (border_gold_coverage - GOLD_BORDER_THRESHOLD) / 0.30) / 2.0
+        gold_conf = min(0.95, 0.70 + gold_excess * 0.25)
         logger.info(
-            "Detected gold/secret rare (coverage=%.2f, border=%.2f)",
-            gold_coverage, border_gold_coverage,
+            "Detected gold/secret rare (coverage=%.2f, border=%.2f, conf=%.2f)",
+            gold_coverage, border_gold_coverage, gold_conf,
         )
-        return "gold"
+        return "gold", gold_conf
 
     # --- Rainbow rare detection ---
     # Rainbow rares have high saturation across multiple distinct hue ranges.
@@ -1193,13 +1447,16 @@ def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> str | None:
         )
 
         if active_segments >= RAINBOW_MIN_PEAKS:
+            # Confidence: 4 segments = 0.70, 5 = 0.82, 6 = 0.92
+            rainbow_conf = min(0.95, 0.50 + active_segments * 0.07
+                               + sat_coverage * 0.20)
             logger.info(
-                "Detected rainbow rare (sat_coverage=%.2f, segments=%d)",
-                sat_coverage, active_segments,
+                "Detected rainbow rare (sat_coverage=%.2f, segments=%d, conf=%.2f)",
+                sat_coverage, active_segments, rainbow_conf,
             )
-            return "rainbow_rare"
+            return "rainbow_rare", rainbow_conf
 
-    return None
+    return None, 0.0
 
 
 def detect_variant(image_path: str | Path, era: int = 0,
@@ -1221,9 +1478,11 @@ def detect_variant(image_path: str | Path, era: int = 0,
       2. Gold / rainbow rare (era >= 7 only, checked early since gold
          cards also trigger holo/full-art detectors).
       3. Shadowless (base1 only -- right/bottom edge gradient analysis).
-      5. Full art (artwork extends to card edges, no border).  Era-gated
+      4. Full art (artwork extends to card edges, no border).  Era-gated
          to era >= 5 (Black & White, 2011+).
-      4. Holographic analysis (holofoil vs reverse_holofoil vs normal).
+      5. Reverse holofoil (border/text variance analysis).  Era-gated to
+         era >= 2 (EX era+), plus base6/ecard sets in era 1.
+      6. Holographic analysis (holofoil vs reverse_holofoil vs normal).
     """
     image_path = str(image_path)
     img = cv2.imread(image_path)
@@ -1260,6 +1519,14 @@ def detect_variant(image_path: str | Path, era: int = 0,
     if _check_full_art(img, era=era):
         logger.info("Detected variant: full_art for %s", image_path)
         return "full_art"
+
+    # --- Reverse holo check (after full art, before general holo analysis) ---
+    # Reverse holo has foil on border/text but NOT artwork.  Check this before
+    # the general holo analysis so we can give a definitive answer when the
+    # border/text variance signal is strong.
+    if _check_reverse_holo(img, era=era, set_id=set_prefix):
+        logger.info("Detected variant: reverse_holofoil for %s", image_path)
+        return "reverse_holofoil"
 
     # --- Holographic analysis ---
     art_region = _extract_region(img, ART_X0, ART_Y0, ART_X1, ART_Y1)
@@ -1314,6 +1581,7 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
       - border_saturation_std: float
       - has_1st_edition_stamp: bool
       - is_full_art: bool
+      - is_reverse_holo: bool
       - gold_rare_result: str | None -- "gold", "rainbow_rare", or None
       - is_shadowless: bool | None  (only for base1 cards)
       - shadow_right_grad: float | None
@@ -1329,8 +1597,11 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     gold_rare_result = _check_gold_rare(img, era)
     is_full_art = _check_full_art(img, era=era)
 
-    # Shadowless analysis (base1 only)
+    # Reverse holo analysis
     set_prefix = (card_id or "").split("-")[0] if card_id else ""
+    is_reverse_holo = _check_reverse_holo(img, era=era, set_id=set_prefix)
+
+    # Shadowless analysis (base1 only)
     is_shadowless = None
     shadow_right_grad = None
     shadow_bottom_grad = None
@@ -1369,6 +1640,8 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
         variant = gold_rare_result
     elif is_full_art:
         variant = "full_art"
+    elif is_reverse_holo:
+        variant = "reverse_holofoil"
     elif max(art_combined, border_combined) < HOLO_COMBINED_THRESHOLD:
         variant = "normal"
     elif art_combined > border_combined * ART_HOLO_RATIO:
@@ -1390,6 +1663,7 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
         "border_saturation_std": round(border_sat, 2),
         "has_1st_edition_stamp": has_stamp,
         "is_full_art": is_full_art,
+        "is_reverse_holo": is_reverse_holo,
         "gold_rare_result": gold_rare_result,
         "is_shadowless": is_shadowless,
         "shadow_right_grad": (round(shadow_right_grad, 2)

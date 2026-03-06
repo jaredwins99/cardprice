@@ -123,15 +123,35 @@ def _cache_store(file_hash, result):
 # Era-to-variant allowlists for variant gating
 # ---------------------------------------------------------------------------
 _ERA_VARIANT_ALLOWED = {
-    1: {"normal", "holofoil", "1st_edition", "shadowless"},  # WotC
-    2: {"normal", "holofoil", "reverse_holofoil"},     # EX onwards
+    # Era 1: WotC Classic (1999-2003) — Base Set through Skyridge
+    # Broad union: 1st Edition (base1-neo4), reverse holo (base6, ecard1-3),
+    # shadowless (base1 only), unlimited variants.  Set-specific gating is
+    # handled by variant_detector.SET_SPECIAL_VARIANTS.
+    1: {
+        "normal", "holofoil", "reverse_holofoil",
+        "1st_edition", "1st_edition_holofoil",
+        "unlimited", "unlimited_holofoil",
+        "shadowless", "shadowless_holofoil",
+    },
+    # Era 2: EX era (2003-2007) — No 1st Edition. Reverse holo standard.
+    2: {"normal", "holofoil", "reverse_holofoil"},
+    # Era 3: Diamond & Pearl / Platinum (2007-2010)
     3: {"normal", "holofoil", "reverse_holofoil"},
+    # Era 4: HeartGold SoulSilver (2010-2011)
     4: {"normal", "holofoil", "reverse_holofoil"},
-    5: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # BW: first full arts
+    # Era 5: Black & White (2011-2013) — First full art EX cards
+    5: {"normal", "holofoil", "reverse_holofoil", "full_art"},
+    # Era 6: XY (2014-2016)
     6: {"normal", "holofoil", "reverse_holofoil", "full_art"},
-    7: {"normal", "holofoil", "reverse_holofoil", "full_art"},
-    8: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # SWSH: alt arts common
-    9: {"normal", "holofoil", "reverse_holofoil", "full_art"},  # SV: illustration rares
+    # Era 7: Sun & Moon (2017-2019) — Rainbow rares, gold secret rares
+    7: {"normal", "holofoil", "reverse_holofoil", "full_art",
+        "gold", "rainbow_rare"},
+    # Era 8: Sword & Shield (2020-2022) — Alt art V/VMAX/VSTAR
+    8: {"normal", "holofoil", "reverse_holofoil", "full_art",
+        "gold", "rainbow_rare"},
+    # Era 9: Scarlet & Violet (2023+) — Illustration rares, special art rares
+    9: {"normal", "holofoil", "reverse_holofoil", "full_art",
+        "gold", "rainbow_rare"},
 }
 
 
@@ -1182,7 +1202,11 @@ def identify_card_ensemble(image_path, session=None, page_context=None,
         return _single_method_result(clip_results, "clip (ensemble fallback)")
     if not clip_results:
         logger.info("Ensemble: only DINOv2 available, using DINOv2 result directly")
-        return _single_method_result(dino_results, "dino (ensemble fallback)")
+        return _single_method_result(
+            dino_results, "dino (ensemble fallback)",
+            ocr_name=_precomputed_ocr_name, image_path=image_path,
+            page_context=page_context,
+        )
 
     # --- Phase 2: Ensemble voting ---
     dino_top1_id, dino_top1_score = dino_results[0]
@@ -1913,22 +1937,116 @@ def identify_card_hybrid(image_path, session=None, page_context=None):
     return ens_result
 
 
-def _single_method_result(results: list[tuple[str, float]], method_label: str) -> dict:
-    """Build a result dict from a single method's top-10 list."""
+def _single_method_result(results: list[tuple[str, float]], method_label: str,
+                          *, ocr_name: str | None = None,
+                          image_path: str | None = None,
+                          page_context: dict | None = None) -> dict:
+    """Build a result dict from a single method's top-10 list.
+
+    When *ocr_name* is provided (or can be extracted from *image_path*),
+    verifies the top-1 card name against OCR.  If the top-1 name doesn't
+    match but a lower-ranked candidate does, that candidate is promoted.
+
+    When *page_context* is provided and contains ``likely_sets``, results
+    are reranked before selection.
+    """
     if not results:
         return {
             "card_id": None, "confidence": 0.0, "method": method_label,
             "explanation": "No results from single method fallback",
             "raw_response": {},
         }
+
+    # --- Page context reranking (if not already applied upstream) ----------
+    if page_context and page_context.get("likely_sets"):
+        try:
+            from cardprice.ml.page_context import rerank_with_context
+            results = rerank_with_context(results, page_context)
+            logger.info("_single_method_result: applied page context reranking")
+        except Exception as e:
+            logger.debug("_single_method_result: page context reranking failed: %s", e)
+
+    # --- OCR name verification --------------------------------------------
+    ocr_cleaned = ocr_name
+    ocr_override_idx = None  # index into results if OCR promotes a candidate
+
+    try:
+        # If no precomputed name, try to extract one from the image
+        if not ocr_cleaned and image_path:
+            from cardprice.ml.ocr_matcher import extract_card_name, _clean_ocr_text
+            ocr_text, _ocr_conf = extract_card_name(image_path)
+            ocr_cleaned = _clean_ocr_text(ocr_text)
+
+        if ocr_cleaned and len(ocr_cleaned) >= 3:
+            from cardprice.ml.ocr_matcher import _load_card_names
+            from rapidfuzz import fuzz
+
+            card_names = _load_card_names()
+            card_name_lookup = {cid: name for cid, name, _sid in card_names}
+
+            OCR_MATCH_THRESH = 75
+
+            # Score each candidate against the OCR name
+            fuzzy_scores = []
+            for i, (cid, _score) in enumerate(results[:10]):
+                cname = card_name_lookup.get(cid, "")
+                fs = fuzz.token_set_ratio(ocr_cleaned.lower(), cname.lower()) if cname else 0
+                fuzzy_scores.append((i, cid, cname, fs))
+
+            top1_fuzzy = fuzzy_scores[0][3] if fuzzy_scores else 0
+            logger.info("_single_method_result OCR verify: ocr=%r, top1=%s (%r, fuzzy=%d)",
+                        ocr_cleaned, results[0][0],
+                        fuzzy_scores[0][2] if fuzzy_scores else "?", top1_fuzzy)
+
+            if top1_fuzzy < OCR_MATCH_THRESH:
+                # Top-1 doesn't match OCR — scan remaining candidates
+                for i, cid, cname, fs in fuzzy_scores[1:]:
+                    if fs >= OCR_MATCH_THRESH:
+                        ocr_override_idx = i
+                        logger.info("_single_method_result OCR override: promoting #%d %s "
+                                    "(%r, fuzzy=%d) over top-1 %s (fuzzy=%d)",
+                                    i + 1, cid, cname, fs, results[0][0], top1_fuzzy)
+                        break
+    except Exception as e:
+        logger.warning("_single_method_result OCR verification failed: %s", e)
+
+    # --- Build result -----------------------------------------------------
+    if ocr_override_idx is not None:
+        card_id, score = results[ocr_override_idx]
+        orig_top1_id, orig_top1_score = results[0]
+        alt_list = [(cid, s) for cid, s in results[:4] if cid != card_id][:3]
+        alt_str = ", ".join(f"{a[0]} ({a[1]:.0%})" for a in alt_list)
+        explanation = (f"OCR-verified fallback: promoted #{ocr_override_idx + 1} "
+                       f"({score:.0%}) over top-1 {orig_top1_id} ({orig_top1_score:.0%}). "
+                       f"OCR name={ocr_cleaned!r}")
+        if alt_str:
+            explanation += f". Alternatives: {alt_str}"
+        return {
+            "card_id": card_id,
+            "confidence": float(score),
+            "method": method_label,
+            "explanation": explanation,
+            "raw_response": {
+                "top_matches": results[:5],
+                "ocr_name": ocr_cleaned,
+                "ocr_override_from": orig_top1_id,
+                "ocr_override_to": card_id,
+            },
+        }
+
     card_id, score = results[0]
     alt_list = [(cid, s) for cid, s in results[1:4]]
     alt_str = ", ".join(f"{a[0]} ({a[1]:.0%})" for a in alt_list)
+    explanation = f"Single method fallback ({score:.0%})"
+    if ocr_cleaned:
+        explanation += f", OCR confirmed ({ocr_cleaned!r})"
+    if alt_str:
+        explanation += f". Alternatives: {alt_str}"
     return {
         "card_id": card_id,
         "confidence": float(score),
         "method": method_label,
-        "explanation": f"Single method fallback ({score:.0%}). Alternatives: {alt_str}" if alt_str else f"Single method fallback ({score:.0%})",
+        "explanation": explanation,
         "raw_response": {"top_matches": results[:5], "top_alternatives": alt_list},
     }
 
@@ -3632,20 +3750,20 @@ def identify_page_v2(card_image_paths, session=None):
     # -----------------------------------------------------------------------
     # Pass 1a: Batch pre-compute ALL expensive operations in parallel.
     #
-    # Three concurrent threads, each running a different engine:
-    #   Thread 1: PaddleOCR — name + HP + color for all cards (sequential per card)
-    #   Thread 2: EasyOCR  — attack names for all cards (sequential per card)
-    #   Thread 3: DINOv2   — batch GPU embedding for all cards (single pass)
+    # Two concurrent threads (collapsed from 3 — PaddleOCR is NOT
+    # thread-safe so name OCR and attack OCR must share the same thread):
+    #   Thread 1: PaddleOCR — name + HP + color + attack OCR (sequential)
+    #   Thread 2: DINOv2   — batch GPU embedding for all cards (single pass)
     #
-    # PaddleOCR and EasyOCR are different engines with separate models,
-    # so they can safely run in parallel threads. Each engine processes
-    # cards sequentially within its thread.
+    # PaddleOCR replaces EasyOCR for attack OCR (10x faster: 0.1-0.3s vs
+    # 1-3s per card).  The engine is created ONCE in Thread 1 and reused
+    # for both name OCR and attack OCR calls.
     # -----------------------------------------------------------------------
     import time as _time
 
     # Eagerly import modules that threads will use to avoid circular import
     # issues when multiple threads try to import torchvision simultaneously.
-    from cardprice.ml.attack_ocr import extract_attack_names as _extract_attacks
+    from cardprice.ml.attack_ocr import extract_attack_names_paddle as _extract_attacks_paddle
     from cardprice.ml.dino_matcher import extract_embedding_batch as _extract_batch
     from cardprice.ml.preprocess import preprocess_for_matching as _preprocess
 
@@ -3656,10 +3774,22 @@ def identify_page_v2(card_image_paths, session=None):
     dino_embeddings = [None] * n_cards
     clip_embeddings = [None] * n_cards
 
-    def _batch_name_ocr():
-        """Thread 1: PaddleOCR name + HP + color for all cards."""
+    def _batch_ocr_all():
+        """Thread 1: PaddleOCR name + HP + color + attack OCR for all cards.
+
+        Creates a single PaddleOCR engine pair (det + rec) and uses it
+        for both name OCR and attack OCR sequentially.  This avoids the
+        SIGSEGV that occurs when PaddleOCR instances are shared across
+        threads.
+        """
         t0 = _time.time()
+
+        # Initialize PaddleOCR engines ONCE for this thread
+        from cardprice.ml.ocr_matcher import get_paddle_engines
+        det_model, rec_model = get_paddle_engines()
+
         for i, path in enumerate(card_image_paths):
+            # --- Name + HP + color (PaddleOCR) ---
             ocr_data = {}
             try:
                 name, conf, raw, hp = _run_name_and_hp(str(path))
@@ -3676,20 +3806,22 @@ def identify_page_v2(card_image_paths, session=None):
             except Exception as e:
                 logger.warning("identify_page_v2: color card %d failed: %s", i, e)
             precomputed[i] = ocr_data
-        logger.info("identify_page_v2: PaddleOCR thread done in %.1fs", _time.time()-t0)
 
-    def _batch_attack_ocr():
-        """Thread 2: EasyOCR attack names for all cards."""
-        t0 = _time.time()
-        for i, path in enumerate(card_image_paths):
+            # --- Attack OCR (PaddleOCR, same engine) ---
             try:
-                attack_results[i] = _extract_attacks(str(path))
+                attack_results[i] = _extract_attacks_paddle(
+                    str(path), det_model=det_model, rec_model=rec_model,
+                )
             except Exception as e:
                 logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
-        logger.info("identify_page_v2: EasyOCR thread done in %.1fs", _time.time()-t0)
+
+        logger.info(
+            "identify_page_v2: PaddleOCR thread (name+attack) done in %.1fs",
+            _time.time() - t0,
+        )
 
     def _batch_embeddings():
-        """Thread 3: DINOv2 + CLIP batch embeddings."""
+        """Thread 2: DINOv2 + CLIP batch embeddings."""
         t0 = _time.time()
         preproc_paths = []
         preproc_temps = []
@@ -3719,13 +3851,12 @@ def identify_page_v2(card_image_paths, session=None):
                     pass
         logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
 
-    # Run all three in parallel
-    with ThreadPoolExecutor(max_workers=3) as precomp_pool:
-        f_name = precomp_pool.submit(_batch_name_ocr)
-        f_atk = precomp_pool.submit(_batch_attack_ocr)
+    # Run both in parallel (collapsed from 3 threads to 2)
+    with ThreadPoolExecutor(max_workers=2) as precomp_pool:
+        f_ocr = precomp_pool.submit(_batch_ocr_all)
         f_dino = precomp_pool.submit(_batch_embeddings)
-        # Wait for all to complete
-        for f in [f_name, f_atk, f_dino]:
+        # Wait for both to complete
+        for f in [f_ocr, f_dino]:
             f.result()
 
     t_precomp_total = _time.time() - t_precomp_start
@@ -3807,7 +3938,7 @@ def identify_page_v2(card_image_paths, session=None):
         # Strategy: if v2 found candidates via OCR, check if any are in the
         # page context set and re-score with a set bonus.
         raw = result.get("raw_response", {})
-        dino_ref_results = raw.get("dino_ref_results", [])
+        combined_results = raw.get("combined_results", [])
         v2_signals = raw.get("v2_signals", {})
 
         # Check if the current best is already from the page's set
@@ -3820,9 +3951,10 @@ def identify_page_v2(card_image_paths, session=None):
             )
             continue
 
-        # Look through DINOv2 ref results for a candidate from the page set
+        # Look through combined results for a candidate from the page set
         reranked = False
-        for cid, score in dino_ref_results:
+        for entry in combined_results:
+            cid, score = entry[0], entry[1]
             cand_set = _extract_set_from_card_id(cid)
             if cand_set in loo_sets and score >= _V2_FALLBACK_CONFIDENCE:
                 # Found a candidate from the page's set with acceptable score
@@ -3887,10 +4019,11 @@ def identify_page_v2(card_image_paths, session=None):
     if page_era and ctx.get("confidence", 0) >= 0.50:
         for i, (path, result) in enumerate(zip(card_image_paths, results)):
             method = result.get("method", "")
+            conf = result["confidence"]
             # Only re-run fallback/low-quality results with low confidence
             if "fallback" not in method and "page_context" not in method:
                 continue
-            if result["confidence"] >= 0.80:
+            if conf >= 0.80:
                 continue
 
             # Build leave-one-out era context
