@@ -28,8 +28,14 @@ data/models/
 *.faiss
 
 # Inbox and pending scans (runtime data)
-data/inbox/
 data/pending_scans/
+
+# Inbox: ignore everything except binder JPGs and card segment PNGs
+data/inbox/*_hires/
+data/inbox/*_v[0-9]*/
+data/inbox/done/
+data/inbox/failed/
+data/inbox/sleeve_trim_diagnostic/
 
 # Training data
 data/training_pairs/

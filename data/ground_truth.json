@@ -1,0 +1,200 @@
+{
+  "description": "Visual ground truth for 13 binder pages (117 cards). Identified by Claude Opus 2026-03-07.",
+  "notes": [
+    "Pages 4-6 (094228, 094637, 094749) are 3 scans of the SAME physical page (Delta Species cards)",
+    "Pages 7-9 (014406, 014621, 014711) are 3 scans of the SAME physical page (Misty's cards from Gym Heroes/Challenge)",
+    "Page 10 (015320) is a mixed page with partial/rotated cards",
+    "Card positions: 3x3 grid, card_00=top-left, card_08=bottom-right, reading left-to-right top-to-bottom"
+  ],
+  "pages": {
+    "page_20260305_094228_cards": {
+      "description": "Delta Species page (EX Dragon Frontiers) - scan 1",
+      "card_00": {"name": "Chikorita", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "type": "Fighting", "attacks": ["Sleep Powder", "Tackle"], "stage": "Basic"},
+      "card_01": {"name": "Bayleef", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "type": "Fighting", "attacks": ["Poisonpowder"], "stage": "Stage 1"},
+      "card_02": {"name": "Meganium", "delta_species": true, "hp": 110, "era": "ex (EX Dragon Frontiers)", "type": "Fighting", "attacks": ["Evolutionary Call", "Delta Reduction", "Mega Impact"], "stage": "Stage 2", "notable": "Poke-POWER"},
+      "card_03": {"name": "Totodile", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "type": "Lightning", "attacks": ["Scratch", "Rage"], "stage": "Basic"},
+      "card_04": {"name": "Croconaw", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "type": "Lightning", "attacks": ["Scary Face", "Slash"], "stage": "Stage 1"},
+      "card_05": {"name": "Feraligatr", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "type": "Fighting", "attacks": ["Drag Off", "Sharp Fang"], "stage": "Stage 2", "notable": "Poke-BODY Battle Aura"},
+      "card_06": {"name": "Cyndaquil", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "type": "Psychic", "attacks": ["Swift"], "stage": "Basic"},
+      "card_07": {"name": "Quilava", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "type": "Psychic", "attacks": ["Smash Kick", "Quick Attack"], "stage": "Stage 1"},
+      "card_08": {"name": "Typhlosion", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "type": "Psychic", "attacks": ["Shady Move", "Burning Ball"], "stage": "Stage 2", "notable": "Poke-POWER, holo"}
+    },
+    "page_20260305_094637_cards": {
+      "description": "Delta Species page (EX Dragon Frontiers) - scan 2, SAME CARDS as 094228",
+      "card_00": {"name": "Chikorita", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_01": {"name": "Bayleef", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_02": {"name": "Meganium", "delta_species": true, "hp": 110, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"},
+      "card_03": {"name": "Totodile", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_04": {"name": "Croconaw", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_05": {"name": "Feraligatr", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"},
+      "card_06": {"name": "Cyndaquil", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_07": {"name": "Quilava", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_08": {"name": "Typhlosion", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"}
+    },
+    "page_20260305_094749_cards": {
+      "description": "Delta Species page (EX Dragon Frontiers) - scan 3, SAME CARDS as 094228",
+      "card_00": {"name": "Chikorita", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_01": {"name": "Bayleef", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_02": {"name": "Meganium", "delta_species": true, "hp": 110, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"},
+      "card_03": {"name": "Totodile", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_04": {"name": "Croconaw", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_05": {"name": "Feraligatr", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"},
+      "card_06": {"name": "Cyndaquil", "delta_species": true, "hp": 40, "era": "ex (EX Dragon Frontiers)", "stage": "Basic"},
+      "card_07": {"name": "Quilava", "delta_species": true, "hp": 70, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 1"},
+      "card_08": {"name": "Typhlosion", "delta_species": true, "hp": 100, "era": "ex (EX Dragon Frontiers)", "stage": "Stage 2"}
+    },
+    "page_20260307_014406_cards": {
+      "description": "Misty's Pokemon page (Gym Heroes / Gym Challenge) - scan 1",
+      "card_00": {"name": "Misty's Horsea", "hp": 30, "era": "WotC (Gym Heroes)", "attacks": ["Ink Spurt"], "stage": "Basic", "notable": "dark art version"},
+      "card_01": {"name": "Misty's Horsea", "hp": 50, "era": "WotC (Gym Heroes)", "attacks": ["Tackle", "Smokescreen"], "stage": "Basic", "notable": "light art version"},
+      "card_02": {"name": "Misty's Seadra", "hp": 60, "era": "WotC (Gym Heroes)", "attacks": ["Tail Snap", "Knockout Needle"], "stage": "Stage 1", "notable": "PRERELEASE stamp"},
+      "card_03": {"name": "Misty's Shellder", "hp": 40, "era": "WotC (Gym Heroes)", "attacks": ["Tackle", "Clamp"], "stage": "Basic"},
+      "card_04": {"name": "Misty's Duel", "hp": null, "era": "WotC (Gym Heroes)", "type": "Trainer", "attacks": [], "stage": "Trainer"},
+      "card_05": {"name": "Misty's Seaking", "hp": 60, "era": "WotC (Gym Heroes)", "attacks": ["Horn Attack", "Mud Splash"], "stage": "Stage 1", "notable": "holo"},
+      "card_06": {"name": "Misty's Staryu", "hp": 50, "era": "WotC (Gym Heroes)", "attacks": ["Swift"], "stage": "Basic"},
+      "card_07": {"name": "Misty's Poliwag", "hp": 50, "era": "WotC (Gym Heroes)", "attacks": ["Hypnotic Stare", "Tail Rap"], "stage": "Basic"},
+      "card_08": {"name": "Misty's Tentacruel", "hp": 60, "era": "WotC (Gym Heroes)", "attacks": ["Jellyfish Poison"], "stage": "Stage 1", "notable": "Pokemon Power: Poison Tentacles, holo"}
+    },
+    "page_20260307_014621_cards": {
+      "description": "Misty's Pokemon page - scan 2, SAME CARDS as 014406",
+      "card_00": {"name": "Misty's Horsea", "hp": 30, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_01": {"name": "Misty's Horsea", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_02": {"name": "Misty's Seadra", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1", "notable": "PRERELEASE stamp"},
+      "card_03": {"name": "Misty's Shellder", "hp": 40, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_04": {"name": "Misty's Duel", "hp": null, "era": "WotC (Gym Heroes)", "stage": "Trainer"},
+      "card_05": {"name": "Misty's Seaking", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1"},
+      "card_06": {"name": "Misty's Staryu", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_07": {"name": "Misty's Poliwag", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_08": {"name": "Misty's Tentacruel", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1"}
+    },
+    "page_20260307_014711_cards": {
+      "description": "Misty's Pokemon page - scan 3, SAME CARDS as 014406",
+      "card_00": {"name": "Misty's Horsea", "hp": 30, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_01": {"name": "Misty's Horsea", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_02": {"name": "Misty's Seadra", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1", "notable": "PRERELEASE stamp"},
+      "card_03": {"name": "Misty's Shellder", "hp": 40, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_04": {"name": "Misty's Duel", "hp": null, "era": "WotC (Gym Heroes)", "stage": "Trainer"},
+      "card_05": {"name": "Misty's Seaking", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1"},
+      "card_06": {"name": "Misty's Staryu", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_07": {"name": "Misty's Poliwag", "hp": 50, "era": "WotC (Gym Heroes)", "stage": "Basic"},
+      "card_08": {"name": "Misty's Tentacruel", "hp": 60, "era": "WotC (Gym Heroes)", "stage": "Stage 1"}
+    },
+    "page_20260307_015320_cards": {
+      "description": "Mixed page - French Dratini, Team Rocket, WotC Base/Fossil, Neo Destiny/Revelation. Many cards rotated/partial crops.",
+      "card_00": {"name": "Minidraco", "hp": 40, "era": "WotC (Base Set, French)", "attacks": ["Ecras' Face"], "stage": "Basic", "notable": "FRENCH language Dratini, card is rotated 90 degrees"},
+      "card_01": {"name": "Dark Dragonair", "hp": 60, "era": "WotC (Team Rocket)", "attacks": ["Tail Strike"], "stage": "Stage 1", "notable": "Pokemon Power: Evolutionary Light"},
+      "card_02": {"name": "Dark Dragonite", "hp": 70, "era": "WotC (Team Rocket)", "attacks": ["Giant Tail"], "stage": "Stage 2", "notable": "Pokemon Power: Summon Minions, holo"},
+      "card_03": {"name": "Kangaskhan", "hp": 90, "era": "WotC (Jungle)", "attacks": ["Fetch", "Comet Punch"], "stage": "Basic", "notable": "partially cropped at top"},
+      "card_04": {"name": "Light Dragonair", "hp": 80, "era": "WotC (Neo Destiny)", "attacks": ["Healing Light", "Protective Wave"], "stage": "Stage 1"},
+      "card_05": {"name": "Dragonite", "hp": 90, "era": "WotC (Fossil)", "attacks": ["Supersonic Flight"], "stage": "Stage 2", "notable": "Pokemon Power: Special Delivery"},
+      "card_06": {"name": "Chinchou", "hp": 50, "era": "WotC (Neo Revelation)", "attacks": [], "stage": "Basic", "notable": "rotated 90 degrees, partially cropped"},
+      "card_07": {"name": "Lanturn", "hp": 70, "era": "WotC (Neo Revelation)", "attacks": [], "stage": "Stage 1", "notable": "rotated 90 degrees, partially cropped, Pokemon Power: Hydroelectric Power"},
+      "card_08": {"name": "Lanturn", "hp": 80, "era": "WotC (Neo Revelation)", "attacks": ["Lightning Ball", "Conduction"], "stage": "Stage 1", "notable": "rotated 90 degrees, partially cropped, different Lanturn from card_07"}
+    },
+    "page_20260307_020047_cards": {
+      "description": "Mixed fire page - WotC Gym, e-reader era, Neo Genesis. Many partial crops.",
+      "card_00": {"name": "Cyndaquil", "hp": 40, "era": "WotC (Neo Genesis)", "attacks": [], "stage": "Basic", "notable": "rotated 90 degrees, e-reader style art frame"},
+      "card_01": {"name": "Cyndaquil", "hp": 50, "era": "WotC (Neo Genesis)", "attacks": [], "stage": "Basic", "notable": "rotated, different artwork from card_00"},
+      "card_02": {"name": "Typhlosion", "hp": 100, "era": "WotC (Neo Genesis)", "attacks": [], "stage": "Stage 2", "notable": "holo, partially cropped"},
+      "card_03": {"name": "Blaine's Vulpix", "hp": 40, "era": "WotC (Gym Challenge)", "attacks": ["Smokescreen"], "stage": "Basic", "notable": "partially cropped, two cards visible"},
+      "card_04": {"name": "Blaine's Vulpix", "hp": 50, "era": "WotC (Gym Challenge)", "attacks": ["Fireworks", "Quick Attack"], "stage": "Basic", "notable": "partially cropped, Blaine's Ninetales visible below"},
+      "card_05": {"name": "Typhlosion", "hp": 100, "era": "WotC (Neo Genesis)", "attacks": ["Flame Burst"], "stage": "Stage 2", "notable": "Pokemon Power: Fire Recharge, partially cropped, Entei visible below"},
+      "card_06": {"name": "Blaine's Vulpix", "hp": 50, "era": "WotC (Gym Challenge)", "attacks": ["Tail Fan"], "stage": "Basic", "notable": "Pokemon Power: Natural Healing, Japanese Dark Electrode visible below"},
+      "card_07": {"name": "Blaine's Ninetales", "hp": 60, "era": "WotC (Gym Challenge)", "attacks": ["Burn Up"], "stage": "Stage 1", "notable": "Pokemon Power: Healing Fire, partially cropped, French Machamp (Mackogneur) visible below"},
+      "card_08": {"name": "Aerodactyl", "hp": 60, "era": "WotC (Fossil)", "attacks": ["Wing Attack"], "stage": "Stage 1", "notable": "PRERELEASE stamp, Pokemon Power: Prehistoric Power, partially cropped"}
+    },
+    "page_20260307_120653_cards": {
+      "description": "Water Pokemon page - WotC Fossil / Base Set / Neo Revelation",
+      "card_00": {"name": "Shellder", "hp": 30, "era": "WotC (Fossil)", "attacks": ["Supersonic", "Hide in Shell"], "stage": "Basic"},
+      "card_01": {"name": "Cloyster", "hp": 50, "era": "WotC (Fossil)", "attacks": ["Clamp", "Spike Cannon"], "stage": "Stage 1"},
+      "card_02": {"name": "Remoraid", "hp": 40, "era": "WotC (Neo Revelation)", "attacks": ["Sharpshooting"], "stage": "Basic"},
+      "card_03": {"name": "Tentacool", "hp": 30, "era": "WotC (Fossil)", "attacks": ["Acid"], "stage": "Basic", "notable": "Pokemon Power: Cowardice"},
+      "card_04": {"name": "Tentacruel", "hp": 60, "era": "WotC (Fossil)", "attacks": ["Supersonic", "Jellyfish Sting"], "stage": "Stage 1"},
+      "card_05": {"name": "Octillery", "hp": 80, "era": "WotC (Neo Revelation)", "attacks": ["Constrict", "Octazooka"], "stage": "Stage 1", "notable": "1st Edition stamp visible"},
+      "card_06": {"name": "Horsea", "hp": 40, "era": "WotC (Fossil)", "attacks": ["Smokescreen"], "stage": "Basic"},
+      "card_07": {"name": "Seadra", "hp": 70, "era": "WotC (Neo Genesis)", "attacks": ["Bubble", "Mud Splash"], "stage": "Stage 1", "notable": "1st Edition stamp visible"},
+      "card_08": {"name": "Kingdra", "hp": 90, "era": "WotC (Neo Revelation)", "attacks": ["Agility", "Dragon Tornado"], "stage": "Stage 2"}
+    },
+    "page_20260307_121117_cards": {
+      "description": "Water Pokemon page - scan 2, SAME CARDS as 120653",
+      "card_00": {"name": "Shellder", "hp": 30, "era": "WotC (Fossil)", "stage": "Basic"},
+      "card_01": {"name": "Cloyster", "hp": 50, "era": "WotC (Fossil)", "stage": "Stage 1"},
+      "card_02": {"name": "Remoraid", "hp": 40, "era": "WotC (Neo Revelation)", "stage": "Basic"},
+      "card_03": {"name": "Tentacool", "hp": 30, "era": "WotC (Fossil)", "stage": "Basic"},
+      "card_04": {"name": "Tentacruel", "hp": 60, "era": "WotC (Fossil)", "stage": "Stage 1"},
+      "card_05": {"name": "Octillery", "hp": 80, "era": "WotC (Neo Revelation)", "stage": "Stage 1"},
+      "card_06": {"name": "Horsea", "hp": 40, "era": "WotC (Fossil)", "stage": "Basic"},
+      "card_07": {"name": "Seadra", "hp": 70, "era": "WotC (Neo Genesis)", "stage": "Stage 1"},
+      "card_08": {"name": "Kingdra", "hp": 90, "era": "WotC (Neo Revelation)", "stage": "Stage 2"}
+    },
+    "page_20260307_123235_cards": {
+      "description": "Mixed WotC water + e-reader page",
+      "card_00": {"name": "Magikarp", "hp": 30, "era": "WotC (Base Set)", "attacks": ["Tackle", "Flail"], "stage": "Basic"},
+      "card_01": {"name": "Gyarados", "hp": 100, "era": "WotC (Base Set)", "attacks": ["Dragon Rage", "Bubblebeam"], "stage": "Stage 1", "notable": "holo"},
+      "card_02": {"name": "Articuno", "hp": 70, "era": "WotC (Fossil)", "attacks": ["Freeze Dry", "Blizzard"], "stage": "Basic", "notable": "holo"},
+      "card_03": {"name": "Krabby", "hp": 50, "era": "WotC (Fossil)", "attacks": ["Call for Family", "Irongrip"], "stage": "Basic"},
+      "card_04": {"name": "Kingler", "hp": 60, "era": "WotC (Fossil)", "attacks": ["Flail", "Crabhammer"], "stage": "Stage 1"},
+      "card_05": {"name": "Golduck", "hp": 70, "era": "WotC (Fossil)", "attacks": ["Psyshock", "Hyper Beam"], "stage": "Stage 1"},
+      "card_06": {"name": "Staryu", "hp": 40, "era": "WotC (Base Set)", "attacks": ["Slap"], "stage": "Basic"},
+      "card_07": {"name": "Starmie", "hp": 60, "era": "WotC (Base Set)", "attacks": ["Recover", "Star Freeze"], "stage": "Stage 1"},
+      "card_08": {"name": "Vaporeon", "hp": 80, "era": "WotC (Jungle)", "attacks": ["Quick Attack", "Water Gun"], "stage": "Stage 1"}
+    },
+    "page_20260307_123427_cards": {
+      "description": "e-reader era page (Aquapolis / Skyridge / Expedition)",
+      "card_00": {"name": "Yanma", "hp": 60, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Agility", "Triple Smash"], "stage": "Basic", "notable": "partially cropped, name not fully visible"},
+      "card_01": {"name": "Pineco", "hp": 50, "era": "e-reader (Aquapolis)", "attacks": ["Double-edge"], "stage": "Basic"},
+      "card_02": {"name": "Tentacool", "hp": 50, "era": "e-reader (Aquapolis)", "attacks": ["Poison Sting", "Recover"], "stage": "Basic"},
+      "card_03": {"name": "Dratini", "hp": 40, "era": "e-reader (Expedition/Aquapolis)", "attacks": ["Dragon Smash"], "stage": "Basic"},
+      "card_04": {"name": "Onix", "hp": 60, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Crush"], "stage": "Basic"},
+      "card_05": {"name": "Murkrow", "hp": 50, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Evil Eye", "Blindside"], "stage": "Basic"},
+      "card_06": {"name": "Growlithe", "hp": 50, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Flare"], "stage": "Basic", "notable": "Poke-BODY: Fire Veil"},
+      "card_07": {"name": "Arcanine", "hp": 80, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Burn Up"], "stage": "Stage 1", "notable": "Poke-BODY: Fire Veil"},
+      "card_08": {"name": "Houndoom", "hp": 70, "era": "e-reader (Aquapolis/Skyridge)", "attacks": ["Feint Attack", "Flamethrower"], "stage": "Stage 1"}
+    },
+    "page_20260307_132359_cards": {
+      "description": "Lv.X page - all DP-era Lv.X cards",
+      "card_00": {"name": "Torterra Lv.X", "hp": 160, "era": "DP (Diamond & Pearl)", "attacks": ["Vigorous Dash"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-POWER: Forest Murmurs"},
+      "card_01": {"name": "Electivire Lv.X", "hp": 120, "era": "DP (Mysterious Treasures)", "attacks": ["Pulse Barrier"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-BODY: Shocking Tail, 121/123"},
+      "card_02": {"name": "Rhyperior Lv.X", "hp": 170, "era": "DP (Legends Awakened)", "attacks": ["Hard Crush", "Upthrow"], "stage": "LEVEL-UP", "notable": "Lv.X"},
+      "card_03": {"name": "Darkrai Lv.X", "hp": 100, "era": "DP (Great Encounters)", "attacks": ["Endless Darkness"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-BODY: Dark Shadow, 104/106"},
+      "card_04": {"name": "Giratina Lv.X", "hp": 130, "era": "DP (Platinum)", "attacks": ["Darkness Lost"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-BODY: Invisible Tentacles, 124/127"},
+      "card_05": {"name": "Gardevoir Lv.X", "hp": 130, "era": "DP (Secret Wonders)", "attacks": ["Bring Down"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-POWER: Teleportation, 131/132"},
+      "card_06": {"name": "Mesprit Lv.X", "hp": 90, "era": "DP (Legends Awakened)", "attacks": ["Supreme Blast"], "stage": "LEVEL-UP", "notable": "Lv.X, Healing Look, 143/146"},
+      "card_07": {"name": "Salamence Lv.X", "hp": 160, "era": "DP (Arceus)", "attacks": ["Steam Blast"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-POWER: Double Fall, 98/99"},
+      "card_08": {"name": "Arceus Lv.X", "hp": 120, "era": "DP (Arceus)", "attacks": ["Meteor Blast"], "stage": "LEVEL-UP", "notable": "Lv.X, Poke-BODY: Multitype"}
+    }
+  },
+  "summary": {
+    "total_pages": 13,
+    "unique_physical_pages": 8,
+    "duplicate_scans": {
+      "delta_species_page": ["page_20260305_094228_cards", "page_20260305_094637_cards", "page_20260305_094749_cards"],
+      "misty_page": ["page_20260307_014406_cards", "page_20260307_014621_cards", "page_20260307_014711_cards"],
+      "water_wotc_page": ["page_20260307_120653_cards", "page_20260307_121117_cards"]
+    },
+    "total_unique_cards": 72,
+    "era_breakdown": {
+      "ex_delta_species": 9,
+      "wotc_gym_heroes_challenge": 18,
+      "wotc_base_fossil_jungle": 14,
+      "wotc_neo": 8,
+      "wotc_team_rocket": 2,
+      "e_reader": 9,
+      "dp_lv_x": 9,
+      "mixed_foreign": 3
+    },
+    "notable_cards": [
+      "Misty's Seadra PRERELEASE (Gym Heroes)",
+      "Aerodactyl PRERELEASE (Fossil)",
+      "Dark Dragonite holo (Team Rocket)",
+      "Gyarados holo (Base Set)",
+      "Articuno holo (Fossil)",
+      "Typhlosion holo (Neo Genesis)",
+      "Octillery 1st Edition (Neo Revelation)",
+      "Seadra 1st Edition (Fossil)",
+      "9x Lv.X cards (DP era)",
+      "French Dratini (Minidraco)",
+      "Japanese Dark Electrode visible in background"
+    ]
+  }
+}
