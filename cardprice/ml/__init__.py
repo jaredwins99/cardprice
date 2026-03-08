@@ -2412,6 +2412,7 @@ def identify_page_ref_matching(card_image_paths, session=None):
 _V2_DINO_ACCEPT_THRESHOLD = 0.40      # DINOv2 dot product vs filtered refs
 _V2_CANDIDATE_DISAMBIGUATION_LIMIT = 3  # above this, also run attack OCR
 _V2_FALLBACK_CONFIDENCE = 0.40         # below this, fall back to ensemble
+_V2_FALLBACK_MIN_ACCEPT = 0.70         # reject v2_fallback results below this
 
 
 def _run_color_detect(image_path: str) -> tuple:
@@ -2488,24 +2489,14 @@ def _paddle_ocr_name_and_hp(image_path: str):
     from pathlib import Path
     from rapidfuzz import fuzz, process
     from cardprice.ml.ocr_matcher import (
-        _paddle_det, _paddle_rec, _paddle_ocr_name,
+        get_rapid_engine, _paddle_ocr_name,
         _unsharp_mask_ocr, _clean_name_ocr,
         _load_unique_pokemon_names,
     )
     from cardprice.ml.hp_detector import _parse_hp_from_texts, _is_valid_hp
     from cardprice.ml.preprocess import upscale_for_ocr
 
-    # Ensure PaddleOCR singletons are initialized
-    import os
-    from cardprice.ml.ocr_matcher import _paddle_det as pd, _paddle_rec as pr
-    if pd is None:
-        os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
-        from paddleocr import TextDetection, TextRecognition
-        import cardprice.ml.ocr_matcher as _ocr_mod
-        _ocr_mod._paddle_det = TextDetection(model_name='PP-OCRv5_server_det')
-        _ocr_mod._paddle_rec = TextRecognition(model_name='en_PP-OCRv5_mobile_rec')
-
-    from cardprice.ml.ocr_matcher import _paddle_det as det_model, _paddle_rec as rec_model
+    rapid_engine = get_rapid_engine()
 
     img = cv2.imread(str(image_path))
     if img is None:
@@ -2520,7 +2511,8 @@ def _paddle_ocr_name_and_hp(image_path: str):
     _NON_NAME_WORDS = {"stage", "basic", "hp", "stage i", "stage ii",
                        "stage 1", "stage 2", "trainer", "supporter",
                        "pokemon", "item", "energy", "stage i pokemon",
-                       "stage ii pokemon"}
+                       "stage ii pokemon", "stadium", "tool",
+                       "troingo", "trainer", "trainor"}
 
     # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, method)
     all_detections = []
@@ -2548,30 +2540,21 @@ def _paddle_ocr_name_and_hp(image_path: str):
         crop = _unsharp_mask_ocr(crop)
         crop_up = upscale_for_ocr(crop, scale=3)
 
-        det_results = list(det_model.predict(crop_up))
-        if not det_results or not det_results[0]:
+        result, _ = rapid_engine(crop_up)
+        if not result:
             continue
-        det_out = det_results[0]
-        polys = det_out.get('dt_polys', [])
-        scores = det_out.get('dt_scores', [])
 
         up_h, up_w = crop_up.shape[:2]
 
-        for poly, det_score in zip(polys, scores):
-            if det_score < 0.3:
+        for box, text, conf in result:
+            conf = float(conf)
+            if not text or len(text.strip()) < 2 or conf < 0.3:
                 continue
-            pts = np.array(poly, dtype=np.float32)
+            text = text.strip()
+
+            # Compute bounding rect from polygon box
+            pts = np.array(box, dtype=np.float32)
             x, y, bw, bh = cv2.boundingRect(pts)
-            text_crop = crop_up[max(0, y):y + bh, max(0, x):x + bw]
-            if text_crop.size == 0:
-                continue
-            rec_results = list(rec_model.predict(text_crop))
-            if not rec_results or not rec_results[0]:
-                continue
-            text = rec_results[0].get('rec_text', '').strip()
-            conf = float(rec_results[0].get('rec_score', 0.0))
-            if not text or len(text) < 2 or conf < 0.3:
-                continue
 
             # Compute position as fraction of the crop region
             # (account for the padding we added)
@@ -2608,27 +2591,15 @@ def _paddle_ocr_name_and_hp(image_path: str):
         enhanced = clahe.apply(gray)
         enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
 
-        det_results = list(det_model.predict(enhanced_bgr))
-        if det_results and det_results[0]:
-            det_out = det_results[0]
-            polys = det_out.get('dt_polys', [])
-            scores = det_out.get('dt_scores', [])
-            up_h, up_w = enhanced_bgr.shape[:2]
-            for poly, det_score in zip(polys, scores):
-                if det_score < 0.3:
+        result, _ = rapid_engine(enhanced_bgr)
+        if result:
+            for box, text, conf in result:
+                conf = float(conf)
+                if not text or len(text.strip()) < 2 or conf < 0.3:
                     continue
-                pts = np.array(poly, dtype=np.float32)
+                text = text.strip()
+                pts = np.array(box, dtype=np.float32)
                 x, y, bw, bh = cv2.boundingRect(pts)
-                text_crop = enhanced_bgr[max(0, y):y + bh, max(0, x):x + bw]
-                if text_crop.size == 0:
-                    continue
-                rec_results = list(rec_model.predict(text_crop))
-                if not rec_results or not rec_results[0]:
-                    continue
-                text = rec_results[0].get('rec_text', '').strip()
-                conf = float(rec_results[0].get('rec_score', 0.0))
-                if not text or len(text) < 2 or conf < 0.3:
-                    continue
                 cx = (x + bw / 2 - pad * 3) / (crop_w * 3)
                 card_x_frac = 0.03 + cx * 0.94
                 text_w_frac = bw / (crop_w * 3)
@@ -2704,6 +2675,9 @@ def _paddle_ocr_name_and_hp(image_path: str):
         # Skip non-name words
         if cleaned.lower() in _NON_NAME_WORDS:
             continue
+        # Skip "Evolves from X" text — always names the pre-evolution, not the card
+        if re.match(r"(?i)evolves?\s+from\s+", cleaned):
+            continue
         name_candidates.append((cleaned, conf, method))
 
     if not name_candidates:
@@ -2716,6 +2690,20 @@ def _paddle_ocr_name_and_hp(image_path: str):
 
     if not name_candidates:
         return None, 0.0, None, hp_value
+
+    # For long OCR fragments (>20 chars), extract individual words that
+    # exactly match known Pokemon names. This handles instruction text like
+    # "Put Seadra on the Basic Pokemon" → extracts "Seadra".
+    _known_names = _load_unique_pokemon_names()
+    _known_lower = {n.lower() for n in _known_names}
+    word_candidates = []
+    for cleaned, conf, method in name_candidates:
+        if len(cleaned) > 20:
+            for word in cleaned.split():
+                word = word.strip(".,;:!?()[]")
+                if len(word) >= 4 and word.lower() in _known_lower:
+                    word_candidates.append((word, conf * 0.9, method + "_word"))
+    name_candidates.extend(word_candidates)
 
     # Deduplicate
     seen = set()
@@ -3028,12 +3016,13 @@ def _filter_candidates_by_attacks(
         return candidates
 
     try:
-        from cardprice.ml.attack_ocr import _load_attack_index
+        from cardprice.ml.attack_ocr import _load_attack_index, _load_attack_db
         idx = _load_attack_index()
         card_to_attacks = idx.get("card_to_attacks", {})
         atk_to_cards = idx.get("attack_to_cards", {})
+        attack_db = _load_attack_db()
 
-        if not card_to_attacks and not atk_to_cards:
+        if not card_to_attacks and not atk_to_cards and not attack_db:
             logger.info("v2 attack filter: no attack index available")
             return candidates
 
@@ -3048,6 +3037,10 @@ def _filter_candidates_by_attacks(
             if not card_attacks:
                 base_cid = cid.split("/")[0] if "/" in cid else cid
                 card_attacks = card_to_attacks.get(base_cid, [])
+            # Fallback to precomputed OCR attack DB
+            if not card_attacks and attack_db:
+                base_cid = cid.split("/")[0] if "/" in cid else cid
+                card_attacks = attack_db.get(base_cid, [])
             card_attacks_lower = {a.lower() for a in card_attacks}
 
             # Count how many detected attacks match this card's attacks
@@ -3198,6 +3191,65 @@ def _get_card_type_cached(card_id: str) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Structured attacks lazy singleton
+# ---------------------------------------------------------------------------
+_structured_attacks: dict | None = None
+_STRUCTURED_ATTACKS_PATH = _PROJECT_ROOT / "data" / "structured_attacks.json"
+
+
+def _load_structured_attacks() -> dict:
+    global _structured_attacks
+    if _structured_attacks is not None:
+        return _structured_attacks
+    if not _STRUCTURED_ATTACKS_PATH.exists():
+        _structured_attacks = {}
+        return _structured_attacks
+    import json
+    with open(_STRUCTURED_ATTACKS_PATH) as f:
+        _structured_attacks = json.load(f)
+    logger.info("Loaded structured attacks: %d cards", len(_structured_attacks))
+    return _structured_attacks
+
+
+def _build_text_fingerprint(data: dict) -> str:
+    """Build a text fingerprint from structured attack/ability data for fuzzy matching."""
+    parts: list[str] = []
+    for atk in data.get("attacks", []):
+        if atk.get("name"):
+            parts.append(atk["name"])
+        if atk.get("text"):
+            parts.append(atk["text"])
+        if atk.get("damage"):
+            parts.append(atk["damage"])
+    for ab in data.get("abilities", []):
+        if ab.get("name"):
+            parts.append(ab["name"])
+        if ab.get("text"):
+            parts.append(ab["text"])
+    return " ".join(parts)
+
+
+def _get_fulltext_from_image(image_path: str) -> str:
+    """Run RapidOCR on the full card image and return all detected text concatenated."""
+    try:
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        import cv2
+        engine = get_rapid_engine()
+        img = cv2.imread(image_path)
+        if img is None:
+            return ""
+        result = engine(img)
+        if not result or not result[0]:
+            return ""
+        # result[0] is list of (bbox, text, confidence)
+        texts = [item[1] for item in result[0] if item[1]]
+        return " ".join(texts)
+    except Exception as e:
+        logger.warning("v2 combined: fulltext OCR failed: %s", e)
+        return ""
+
+
 def _score_candidates_combined(
     image_path: str,
     candidate_card_ids: list,
@@ -3205,13 +3257,15 @@ def _score_candidates_combined(
     precomputed_attacks=None,
     type_detected: str | None = None,
     type_confidence: float = 0.0,
+    precomputed_fulltext: str | None = None,
 ) -> list[tuple[str, float, dict]]:
-    """Score candidates using both DINOv2 visual similarity and attack OCR overlap.
+    """Score candidates using DINOv2 visual similarity, attack OCR overlap, and full-text matching.
 
-    Combined score = w_dino * dino_score + w_attack * attack_score
+    Combined score = w_dino * dino_score + w_attack * attack_score + w_fulltext * fulltext_score
     When attack OCR finds nothing, falls back to pure DINOv2.
+    Full-text matching uses structured attack/ability data against the scanned card's OCR text.
     """
-    from cardprice.ml.attack_ocr import extract_attack_names, _load_attack_index
+    from cardprice.ml.attack_ocr import extract_attack_names, _load_attack_index, _load_attack_db
 
     dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids, query_embedding=query_embedding)
     if not dino_results:
@@ -3233,6 +3287,8 @@ def _score_candidates_combined(
 
     idx = _load_attack_index()
     card_to_attacks = idx.get("card_to_attacks", {})
+    attack_db = _load_attack_db()
+    structured = _load_structured_attacks()
 
     try:
         from rapidfuzz import fuzz
@@ -3243,10 +3299,29 @@ def _score_candidates_combined(
     attack_scores = {}
     attack_details = {}
     for cid in candidate_card_ids:
-        card_attacks = card_to_attacks.get(cid, [])
+        base_cid = cid.split("/")[0] if "/" in cid else cid
+
+        # --- Attack names: prefer structured_attacks (19,895 cards) over attack_index (16,978) ---
+        card_attacks = []
+        use_ocr_ocr = False
+        struct_data = structured.get(base_cid)
+        if struct_data:
+            # Extract attack + ability names from structured data
+            card_attacks = [a["name"] for a in struct_data.get("attacks", []) if a.get("name")]
+            card_attacks += [a["name"] for a in struct_data.get("abilities", []) if a.get("name")]
+
+        # Fallback 1: attack_index.pkl (curated attack names)
         if not card_attacks:
-            base_cid = cid.split("/")[0] if "/" in cid else cid
-            card_attacks = card_to_attacks.get(base_cid, [])
+            card_attacks = card_to_attacks.get(cid, [])
+            if not card_attacks:
+                card_attacks = card_to_attacks.get(base_cid, [])
+
+        # Fallback 2: attack_db.json (noisy OCR text)
+        if not card_attacks and attack_db:
+            db_attacks = attack_db.get(base_cid, [])
+            if db_attacks:
+                card_attacks = db_attacks
+                use_ocr_ocr = True
 
         if not card_attacks or not detected_attacks:
             attack_scores[cid] = 0.0
@@ -3255,32 +3330,101 @@ def _score_candidates_combined(
 
         card_attacks_lower = [a.lower() for a in card_attacks]
         matched = []
-        for card_atk in card_attacks_lower:
-            for det_atk in detected_attacks:
-                # Require higher threshold for short strings to avoid
-                # spurious matches like "Whap" → "Wrap"
-                min_len = min(len(det_atk), len(card_atk))
-                threshold = 80 if min_len <= 5 else 70
-                if use_rapidfuzz:
-                    if fuzz.ratio(det_atk, card_atk) >= threshold:
-                        matched.append(card_atk)
-                        break
-                else:
-                    from difflib import SequenceMatcher
-                    t = 0.75 if min_len <= 5 else 0.65
-                    if SequenceMatcher(None, det_atk, card_atk).ratio() >= t:
-                        matched.append(card_atk)
-                        break
 
-        # Score rewards both proportion AND absolute count
-        proportion = len(matched) / len(card_attacks_lower)
+        if use_ocr_ocr:
+            # OCR-to-OCR: both sides are noisy, use token_set_ratio
+            for card_atk in card_attacks_lower:
+                if len(card_atk) < 3:
+                    continue
+                for det_atk in detected_attacks:
+                    if len(det_atk) < 3:
+                        continue
+                    if use_rapidfuzz and fuzz.token_set_ratio(det_atk, card_atk) >= 80:
+                        matched.append(card_atk)
+                        break
+        else:
+            for card_atk in card_attacks_lower:
+                for det_atk in detected_attacks:
+                    min_len = min(len(det_atk), len(card_atk))
+                    threshold = 80 if min_len <= 5 else 70
+                    if use_rapidfuzz:
+                        if fuzz.ratio(det_atk, card_atk) >= threshold:
+                            matched.append(card_atk)
+                            break
+                    else:
+                        from difflib import SequenceMatcher
+                        t = 0.75 if min_len <= 5 else 0.65
+                        if SequenceMatcher(None, det_atk, card_atk).ratio() >= t:
+                            matched.append(card_atk)
+                            break
+
+        # Score: proportion of detected attacks matched, plus bonus if attack count matches
+        proportion = len(matched) / len(card_attacks_lower) if card_attacks_lower else 0.0
+        # Bonus when card's attack count matches what the scan detected
+        count_match_bonus = 0.15 if len(card_attacks_lower) == len(detected_attacks) else 0.0
         count_bonus = 0.1 * min(len(matched), 3)
-        attack_scores[cid] = proportion + count_bonus
+        raw_score = proportion + count_match_bonus + count_bonus
+        # Discount OCR-to-OCR matches (noisier than curated attack names)
+        if use_ocr_ocr:
+            raw_score *= 0.7
+        attack_scores[cid] = raw_score
         attack_details[cid] = matched
 
-    # Dynamic weights
+    # --- Full-text matching: structured attack/ability text vs scanned card OCR ---
+    fulltext_scores = {}
+    if structured and use_rapidfuzz:
+        # Get the full OCR text from the scanned card
+        if precomputed_fulltext is not None:
+            scan_fulltext = precomputed_fulltext
+        else:
+            scan_fulltext = _get_fulltext_from_image(image_path)
+
+        if scan_fulltext:
+            scan_fulltext_lower = scan_fulltext.lower()
+            for cid in candidate_card_ids:
+                base_cid = cid.split("/")[0] if "/" in cid else cid
+                struct_data = structured.get(base_cid)
+                if not struct_data:
+                    fulltext_scores[cid] = 0.0
+                    continue
+                fingerprint = _build_text_fingerprint(struct_data).lower()
+                if not fingerprint:
+                    fulltext_scores[cid] = 0.0
+                    continue
+                # token_set_ratio handles subset matching well (OCR may miss some text)
+                ratio = fuzz.token_set_ratio(scan_fulltext_lower, fingerprint)
+                fulltext_scores[cid] = ratio / 100.0  # Normalize to 0-1
+        else:
+            for cid in candidate_card_ids:
+                fulltext_scores[cid] = 0.0
+    else:
+        for cid in candidate_card_ids:
+            fulltext_scores[cid] = 0.0
+
+    # Dynamic weights — lean toward DINOv2 when visual gap is clear
     any_attacks = any(s > 0 for s in attack_scores.values())
-    w_dino, w_attack = (0.5, 0.5) if any_attacks else (1.0, 0.0)
+    any_fulltext = any(s > 0 for s in fulltext_scores.values())
+    if not any_attacks and not any_fulltext:
+        w_dino, w_attack, w_fulltext = 1.0, 0.0, 0.0
+    elif not any_attacks:
+        # Only fulltext signal available
+        w_dino, w_attack, w_fulltext = 1.0, 0.0, 0.0
+    elif not any_fulltext:
+        # Only attack signal available (original behavior)
+        dino_vals = sorted(dino_scores.values(), reverse=True)
+        dino_gap = (dino_vals[0] - dino_vals[1]) if len(dino_vals) >= 2 else 0.0
+        if dino_gap >= 0.10:
+            w_dino, w_attack, w_fulltext = 0.7, 0.3, 0.0
+        else:
+            w_dino, w_attack, w_fulltext = 0.5, 0.5, 0.0
+    else:
+        # All three signals available
+        dino_vals = sorted(dino_scores.values(), reverse=True)
+        dino_gap = (dino_vals[0] - dino_vals[1]) if len(dino_vals) >= 2 else 0.0
+        if dino_gap >= 0.10:
+            w_dino, w_attack, w_fulltext = 0.6, 0.4, 0.0
+        else:
+            w_dino, w_attack, w_fulltext = 0.5, 0.5, 0.0
 
     # Type bonus/penalty — small tie-breaker signal
     use_type_signal = (
@@ -3293,7 +3437,8 @@ def _score_candidates_combined(
     for cid in candidate_card_ids:
         d = dino_scores.get(cid, 0.0)
         a = attack_scores.get(cid, 0.0)
-        combined = w_dino * d + w_attack * a
+        ft = fulltext_scores.get(cid, 0.0)
+        combined = w_dino * d + w_attack * a + w_fulltext * ft
 
         type_bonus = 0.0
         if use_type_signal:
@@ -3309,6 +3454,7 @@ def _score_candidates_combined(
         results.append((cid, combined, {
             "dino_score": round(d, 4),
             "attack_score": round(a, 4),
+            "fulltext_score": round(ft, 4),
             "matched_attacks": attack_details.get(cid, []),
             "type_bonus": round(type_bonus, 4),
         }))
@@ -3316,8 +3462,8 @@ def _score_candidates_combined(
     results.sort(key=lambda x: x[1], reverse=True)
     if results:
         t = results[0]
-        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f, type_bonus=%.4f) %d candidates",
-                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], t[2]["type_bonus"], len(results))
+        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f, ft=%.4f, type_bonus=%.4f) %d candidates",
+                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], t[2]["fulltext_score"], t[2]["type_bonus"], len(results))
     return results
 
 
@@ -3424,6 +3570,11 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     except Exception as e:
         logger.warning("v2: image conversion failed, using original: %s", e)
 
+    # Preserve original path before potential rotation fix (Step 1b).
+    # If rotation is a false positive, the attack fallback (Step 5) needs
+    # the original un-rotated image to read attacks correctly.
+    original_image_path = image_path
+
     # Check cache
     try:
         file_hash = hashlib.md5(Path(image_path).read_bytes()).hexdigest()
@@ -3493,6 +3644,89 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         ocr_name = None
         ocr_conf = 0.0
 
+    # -------------------------------------------------------------------
+    # Step 1b: Rotation detection — if OCR failed, the card content may be
+    # rotated 90° within the frame.  Try both 90° CW and CCW rotations;
+    # keep the one that yields the best OCR name confidence.
+    # -------------------------------------------------------------------
+    if not ocr_name and not _precomputed_ocr:
+        import cv2
+        logger.info("v2: OCR failed — trying 90° rotations for %s", image_path)
+        img_orig = cv2.imread(image_path)
+        if img_orig is not None:
+            best_rot_score = 0.0
+            best_rot_result = None
+            best_rot_path = None
+            # Try 90° CW and 90° CCW
+            for rot_code, rot_label in [
+                (cv2.ROTATE_90_CLOCKWISE, "90CW"),
+                (cv2.ROTATE_90_COUNTERCLOCKWISE, "90CCW"),
+            ]:
+                rotated = cv2.rotate(img_orig, rot_code)
+                tmp_fd, tmp_path = tempfile.mkstemp(suffix=".png", prefix="rot_")
+                os.close(tmp_fd)
+                try:
+                    cv2.imwrite(tmp_path, rotated)
+                    rot_name, rot_conf, rot_raw, rot_hp = _run_name_and_hp(tmp_path)
+                    # Composite score: name confidence + large bonus for HP.
+                    # A correct rotation typically yields both name AND HP,
+                    # while an upside-down card may get a spurious name but
+                    # no HP (HP is in the top-right, only readable upright).
+                    # HP detection is highly reliable (requires "\d+ HP/PV"
+                    # pattern), so weight it heavily to prefer the rotation
+                    # that finds HP even if it can't read a foreign name.
+                    # Validate name against DB — spurious OCR from upside-down
+                    # cards won't match any Pokemon name.
+                    has_valid_name = False
+                    if rot_name and len(rot_name) >= 3:
+                        db_check = _get_candidates_from_db(
+                            name=rot_name, hp=rot_hp, session=session,
+                        )
+                        has_valid_name = len(db_check) > 0
+                        if not has_valid_name:
+                            logger.info(
+                                "v2: rotation %s: name %r not in DB, ignoring",
+                                rot_label, rot_name,
+                            )
+                    rot_score = rot_conf if has_valid_name else 0.0
+                    if rot_hp is not None:
+                        rot_score += 0.80
+                    logger.info(
+                        "v2: rotation %s: name=%r conf=%.2f hp=%s score=%.2f",
+                        rot_label, rot_name, rot_conf, rot_hp, rot_score,
+                    )
+                    if rot_score > best_rot_score:
+                        best_rot_score = rot_score
+                        best_rot_result = (rot_name, rot_conf, rot_raw, rot_hp)
+                        # Clean up previous best if any
+                        if best_rot_path and os.path.exists(best_rot_path):
+                            os.unlink(best_rot_path)
+                        best_rot_path = tmp_path
+                    else:
+                        os.unlink(tmp_path)
+                except Exception as e:
+                    logger.warning("v2: rotation %s failed: %s", rot_label, e)
+                    if os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+
+            if best_rot_result and best_rot_score >= 0.30:
+                ocr_name, ocr_conf, ocr_raw, hp_value = best_rot_result
+                image_path = best_rot_path
+                # Re-run color detection on the corrected image
+                try:
+                    color_type, color_conf = _run_color_detect(image_path)
+                except Exception:
+                    pass
+                logger.info(
+                    "v2: ROTATION FIX applied — using rotated image, "
+                    "name=%r conf=%.2f hp=%s (rot_score=%.2f)",
+                    ocr_name, ocr_conf, hp_value, best_rot_score,
+                )
+            else:
+                # No rotation helped — clean up
+                if best_rot_path and os.path.exists(best_rot_path):
+                    os.unlink(best_rot_path)
+
     logger.info(
         "v2 step1: name=%r (conf=%.2f), hp=%s, color=%s (conf=%.2f)",
         ocr_name, ocr_conf, hp_value, color_type, color_conf,
@@ -3524,6 +3758,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     # Step 3/4: Combined DINOv2 + attack scoring for candidate disambiguation
     # -----------------------------------------------------------------------
     ref_match_result = None  # Low-confidence ref match saved for comparison
+    name_path_failed = False  # Set when name-based path produces no acceptable result
     if candidates:
         # Single candidate: quick DINOv2 sanity check
         if len(candidates) == 1:
@@ -3554,6 +3789,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             else:
                 logger.warning("v2: REJECTED single candidate %s — DINOv2 %.3f too low",
                                only_cid, dino_score)
+                name_path_failed = True
 
         # Multiple candidates: combined DINOv2 + attack scoring
         elif len(candidates) >= 2:
@@ -3570,6 +3806,31 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     effective_threshold = 0.45
                 else:
                     effective_threshold = 0.50
+
+                # When OCR name confidence is high, the candidates are already
+                # well-constrained by name — lower the threshold since we trust
+                # the candidate set.  Also lower when the top match has clear
+                # separation from 2nd place (the ranking is reliable).
+                gap = 0.0
+                if len(combined_results) >= 2:
+                    gap = best_score - combined_results[1][1]
+                if ocr_conf >= 0.80:
+                    # High-confidence OCR name: candidates are trustworthy,
+                    # the combined score just needs to pick the best one.
+                    # Very high OCR conf (>=0.90) lowers further — the name
+                    # is almost certainly correct so even low DINOv2 scores
+                    # (WotC cards in orange sleeves) should be accepted.
+                    if ocr_conf >= 0.90:
+                        effective_threshold = min(effective_threshold, 0.35)
+                    else:
+                        effective_threshold = min(effective_threshold, 0.40)
+                    logger.info("v2: high OCR conf %.2f -> lowered threshold to %.2f",
+                                ocr_conf, effective_threshold)
+                if gap >= 0.04:
+                    # Clear separation between 1st and 2nd: ranking is reliable
+                    effective_threshold = min(effective_threshold, 0.38)
+                    logger.info("v2: clear gap %.3f between top two -> threshold %.2f",
+                                gap, effective_threshold)
 
                 if best_score >= effective_threshold:
                     attack_names = best_detail.get("matched_attacks", [])
@@ -3613,34 +3874,65 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 else:
                     logger.info("v2: best combined %.4f < %.2f, falling to ensemble",
                                 best_score, effective_threshold)
+                    name_path_failed = True
 
     # -----------------------------------------------------------------------
     # Step 5: Attack-based identification
-    # Try attack OCR when: (a) name OCR failed entirely, or (b) the OCR-based
-    # candidate match scored low (< 0.60), suggesting the OCR name may be wrong.
+    # Try attack OCR when: (a) name OCR failed entirely, (b) the OCR-based
+    # candidate match scored low (< 0.60), suggesting the OCR name may be wrong,
+    # or (c) the name-based path had candidates but couldn't produce an
+    # acceptable result (e.g. wrong OCR name from rotation fallback).
     # Attack OCR has 92% recall — much more reliable than DINOv2 global search.
     # -----------------------------------------------------------------------
     attack_result = None
-    if not ocr_name or ref_match_result is not None:
-        logger.info("v2 step5: no OCR name, trying attack-based identification")
+    if not ocr_name or ref_match_result is not None or name_path_failed:
+        # When the name path failed (e.g. wrong name from rotation fallback),
+        # use the original un-rotated image for attack OCR — the rotated image
+        # won't have readable attack text.
+        attack_image = original_image_path if name_path_failed else image_path
+        logger.info("v2 step5: trying attack-based identification (name_path_failed=%s, image=%s)",
+                     name_path_failed, Path(attack_image).name)
         try:
             from cardprice.ml.attack_ocr import identify_by_attacks
             if _precomputed_attacks is not None:
-                atk_results = identify_by_attacks(image_path, precomputed_ocr_candidates=_precomputed_attacks)
+                atk_results = identify_by_attacks(attack_image, precomputed_ocr_candidates=_precomputed_attacks)
             else:
                 with _ocr_lock:
-                    atk_results = identify_by_attacks(image_path)
+                    atk_results = identify_by_attacks(attack_image)
             if atk_results:
                 atk_candidate_ids = [cid for cid, _s in atk_results[:50]]
+
+                # HP filtering: when HP was detected, prune attack candidates
+                # that have a different HP. This dramatically reduces the
+                # candidate set (e.g., 50 "Triple Smash" cards → 5 with HP=60).
+                if hp_value and len(atk_candidate_ids) >= 5:
+                    _structured = _load_structured_attacks()
+                    hp_matched = []
+                    for cid in atk_candidate_ids:
+                        base_cid = cid.split("/")[0] if "/" in cid else cid
+                        s_data = _structured.get(base_cid) if _structured else None
+                        if s_data:
+                            card_hp = s_data.get("hp")
+                            if card_hp and str(card_hp) == str(hp_value):
+                                hp_matched.append(cid)
+                            # Also keep if no HP data (don't exclude unknowns)
+                            elif not card_hp:
+                                hp_matched.append(cid)
+                        else:
+                            hp_matched.append(cid)  # keep unknowns
+                    if len(hp_matched) >= 2:
+                        logger.info("v2 step5: HP filter (hp=%s): %d/%d candidates",
+                                    hp_value, len(hp_matched), len(atk_candidate_ids))
+                        atk_candidate_ids = hp_matched
 
                 # Era filtering: if page_era is known, prefer candidates
                 # from the same era. Keep era-matched candidates first,
                 # but fall back to all candidates if too few match.
                 if page_era:
-                    from cardprice.ml.page_context import _era_for_set, _extract_set_id
+                    from cardprice.ml.page_context import _era_for_set, _extract_set_id, _eras_compatible
                     era_matched = [
                         cid for cid in atk_candidate_ids
-                        if _era_for_set(_extract_set_id(cid)) == page_era
+                        if _eras_compatible(_era_for_set(_extract_set_id(cid)) or "", page_era)
                     ]
                     # Use era filter when: enough candidates OR many total
                     # candidates (indistinguishable by DINOv2).
@@ -3651,7 +3943,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
                 # Track whether era filtering actually reduced the set
                 era_filtered = page_era and len(atk_candidate_ids) < len(atk_results[:50])
-                combined_results = _score_candidates_combined(image_path, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
+                combined_results = _score_candidates_combined(attack_image, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
                 if combined_results:
                     best_cid, best_score, best_detail = combined_results[0]
                     # Boost confidence when era filtering significantly reduced
@@ -3680,6 +3972,13 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         if alt_str:
                             explanation += f". Alts: {alt_str}"
 
+                        # When name path failed (bad rotation OCR), the attack
+                        # path is recovering from a known-bad state. Boost
+                        # confidence so it beats the unreliable ensemble.
+                        if name_path_failed and best_detail.get("attack_score", 0) > 0:
+                            best_score = min(best_score + 0.15, 1.0)
+                            logger.info("v2 step5: name_path_failed boost -> %.3f", best_score)
+
                         attack_result = {
                             "card_id": best_cid,
                             "confidence": float(best_score),
@@ -3701,25 +4000,48 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     # -----------------------------------------------------------------------
     # Step 6: Ensemble fallback (last resort)
     # -----------------------------------------------------------------------
+    # When name path failed (bad rotation OCR), use original image and
+    # discard the bogus OCR name so ensemble isn't penalized for mismatch.
+    ensemble_image = original_image_path if name_path_failed else image_path
+    if name_path_failed:
+        logger.info("v2: name_path_failed — discarding bogus OCR name %r for ensemble/comparison",
+                     ocr_name)
+        ocr_name = None
+        ocr_conf = 0.0
     logger.info(
         "v2 step6: running ensemble (ocr_name=%r, candidates=%d)",
         ocr_name, len(candidates),
     )
-    fallback = identify_card_ensemble(image_path, session=session,
+    fallback = identify_card_ensemble(ensemble_image, session=session,
                                       _dino_embedding=_precomputed_dino_embedding,
                                       _clip_embedding=_precomputed_clip_embedding)
     fallback_conf = fallback.get("confidence", 0.0)
 
     # Pick best among ref_match_result (if pending), attack_result, and ensemble.
+    # When OCR name is valid, STRONGLY prefer name-matched results over
+    # unconstrained ensemble (which ignores the name entirely).
     # When page_era is known, give era-matched results a 0.10 bonus so they
     # beat ensemble results from wrong eras.
     best_alt = None
     best_alt_conf = fallback_conf
+
+    # If OCR read a valid name, penalize ensemble results that don't match it
+    if ocr_name and ocr_conf >= 0.70:
+        fallback_cid = fallback.get("card_id", "")
+        if fallback_cid:
+            from cardprice.ml.ref_matcher import get_candidate_card_ids
+            name_cids = set(get_candidate_card_ids(ocr_name))
+            if fallback_cid not in name_cids:
+                # Ensemble picked a card with a different name — heavily penalize
+                logger.info("v2: ensemble picked %s which doesn't match OCR name %r, penalizing",
+                            fallback_cid, ocr_name)
+                best_alt_conf -= 0.30
+
     if page_era:
-        from cardprice.ml.page_context import _era_for_set, _extract_set_id
+        from cardprice.ml.page_context import _era_for_set, _extract_set_id, _eras_compatible
         fallback_cid = fallback.get("card_id", "")
         fallback_era = _era_for_set(_extract_set_id(fallback_cid)) if fallback_cid else None
-        if fallback_era != page_era:
+        if fallback_era and not _eras_compatible(fallback_era, page_era):
             best_alt_conf -= 0.10  # penalize wrong-era ensemble result
     for candidate in [ref_match_result, attack_result]:
         if candidate and candidate["confidence"] > best_alt_conf:
@@ -3733,6 +4055,24 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         return best_alt
 
     fallback["method"] = f"v2_fallback({fallback.get('method', 'ensemble')})"
+
+    # Reject low-confidence fallback results to avoid false positives.
+    # Ensemble fallback is the least reliable path — wrong guesses typically
+    # land in the 0.39-0.69 range while correct ones are >= 0.70.
+    # Preserve the rejected card_id so page_context can restore it if era matches.
+    if fallback_conf < _V2_FALLBACK_MIN_ACCEPT:
+        logger.info(
+            "v2: rejecting fallback result %s (confidence=%.3f < %.2f threshold)",
+            fallback.get("card_id"), fallback_conf, _V2_FALLBACK_MIN_ACCEPT,
+        )
+        raw = fallback.get("raw_response", {})
+        raw["rejected_card_id"] = fallback.get("card_id")
+        raw["rejected_confidence"] = fallback_conf
+        fallback["raw_response"] = raw
+        fallback["card_id"] = None
+        fallback["method"] = "unidentified"
+        fallback["confidence"] = fallback_conf  # preserve original score for diagnostics
+
     fallback["explanation"] = (
         f"v2 fallback: OCR name={ocr_name!r} yielded {len(candidates)} candidates "
         f"but DINOv2 ref-match was insufficient. "
@@ -3819,14 +4159,11 @@ def identify_page_v2(card_image_paths, session=None):
     # -----------------------------------------------------------------------
     # Pass 1a: Batch pre-compute ALL expensive operations in parallel.
     #
-    # Two concurrent threads (collapsed from 3 — PaddleOCR is NOT
-    # thread-safe so name OCR and attack OCR must share the same thread):
-    #   Thread 1: PaddleOCR — name + HP + color + attack OCR (sequential)
+    # Two concurrent threads:
+    #   Thread 1: RapidOCR name + HP + color + attack OCR (sequential per card)
     #   Thread 2: DINOv2   — batch GPU embedding for all cards (single pass)
     #
-    # PaddleOCR replaces EasyOCR for attack OCR (10x faster: 0.1-0.3s vs
-    # 1-3s per card).  The engine is created ONCE in Thread 1 and reused
-    # for both name OCR and attack OCR calls.
+    # RapidOCR (ONNX Runtime) is thread-safe and fast (~0.4s/card).
     # -----------------------------------------------------------------------
     import time as _time
 
@@ -3844,18 +4181,12 @@ def identify_page_v2(card_image_paths, session=None):
     clip_embeddings = [None] * n_cards
 
     def _batch_ocr_all():
-        """Thread 1: PaddleOCR name + HP + color + attack OCR for all cards.
+        """Thread 1: PaddleOCR name + HP + color, RapidOCR attack OCR for all cards.
 
-        Creates a single PaddleOCR engine pair (det + rec) and uses it
-        for both name OCR and attack OCR sequentially.  This avoids the
-        SIGSEGV that occurs when PaddleOCR instances are shared across
-        threads.
+        Name OCR uses PaddleOCR (initialized inside _run_name_and_hp).
+        Attack OCR uses RapidOCR (lazy singleton inside attack_ocr module).
         """
         t0 = _time.time()
-
-        # Initialize PaddleOCR engines ONCE for this thread
-        from cardprice.ml.ocr_matcher import get_paddle_engines
-        det_model, rec_model = get_paddle_engines()
 
         for i, path in enumerate(card_image_paths):
             # --- Name + HP + color (PaddleOCR) ---
@@ -3876,7 +4207,7 @@ def identify_page_v2(card_image_paths, session=None):
                 logger.warning("identify_page_v2: color card %d failed: %s", i, e)
             precomputed[i] = ocr_data
 
-            # --- Attack OCR (PaddleOCR, same engine) ---
+            # --- Attack OCR (RapidOCR) ---
             # Only pre-compute attacks when name OCR failed or has low
             # confidence. High-confidence name matches (>= 0.90) are
             # resolved by DINOv2 alone, saving ~7-9s per card.
@@ -3886,7 +4217,7 @@ def identify_page_v2(card_image_paths, session=None):
             if need_attacks:
                 try:
                     attack_results[i] = _extract_attacks_paddle(
-                        str(path), det_model=det_model, rec_model=rec_model,
+                        str(path),
                     )
                 except Exception as e:
                     logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
@@ -3895,7 +4226,7 @@ def identify_page_v2(card_image_paths, session=None):
                             "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
 
         logger.info(
-            "identify_page_v2: PaddleOCR thread (name+attack) done in %.1fs",
+            "identify_page_v2: OCR thread (name+attack) done in %.1fs",
             _time.time() - t0,
         )
 
@@ -4090,8 +4421,8 @@ def identify_page_v2(card_image_paths, session=None):
 
     # -----------------------------------------------------------------------
     # Pass 3: Re-run fallback cards with era context
-    # Only re-run cards that used attack_fallback or ensemble_fallback
-    # AND have low confidence. Don't touch high-confidence results.
+    # Only re-run cards that used attack_fallback, ensemble_fallback, or
+    # were unidentified AND have low confidence. Don't touch high-confidence results.
     # -----------------------------------------------------------------------
     from cardprice.ml.page_context import _era_for_set, _extract_set_id
     page_era = ctx.get("era")
@@ -4099,8 +4430,8 @@ def identify_page_v2(card_image_paths, session=None):
         for i, (path, result) in enumerate(zip(card_image_paths, results)):
             method = result.get("method", "")
             conf = result["confidence"]
-            # Only re-run fallback/low-quality results with low confidence
-            if "fallback" not in method and "page_context" not in method:
+            # Only re-run fallback/low-quality/unidentified results with low confidence
+            if "fallback" not in method and "page_context" not in method and method != "unidentified":
                 continue
             if conf >= 0.80:
                 continue
@@ -4133,13 +4464,15 @@ def identify_page_v2(card_image_paths, session=None):
 
             # Accept re-run if: (a) confidence improved, OR (b) the re-run
             # result is from the correct era and original wasn't.
+            from cardprice.ml.page_context import _eras_compatible
             rerun_era = _era_for_set(_extract_set_id(rerun.get("card_id", ""))) if rerun.get("card_id") else None
             orig_era = _era_for_set(_extract_set_id(result.get("card_id", ""))) if result.get("card_id") else None
-            era_improved = rerun_era == loo_era and orig_era != loo_era
+            era_improved = _eras_compatible(rerun_era or "", loo_era) and not _eras_compatible(orig_era or "", loo_era)
             conf_improved = rerun.get("confidence", 0) > result["confidence"]
             # Don't accept re-run from wrong era — attack fallback can pick
             # wrong-era cards via garbled OCR fuzzy matches.
-            rerun_wrong_era = rerun_era is not None and rerun_era != loo_era
+            # Use compatible eras (adjacent eras like e-card/ex are OK).
+            rerun_wrong_era = rerun_era is not None and not _eras_compatible(rerun_era, loo_era)
             if rerun_wrong_era:
                 logger.info("identify_page_v2 pass3: card %d rejecting rerun %s (era %s != page %s)",
                             i, rerun.get("card_id"), rerun_era, loo_era)

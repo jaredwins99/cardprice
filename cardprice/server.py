@@ -213,6 +213,7 @@ input[type=file] { display: none; }
 <div class="result" id="result">
     <h3 id="cardName"></h3>
     <div class="price" id="cardPrice"></div>
+    <div id="conditionPrices" style="display:none;margin:8px auto;max-width:280px;"></div>
     <div class="confidence" id="cardConf"></div>
     <div id="cardMeta"></div>
     <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
@@ -361,7 +362,31 @@ function handleFile(file) {
 }
 function showResult(data) {
     document.getElementById('cardName').textContent = data.card_name || 'Unknown Card';
-    document.getElementById('cardPrice').textContent = data.market_price ? '$' + data.market_price : 'No price data';
+    document.getElementById('cardPrice').textContent = data.market_price ? '$' + parseFloat(data.market_price).toFixed(2) : 'No price data';
+    // Condition price breakdown
+    var cpDiv = document.getElementById('conditionPrices');
+    if (data.condition_prices) {
+        var cp = data.condition_prices;
+        var tbl = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+        tbl += '<tr style="border-bottom:1px solid #333;"><th style="text-align:left;padding:4px 8px;color:#888;">Condition</th><th style="text-align:right;padding:4px 8px;color:#888;">Price</th><th style="text-align:right;padding:4px 8px;color:#888;">Range</th></tr>';
+        var conditions = ['NM','LP','MP','HP','DMG'];
+        var colors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
+        for (var ci = 0; ci < conditions.length; ci++) {
+            var cond = conditions[ci];
+            var info = cp[cond];
+            if (!info) continue;
+            tbl += '<tr style="border-bottom:1px solid #222;">';
+            tbl += '<td style="padding:4px 8px;color:' + colors[cond] + ';font-weight:bold;">' + cond + '</td>';
+            tbl += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">$' + info.price.toFixed(2) + '</td>';
+            tbl += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">$' + info.range_low.toFixed(2) + ' – $' + info.range_high.toFixed(2) + '</td>';
+            tbl += '</tr>';
+        }
+        tbl += '</table>';
+        cpDiv.innerHTML = tbl;
+        cpDiv.style.display = 'block';
+    } else {
+        cpDiv.style.display = 'none';
+    }
     document.getElementById('cardConf').textContent =
         (data.confidence ? (data.confidence * 100).toFixed(0) + '% confidence' : '') +
         (data.method ? ' via ' + data.method : '');
@@ -547,6 +572,10 @@ function handlePageFile(file) {
                 html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.card_name || 'Unknown') + '</div>';
                 if (c.market_price) {
                     html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(c.market_price).toFixed(2) + '</div>';
+                    if (c.condition_prices) {
+                        var lp = c.condition_prices.LP;
+                        if (lp) html += '<div style="font-size:10px;color:#a8d8a8;">LP $' + lp.price.toFixed(2) + '</div>';
+                    }
                 } else {
                     html += '<div style="font-size:13px;color:#666;">No price</div>';
                 }
@@ -554,7 +583,13 @@ function handlePageFile(file) {
                 html += '</div></div>';
             }
             html += '</div>';
-            document.getElementById('pageTotal').textContent = cards.length + ' cards — Total: $' + total.toFixed(2);
+            var lpTotal = 0;
+            for (var ti = 0; ti < cards.length; ti++) {
+                if (cards[ti].condition_prices && cards[ti].condition_prices.LP) lpTotal += cards[ti].condition_prices.LP.price;
+            }
+            var totalText = cards.length + ' cards — NM: $' + total.toFixed(2);
+            if (lpTotal > 0) totalText += ' · LP: $' + lpTotal.toFixed(2);
+            document.getElementById('pageTotal').textContent = totalText;
             document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
         })
         .catch(function(e) {
@@ -1389,7 +1424,7 @@ class ScanHandler(BaseHTTPRequestHandler):
         # Identify each segmented card
         cards = []
         try:
-            from cardprice.ml import identify_page_vision_first as identify_page
+            from cardprice.ml import identify_page_v2 as identify_page
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
@@ -1439,6 +1474,19 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 float(row.market_price) if row.market_price else None
                             )
                             card_data["image_url"] = row.image_small
+
+                            if row.market_price:
+                                from cardprice.models.condition_pricing import (
+                                    CONDITION_MULTIPLIERS_WITH_CI,
+                                )
+                                nm = float(row.market_price)
+                                cond_prices = {}
+                                for cond in ("NM", "LP", "MP", "HP", "DMG"):
+                                    mult, _, _ = CONDITION_MULTIPLIERS_WITH_CI[cond]
+                                    cond_prices[cond] = {
+                                        "price": round(nm * mult, 2),
+                                    }
+                                card_data["condition_prices"] = cond_prices
 
                     cards.append(card_data)
 
@@ -2882,7 +2930,10 @@ def run_server(host="0.0.0.0", port=8888):
     _server_port = port
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-    warmup()
+    if not os.environ.get("CARDPRICE_SKIP_WARMUP"):
+        warmup()
+    else:
+        logger.info("Skipping warmup (CARDPRICE_SKIP_WARMUP set)")
 
     server = HTTPServer((host, port), ScanHandler)
     lan_ip = _get_lan_ip()

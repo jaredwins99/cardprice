@@ -7,7 +7,7 @@ are nearly unique per card printing.
 Pipeline:
   1. Crop to attack region (roughly 40-75% of card height, center 80% width)
   2. Preprocess: upscale, CLAHE, optional sharpen
-  3. Run PaddleOCR on the region (preferred) or EasyOCR (fallback)
+  3. Run RapidOCR on the region (preferred) or EasyOCR (fallback)
   4. Filter OCR fragments: keep likely attack names, discard damage numbers,
      energy costs, description text, and other noise
   5. Fuzzy-match surviving fragments against the attack_index.pkl
@@ -37,9 +37,14 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _ATTACK_INDEX_PATH = _PROJECT_ROOT / "data" / "attack_index.pkl"
+_ATTACK_DB_PATH = _PROJECT_ROOT / "data" / "attack_db.json"
+_STRUCTURED_ATTACKS_PATH = _PROJECT_ROOT / "data" / "structured_attacks.json"
 
 # Lazy-loaded globals
 _attack_index: dict | None = None
+_attack_db: dict | None = None
+_structured_atk_to_cards: dict | None = None
+_structured_card_to_atks: dict | None = None
 
 # ---------------------------------------------------------------------------
 # Attack index
@@ -66,10 +71,102 @@ def _load_attack_index() -> dict:
     return _attack_index
 
 
+def _load_attack_db() -> dict:
+    """Lazy-load the precomputed attack DB (OCR'd reference card attacks)."""
+    global _attack_db
+    if _attack_db is not None:
+        return _attack_db
+
+    if not _ATTACK_DB_PATH.exists():
+        logger.warning("Attack DB not found at %s", _ATTACK_DB_PATH)
+        _attack_db = {}
+        return _attack_db
+
+    import json
+    with open(_ATTACK_DB_PATH) as f:
+        _attack_db = json.load(f)
+    logger.info("Loaded attack DB: %d cards", len(_attack_db))
+    return _attack_db
+
+
+def _load_structured_attacks() -> tuple[dict, dict]:
+    """Lazy-load structured_attacks.json and build reverse index.
+
+    The file has 19,895 cards with clean attack + ability names scraped
+    from the official API.  We build two dicts (same shape as attack_index.pkl):
+      - atk_to_cards: {attack_name_lower: [card_id, ...]}
+      - card_to_atks: {card_id: [attack_name_lower, ...]}
+
+    Card IDs in the structured file are base IDs (e.g. "ecard3-116").
+    We store them as-is (no "/normal" suffix) so callers that strip the
+    variant suffix can still match.  We *also* store with "/normal" so
+    the existing scoring loop (which uses suffixed IDs from the pkl
+    index) finds them.
+
+    Returns
+    -------
+    tuple of (atk_to_cards, card_to_atks)
+    """
+    global _structured_atk_to_cards, _structured_card_to_atks
+    if _structured_atk_to_cards is not None:
+        return _structured_atk_to_cards, _structured_card_to_atks
+
+    if not _STRUCTURED_ATTACKS_PATH.exists():
+        logger.warning(
+            "Structured attacks not found at %s", _STRUCTURED_ATTACKS_PATH
+        )
+        _structured_atk_to_cards = {}
+        _structured_card_to_atks = {}
+        return _structured_atk_to_cards, _structured_card_to_atks
+
+    import json
+
+    with open(_STRUCTURED_ATTACKS_PATH) as f:
+        data = json.load(f)
+
+    atk_to_cards: dict[str, list[str]] = {}
+    card_to_atks: dict[str, list[str]] = {}
+
+    for base_id, entry in data.items():
+        names: list[str] = []
+        for atk in entry.get("attacks", []):
+            name = atk.get("name", "").strip()
+            if name:
+                names.append(name.lower())
+        for abi in entry.get("abilities", []):
+            name = abi.get("name", "").strip()
+            if name:
+                names.append(name.lower())
+
+        if not names:
+            continue
+
+        # Store under both base ID and /normal-suffixed ID
+        for cid in (base_id, f"{base_id}/normal"):
+            card_to_atks[cid] = names
+            for atk_name in names:
+                atk_to_cards.setdefault(atk_name, []).append(cid)
+
+    _structured_atk_to_cards = atk_to_cards
+    _structured_card_to_atks = card_to_atks
+    logger.info(
+        "Loaded structured attacks: %d attacks, %d cards",
+        len(_structured_atk_to_cards),
+        len(_structured_card_to_atks),
+    )
+    return _structured_atk_to_cards, _structured_card_to_atks
+
+
 def _get_all_attack_names() -> list[str]:
-    """Return sorted list of all known attack names (lowercase)."""
+    """Return sorted list of all known attack names (lowercase).
+
+    Merges names from both attack_index.pkl and structured_attacks.json.
+    """
     idx = _load_attack_index()
-    return sorted(idx.get("attack_to_cards", {}).keys())
+    names = set(idx.get("attack_to_cards", {}).keys())
+    struct_atk, _ = _load_structured_attacks()
+    names.update(struct_atk.keys())
+    return sorted(names)
 
 
 # ---------------------------------------------------------------------------
@@ -383,16 +480,29 @@ def extract_attack_names(
 
 
 # ---------------------------------------------------------------------------
-# PaddleOCR-based attack extraction (10x faster than EasyOCR)
+# RapidOCR-based attack extraction (replaces PaddleOCR, 10x faster than EasyOCR)
 # ---------------------------------------------------------------------------
 
-def _recombine_paddle_fragments(
+_rapid_ocr_engine = None
+
+
+def _get_rapid_ocr():
+    """Lazy singleton for the RapidOCR engine."""
+    global _rapid_ocr_engine
+    if _rapid_ocr_engine is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _rapid_ocr_engine = RapidOCR()
+    return _rapid_ocr_engine
+
+
+def _recombine_rapid_fragments(
     fragments: list[dict],
 ) -> list[tuple[str, float, list]]:
-    """Recombine PaddleOCR fragments that are on the same text line.
+    """Recombine RapidOCR fragments that are on the same text line.
 
-    PaddleOCR returns per-word detections. We group fragments at similar
-    Y positions and merge them left-to-right, same logic as EasyOCR.
+    RapidOCR returns per-line detections, but occasionally splits
+    multi-word text. We group fragments at similar Y positions and
+    merge them left-to-right, same logic as the EasyOCR recombiner.
 
     Parameters
     ----------
@@ -436,22 +546,23 @@ def extract_attack_names_paddle(
     det_model=None,
     rec_model=None,
 ) -> list[tuple[str, float]]:
-    """Extract likely attack names using PaddleOCR (10x faster than EasyOCR).
+    """Extract likely attack names using RapidOCR (faster than EasyOCR).
 
     Uses the same crop region, preprocessing, and filtering as
-    extract_attack_names(), but runs PaddleOCR detection + recognition
+    extract_attack_names(), but runs RapidOCR detection + recognition
     instead of EasyOCR.
+
+    The det_model and rec_model parameters are accepted for backward
+    compatibility but ignored (RapidOCR uses a single engine).
 
     Parameters
     ----------
     image_path : str or Path
         Path to the card segment image.
-    det_model : TextDetection, optional
-        Pre-initialized PaddleOCR detection model. If None, creates one
-        (but callers should pass pre-initialized engines to avoid
-        thread-safety issues).
-    rec_model : TextRecognition, optional
-        Pre-initialized PaddleOCR recognition model.
+    det_model : ignored
+        Kept for backward compatibility with callers.
+    rec_model : ignored
+        Kept for backward compatibility with callers.
 
     Returns
     -------
@@ -465,16 +576,11 @@ def extract_attack_names_paddle(
         logger.warning("Failed to read image: %s", image_path)
         return []
 
-    # Initialize PaddleOCR if not provided (single-thread usage only)
-    if det_model is None or rec_model is None:
-        from cardprice.ml.ocr_matcher import get_paddle_engines
-        det_model, rec_model = get_paddle_engines()
-
     # Crop to attack region
     attack_crop = crop_attack_region(img)
     processed = preprocess_attack_region(attack_crop)
 
-    # PaddleOCR expects 3-channel BGR input
+    # RapidOCR expects 3-channel BGR input
     if len(processed.shape) == 2:
         processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
 
@@ -491,49 +597,41 @@ def extract_attack_names_paddle(
         processed, 20, 20, 20, 20, cv2.BORDER_REPLICATE
     )
 
-    # Run PaddleOCR detection
+    # Run RapidOCR (combined detection + recognition)
     try:
-        det_results = list(det_model.predict(processed))
+        engine = _get_rapid_ocr()
+        result, _ = engine(processed)
     except Exception as e:
-        logger.warning("PaddleOCR attack detection failed: %s", e)
+        logger.warning("RapidOCR attack detection failed: %s", e)
         return []
 
-    if not det_results or not det_results[0]:
+    if not result:
         return []
 
-    det_out = det_results[0]
-    polys = det_out.get("dt_polys", [])
-    scores = det_out.get("dt_scores", [])
-
+    # Parse RapidOCR results: each item is [box, text, confidence]
+    # box is [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
     fragments = []
-    for poly, det_score in zip(polys, scores):
-        if det_score < 0.3:
+    for box, text, conf in result:
+        text = text.strip()
+        conf = float(conf)
+        if not text or len(text) < 2 or conf < 0.2:
             continue
-        pts = np.array(poly, dtype=np.float32)
-        x, y, bw, bh = cv2.boundingRect(pts)
-        text_crop = processed[max(0, y):y + bh, max(0, x):x + bw]
-        if text_crop.size == 0:
-            continue
-        try:
-            rec_results = list(rec_model.predict(text_crop))
-        except Exception:
-            continue
-        if rec_results and rec_results[0]:
-            text = rec_results[0].get("rec_text", "").strip()
-            conf = float(rec_results[0].get("rec_score", 0.0))
-            if text and len(text) >= 2 and conf > 0.2:
-                cy = y + bh / 2
-                cx = x + bw / 2
-                fragments.append({
-                    "text": text, "conf": conf,
-                    "cx": cx, "cy": cy, "h": max(bh, 1),
-                })
+        # Compute center and height from polygon box
+        ys = [pt[1] for pt in box]
+        xs = [pt[0] for pt in box]
+        cy = sum(ys) / len(ys)
+        cx = sum(xs) / len(xs)
+        bh = max(ys) - min(ys)
+        fragments.append({
+            "text": text, "conf": conf,
+            "cx": cx, "cy": cy, "h": max(bh, 1),
+        })
 
     if not fragments:
         return []
 
     # Recombine fragments on the same text line
-    merged_lines = _recombine_paddle_fragments(fragments)
+    merged_lines = _recombine_rapid_fragments(fragments)
 
     # Also keep individual fragments as separate candidates
     individual = [(f["text"], f["conf"]) for f in fragments if f["text"]]
@@ -548,7 +646,7 @@ def extract_attack_names_paddle(
             if key not in seen:
                 candidates.append((text, conf))
                 seen.add(key)
-                logger.debug("  KEEP (merged/paddle): '%s' (conf=%.2f)", text, conf)
+                logger.debug("  KEEP (merged/rapid): '%s' (conf=%.2f)", text, conf)
 
     # Also add individual fragments that pass the filter
     for text, conf in individual:
@@ -557,7 +655,7 @@ def extract_attack_names_paddle(
             if key not in seen:
                 candidates.append((text, conf))
                 seen.add(key)
-                logger.debug("  KEEP (single/paddle): '%s' (conf=%.2f)", text, conf)
+                logger.debug("  KEEP (single/rapid): '%s' (conf=%.2f)", text, conf)
 
     return candidates
 
@@ -725,8 +823,27 @@ def identify_by_attacks(
         Candidates sorted by descending score. Score is 0.0-1.0.
     """
     idx = _load_attack_index()
-    atk_to_cards = idx.get("attack_to_cards", {})
-    card_to_atks = idx.get("card_to_attacks", {})
+    atk_to_cards_pkl = idx.get("attack_to_cards", {})
+    card_to_atks_pkl = idx.get("card_to_attacks", {})
+
+    # Load structured attacks (clean API data: attacks + abilities)
+    struct_atk_to_cards, struct_card_to_atks = _load_structured_attacks()
+
+    # Merged lookup helpers — check both sources
+    def _merged_card_attacks(cid: str) -> set[str]:
+        """Get all known attacks for a card from both indices."""
+        attacks = set(card_to_atks_pkl.get(cid, []))
+        attacks.update(struct_card_to_atks.get(cid, []))
+        # Also check base ID (without variant suffix)
+        base = cid.split("/")[0]
+        attacks.update(struct_card_to_atks.get(base, []))
+        return attacks
+
+    def _merged_atk_cards(atk_name: str) -> set[str]:
+        """Get all card IDs that have a given attack from both indices."""
+        cards = set(atk_to_cards_pkl.get(atk_name, []))
+        cards.update(struct_atk_to_cards.get(atk_name, []))
+        return cards
 
     # Step 1-3: Extract attack name candidates from image
     ocr_candidates = precomputed_ocr_candidates if precomputed_ocr_candidates is not None else extract_attack_names(image_path)
@@ -745,8 +862,7 @@ def identify_by_attacks(
         # Only match against attacks belonging to the candidate cards
         relevant_attacks = set()
         for cid in candidate_card_ids:
-            for atk in card_to_atks.get(cid, []):
-                relevant_attacks.add(atk)
+            relevant_attacks.update(_merged_card_attacks(cid))
         known_attacks = sorted(relevant_attacks) if relevant_attacks else None
     else:
         known_attacks = None  # match against all
@@ -772,8 +888,7 @@ def identify_by_attacks(
     else:
         cards_to_score = set()
         for atk_name in matched_attack_names:
-            for cid in atk_to_cards.get(atk_name, []):
-                cards_to_score.add(cid)
+            cards_to_score.update(_merged_atk_cards(atk_name))
 
     if not cards_to_score:
         return []
@@ -781,7 +896,7 @@ def identify_by_attacks(
     # Score each candidate
     scored: list[tuple[str, float]] = []
     for cid in cards_to_score:
-        card_attacks = set(card_to_atks.get(cid, []))
+        card_attacks = _merged_card_attacks(cid)
         if not card_attacks:
             continue
 

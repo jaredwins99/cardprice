@@ -207,25 +207,38 @@ def _parse_hp_from_texts(texts: list[tuple[str, float]]) -> Optional[int]:
     and pick the best one.
     """
     # Pass 1: look for explicit "HP" + number patterns (highest confidence)
+    # Try BOTH raw and normalized text, prefer the match with more digits
+    # (e.g. "I20HP" raw matches "20" but normalized matches "120")
     for text, conf in texts:
         clean = text.upper().strip()
+        norm = _normalize_ocr_digits(clean)
+
+        raw_hp = None
+        norm_hp = None
 
         m = re.search(r'HP\s*(\d{2,3})', clean)
         if m and _is_valid_hp(int(m.group(1))):
-            return int(m.group(1))
+            raw_hp = int(m.group(1))
+        if raw_hp is None:
+            m = re.search(r'(\d{2,3})\s*HP', clean)
+            if m and _is_valid_hp(int(m.group(1))):
+                raw_hp = int(m.group(1))
 
-        m = re.search(r'(\d{2,3})\s*HP', clean)
-        if m and _is_valid_hp(int(m.group(1))):
-            return int(m.group(1))
-
-        # Also try after digit normalization (e.g. "I00 HP" -> "100 HP")
-        norm = _normalize_ocr_digits(clean)
         m = re.search(r'HP\s*(\d{2,3})', norm)
         if m and _is_valid_hp(int(m.group(1))):
-            return int(m.group(1))
-        m = re.search(r'(\d{2,3})\s*HP', norm)
-        if m and _is_valid_hp(int(m.group(1))):
-            return int(m.group(1))
+            norm_hp = int(m.group(1))
+        if norm_hp is None:
+            m = re.search(r'(\d{2,3})\s*HP', norm)
+            if m and _is_valid_hp(int(m.group(1))):
+                norm_hp = int(m.group(1))
+
+        # Prefer normalized match when it has more digits (e.g. 120 > 20)
+        if norm_hp is not None and raw_hp is not None:
+            return max(norm_hp, raw_hp)
+        if norm_hp is not None:
+            return norm_hp
+        if raw_hp is not None:
+            return raw_hp
 
     # Pass 2: extract all valid HP candidates from all text fragments.
     # Try both raw text and digit-normalized text.
@@ -236,12 +249,16 @@ def _parse_hp_from_texts(texts: list[tuple[str, float]]) -> Optional[int]:
     for text, conf in texts:
         for hp_val in _extract_valid_hps(text):
             candidates.append((hp_val, conf))
-        # Also try with digit normalization
-        norm = _normalize_ocr_digits(text)
-        if norm != text:
-            for hp_val in _extract_valid_hps(norm):
-                if hp_val not in [c[0] for c in candidates]:
-                    candidates.append((hp_val, conf * 0.9))  # slight penalty
+        # Also try with digit normalization, but ONLY when the raw text
+        # already contains at least one digit.  Without this guard, pure
+        # word fragments like "FTAGE" (misread "STAGE") get normalized to
+        # "FTA30" and produce false HP=30 matches.
+        if re.search(r'\d', text):
+            norm = _normalize_ocr_digits(text)
+            if norm != text:
+                for hp_val in _extract_valid_hps(norm):
+                    if hp_val not in [c[0] for c in candidates]:
+                        candidates.append((hp_val, conf * 0.9))  # slight penalty
 
     if candidates:
         # Prefer higher HP values (the actual HP is usually the biggest
@@ -289,20 +306,30 @@ def _is_valid_damage(val: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# PaddleOCR HP extraction
+# RapidOCR HP extraction
 # ---------------------------------------------------------------------------
 
-def _ocr_paddle(crop: np.ndarray, upscale: int = 3) -> list[tuple[str, float]]:
-    """Run PaddleOCR detection+recognition on a BGR crop.
+_rapid_ocr_engine = None
 
-    Uses the shared PaddleOCR engines from ocr_matcher to avoid duplicate
-    GPU memory usage.  Returns list of (text, confidence).
+
+def _get_rapid_ocr():
+    """Lazy singleton for the RapidOCR engine."""
+    global _rapid_ocr_engine
+    if _rapid_ocr_engine is None:
+        from rapidocr_onnxruntime import RapidOCR
+        _rapid_ocr_engine = RapidOCR()
+    return _rapid_ocr_engine
+
+
+def _ocr_paddle(crop: np.ndarray, upscale: int = 3) -> list[tuple[str, float]]:
+    """Run RapidOCR detection+recognition on a BGR crop.
+
+    Returns list of (text, confidence).
     """
     try:
-        from cardprice.ml.ocr_matcher import get_paddle_engines
-        det, rec = get_paddle_engines()
+        engine = _get_rapid_ocr()
     except Exception as e:
-        logger.debug("PaddleOCR not available: %s", e)
+        logger.debug("RapidOCR not available: %s", e)
         return []
 
     if upscale > 1:
@@ -310,46 +337,23 @@ def _ocr_paddle(crop: np.ndarray, upscale: int = 3) -> list[tuple[str, float]]:
                           interpolation=cv2.INTER_CUBIC)
 
     try:
-        det_result = det.predict(crop, batch_size=1)
-        if not det_result:
+        result, _ = engine(crop)
+        if not result:
             return []
-
-        polys = det_result[0].get('dt_polys')
-        if polys is None:
-            return []
-        if hasattr(polys, 'size') and polys.size == 0:
-            return []
-        if isinstance(polys, list) and len(polys) == 0:
-            return []
-
         texts = []
-        for poly in polys:
-            pts = np.array(poly, dtype=np.float32)
-            x_min, y_min = pts.min(axis=0).astype(int)
-            x_max, y_max = pts.max(axis=0).astype(int)
-            x_min = max(0, x_min)
-            y_min = max(0, y_min)
-            x_max = min(crop.shape[1], x_max)
-            y_max = min(crop.shape[0], y_max)
-            if x_max <= x_min or y_max <= y_min:
-                continue
-            text_crop = crop[y_min:y_max, x_min:x_max]
-            rec_result = rec.predict(text_crop, batch_size=1)
-            if rec_result and rec_result[0].get('rec_text'):
-                text = rec_result[0]['rec_text']
-                score = rec_result[0].get('rec_score', 0.0)
-                texts.append((text, score))
+        for box, text, conf in result:
+            texts.append((text, float(conf)))
         return texts
     except Exception as e:
-        logger.warning("PaddleOCR HP failed: %s", e)
+        logger.warning("RapidOCR HP failed: %s", e)
         return []
 
 
 def extract_hp_paddle(image_path: str) -> Optional[int]:
-    """Extract HP using PaddleOCR only.
+    """Extract HP using RapidOCR only.
 
-    Same crop strategy as detect_hp() but uses PaddleOCR instead of EasyOCR.
-    PaddleOCR is better on some cards (e.g. "70 HP" with explicit HP label),
+    Same crop strategy as detect_hp() but uses RapidOCR instead of EasyOCR.
+    RapidOCR is better on some cards (e.g. "70 HP" with explicit HP label),
     while EasyOCR handles noisy digit-only detections better.
 
     Parameters
@@ -377,6 +381,9 @@ def extract_hp_paddle(image_path: str) -> Optional[int]:
         ("narrow", img[0:int(h * 0.10), int(w * 0.55):int(w * 0.95)]),
         ("default", crop),
         ("wide_right", img[0:int(h * 0.13), int(w * 0.45):w]),
+        # Extended crops for segments with binder-sleeve top padding
+        ("tall_right", img[int(h * 0.08):int(h * 0.22), int(w * 0.35):w]),
+        ("tall_full", img[int(h * 0.08):int(h * 0.25), :]),
     ]
 
     for crop_name, hp_crop in crops:
@@ -384,7 +391,7 @@ def extract_hp_paddle(image_path: str) -> Optional[int]:
             continue
         texts = _ocr_paddle(hp_crop)
         if texts:
-            logger.debug("HP PaddleOCR (%s): %s", crop_name, texts)
+            logger.debug("HP RapidOCR (%s): %s", crop_name, texts)
             hp = _parse_hp_from_texts(texts)
             if hp is not None:
                 return hp
@@ -424,6 +431,10 @@ def detect_hp(image_path: str) -> Optional[int]:
 
     # Try multiple crop regions: narrow first (less noise), then wider.
     # HP is in the top-right; narrower crops give cleaner OCR.
+    # Cards in binder sleeves often have significant top padding (binder
+    # material above the card border), pushing HP text down to y=15-20%.
+    # We try compact crops first (fast, less noise) then progressively
+    # taller crops to catch padded segments.
     h, w = img.shape[:2]
     crops = [
         ("narrow", img[0:int(h * 0.10), int(w * 0.55):int(w * 0.95)]),
@@ -431,14 +442,18 @@ def detect_hp(image_path: str) -> Optional[int]:
         # Delta species / older cards: HP text can sit slightly lower or more
         # to the right than modern cards.
         ("wide_right", img[0:int(h * 0.13), int(w * 0.45):w]),
+        # Extended crops for segments with binder-sleeve top padding.
+        # The actual card border may start at y=8-12%, putting HP at y=15-20%.
+        ("tall_right", img[int(h * 0.08):int(h * 0.22), int(w * 0.35):w]),
+        ("tall_full", img[int(h * 0.08):int(h * 0.25), :]),
     ]
 
     for crop_name, hp_crop in crops:
         if hp_crop.size == 0:
             continue
 
-        # Strategy 1: Run both EasyOCR and PaddleOCR, pick best.
-        # PaddleOCR is better on explicit "HP 70" labels; EasyOCR is
+        # Strategy 1: Run both EasyOCR and RapidOCR, pick best.
+        # RapidOCR is better on explicit "HP 70" labels; EasyOCR is
         # better on noisy digit-only detections.  When both return a
         # value, prefer the one with an explicit "HP" pattern match
         # (higher confidence), otherwise prefer EasyOCR.
@@ -457,15 +472,15 @@ def detect_hp(image_path: str) -> Optional[int]:
             easy_hp = _parse_hp_from_texts(easy_texts)
             # Check for explicit "HP" adjacent to digits (not buried in words)
             easy_has_hp_label = any(
-                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\w)', t.upper()) for t, _ in easy_texts
+                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\d)', t.upper()) for t, _ in easy_texts
             )
             easy_max_conf = max((c for _, c in easy_texts), default=0.0)
 
         if paddle_texts:
-            logger.debug("HP PaddleOCR (%s): %s", crop_name, paddle_texts)
+            logger.debug("HP RapidOCR (%s): %s", crop_name, paddle_texts)
             paddle_hp = _parse_hp_from_texts(paddle_texts)
             paddle_has_hp_label = any(
-                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\w)', t.upper()) for t, _ in paddle_texts
+                re.search(r'(?<!\w)HP\s*\d|\d\s*HP(?!\d)', t.upper()) for t, _ in paddle_texts
             )
             paddle_max_conf = max((c for _, c in paddle_texts), default=0.0)
 
@@ -480,14 +495,14 @@ def detect_hp(image_path: str) -> Optional[int]:
             if easy_hp == paddle_hp:
                 return easy_hp
             if paddle_has_hp_label and not easy_has_hp_label:
-                logger.debug("HP: preferring PaddleOCR (%d, has HP label) over EasyOCR (%d)", paddle_hp, easy_hp)
+                logger.debug("HP: preferring RapidOCR (%d, has HP label) over EasyOCR (%d)", paddle_hp, easy_hp)
                 return paddle_hp
             elif easy_has_hp_label and not paddle_has_hp_label:
                 return easy_hp
             else:
                 # Both or neither have labels; prefer higher confidence
                 if paddle_max_conf > easy_max_conf + 0.3:
-                    logger.debug("HP: preferring PaddleOCR (%d, conf=%.2f) over EasyOCR (%d, conf=%.2f)",
+                    logger.debug("HP: preferring RapidOCR (%d, conf=%.2f) over EasyOCR (%d, conf=%.2f)",
                                  paddle_hp, paddle_max_conf, easy_hp, easy_max_conf)
                     return paddle_hp
                 return easy_hp

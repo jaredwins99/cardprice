@@ -834,26 +834,10 @@ def _ocr_stamp_region(stamp_bgr: np.ndarray) -> str:
     for better OCR accuracy.  Returns empty string on any failure.
     """
     try:
-        import os
-        os.environ.setdefault('PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK', 'True')
-        from cardprice.ml.ocr_matcher import _paddle_det, _paddle_rec
-        import cardprice.ml.ocr_matcher as _ocr_mod
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        engine = get_rapid_engine()
 
-        # Initialize singletons if needed
-        det = _paddle_det
-        rec = _paddle_rec
-        if det is None or rec is None:
-            from paddleocr import TextDetection, TextRecognition
-            if _ocr_mod._paddle_det is None:
-                _ocr_mod._paddle_det = TextDetection(
-                    model_name='PP-OCRv5_server_det')
-            if _ocr_mod._paddle_rec is None:
-                _ocr_mod._paddle_rec = TextRecognition(
-                    model_name='en_PP-OCRv5_mobile_rec')
-            det = _ocr_mod._paddle_det
-            rec = _ocr_mod._paddle_rec
-
-        # Upscale small regions -- PaddleOCR struggles below ~150px
+        # Upscale small regions -- OCR struggles below ~150px
         h, w = stamp_bgr.shape[:2]
         scale = max(1, 150 // max(h, 1))
         if scale > 1:
@@ -870,34 +854,18 @@ def _ocr_stamp_region(stamp_bgr: np.ndarray) -> str:
         stamp_up = cv2.resize(stamp_up, None, fx=3, fy=3,
                               interpolation=cv2.INTER_CUBIC)
 
-        # Run detection
-        det_results = list(det.predict(stamp_up))
-        if not det_results or not det_results[0]:
+        result, _ = engine(stamp_up)
+        if not result:
             return ""
 
-        det_out = det_results[0]
-        polys = det_out.get('dt_polys', [])
-        scores = det_out.get('dt_scores', [])
-
         texts = []
-        for poly, det_score in zip(polys, scores):
-            if det_score < 0.3:
-                continue
-            pts = np.array(poly, dtype=np.float32)
-            x, y, bw, bh = cv2.boundingRect(pts)
-            text_crop = stamp_up[max(0, y):y + bh, max(0, x):x + bw]
-            if text_crop.size == 0:
-                continue
-            rec_results = list(rec.predict(text_crop))
-            if rec_results and rec_results[0]:
-                text = rec_results[0].get('rec_text', '').strip()
-                conf = float(rec_results[0].get('rec_score', 0.0))
-                if text and conf > 0.3:
-                    texts.append(text)
+        for box, text, conf in result:
+            if text and float(conf) > 0.3:
+                texts.append(text.strip())
 
         return " ".join(texts).lower()
     except Exception as e:
-        logger.debug("PaddleOCR stamp check failed: %s", e)
+        logger.debug("RapidOCR stamp check failed: %s", e)
         return ""
 
 

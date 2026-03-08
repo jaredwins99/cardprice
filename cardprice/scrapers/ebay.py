@@ -11,8 +11,15 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import quote_plus, urlencode
 
-import requests
 from bs4 import BeautifulSoup
+
+# Prefer curl_cffi for browser TLS fingerprint impersonation (avoids eBay bot detection)
+try:
+    from curl_cffi import requests as cffi_requests
+    _HAS_CFFI = True
+except ImportError:
+    import requests
+    _HAS_CFFI = False
 
 logger = logging.getLogger(__name__)
 
@@ -218,16 +225,21 @@ def scrape_sold_listings(query: str, max_pages: int = 3) -> list[dict]:
     """
     max_pages = min(max(max_pages, 1), 10)
     all_listings: list[dict] = []
-    session = requests.Session()
 
     for page in range(1, max_pages + 1):
         url = _build_search_url(query, page)
         logger.info("Scraping eBay page %d/%d: %s", page, max_pages, url)
 
         try:
-            resp = session.get(url, headers=_get_headers(), timeout=30)
+            if _HAS_CFFI:
+                resp = cffi_requests.get(
+                    url, headers=_get_headers(), timeout=30,
+                    impersonate="chrome120",
+                )
+            else:
+                resp = requests.get(url, headers=_get_headers(), timeout=30)
             resp.raise_for_status()
-        except requests.RequestException as e:
+        except Exception as e:
             logger.error("Failed to fetch page %d: %s", page, e)
             break
 

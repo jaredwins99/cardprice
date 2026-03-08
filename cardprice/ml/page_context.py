@@ -70,6 +70,29 @@ _SERIES_TO_ERA: dict[str, str] = {
 }
 
 
+# Adjacent eras: binder pages often mix cards from neighboring eras.
+# Era filter should treat these as compatible when filtering candidates.
+_ADJACENT_ERAS: dict[str, set[str]] = {
+    "wotc": {"e-card"},
+    "e-card": {"wotc", "ex"},
+    "ex": {"e-card", "dp"},
+    "dp": {"ex", "hgss"},
+    "hgss": {"dp", "bw"},
+    "bw": {"hgss", "xy"},
+    "xy": {"bw", "sm"},
+    "sm": {"xy", "swsh"},
+    "swsh": {"sm", "sv"},
+    "sv": {"swsh"},
+}
+
+
+def _eras_compatible(era1: str, era2: str) -> bool:
+    """Check if two eras are the same or adjacent."""
+    if era1 == era2:
+        return True
+    return era2 in _ADJACENT_ERAS.get(era1, set())
+
+
 def _extract_set_id(card_id: str) -> Optional[str]:
     """Extract the set_id portion from a card_id like 'base1-4/holofoil'.
 

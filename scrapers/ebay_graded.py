@@ -46,13 +46,22 @@ from urllib.parse import urlencode
 import requests
 from bs4 import BeautifulSoup
 
+# Prefer curl_cffi for browser TLS fingerprint impersonation (avoids eBay bot detection)
+try:
+    from curl_cffi import requests as cffi_requests
+    _HAS_CFFI = True
+except ImportError:
+    _HAS_CFFI = False
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
+# Use .co.uk as fallback when .com triggers bot challenge
 SEARCH_URL = "https://www.ebay.com/sch/i.html"
+SEARCH_URL_FALLBACK = "https://www.ebay.co.uk/sch/i.html"
 POKEMON_CATEGORY = "183454"
 
 # Rate limiting -- max 1 request per 2 seconds
@@ -190,8 +199,27 @@ class ScrapeProgress:
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
-def _get_session() -> requests.Session:
-    """Create a requests session with retry logic."""
+class _CffiSessionWrapper:
+    """Wraps curl_cffi.Session to look like requests.Session for the scraper."""
+
+    def __init__(self):
+        self._session = cffi_requests.Session(impersonate="chrome")
+
+    def get(self, url, headers=None, timeout=30, **kwargs):
+        return self._session.get(url, headers=headers, timeout=timeout, **kwargs)
+
+    @property
+    def cookies(self):
+        return self._session.cookies
+
+
+def _get_session():
+    """Create an HTTP session.  Uses curl_cffi (Chrome TLS fingerprint) when
+    available, otherwise falls back to plain requests with retry logic."""
+    if _HAS_CFFI:
+        logger.info("Using curl_cffi session (Chrome TLS impersonation)")
+        return _CffiSessionWrapper()
+
     s = requests.Session()
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
@@ -385,7 +413,9 @@ def overall_grade_to_wear_class(grade: str, authority: str = "PSA") -> str | Non
 # Search result scraping
 # ---------------------------------------------------------------------------
 
-def _build_search_url(authority: str, grade: str, page: int = 1) -> str:
+def _build_search_url(
+    authority: str, grade: str, page: int = 1, *, use_fallback: bool = False,
+) -> str:
     """Build eBay sold-listings search URL for graded Pokemon cards."""
     query = f"{authority} {grade} pokemon card"
     params = {
@@ -398,7 +428,8 @@ def _build_search_url(authority: str, grade: str, page: int = 1) -> str:
     }
     if page > 1:
         params["_pgn"] = str(page)
-    return f"{SEARCH_URL}?{urlencode(params)}"
+    base = SEARCH_URL_FALLBACK if use_fallback else SEARCH_URL
+    return f"{base}?{urlencode(params)}"
 
 
 def _parse_search_results(html: str) -> list[dict]:
@@ -896,20 +927,63 @@ class GradedCardScraper:
             self.progress.current_page = page
             self._save_progress()
 
-            url = _build_search_url(self.authority, grade, page)
-            logger.info(
-                "[%s %s] Page %d/%d: %s",
-                self.authority, grade, page, max_pages, url,
-            )
+            # Try primary URL, then fallback domain if blocked
+            resp = None
+            for use_fallback in (False, True):
+                url = _build_search_url(
+                    self.authority, grade, page, use_fallback=use_fallback,
+                )
+                logger.info(
+                    "[%s %s] Page %d/%d: %s",
+                    self.authority, grade, page, max_pages, url,
+                )
 
-            try:
-                resp = self.session.get(url, headers=_get_headers(), timeout=30)
-                resp.raise_for_status()
-            except requests.RequestException as e:
-                logger.error("Failed to fetch page %d: %s", page, e)
-                self.progress.errors += 1
-                _polite_delay(5.0, 10.0)
-                continue
+                for attempt in range(2):
+                    try:
+                        resp = self.session.get(
+                            url, headers=_get_headers(), timeout=30,
+                        )
+                        resp.raise_for_status()
+                    except (requests.RequestException, Exception) as e:
+                        logger.error(
+                            "Failed to fetch page %d (attempt %d): %s",
+                            page, attempt + 1, e,
+                        )
+                        self.progress.errors += 1
+                        _polite_delay(10.0, 20.0)
+                        continue
+
+                    # Check for eBay bot challenge page
+                    if (
+                        "Pardon Our Interruption" in resp.text
+                        or len(resp.text) < 20000
+                    ):
+                        wait = 15 * (attempt + 1)
+                        logger.warning(
+                            "eBay bot challenge on page %d (attempt %d), "
+                            "waiting %ds...", page, attempt + 1, wait,
+                        )
+                        _polite_delay(wait, wait + 5)
+                        self.session = _get_session()
+                        resp = None
+                        continue
+                    break
+
+                if resp and "Pardon Our Interruption" not in resp.text:
+                    break
+                if not use_fallback:
+                    logger.info(
+                        "Primary domain blocked, trying fallback domain..."
+                    )
+                    self.session = _get_session()
+                    _polite_delay(3.0, 5.0)
+
+            if resp is None or "Pardon Our Interruption" in resp.text:
+                logger.error(
+                    "Could not bypass eBay bot challenge, "
+                    "stopping grade %s.", grade,
+                )
+                break
 
             stubs = _parse_search_results(resp.text)
             if not stubs:
