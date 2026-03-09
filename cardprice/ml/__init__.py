@@ -2514,7 +2514,7 @@ def _paddle_ocr_name_and_hp(image_path: str):
                        "stage ii pokemon", "stadium", "tool",
                        "troingo", "trainer", "trainor"}
 
-    # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, method)
+    # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, height_frac, method)
     all_detections = []
 
     crop_specs = [
@@ -2522,6 +2522,9 @@ def _paddle_ocr_name_and_hp(image_path: str):
         (0.00, 0.20, 0.05, 0.95, "top20"),
         (0.00, 0.25, 0.03, 0.97, "top25"),
         (0.03, 0.18, 0.05, 0.95, "skip3"),
+        # Deeper crop: catches card names when segment bleeds from card above
+        # (e.g., actual name at 20-30% because top 15% is adjacent card text)
+        (0.10, 0.35, 0.03, 0.97, "deep10_35"),
     ]
 
     found_good_name = False
@@ -2561,23 +2564,58 @@ def _paddle_ocr_name_and_hp(image_path: str):
             cx = (x + bw / 2 - pad * 3) / (crop_w * 3)  # 3x upscale
             cy = (y + bh / 2 - pad * 3) / (crop_h * 3)
             text_w_frac = bw / (crop_w * 3)
+            text_h_frac = bh / (crop_h * 3)
 
             # Map x position back to full card width fraction
             card_x_frac = left_frac + cx * (right_frac - left_frac)
 
-            all_detections.append((text, conf, card_x_frac, cy, text_w_frac, label))
+            all_detections.append((text, conf, card_x_frac, cy, text_w_frac, text_h_frac, label))
 
-        # Early exit if we found a high-confidence name
-        if any(c > 0.8 and sum(1 for ch in t if ch.isalpha()) >= 3
+        # Early exit if we found a high-confidence, SHORT name (not a long
+        # sentence like "Evolves from Tentacool Put Tentacruel on the Basic Pokemon").
+        # Long fragments may contain the name but we need a tighter crop to isolate it.
+        if any(c > 0.8 and 3 <= sum(1 for ch in t if ch.isalpha()) and len(t.strip()) <= 25
                and t.strip().lower() not in _NON_NAME_WORDS
-               for t, c, _, _, _, _ in all_detections):
+               and not re.match(r"(?i)evolves?\s+from\s+", t.strip())
+               for t, c, _, _, _, _, _ in all_detections):
             found_good_name = True
             break
 
     # ------------------------------------------------------------------
+    # Raw OCR fallback (no unsharp mask): the preprocessing pipeline
+    # can destroy low-contrast text on some cards. If we found no
+    # name-like text (only HP digits), retry top25 without unsharp mask.
+    # ------------------------------------------------------------------
+    has_name_text = any(
+        sum(1 for ch in t if ch.isalpha()) >= 3 and c > 0.5
+        for t, c, _, _, _, _, _ in all_detections
+    )
+    if not has_name_text:
+        y2_raw = int(h * 0.25)
+        x1_raw = int(w * 0.03)
+        x2_raw = int(w * 0.97)
+        crop_raw = img[0:y2_raw, x1_raw:x2_raw]
+        crop_h_raw, crop_w_raw = crop_raw.shape[:2]
+        # Run raw without unsharp mask or upscale
+        result_raw, _ = rapid_engine(crop_raw)
+        if result_raw:
+            for box, text, conf in result_raw:
+                conf = float(conf)
+                if not text or len(text.strip()) < 2 or conf < 0.3:
+                    continue
+                text = text.strip()
+                pts = np.array(box, dtype=np.float32)
+                x, y, bw, bh = cv2.boundingRect(pts)
+                cx = (x + bw / 2) / crop_w_raw
+                card_x_frac = 0.03 + cx * 0.94
+                text_w_frac = bw / crop_w_raw
+                text_h_frac = bh / crop_h_raw
+                all_detections.append((text, conf, card_x_frac, 0.5, text_w_frac, text_h_frac, "raw25"))
+
+    # ------------------------------------------------------------------
     # CLAHE grayscale fallback on top 25% if no good detections
     # ------------------------------------------------------------------
-    if not any(c > 0.5 for _, c, _, _, _, _ in all_detections):
+    if not any(c > 0.5 for _, c, _, _, _, _, _ in all_detections):
         y2 = int(h * 0.25)
         x1_clahe = int(w * 0.03)
         x2_clahe = int(w * 0.97)
@@ -2603,7 +2641,8 @@ def _paddle_ocr_name_and_hp(image_path: str):
                 cx = (x + bw / 2 - pad * 3) / (crop_w * 3)
                 card_x_frac = 0.03 + cx * 0.94
                 text_w_frac = bw / (crop_w * 3)
-                all_detections.append((text, conf, card_x_frac, 0.5, text_w_frac, "clahe25"))
+                text_h_frac = bh / (crop_h * 3)
+                all_detections.append((text, conf, card_x_frac, 0.5, text_w_frac, text_h_frac, "clahe25"))
 
     if not all_detections:
         return None, 0.0, None, None
@@ -2617,7 +2656,10 @@ def _paddle_ocr_name_and_hp(image_path: str):
     hp_texts = []
     name_raw_candidates = []
 
-    for text, conf, card_x, cy, text_w, label in all_detections:
+    # Find the tallest text fragment — this is the card name font size
+    max_text_h = max((th for _, _, _, _, _, th, _ in all_detections), default=0.1)
+
+    for text, conf, card_x, cy, text_w, text_h, label in all_detections:
         text_upper = text.upper().strip()
 
         # Check if this looks like an HP value
@@ -2654,7 +2696,9 @@ def _paddle_ocr_name_and_hp(image_path: str):
         # Include even HP-region text as name candidate if it has alpha chars
         alpha_count = sum(1 for c in text if c.isalpha())
         if alpha_count >= 2:
-            name_raw_candidates.append((text, conf, label))
+            # text_size_ratio: 1.0 = tallest text on card, 0.5 = half as tall
+            text_size_ratio = text_h / max_text_h if max_text_h > 0 else 1.0
+            name_raw_candidates.append((text, conf, label, text_size_ratio))
 
     # Parse HP from collected HP-region texts
     if hp_texts:
@@ -2665,7 +2709,7 @@ def _paddle_ocr_name_and_hp(image_path: str):
     # ------------------------------------------------------------------
     # Clean and filter
     name_candidates = []
-    for text, conf, method in name_raw_candidates:
+    for text, conf, method, size_ratio in name_raw_candidates:
         cleaned = _clean_name_ocr(text)
         if not cleaned or len(cleaned) < 3:
             continue
@@ -2678,15 +2722,15 @@ def _paddle_ocr_name_and_hp(image_path: str):
         # Skip "Evolves from X" text — always names the pre-evolution, not the card
         if re.match(r"(?i)evolves?\s+from\s+", cleaned):
             continue
-        name_candidates.append((cleaned, conf, method))
+        name_candidates.append((cleaned, conf, method, size_ratio))
 
     if not name_candidates:
         # Relaxed filter
-        for text, conf, method in name_raw_candidates:
+        for text, conf, method, size_ratio in name_raw_candidates:
             cleaned = _clean_name_ocr(text)
             if cleaned and len(cleaned) >= 2:
                 if cleaned.lower() not in _NON_NAME_WORDS:
-                    name_candidates.append((cleaned, conf, method))
+                    name_candidates.append((cleaned, conf, method, size_ratio))
 
     if not name_candidates:
         return None, 0.0, None, hp_value
@@ -2697,22 +2741,22 @@ def _paddle_ocr_name_and_hp(image_path: str):
     _known_names = _load_unique_pokemon_names()
     _known_lower = {n.lower() for n in _known_names}
     word_candidates = []
-    for cleaned, conf, method in name_candidates:
+    for cleaned, conf, method, size_ratio in name_candidates:
         if len(cleaned) > 20:
             for word in cleaned.split():
                 word = word.strip(".,;:!?()[]")
                 if len(word) >= 4 and word.lower() in _known_lower:
-                    word_candidates.append((word, conf * 0.9, method + "_word"))
+                    word_candidates.append((word, conf * 0.9, method + "_word", size_ratio))
     name_candidates.extend(word_candidates)
 
     # Deduplicate
     seen = set()
     deduped = []
-    for cleaned, conf, method in name_candidates:
+    for cleaned, conf, method, size_ratio in name_candidates:
         key = cleaned.lower()
         if key not in seen:
             seen.add(key)
-            deduped.append((cleaned, conf, method))
+            deduped.append((cleaned, conf, method, size_ratio))
 
     # Fuzzy match against Pokemon names DB
     unique_names = _load_unique_pokemon_names()
@@ -2729,7 +2773,7 @@ def _paddle_ocr_name_and_hp(image_path: str):
     best_score = 0.0
     best_ocr_text = ""
 
-    for cleaned, ocr_conf, method in deduped:
+    for cleaned, ocr_conf, method, size_ratio in deduped:
         query = cleaned.lower()
         if ocr_conf < 0.15 and len(cleaned) < 5:
             continue
@@ -2749,7 +2793,9 @@ def _paddle_ocr_name_and_hp(image_path: str):
                 if best_for_this is None or score > best_for_this[1]:
                     best_for_this = (match_name, score)
                 continue
-            m = process.extractOne(q, name_list_lower, scorer=fuzz.ratio, score_cutoff=60.0)
+            # Higher cutoff for confusion-substituted queries (speculative)
+            cutoff = 85.0 if q != query else 60.0
+            m = process.extractOne(q, name_list_lower, scorer=fuzz.ratio, score_cutoff=cutoff)
             if m is not None:
                 matched_lower, score, _idx = m
                 mn = lower_to_original[matched_lower]
@@ -2758,12 +2804,14 @@ def _paddle_ocr_name_and_hp(image_path: str):
                 if best_for_this is None or score > best_for_this[1]:
                     best_for_this = (mn, score)
 
-        if best_for_this is None:
+        if best_for_this is None and len(query) >= 6:
             matches = process.extractOne(query, name_list_lower, scorer=fuzz.partial_ratio, score_cutoff=85.0)
             if matches is not None:
                 matched_lower, score, _idx = matches
-                score = score * 0.85
-                best_for_this = (lower_to_original[matched_lower], score)
+                # Reject if matched name is much shorter than query (pathological partial match)
+                if len(matched_lower) >= len(query) * 0.5:
+                    score = score * 0.85
+                    best_for_this = (lower_to_original[matched_lower], score)
 
         if best_for_this is None:
             continue
@@ -2773,8 +2821,17 @@ def _paddle_ocr_name_and_hp(image_path: str):
             continue
         if len(cleaned) <= 4 and score < 75 and ocr_conf < 0.4:
             continue
+        # Reject weak fuzzy matches — these are likely OCR hallucinations.
+        # A score < 75 means the raw text is far from any known name.
+        if score < 75 and score != 100.0:
+            continue
 
-        combined = score * 0.8 + min(ocr_conf, 1.0) * 100.0 * 0.2
+        # Boost text that is physically larger on the card — the card name
+        # is always the biggest text in the name region. "Evolves from X"
+        # and "Stage 1" are in smaller fonts.
+        # size_ratio: 1.0 = tallest text, <1.0 = smaller text
+        size_bonus = size_ratio * 15.0  # up to +15 points for largest text
+        combined = score * 0.7 + min(ocr_conf, 1.0) * 100.0 * 0.15 + size_bonus
         if combined > best_score:
             best_score = combined
             best_match = match_name
