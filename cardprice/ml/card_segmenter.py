@@ -700,7 +700,7 @@ def _find_grid_lines(rectified_page, rows, cols):
                           for i in range(len(boundaries) - 1)]
             out_of_range = False
             for cs in cell_sizes:
-                if cs < expected_cell * 0.50 or cs > expected_cell * 1.70:
+                if cs < expected_cell * 0.60 or cs > expected_cell * 1.50:
                     out_of_range = True
                     break
             if out_of_range:
@@ -718,6 +718,17 @@ def _find_grid_lines(rectified_page, rows, cols):
 
         if best_combo is None:
             logger.debug("Valley detection: no valid valley combination found")
+            return None
+
+        # Post-validation: reject if cells are too uneven (max/min ratio > 1.5)
+        boundaries = [0] + list(best_combo) + [axis_len]
+        cell_sizes = [boundaries[i + 1] - boundaries[i]
+                      for i in range(len(boundaries) - 1)]
+        if max(cell_sizes) / max(min(cell_sizes), 1) > 1.5:
+            logger.debug("Valley detection: rejected combo %s — cell sizes %s "
+                         "too uneven (ratio %.2f)",
+                         best_combo, cell_sizes,
+                         max(cell_sizes) / max(min(cell_sizes), 1))
             return None
 
         # Refine each valley to the deepest point on the smoothed profile
@@ -757,6 +768,143 @@ def _find_grid_lines(rectified_page, rows, cols):
                 [(s, e) for s, e in col_bounds])
 
     return row_bounds, col_bounds
+
+
+def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
+                         rows: int = 3, cols: int = 3) -> Optional[list[np.ndarray]]:
+    """Use detected contour positions to infer grid boundaries and extract all cells.
+
+    When contour detection finds >=6 but <9 cards, we can use their positions
+    to compute row/column boundaries more accurately than page-outline +
+    uniform subdivision.  This avoids the systematic offset that uniform
+    subdivision produces when the page has uneven margins.
+
+    Returns list of card images in reading order, or None if contour positions
+    don't form a clean grid.
+    """
+    h, w = image.shape[:2]
+
+    # Get bounding boxes and centers for each contour
+    boxes = []
+    for c in contours:
+        x, y, cw, ch = cv2.boundingRect(c)
+        cx, cy = x + cw / 2, y + ch / 2
+        boxes.append((x, y, cw, ch, cx, cy))
+
+    # Filter out undersized contours (< 50% of median area)
+    areas = [cw * ch for _, _, cw, ch, _, _ in boxes]
+    median_area = sorted(areas)[len(areas) // 2]
+    good_boxes = [(x, y, cw, ch, cx, cy)
+                  for x, y, cw, ch, cx, cy in boxes
+                  if cw * ch >= median_area * 0.5]
+
+    if len(good_boxes) < 6:
+        logger.debug("Contour-guided grid: only %d good contours, need >=6",
+                     len(good_boxes))
+        return None
+
+    # Cluster centers into rows and columns using k-means-style binning
+    cy_vals = sorted(set(cy for _, _, _, _, _, cy in good_boxes))
+    cx_vals = sorted(set(cx for _, _, _, _, cx, _ in good_boxes))
+
+    def cluster_1d(vals, n_clusters):
+        """Simple 1D clustering into n_clusters groups."""
+        if len(vals) < n_clusters:
+            return None
+        vals = sorted(vals)
+        # Use gaps to split
+        if len(vals) == n_clusters:
+            return [[v] for v in vals]
+        gaps = [(vals[i + 1] - vals[i], i) for i in range(len(vals) - 1)]
+        gaps.sort(reverse=True)
+        split_points = sorted([g[1] for g in gaps[:n_clusters - 1]])
+        clusters = []
+        prev = 0
+        for sp in split_points:
+            clusters.append(vals[prev:sp + 1])
+            prev = sp + 1
+        clusters.append(vals[prev:])
+        return clusters if len(clusters) == n_clusters else None
+
+    row_clusters = cluster_1d(
+        [cy for _, _, _, _, _, cy in good_boxes], rows)
+    col_clusters = cluster_1d(
+        [cx for _, _, _, _, cx, _ in good_boxes], cols)
+
+    if row_clusters is None or col_clusters is None:
+        logger.debug("Contour-guided grid: clustering failed")
+        return None
+
+    # Compute row/col boundaries from contour positions
+    # Each row boundary = midpoint between bottom of row N and top of row N+1
+    # Use the actual card tops/bottoms from contours assigned to each row
+    row_info = []  # (min_y, max_y_plus_h) per row
+    for rc in row_clusters:
+        rc_center = np.mean(rc)
+        row_boxes = [(x, y, cw, ch) for x, y, cw, ch, cx, cy in good_boxes
+                     if abs(cy - rc_center) < h / (rows * 2)]
+        if not row_boxes:
+            return None
+        min_y = min(y for _, y, _, _ in row_boxes)
+        max_y = max(y + ch for _, y, _, ch in row_boxes)
+        row_info.append((min_y, max_y))
+
+    col_info = []
+    for cc in col_clusters:
+        cc_center = np.mean(cc)
+        col_boxes = [(x, y, cw, ch) for x, y, cw, ch, cx, cy in good_boxes
+                     if abs(cx - cc_center) < w / (cols * 2)]
+        if not col_boxes:
+            return None
+        min_x = min(x for x, _, _, _ in col_boxes)
+        max_x = max(x + cw for x, _, cw, _ in col_boxes)
+        col_info.append((min_x, max_x))
+
+    # Build boundaries: row_start = min(tops), row_end = max(bottoms)
+    # Gutter midpoints between adjacent rows
+    row_bounds = []
+    for i in range(rows):
+        if i == 0:
+            top = max(0, row_info[i][0] - 5)
+        else:
+            top = (row_info[i - 1][1] + row_info[i][0]) // 2
+        if i == rows - 1:
+            bot = min(h, row_info[i][1] + 5)
+        else:
+            bot = (row_info[i][1] + row_info[i + 1][0]) // 2
+        row_bounds.append((top, bot))
+
+    col_bounds = []
+    for i in range(cols):
+        if i == 0:
+            left = max(0, col_info[i][0] - 5)
+        else:
+            left = (col_info[i - 1][1] + col_info[i][0]) // 2
+        if i == cols - 1:
+            right = min(w, col_info[i][1] + 5)
+        else:
+            right = (col_info[i][1] + col_info[i + 1][0]) // 2
+        col_bounds.append((left, right))
+
+    logger.info("Contour-guided grid: row_bounds=%s, col_bounds=%s",
+                row_bounds, col_bounds)
+
+    # Extract cells in reading order
+    cards = []
+    for r in range(rows):
+        for c in range(cols):
+            y1, y2 = row_bounds[r]
+            x1, x2 = col_bounds[c]
+            cell = image[y1:y2, x1:x2]
+            # Ensure portrait
+            ch, cw = cell.shape[:2]
+            if cw > ch:
+                cell = cv2.rotate(cell, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            card = cv2.resize(cell, (CARD_OUTPUT_W, CARD_OUTPUT_H),
+                              interpolation=cv2.INTER_AREA)
+            cards.append(card)
+
+    return cards
 
 
 def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
@@ -850,7 +998,7 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
             # image includes a safety margin beyond the detected page
             # outline.
             centroid = ordered.mean(axis=0)
-            expand_frac = 0.04
+            expand_frac = 0.02
             ordered_expanded = centroid + (1.0 + expand_frac) * (ordered - centroid)
 
             # Pad the source image so expanded corners never get clamped
@@ -1028,11 +1176,13 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
             cell_h_px = ry2 - ry1
             cell_w_px = rx2 - rx1
 
-            # Full padding at page edges, zero at interior valley boundaries
-            pad_y_top = int(cell_h_px * pad_frac) if ir == 0 else 0
-            pad_y_bot = int(cell_h_px * pad_frac) if ir == len(row_bounds) - 1 else 0
-            pad_x_left = int(cell_w_px * pad_frac) if ic == 0 else 0
-            pad_x_right = int(cell_w_px * pad_frac) if ic == len(col_bounds) - 1 else 0
+            # Full padding at page edges, small interior padding to prevent
+            # cell bleed (adjacent card text appearing in segments)
+            interior_frac = pad_frac * 0.4  # ~1.4% of cell at interior boundaries
+            pad_y_top = int(cell_h_px * pad_frac) if ir == 0 else int(cell_h_px * interior_frac)
+            pad_y_bot = int(cell_h_px * pad_frac) if ir == len(row_bounds) - 1 else int(cell_h_px * interior_frac)
+            pad_x_left = int(cell_w_px * pad_frac) if ic == 0 else int(cell_w_px * interior_frac)
+            pad_x_right = int(cell_w_px * pad_frac) if ic == len(col_bounds) - 1 else int(cell_w_px * interior_frac)
 
             y1 = ry1 + pad_y_top
             y2 = ry2 - pad_y_bot
@@ -1142,8 +1292,18 @@ def segment_cards(
             use_grid_fallback = True
 
     if use_grid_fallback:
-        card_images = _grid_fallback(image, expected_rows, expected_cols,
-                                      ref_contours=contours if contours else None)
+        # Try contour-guided grid first (uses detected card positions)
+        card_images = None
+        if contours and len(contours) >= 6:
+            card_images = _contour_guided_grid(
+                image, contours, expected_rows, expected_cols)
+            if card_images:
+                logger.info("Using contour-guided grid (%d contours)",
+                            len(contours))
+
+        if card_images is None:
+            card_images = _grid_fallback(image, expected_rows, expected_cols,
+                                          ref_contours=contours if contours else None)
         saved_paths = []
         for i, card_img in enumerate(card_images):
             out_path = output_dir / f"card_{i:02d}.{output_format}"

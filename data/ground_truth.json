@@ -97,10 +97,10 @@
       "card_01": {"name": "Cyndaquil", "hp": 50, "era": "WotC (Neo Genesis)", "attacks": [], "stage": "Basic", "notable": "rotated, different artwork from card_00"},
       "card_02": {"name": "Typhlosion", "hp": 100, "era": "WotC (Neo Genesis)", "attacks": [], "stage": "Stage 2", "notable": "holo, partially cropped"},
       "card_03": {"name": "Blaine's Vulpix", "hp": 40, "era": "WotC (Gym Challenge)", "attacks": ["Smokescreen"], "stage": "Basic", "notable": "partially cropped, two cards visible"},
-      "card_04": {"name": "Blaine's Vulpix", "hp": 50, "era": "WotC (Gym Challenge)", "attacks": ["Fireworks", "Quick Attack"], "stage": "Basic", "notable": "partially cropped, Blaine's Ninetales visible below"},
-      "card_05": {"name": "Typhlosion", "hp": 100, "era": "WotC (Neo Genesis)", "attacks": ["Flame Burst"], "stage": "Stage 2", "notable": "Pokemon Power: Fire Recharge, partially cropped, Entei visible below"},
-      "card_06": {"name": "Blaine's Vulpix", "hp": 50, "era": "WotC (Gym Challenge)", "attacks": ["Tail Fan"], "stage": "Basic", "notable": "Pokemon Power: Natural Healing, Japanese Dark Electrode visible below"},
-      "card_07": {"name": "Blaine's Ninetales", "hp": 60, "era": "WotC (Gym Challenge)", "attacks": ["Burn Up"], "stage": "Stage 1", "notable": "Pokemon Power: Healing Fire, partially cropped, French Machamp (Mackogneur) visible below"},
+      "card_04": {"name": "Blaine's Ninetales", "hp": 60, "era": "WotC (Gym Challenge)", "attacks": ["Burn Up"], "stage": "Stage 1", "notable": "Pokemon Power: Healing Fire"},
+      "card_05": {"name": "Entei", "hp": 70, "era": "WotC (Neo Revelation)", "attacks": ["Protective Flame"], "stage": "Basic", "notable": "Pokemon Power: Bolt, holo"},
+      "card_06": {"name": "Dark Electrode", "hp": 60, "era": "WotC (Team Rocket)", "attacks": [], "stage": "Stage 1", "notable": "Japanese version (わるいマルマイン), not in English DB"},
+      "card_07": {"name": "Machamp", "hp": 100, "era": "WotC (Base Set)", "attacks": ["Frappe Atlas"], "stage": "Stage 2", "notable": "French version (Mackogneur), not in English DB"},
       "card_08": {"name": "Aerodactyl", "hp": 60, "era": "WotC (Fossil)", "attacks": ["Wing Attack"], "stage": "Stage 1", "notable": "PRERELEASE stamp, Pokemon Power: Prehistoric Power, partially cropped"}
     },
     "page_20260307_120653_cards": {
