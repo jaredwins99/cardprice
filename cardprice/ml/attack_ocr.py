@@ -672,7 +672,7 @@ def _fuzzy_ratio(a: str, b: str) -> float:
 def fuzzy_match_attacks(
     ocr_candidates: list[tuple[str, float]],
     known_attacks: list[str] | None = None,
-    threshold: float = 0.60,
+    threshold: float = 0.70,
 ) -> list[tuple[str, str, float]]:
     """Fuzzy-match OCR fragments against known attack names.
 

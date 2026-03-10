@@ -94,10 +94,10 @@ def main():
     # Warm up
     print(f"  Model ready in {time.time() - t0:.1f}s")
 
-    # Import OCR
-    from cardprice.ml import _paddle_ocr_name_and_hp, _run_name_and_hp
-
-    # Import attack OCR
+    # Import OCR and DB helpers
+    from cardprice.ml import (
+        _paddle_ocr_name_and_hp, _run_name_and_hp, _get_candidates_from_db,
+    )
     from cardprice.ml.attack_ocr import (
         extract_attack_names_paddle as extract_attacks,
         fuzzy_match_attacks,
@@ -108,18 +108,33 @@ def main():
     print("Loading structured attacks...")
     struct_atk_to_cards, struct_card_to_atks = _load_structured_attacks()
     # Build HP lookup from structured_attacks.json
-    import json as _json
-    _struct_attacks_path = os.path.join(DATA_DIR, "structured_attacks.json")
-    _card_hp_lookup = {}
-    if os.path.exists(_struct_attacks_path):
-        with open(_struct_attacks_path) as _f:
-            _struct_data = _json.load(_f)
-        for _cid, _entry in _struct_data.items():
-            hp_str = _entry.get("hp", "")
+    struct_attacks_path = os.path.join(DATA_DIR, "structured_attacks.json")
+    card_hp_lookup = {}
+    if os.path.exists(struct_attacks_path):
+        with open(struct_attacks_path) as f:
+            struct_data = json.load(f)
+        for cid, entry in struct_data.items():
+            hp_str = entry.get("hp", "")
             if hp_str and hp_str.isdigit():
-                _card_hp_lookup[_cid] = int(hp_str)
-                _card_hp_lookup[f"{_cid}/normal"] = int(hp_str)
-    print(f"  HP lookup: {len(_card_hp_lookup)} cards")
+                card_hp_lookup[cid] = int(hp_str)
+                card_hp_lookup[f"{cid}/normal"] = int(hp_str)
+    print(f"  HP lookup: {len(card_hp_lookup)} cards")
+
+    # Load multilingual card translations (name -> card IDs)
+    translations_path = os.path.join(DATA_DIR, "card_translations.json")
+    trans_name_to_ids: dict[str, list[str]] = {}
+    if os.path.exists(translations_path):
+        with open(translations_path) as f:
+            trans_data = json.load(f)
+        for lang, cards in trans_data.items():
+            for cid, tname in cards.items():
+                lower = tname.lower().strip()
+                if lower not in trans_name_to_ids:
+                    trans_name_to_ids[lower] = []
+                trans_name_to_ids[lower].append(cid)
+        print(f"  Translations: {sum(len(v) for v in trans_data.values())} names across {len(trans_data)} languages, {len(trans_name_to_ids)} unique names")
+    else:
+        print("  No translations file found")
 
     # Also need DB for name-path candidates
     from sqlalchemy import create_engine
@@ -185,11 +200,16 @@ def main():
                 results_by_method["name_path"] += 1
 
                 # Get candidates from DB
-                from cardprice.ml import _get_candidates_from_db
                 with Session(engine) as session:
                     candidates = _get_candidates_from_db(
                         ocr_name, hp=hp_value, session=session
                     )
+
+                # If no English candidates, try multilingual translations
+                if not candidates:
+                    trans_cands = trans_name_to_ids.get(ocr_name.lower().strip(), [])
+                    if trans_cands:
+                        candidates = trans_cands
 
                 if candidates and len(candidates) == 1:
                     predicted_id = candidates[0]
@@ -218,7 +238,7 @@ def main():
                             predicted_name = _lookup_name(best_cid, card_names_lookup)
                             dino_score = best_score
                 else:
-                    # No candidates from DB, fall through to global
+                    # No candidates from DB or translations, fall through
                     method = "dino_global"
                     results_by_method["dino_global"] += 1
                     results_by_method["name_path"] -= 1
@@ -239,24 +259,62 @@ def main():
 
                         if matched:
                             attack_tried = True
-                            # Step 3: Find candidate cards that have these attacks
-                            atk_candidate_ids = set()
+                            # Step 3: Find candidate cards that have ALL matched attacks
+                            # Intersect per-attack candidate sets; fall back to union if
+                            # intersection is empty (OCR may have misread one attack)
+                            per_attack_sets = []
                             for _, atk_name, _ in matched:
-                                atk_candidate_ids.update(
-                                    struct_atk_to_cards.get(atk_name, [])
+                                per_attack_sets.append(
+                                    set(struct_atk_to_cards.get(atk_name, []))
                                 )
+                            atk_candidate_ids = per_attack_sets[0]
+                            for s in per_attack_sets[1:]:
+                                intersected = atk_candidate_ids & s
+                                if intersected:
+                                    atk_candidate_ids = intersected
+                            # If intersection is empty somehow, use union
+                            if not atk_candidate_ids:
+                                atk_candidate_ids = set()
+                                for s in per_attack_sets:
+                                    atk_candidate_ids.update(s)
 
                             # HP filtering: if we have HP, remove candidates with wrong HP
                             if hp_value and atk_candidate_ids:
                                 hp_filtered = set()
                                 for cid in atk_candidate_ids:
-                                    card_hp = _card_hp_lookup.get(cid)
+                                    card_hp = card_hp_lookup.get(cid)
                                     if card_hp is None:
                                         hp_filtered.add(cid)  # keep unknowns
                                     elif card_hp == hp_value:
                                         hp_filtered.add(cid)
                                 if hp_filtered:
                                     atk_candidate_ids = hp_filtered
+
+                            # If OCR read a name (even low conf), filter attack
+                            # candidates to those matching the OCR name
+                            if ocr_name and ocr_conf >= 0.70 and atk_candidate_ids:
+                                name_filtered = set()
+                                ocr_lower = ocr_name.lower().strip()
+                                for cid in atk_candidate_ids:
+                                    cname = _lookup_name(cid, card_names_lookup).lower()
+                                    if not cname:
+                                        continue
+                                    if ocr_lower in cname or cname in ocr_lower:
+                                        name_filtered.add(cid)
+                                if name_filtered:
+                                    atk_candidate_ids = name_filtered
+                                else:
+                                    # Attack candidates don't match OCR name;
+                                    # add name-path candidates so DINOv2 can pick
+                                    try:
+                                        with Session(engine) as session:
+                                            name_cands = _get_candidates_from_db(
+                                                ocr_name, hp=hp_value, session=session
+                                            )
+                                        if name_cands:
+                                            atk_candidate_ids.update(name_cands)
+                                    except Exception:
+                                        pass
 
                             attack_candidates_str = f"{len(atk_candidate_ids)} candidates"
 

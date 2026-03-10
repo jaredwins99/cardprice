@@ -56,6 +56,80 @@ _dino_card_ids = None
 _clip_image_index = None
 
 
+_translation_names_cache = None
+
+
+def _load_translation_names() -> dict[str, str]:
+    """Load multilingual card translations and return {lower_name: english_name}.
+
+    Maps translated Pokemon names (French, German, etc.) to their English
+    equivalents so OCR-read foreign names can be resolved.
+    """
+    global _translation_names_cache
+    if _translation_names_cache is not None:
+        return _translation_names_cache
+
+    import json
+    trans_path = Path(__file__).resolve().parent.parent.parent / "data" / "card_translations.json"
+    names_path = Path(__file__).resolve().parent.parent.parent / "data" / "card_names.json"
+
+    result: dict[str, str] = {}
+    if not trans_path.exists():
+        _translation_names_cache = result
+        return result
+
+    # Build card_id -> english_name from card_names.json
+    id_to_eng: dict[str, str] = {}
+    if names_path.exists():
+        with open(names_path) as f:
+            for row in json.load(f):
+                id_to_eng[row[0]] = row[1]
+
+    with open(trans_path) as f:
+        trans_data = json.load(f)
+
+    for lang, cards in trans_data.items():
+        for cid, tname in cards.items():
+            tname_lower = tname.lower().strip()
+            if tname_lower in result:
+                continue  # already mapped
+            # Find English name for this card ID
+            eng = id_to_eng.get(cid)
+            if not eng:
+                # Try with /normal suffix
+                eng = id_to_eng.get(f"{cid}/normal")
+            if eng:
+                result[tname_lower] = eng
+
+    _translation_names_cache = result
+    logger.info("Loaded %d translation names", len(result))
+    return result
+
+
+_name_lookup_cache = None
+
+
+def _get_name_lookup() -> tuple[list[str], dict[str, str]]:
+    """Return (name_list_lower, lower_to_original) with English + translations merged."""
+    global _name_lookup_cache
+    if _name_lookup_cache is not None:
+        return _name_lookup_cache
+
+    from cardprice.ml.ocr_matcher import _load_unique_pokemon_names
+    unique_names = _load_unique_pokemon_names()
+    name_list_lower = [n.lower() for n in unique_names]
+    lower_to_original = {n.lower(): n for n in unique_names}
+
+    # Merge multilingual translations (foreign name -> English name)
+    for tname_lower, eng_name in _load_translation_names().items():
+        if tname_lower not in lower_to_original:
+            lower_to_original[tname_lower] = eng_name
+            name_list_lower.append(tname_lower)
+
+    _name_lookup_cache = (name_list_lower, lower_to_original)
+    return _name_lookup_cache
+
+
 def _get_hash_db():
     """Lazy-load and cache the perceptual hash database."""
     global _hash_db
@@ -2758,10 +2832,8 @@ def _paddle_ocr_name_and_hp(image_path: str):
             seen.add(key)
             deduped.append((cleaned, conf, method, size_ratio))
 
-    # Fuzzy match against Pokemon names DB
-    unique_names = _load_unique_pokemon_names()
-    name_list_lower = [n.lower() for n in unique_names]
-    lower_to_original = {n.lower(): n for n in unique_names}
+    # Fuzzy match against Pokemon names DB (English + translations)
+    name_list_lower, lower_to_original = _get_name_lookup()
 
     _OCR_CONFUSIONS = {
         'y': 'x', 'x': 'y', 'l': 'i', 'i': 'l',

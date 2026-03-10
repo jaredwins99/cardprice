@@ -174,6 +174,33 @@ def _perspective_crop(image: np.ndarray, pts: np.ndarray,
     avg_w = (width_top + width_bot) / 2
     avg_h = (height_left + height_right) / 2
 
+    # Expand contour outward to avoid clipping card edges/names.
+    # Asymmetric: corners near image edges get 14% expansion (vs 4% interior)
+    # since edge contours often miss card content beyond the photo boundary.
+    h_img, w_img = image.shape[:2]
+    base_expand = 0.04
+    edge_expand = 0.14  # stronger expansion for edge-adjacent corners
+    edge_threshold = 0.05  # within 5% of image edge
+
+    centroid = ordered.mean(axis=0)
+    ordered_exp = np.empty_like(ordered)
+    for ci in range(4):
+        dx = ordered[ci, 0] - centroid[0]
+        dy = ordered[ci, 1] - centroid[1]
+        # Check if this corner is near any image edge
+        near_left = ordered[ci, 0] < w_img * edge_threshold
+        near_right = ordered[ci, 0] > w_img * (1 - edge_threshold)
+        near_top = ordered[ci, 1] < h_img * edge_threshold
+        near_bottom = ordered[ci, 1] > h_img * (1 - edge_threshold)
+        ex = edge_expand if (near_left or near_right) else base_expand
+        ey = edge_expand if (near_top or near_bottom) else base_expand
+        ordered_exp[ci, 0] = centroid[0] + (1.0 + ex) * dx
+        ordered_exp[ci, 1] = centroid[1] + (1.0 + ey) * dy
+
+    pad = int(max(avg_w, avg_h) * edge_expand) + 10
+    padded = cv2.copyMakeBorder(image, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+    ordered_exp += pad
+
     is_landscape = avg_w > avg_h or force_landscape
 
     # If the detected quad is landscape (wider than tall), swap output dims
@@ -189,8 +216,8 @@ def _perspective_crop(image: np.ndarray, pts: np.ndarray,
         [warp_w - 1, warp_h - 1],
         [0, warp_h - 1],
     ], dtype=np.float32)
-    M = cv2.getPerspectiveTransform(ordered, dst)
-    warped = cv2.warpPerspective(image, M, (warp_w, warp_h))
+    M = cv2.getPerspectiveTransform(ordered_exp, dst)
+    warped = cv2.warpPerspective(padded, M, (warp_w, warp_h))
 
     # Rotate landscape cards to portrait
     if is_landscape:
