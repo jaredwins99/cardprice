@@ -265,6 +265,14 @@ def _is_card_shaped(contour: np.ndarray, image_area: float,
     if abs(aspect - CARD_ASPECT_RATIO) > ASPECT_RATIO_TOLERANCE:
         return False
 
+    # Cards in binder pages are always portrait (taller than wide).
+    # Reject landscape contours — these are typically inner artwork/text
+    # regions (e.g. ace spec red boxes) rather than actual card edges.
+    # Use axis-aligned bounding box to check orientation in image space.
+    bx, by, bw, bh = cv2.boundingRect(contour)
+    if bw > bh:
+        return False
+
     # Check solidity (area / convex hull area) — relaxed from strict convexity
     # to handle sleeves, reflections, and slight card curvature
     hull = cv2.convexHull(approx)
@@ -628,11 +636,12 @@ def _normalize_brightness(image: np.ndarray,
 def _find_grid_lines(rectified_page, rows, cols):
     """Detect non-uniform grid cell boundaries using intensity projection.
 
-    Projects the grayscale image intensity horizontally (mean of columns per
-    row) and vertically (mean of rows per column) to produce 1-D profiles.
-    The dark plastic gutters between cards show up as valleys (local minima)
-    in these profiles.  Valley positions define cell boundaries that adapt
-    to uneven outer margins vs inner gutters.
+    Tries two signal sources:
+    1. Grayscale intensity — dark gutters show as valleys (works for dark
+       binder dividers or sleeves).
+    2. Orange saturation — orange binder dividers show as peaks in an
+       orange-hue mask (works for colored binders where cards obscure the
+       orange, creating valleys in the *inverted* orange signal).
 
     Args:
         rectified_page: BGR image of the cropped binder page.
@@ -648,10 +657,42 @@ def _find_grid_lines(rectified_page, rows, cols):
     gray = cv2.cvtColor(rectified_page, cv2.COLOR_BGR2GRAY)
     page_h, page_w = gray.shape[:2]
 
-    # Horizontal projection: mean brightness of each pixel row -> 1D profile along Y
-    h_proj = gray.mean(axis=1).astype(np.float64)
-    # Vertical projection: mean brightness of each pixel column -> 1D profile along X
-    v_proj = gray.mean(axis=0).astype(np.float64)
+    # Signal 1: grayscale (dark gutters = valleys)
+    h_proj_gray = gray.mean(axis=1).astype(np.float64)
+    v_proj_gray = gray.mean(axis=0).astype(np.float64)
+
+    # Signal 2: orange saturation (orange binder gutters = peaks → invert
+    # so gutters become valleys, matching the same find_valleys logic).
+    # Only useful when the binder is actually orange (>= 50% coverage).
+    hsv = cv2.cvtColor(rectified_page, cv2.COLOR_BGR2HSV)
+    h_ch, s_ch, v_ch = cv2.split(hsv)
+    orange_mask = ((h_ch >= 5) & (h_ch <= 25) & (s_ch > 80) & (v_ch > 80))
+    orange_coverage = orange_mask.mean()
+    use_orange = orange_coverage >= 0.50
+    if use_orange:
+        orange_f = orange_mask.astype(np.float64) * 255.0
+        h_proj_orange = 255.0 - orange_f.mean(axis=1)
+        v_proj_orange = 255.0 - orange_f.mean(axis=0)
+    else:
+        h_proj_orange = None
+        v_proj_orange = None
+        logger.debug("Orange signal skipped: coverage %.1f%% < 50%%",
+                     orange_coverage * 100)
+
+    # Signal 3: blue saturation (blue binder gutters = peaks → invert
+    # so gutters become valleys, matching the same find_valleys logic).
+    blue_mask = ((h_ch >= 90) & (h_ch <= 130) & (s_ch > 40) & (v_ch > 40))
+    blue_coverage = blue_mask.mean()
+    use_blue = blue_coverage >= 0.15  # lower threshold: blue visible even with cards
+    if use_blue:
+        blue_f = blue_mask.astype(np.float64) * 255.0
+        h_proj_blue = 255.0 - blue_f.mean(axis=1)
+        v_proj_blue = 255.0 - blue_f.mean(axis=0)
+    else:
+        h_proj_blue = None
+        v_proj_blue = None
+        logger.debug("Blue signal skipped: coverage %.1f%% < 15%%",
+                     blue_coverage * 100)
 
     def find_valleys(profile, n_cells, axis_len):
         if n_cells <= 1:
@@ -747,11 +788,11 @@ def _find_grid_lines(rectified_page, rows, cols):
             logger.debug("Valley detection: no valid valley combination found")
             return None
 
-        # Post-validation: reject if cells are too uneven (max/min ratio > 1.5)
+        # Post-validation: reject if cells are too uneven (max/min ratio > 1.8)
         boundaries = [0] + list(best_combo) + [axis_len]
         cell_sizes = [boundaries[i + 1] - boundaries[i]
                       for i in range(len(boundaries) - 1)]
-        if max(cell_sizes) / max(min(cell_sizes), 1) > 1.5:
+        if max(cell_sizes) / max(min(cell_sizes), 1) > 1.8:
             logger.debug("Valley detection: rejected combo %s — cell sizes %s "
                          "too uneven (ratio %.2f)",
                          best_combo, cell_sizes,
@@ -774,23 +815,121 @@ def _find_grid_lines(rectified_page, rows, cols):
                      best_combo, refined, refine_radius)
         return selected
 
-    row_valleys = find_valleys(h_proj, rows, page_h)
-    col_valleys = find_valleys(v_proj, cols, page_w)
+    def _check_uniformity(valleys, axis_len, n_cells, max_ratio=1.5):
+        """Check if valley-based cells are reasonably uniform."""
+        if valleys is None:
+            return False
+        edges = [0] + list(valleys) + [axis_len]
+        sizes = [edges[i+1] - edges[i] for i in range(len(edges)-1)]
+        ratio = max(sizes) / max(min(sizes), 1)
+        return ratio <= max_ratio
 
-    if row_valleys is None or col_valleys is None:
-        logger.info("Valley-based grid detection failed (rows_ok=%s, cols_ok=%s), "
-                     "will use uniform grid",
+    # Try grayscale signal first, then orange/blue if grayscale is bad
+    row_valleys = find_valleys(h_proj_gray, rows, page_h)
+    col_valleys = find_valleys(v_proj_gray, cols, page_w)
+
+    # Reject grayscale valleys that produce very uneven cells.
+    # Use the improved boundary estimation for the check.
+    if row_valleys is not None and not _check_uniformity(row_valleys, page_h, rows):
+        logger.info("Grayscale row valleys too uneven, discarding")
+        row_valleys = None
+    if col_valleys is not None and not _check_uniformity(col_valleys, page_w, cols):
+        logger.info("Grayscale col valleys too uneven, discarding")
+        col_valleys = None
+
+    # Also check: the inter-valley gap should match the expected cell size
+    # (axis_len / n_cells) within tolerance. If the gap is much larger or
+    # smaller, the valleys are hitting margins or inner-card features.
+    def _check_valley_gap_vs_expected(valleys, axis_len, n_cells, tolerance=0.12):
+        if valleys is None or len(valleys) < 2:
+            return True
+        expected = axis_len / n_cells
+        # Check inter-valley gaps match expected cell size
+        gaps = [valleys[i+1] - valleys[i] for i in range(len(valleys)-1)]
+        for g in gaps:
+            if abs(g - expected) / expected > tolerance:
+                return False
+        # Check each valley is near a multiple of expected cell size.
+        # Valley k should be near (k+1) * expected.
+        for i, v in enumerate(valleys):
+            nearest_mult = (i + 1) * expected
+            if abs(v - nearest_mult) / expected > tolerance:
+                return False
+        return True
+
+    if row_valleys is not None and not _check_valley_gap_vs_expected(
+            row_valleys, page_h, rows):
+        logger.info("Grayscale row valley gaps far from expected cell size, discarding")
+        row_valleys = None
+    if col_valleys is not None and not _check_valley_gap_vs_expected(
+            col_valleys, page_w, cols):
+        logger.info("Grayscale col valley gaps far from expected cell size, discarding")
+        col_valleys = None
+
+    if (row_valleys is None or col_valleys is None) and use_orange:
+        logger.info("Grayscale valley detection failed (rows_ok=%s, cols_ok=%s), "
+                     "trying orange signal",
                      row_valleys is not None, col_valleys is not None)
+        row_valleys_o = find_valleys(h_proj_orange, rows, page_h)
+        col_valleys_o = find_valleys(v_proj_orange, cols, page_w)
+        # Use orange results for whichever axis grayscale missed
+        if row_valleys is None and row_valleys_o is not None:
+            row_valleys = row_valleys_o
+        if col_valleys is None and col_valleys_o is not None:
+            col_valleys = col_valleys_o
+
+    if (row_valleys is None or col_valleys is None) and use_blue:
+        logger.info("Trying blue binder signal (rows_ok=%s, cols_ok=%s)",
+                     row_valleys is not None, col_valleys is not None)
+        row_valleys_b = find_valleys(h_proj_blue, rows, page_h)
+        col_valleys_b = find_valleys(v_proj_blue, cols, page_w)
+        if row_valleys is None and row_valleys_b is not None:
+            row_valleys = row_valleys_b
+        if col_valleys is None and col_valleys_b is not None:
+            col_valleys = col_valleys_b
+
+    if row_valleys is None and col_valleys is None:
+        logger.info("Valley-based grid detection failed for both axes, "
+                     "will use uniform grid")
         return None
 
     def valleys_to_boundaries(valleys, axis_len):
-        edges = [0] + valleys + [axis_len]
+        """Convert valley positions to cell boundaries.
+
+        Uses the gap between adjacent valleys (= actual card size) to
+        estimate where the first cell starts and last cell ends, rather
+        than blindly using 0 and axis_len which may include large margins.
+        """
+        if len(valleys) >= 2:
+            # Estimate cell size from inter-valley gaps
+            gaps = [valleys[i+1] - valleys[i] for i in range(len(valleys)-1)]
+            cell_size = int(np.median(gaps))
+            first_start = max(0, valleys[0] - cell_size)
+            last_end = min(axis_len, valleys[-1] + cell_size)
+        else:
+            first_start = 0
+            last_end = axis_len
+        edges = [first_start] + valleys + [last_end]
         return [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
 
-    row_bounds = valleys_to_boundaries(row_valleys, page_h)
-    col_bounds = valleys_to_boundaries(col_valleys, page_w)
+    def uniform_boundaries(n_cells, axis_len):
+        cell = axis_len / n_cells
+        return [(int(i * cell), int((i + 1) * cell)) for i in range(n_cells)]
 
-    logger.info("Valley grid detection succeeded: row_bounds=%s, col_bounds=%s",
+    # Use valleys where available, uniform subdivision where not
+    if row_valleys is not None:
+        row_bounds = valleys_to_boundaries(row_valleys, page_h)
+    else:
+        logger.info("Valley rows failed, using uniform row subdivision")
+        row_bounds = uniform_boundaries(rows, page_h)
+
+    if col_valleys is not None:
+        col_bounds = valleys_to_boundaries(col_valleys, page_w)
+    else:
+        logger.info("Valley cols failed, using uniform col subdivision")
+        col_bounds = uniform_boundaries(cols, page_w)
+
+    logger.info("Valley grid detection: row_bounds=%s, col_bounds=%s",
                 [(s, e) for s, e in row_bounds],
                 [(s, e) for s, e in col_bounds])
 
@@ -818,15 +957,16 @@ def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
         cx, cy = x + cw / 2, y + ch / 2
         boxes.append((x, y, cw, ch, cx, cy))
 
-    # Filter out undersized contours (< 50% of median area)
+    # Filter out undersized contours (< 50% of median area) and
+    # landscape-shaped contours (cards are portrait, AR < 1.0)
     areas = [cw * ch for _, _, cw, ch, _, _ in boxes]
     median_area = sorted(areas)[len(areas) // 2]
     good_boxes = [(x, y, cw, ch, cx, cy)
                   for x, y, cw, ch, cx, cy in boxes
-                  if cw * ch >= median_area * 0.5]
+                  if cw * ch >= median_area * 0.5 and ch > cw]
 
-    if len(good_boxes) < 6:
-        logger.debug("Contour-guided grid: only %d good contours, need >=6",
+    if len(good_boxes) < 3:
+        logger.debug("Contour-guided grid: only %d good contours, need >=3",
                      len(good_boxes))
         return None
 
@@ -834,15 +974,24 @@ def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
     cy_vals = sorted(set(cy for _, _, _, _, _, cy in good_boxes))
     cx_vals = sorted(set(cx for _, _, _, _, cx, _ in good_boxes))
 
-    def cluster_1d(vals, n_clusters):
-        """Simple 1D clustering into n_clusters groups."""
+    def cluster_1d(vals, n_clusters, axis_len=None):
+        """Simple 1D clustering into n_clusters groups.
+
+        Only splits at gaps that are at least 20% of expected cell size,
+        to avoid splitting within the same row/column.
+        """
         if len(vals) < n_clusters:
             return None
         vals = sorted(vals)
-        # Use gaps to split
         if len(vals) == n_clusters:
             return [[v] for v in vals]
         gaps = [(vals[i + 1] - vals[i], i) for i in range(len(vals) - 1)]
+        # Filter: only consider gaps >= 20% of expected cell size
+        if axis_len is not None:
+            min_gap = axis_len / n_clusters * 0.20
+            gaps = [(g, i) for g, i in gaps if g >= min_gap]
+        if len(gaps) < n_clusters - 1:
+            return None
         gaps.sort(reverse=True)
         split_points = sorted([g[1] for g in gaps[:n_clusters - 1]])
         clusters = []
@@ -854,64 +1003,123 @@ def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
         return clusters if len(clusters) == n_clusters else None
 
     row_clusters = cluster_1d(
-        [cy for _, _, _, _, _, cy in good_boxes], rows)
+        [cy for _, _, _, _, _, cy in good_boxes], rows, axis_len=h)
     col_clusters = cluster_1d(
-        [cx for _, _, _, _, cx, _ in good_boxes], cols)
+        [cx for _, _, _, _, cx, _ in good_boxes], cols, axis_len=w)
 
     if row_clusters is None or col_clusters is None:
-        logger.debug("Contour-guided grid: clustering failed")
+        # Clustering failed — not enough gaps between rows/cols.
+        # Fall back: use average card size from good contours to build
+        # a uniform grid, estimating the origin (row 0, col 0) by
+        # figuring out which grid position each contour occupies and
+        # extrapolating backwards.
+        if len(good_boxes) >= 3:
+            avg_cw = np.median([cw for _, _, cw, ch, _, _ in good_boxes])
+            avg_ch = np.median([ch for _, _, cw, ch, _, _ in good_boxes])
+            # Gutter width ~5% of card size
+            gutter = avg_cw * 0.05
+            cell_w = avg_cw + gutter
+            cell_h = avg_ch + gutter
+
+            # Estimate grid origin: for each contour, guess which row/col
+            # it belongs to, then compute where row 0, col 0 would start.
+            # Use the contour centers sorted by position.
+            cy_sorted = sorted(good_boxes, key=lambda b: b[5])  # sort by cy
+            cx_sorted = sorted(good_boxes, key=lambda b: b[4])  # sort by cx
+
+            # Assign row indices: group contours by y proximity
+            row_assignments = []
+            current_row = 0
+            for i, box in enumerate(cy_sorted):
+                if i > 0 and (box[5] - cy_sorted[i-1][5]) > avg_ch * 0.5:
+                    current_row += 1
+                row_assignments.append((box, current_row))
+
+            # Assign col indices: group contours by x proximity
+            col_assignments = []
+            current_col = 0
+            for i, box in enumerate(cx_sorted):
+                if i > 0 and (box[4] - cx_sorted[i-1][4]) > avg_cw * 0.5:
+                    current_col += 1
+                col_assignments.append((box, current_col))
+
+            # For each contour, estimate where row 0 / col 0 starts
+            row_origins = []
+            for box, ri in row_assignments:
+                origin_y = box[1] - ri * cell_h  # box[1] = y of top-left
+                row_origins.append(origin_y)
+            col_origins = []
+            for box, ci in col_assignments:
+                origin_x = box[0] - ci * cell_w  # box[0] = x of top-left
+                col_origins.append(origin_x)
+
+            grid_top = max(0, int(np.median(row_origins)))
+            grid_left = max(0, int(np.median(col_origins)))
+
+            row_bounds = []
+            for r in range(rows):
+                top = int(grid_top + r * cell_h)
+                bot = int(top + avg_ch)
+                row_bounds.append((max(0, top), min(h, bot)))
+            col_bounds = []
+            for c in range(cols):
+                left = int(grid_left + c * cell_w)
+                right = int(left + avg_cw)
+                col_bounds.append((max(0, left), min(w, right)))
+            logger.info("Contour-guided grid (extrapolated): row_bounds=%s, col_bounds=%s",
+                        row_bounds, col_bounds)
+        else:
+            logger.debug("Contour-guided grid: clustering failed, too few contours to extrapolate")
+            return None
+    else:
+        # Compute row/col boundaries from cluster centers + median card size.
+        # Using centers (not contour extents) makes the grid robust to contours
+        # that are oversized (e.g., bottom-row contours extending into binder
+        # ring area) or undersized (top-row contours partially clipped).
+        avg_cw = np.median([cw for _, _, cw, ch, _, _ in good_boxes])
+        avg_ch = np.median([ch for _, _, cw, ch, _, _ in good_boxes])
+        half_h = avg_ch / 2
+        half_w = avg_cw / 2
+
+        row_centers = [np.mean(rc) for rc in row_clusters]
+        col_centers = [np.mean(cc) for cc in col_clusters]
+
+        # Gutter midpoints between adjacent row/col centers
+        row_bounds = []
+        for i in range(rows):
+            if i == 0:
+                top = max(0, int(row_centers[i] - half_h))
+            else:
+                top = int((row_centers[i - 1] + row_centers[i]) / 2)
+            if i == rows - 1:
+                bot = min(h, int(row_centers[i] + half_h))
+            else:
+                bot = int((row_centers[i] + row_centers[i + 1]) / 2)
+            row_bounds.append((top, bot))
+
+        col_bounds = []
+        for i in range(cols):
+            if i == 0:
+                left = max(0, int(col_centers[i] - half_w))
+            else:
+                left = int((col_centers[i - 1] + col_centers[i]) / 2)
+            if i == cols - 1:
+                right = min(w, int(col_centers[i] + half_w))
+            else:
+                right = int((col_centers[i] + col_centers[i + 1]) / 2)
+            col_bounds.append((left, right))
+
+    # Reject if row or column sizes are too uneven — indicates contours
+    # didn't cover all rows/cols, producing a lopsided grid.
+    row_sizes = [b - a for a, b in row_bounds]
+    col_sizes = [b - a for a, b in col_bounds]
+    row_ratio = max(row_sizes) / max(min(row_sizes), 1)
+    col_ratio = max(col_sizes) / max(min(col_sizes), 1)
+    if row_ratio > 1.5 or col_ratio > 1.5:
+        logger.info("Contour-guided grid rejected: row sizes %s (ratio %.2f), "
+                     "col sizes %s (ratio %.2f) — too uneven",
+                     row_sizes, row_ratio, col_sizes, col_ratio)
         return None
-
-    # Compute row/col boundaries from contour positions
-    # Each row boundary = midpoint between bottom of row N and top of row N+1
-    # Use the actual card tops/bottoms from contours assigned to each row
-    row_info = []  # (min_y, max_y_plus_h) per row
-    for rc in row_clusters:
-        rc_center = np.mean(rc)
-        row_boxes = [(x, y, cw, ch) for x, y, cw, ch, cx, cy in good_boxes
-                     if abs(cy - rc_center) < h / (rows * 2)]
-        if not row_boxes:
-            return None
-        min_y = min(y for _, y, _, _ in row_boxes)
-        max_y = max(y + ch for _, y, _, ch in row_boxes)
-        row_info.append((min_y, max_y))
-
-    col_info = []
-    for cc in col_clusters:
-        cc_center = np.mean(cc)
-        col_boxes = [(x, y, cw, ch) for x, y, cw, ch, cx, cy in good_boxes
-                     if abs(cx - cc_center) < w / (cols * 2)]
-        if not col_boxes:
-            return None
-        min_x = min(x for x, _, _, _ in col_boxes)
-        max_x = max(x + cw for x, _, cw, _ in col_boxes)
-        col_info.append((min_x, max_x))
-
-    # Build boundaries: row_start = min(tops), row_end = max(bottoms)
-    # Gutter midpoints between adjacent rows
-    row_bounds = []
-    for i in range(rows):
-        if i == 0:
-            top = max(0, row_info[i][0] - 5)
-        else:
-            top = (row_info[i - 1][1] + row_info[i][0]) // 2
-        if i == rows - 1:
-            bot = min(h, row_info[i][1] + 5)
-        else:
-            bot = (row_info[i][1] + row_info[i + 1][0]) // 2
-        row_bounds.append((top, bot))
-
-    col_bounds = []
-    for i in range(cols):
-        if i == 0:
-            left = max(0, col_info[i][0] - 5)
-        else:
-            left = (col_info[i - 1][1] + col_info[i][0]) // 2
-        if i == cols - 1:
-            right = min(w, col_info[i][1] + 5)
-        else:
-            right = (col_info[i][1] + col_info[i + 1][0]) // 2
-        col_bounds.append((left, right))
 
     logger.info("Contour-guided grid: row_bounds=%s, col_bounds=%s",
                 row_bounds, col_bounds)
@@ -1006,6 +1214,45 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
                 break
         if page_corners is not None:
             break
+
+    # Validate page outline: reject if the quadrilateral is too skewed.
+    # Normal perspective distortion causes minor edge skew (50-100px), but
+    # if one corner is wildly offset (e.g., BL at x=3, TL at x=777) the
+    # contour likely grabbed a background edge (table, desk, etc.) rather
+    # than the actual binder page boundary.  Using such an outline for
+    # perspective warp would distort the image and clip card content.
+    if page_corners is not None:
+        _ordered_check = _order_points(
+            page_corners.reshape(4, 2).astype(np.float32)
+        )
+        # Measure skew: how far apart are same-side corners on the
+        # perpendicular axis?
+        left_skew = abs(float(_ordered_check[0][0] - _ordered_check[3][0]))
+        right_skew = abs(float(_ordered_check[1][0] - _ordered_check[2][0]))
+        top_skew = abs(float(_ordered_check[0][1] - _ordered_check[1][1]))
+        bottom_skew = abs(float(_ordered_check[3][1] - _ordered_check[2][1]))
+
+        page_est_w = max(
+            np.linalg.norm(_ordered_check[1] - _ordered_check[0]),
+            np.linalg.norm(_ordered_check[2] - _ordered_check[3]),
+        )
+        page_est_h = max(
+            np.linalg.norm(_ordered_check[3] - _ordered_check[0]),
+            np.linalg.norm(_ordered_check[2] - _ordered_check[1]),
+        )
+
+        max_skew_frac = 0.15  # 15% of dimension
+        if (left_skew > page_est_w * max_skew_frac or
+                right_skew > page_est_w * max_skew_frac or
+                top_skew > page_est_h * max_skew_frac or
+                bottom_skew > page_est_h * max_skew_frac):
+            logger.info(
+                "Page outline too skewed (L=%.0f R=%.0f T=%.0f B=%.0f vs "
+                "W=%.0f H=%.0f), rejecting outline",
+                left_skew, right_skew, top_skew, bottom_skew,
+                page_est_w, page_est_h,
+            )
+            page_corners = None
 
     # Rectify the page: prefer perspective warp (corrects camera angle
     # distortion) over plain bounding-box crop.
@@ -1110,8 +1357,19 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
 
     if use_valleys:
         row_bounds, col_bounds = grid_lines
-        logger.info("Grid fallback: using valley-based non-uniform grid")
-    else:
+        # Sanity check: reject valley grid if cell sizes are too uneven
+        row_sizes = [b - a for a, b in row_bounds]
+        col_sizes = [b - a for a, b in col_bounds]
+        row_ratio = max(row_sizes) / max(min(row_sizes), 1)
+        col_ratio = max(col_sizes) / max(min(col_sizes), 1)
+        if row_ratio > 1.5 or col_ratio > 1.5:
+            logger.info("Grid fallback: valley grid too uneven (row ratio %.2f, "
+                        "col ratio %.2f), falling back to uniform",
+                        row_ratio, col_ratio)
+            use_valleys = False
+        else:
+            logger.info("Grid fallback: using valley-based non-uniform grid")
+    if not use_valleys:
         # Uniform subdivision fallback
         logger.info("Grid fallback: using uniform grid subdivision")
         cell_h = page_h / img_rows
@@ -1321,7 +1579,7 @@ def segment_cards(
     if use_grid_fallback:
         # Try contour-guided grid first (uses detected card positions)
         card_images = None
-        if contours and len(contours) >= 6:
+        if contours and len(contours) >= 3:
             card_images = _contour_guided_grid(
                 image, contours, expected_rows, expected_cols)
             if card_images:

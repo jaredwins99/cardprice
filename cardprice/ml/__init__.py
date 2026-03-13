@@ -2583,7 +2583,8 @@ def _paddle_ocr_name_and_hp(image_path: str):
     # Collect ALL detected text regions with their bounding box positions
     # ------------------------------------------------------------------
     _NON_NAME_WORDS = {"stage", "basic", "hp", "stage i", "stage ii",
-                       "stage 1", "stage 2", "trainer", "supporter",
+                       "stage 1", "stage 2", "stage1", "stage2",
+                       "stagei", "stageii", "trainer", "supporter",
                        "pokemon", "item", "energy", "stage i pokemon",
                        "stage ii pokemon", "stadium", "tool",
                        "troingo", "trainer", "trainor"}
@@ -2748,12 +2749,17 @@ def _paddle_ocr_name_and_hp(image_path: str):
             hp_texts.append((text, conf))
 
         # Pure numeric on right side of card (x > 0.50)
+        # Also handle trailing non-digit garbage like "130@" (energy symbol)
         digits_only = re.fullmatch(r'\d{2,3}', text.strip())
+        if not digits_only:
+            digits_only = re.match(r'^(\d{2,3})[^0-9]', text.strip())
         if digits_only and card_x > 0.50:
-            val = int(text.strip())
+            # Extract just the digits (handles "130@" etc.)
+            digit_str = re.match(r'(\d+)', text.strip()).group(1)
+            val = int(digit_str)
             if _is_valid_hp(val):
                 is_hp_candidate = True
-                hp_texts.append((text, conf))
+                hp_texts.append((digit_str, conf))
 
         # Also check for "HP" near a number with OCR noise
         from cardprice.ml.hp_detector import _normalize_ocr_digits
@@ -2822,6 +2828,31 @@ def _paddle_ocr_name_and_hp(image_path: str):
                 if len(word) >= 4 and word.lower() in _known_lower:
                     word_candidates.append((word, conf * 0.9, method + "_word", size_ratio))
     name_candidates.extend(word_candidates)
+
+    # ------------------------------------------------------------------
+    # Possessive name concatenation: cards like "Lillie's Clefairy ex"
+    # often have the owner ("Lillie's") on a separate line from the
+    # Pokemon name ("Clefairy"). Combine possessive fragments with
+    # name-like fragments to form the full card name.
+    # ------------------------------------------------------------------
+    possessive_frags = []
+    non_possessive = []
+    for cleaned, conf, method, size_ratio in name_candidates:
+        # Match "X's" pattern (owner name) — allow OCR typos
+        if re.search(r"'s$|'s$|s'$", cleaned.strip()):
+            possessive_frags.append((cleaned.strip(), conf, method, size_ratio))
+        else:
+            non_possessive.append((cleaned, conf, method, size_ratio))
+    if possessive_frags and non_possessive:
+        for poss, pconf, pmethod, psize in possessive_frags:
+            for nptext, npconf, npmethod, npsize in non_possessive:
+                # Skip combining with non-name words
+                if nptext.lower() in _NON_NAME_WORDS:
+                    continue
+                combined_name = f"{poss} {nptext}"
+                combined_conf = min(pconf, npconf)
+                combined_size = max(psize, npsize)
+                name_candidates.append((combined_name, combined_conf, pmethod + "+poss", combined_size))
 
     # Deduplicate
     seen = set()

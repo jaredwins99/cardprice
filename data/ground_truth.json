@@ -1,8 +1,7 @@
 {
-  "description": "Visual ground truth for 13 binder pages (117 cards). Identified by Claude Opus 2026-03-07.",
+  "description": "Visual ground truth for 12 binder pages (108 cards). Identified by Claude Opus 2026-03-07.",
   "notes": [
     "Pages 4-6 (094228, 094637, 094749) are 3 scans of the SAME physical page (Delta Species cards)",
-    "Pages 7-9 (014406, 014621, 014711) are 3 scans of the SAME physical page (Misty's cards from Gym Heroes/Challenge)",
     "Page 10 (015320) is a mixed page with partial/rotated cards",
     "Card positions: 3x3 grid, card_00=top-left, card_08=bottom-right, reading left-to-right top-to-bottom"
   ],
@@ -347,64 +346,6 @@
     },
     "page_20260307_014621_cards": {
       "description": "Misty's Pokemon page - scan 2, SAME CARDS as 014406",
-      "card_00": {
-        "name": "Misty's Horsea",
-        "hp": 30,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Basic"
-      },
-      "card_01": {
-        "name": "Misty's Horsea",
-        "hp": 50,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Basic"
-      },
-      "card_02": {
-        "name": "Misty's Seadra",
-        "hp": 60,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Stage 1",
-        "notable": "PRERELEASE stamp"
-      },
-      "card_03": {
-        "name": "Misty's Shellder",
-        "hp": 40,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Basic"
-      },
-      "card_04": {
-        "name": "Misty's Duel",
-        "hp": null,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Trainer"
-      },
-      "card_05": {
-        "name": "Misty's Seaking",
-        "hp": 60,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Stage 1"
-      },
-      "card_06": {
-        "name": "Misty's Staryu",
-        "hp": 50,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Basic"
-      },
-      "card_07": {
-        "name": "Misty's Poliwag",
-        "hp": 50,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Basic"
-      },
-      "card_08": {
-        "name": "Misty's Tentacruel",
-        "hp": 60,
-        "era": "WotC (Gym Heroes)",
-        "stage": "Stage 1"
-      }
-    },
-    "page_20260307_014711_cards": {
-      "description": "Misty's Pokemon page - scan 3, SAME CARDS as 014406",
       "card_00": {
         "name": "Misty's Horsea",
         "hp": 30,
@@ -1065,10 +1006,99 @@
         "stage": "LEVEL-UP",
         "notable": "Lv.X, Poke-BODY: Multitype"
       }
+    },
+    "page_20260309_225737_cards": {
+      "description": "Modern SV-era page - full-art ex, gold, illustration rares + 2 empty slots",
+      "card_00": {
+        "name": "",
+        "empty_slot": true
+      },
+      "card_01": {
+        "name": "Chien-Pao ex",
+        "card_id": "sv2-61",
+        "hp": 220,
+        "era": "SV (Paldea Evolved)",
+        "attacks": [
+          "Hail Blade"
+        ],
+        "stage": "Basic"
+      },
+      "card_02": {
+        "name": "Kingdra ex",
+        "card_id": "sv6pt5-12",
+        "hp": 310,
+        "era": "SV (Shrouded Fable)",
+        "attacks": [
+          "King's Order",
+          "Hydro Pump"
+        ],
+        "stage": "Stage 2"
+      },
+      "card_03": {
+        "name": "",
+        "empty_slot": true
+      },
+      "card_04": {
+        "name": "Arcanine ex",
+        "card_id": "sv1-32",
+        "hp": 280,
+        "era": "SV (Scarlet & Violet)",
+        "attacks": [
+          "Raging Claws",
+          "Bright Flame"
+        ],
+        "stage": "Stage 1"
+      },
+      "card_05": {
+        "name": "Clamperl",
+        "card_id": "sv10-195",
+        "hp": 60,
+        "era": "SV (Destined Rivals)",
+        "attacks": [
+          "Shell Press"
+        ],
+        "stage": "Basic",
+        "illustration_rare": true
+      },
+      "card_06": {
+        "name": "Torkoal",
+        "card_id": "sv6-172",
+        "hp": 130,
+        "era": "SV (Twilight Masquerade)",
+        "attacks": [
+          "Ramming Shell",
+          "Fire Spin"
+        ],
+        "stage": "Basic",
+        "illustration_rare": true
+      },
+      "card_07": {
+        "name": "Mew ex",
+        "card_id": "sv3pt5-205",
+        "hp": 180,
+        "era": "SV (151)",
+        "attacks": [
+          "Restart",
+          "Genome Hacking"
+        ],
+        "stage": "Basic",
+        "gold_card": true
+      },
+      "card_08": {
+        "name": "Orthworm ex",
+        "card_id": "sv7-110",
+        "hp": 220,
+        "era": "SV (Stellar Crown)",
+        "attacks": [
+          "Pummeling Payback",
+          "Rock Tomb"
+        ],
+        "stage": "Basic"
+      }
     }
   },
   "summary": {
-    "total_pages": 13,
+    "total_pages": 12,
     "unique_physical_pages": 8,
     "duplicate_scans": {
       "delta_species_page": [

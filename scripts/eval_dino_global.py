@@ -175,6 +175,8 @@ def main():
         for i, (gt_idx, gt_card) in enumerate(gt_cards.items()):
             img_path = card_paths[gt_idx]
             expected = gt_card["name"]
+            if gt_card.get("empty_slot"):
+                continue
             total_cards += 1
 
             # Step 1: Try OCR name
