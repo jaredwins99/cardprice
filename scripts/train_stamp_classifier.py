@@ -322,10 +322,25 @@ def main():
     t0 = time.time()
 
     # Load datasets
-    train_paths, y_train = load_dataset(SYNTHETIC_DIR / "labels.jsonl", SYNTHETIC_DIR)
-    val_paths, y_val = load_dataset(REAL_DIR / "sources.jsonl", REAL_DIR)
-    logger.info("Train: %d (%d stamped), Val: %d (%d stamped)",
-                len(train_paths), sum(y_train), len(val_paths), sum(y_val))
+    synth_paths, y_synth = load_dataset(SYNTHETIC_DIR / "labels.jsonl", SYNTHETIC_DIR)
+    real_paths, y_real = load_dataset(REAL_DIR / "sources.jsonl", REAL_DIR)
+
+    # Split real data 70/30: mix 70% into training, hold 30% for validation
+    from sklearn.model_selection import train_test_split
+    if len(real_paths) > 10:
+        real_train_paths, val_paths, y_real_train, y_val = train_test_split(
+            real_paths, y_real, test_size=0.3, random_state=42, stratify=y_real
+        )
+        train_paths = synth_paths + list(real_train_paths)
+        y_train = np.concatenate([y_synth, y_real_train])
+    else:
+        train_paths = synth_paths
+        y_train = y_synth
+        val_paths = real_paths
+        y_val = y_real
+    logger.info("Train: %d (%d synth + %d real, %d stamped), Val: %d (%d stamped)",
+                len(train_paths), len(synth_paths), len(train_paths) - len(synth_paths),
+                sum(y_train), len(val_paths), sum(y_val))
 
     # Load DINOv2
     dino_model, dino_device = load_model()
