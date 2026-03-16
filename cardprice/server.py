@@ -22,6 +22,9 @@ Endpoints:
     GET  /export     -> Export inventory as CSV attachment
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
+    GET  /condition/camera -> Live camera overlay UI for condition capture
+    GET  /condition/camera/<card_id> -> Per-card camera UI with card identity pre-filled
+    POST /condition/camera/assess -> Receive camera captures, run condition pipeline
     GET  /condition/capture/<card_id> -> Per-card capture UI with card identity pre-filled
     POST /condition/photo/<card_id>/<step> -> Upload one photo, get immediate quality feedback
     GET  /condition/report/<card_id> -> Get combined condition report for a card
@@ -207,7 +210,9 @@ input[type=file] { display: none; }
     <label class="upload-btn" for="pageGallery" style="background:#16213e;border:2px solid #4ecca3;color:#4ecca3;">Page from Gallery</label>
     <input type="file" id="pageGallery" accept="image/*">
 </form>
-<a href="/condition" class="upload-btn" style="display:block;background:#e94560;color:#fff;margin-top:20px;text-decoration:none;text-align:center;">Grade Card Condition</a>
+<a href="/inventory/view" class="upload-btn" style="display:block;background:#4ecca3;color:#1a1a2e;margin-top:20px;text-decoration:none;text-align:center;font-weight:700;">View Inventory</a>
+<a href="/condition/camera" class="upload-btn" style="display:block;background:#e94560;color:#fff;margin-top:8px;text-decoration:none;text-align:center;">Grade Card Condition</a>
+<a href="/condition" class="upload-btn" style="display:block;background:#555;color:#fff;margin-top:8px;text-decoration:none;text-align:center;font-size:13px;">Upload Photos Instead</a>
 <img id="preview">
 <div class="spinner" id="spinner">Scanning...</div>
 <div class="result" id="result">
@@ -733,6 +738,9 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_html(MULTI_CARD_HTML)
         elif self.path == "/qr":
             self._send_qr()
+        elif self.path == "/inventory/view":
+            from cardprice.inventory_ui import INVENTORY_HTML
+            self._send_html(INVENTORY_HTML)
         elif self.path == "/inventory":
             self._send_inventory()
         elif self.path == "/export":
@@ -759,6 +767,30 @@ class ScanHandler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             seg_path = unquote(self.path.split("/segment-image/", 1)[1])
             self._send_segment_image(seg_path)
+        elif self.path == "/condition/training/stats":
+            self._handle_training_stats()
+        elif self.path == "/condition/camera":
+            from cardprice.condition_camera_ui import CAMERA_HTML
+            self._send_html(CAMERA_HTML)
+        elif self.path.startswith("/condition/camera/"):
+            from urllib.parse import unquote
+            from cardprice.condition_camera_ui import render_camera_html
+            card_id = unquote(self.path.split("/condition/camera/", 1)[1])
+            # Look up card name for display
+            card_name = None
+            try:
+                from cardprice.db.session import SessionLocal
+                from sqlalchemy import text as sql_text
+                with SessionLocal() as session:
+                    row = session.execute(
+                        sql_text("SELECT name FROM dim_cards WHERE card_id = :cid"),
+                        {"cid": card_id},
+                    ).fetchone()
+                    if row:
+                        card_name = row[0]
+            except Exception:
+                pass
+            self._send_html(render_camera_html(card_id, card_name))
         elif self.path == "/condition":
             from cardprice.condition_ui import CONDITION_HTML
             self._send_html(CONDITION_HTML)
@@ -790,6 +822,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_inventory_add()
         elif self.path == "/inventory/remove":
             self._handle_inventory_remove()
+        elif self.path == "/condition/camera/assess":
+            self._handle_camera_condition_assess()
+        elif self.path == "/condition/training/save":
+            self._handle_training_save()
         elif self.path == "/condition/assess":
             self._handle_condition_assess()
         elif self.path.startswith("/condition/photo/"):
@@ -1448,6 +1484,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "market_price": None,
                         "set_name": None,
                         "image_url": None,
+                        "tcgplayer_url": None,
                         "local_image_url": _local_image_url(result["card_id"]),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                     }
@@ -1455,7 +1492,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                     if result["card_id"]:
                         row = session.execute(
                             sql_text("""
-                                SELECT c.name, s.name as set_name, c.image_small, p.market_price
+                                SELECT c.name, s.name as set_name, c.image_small,
+                                       c.tcg_product_id, p.market_price
                                 FROM dim_cards c
                                 JOIN dim_sets s ON s.set_id = c.set_id
                                 LEFT JOIN LATERAL (
@@ -1474,6 +1512,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 float(row.market_price) if row.market_price else None
                             )
                             card_data["image_url"] = row.image_small
+                            if row.tcg_product_id:
+                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
 
                             if row.market_price:
                                 from cardprice.models.condition_pricing import (
@@ -1679,6 +1719,347 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Inventory remove error: %s", e)
             self._send_json({"error": str(e)}, status=500)
+
+    def _handle_camera_condition_assess(self):
+        """Receive photos from the camera overlay UI, run condition assessment.
+
+        The camera UI sends fields named by step ID (front_straight,
+        front_tilt_left, etc.) plus an optional card_id text field.
+        We map these to the standard angle names used by the pipeline.
+        """
+        import tempfile
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        max_bytes = 80 * 1024 * 1024
+        if length > max_bytes:
+            self.send_error(413, f"Upload too large (max {max_bytes // (1024*1024)} MB)")
+            return
+
+        body = self.rfile.read(length)
+        files = _parse_multipart_named(body, content_type)
+
+        # Map camera step IDs to pipeline angle names
+        step_to_angle = {
+            "front_straight": "front",
+            "front_tilt_left": "oblique",
+            "front_tilt_right": "oblique_right",
+            "back_straight": "back",
+        }
+
+        # Extract optional card_id text field
+        supplied_card_id = None
+        if "card_id" in files:
+            _, raw = files["card_id"]
+            supplied_card_id = raw.decode("utf-8", errors="replace").strip() or None
+
+        # Save images to a temp directory
+        tmpdir = tempfile.mkdtemp(prefix="condition_cam_")
+        saved_paths = {}
+        for step_id, (filename, file_data) in files.items():
+            if step_id == "card_id":
+                continue
+            angle = step_to_angle.get(step_id, step_id)
+            if filename is None:
+                continue
+            ext = Path(filename).suffix or ".jpg"
+            save_path = Path(tmpdir) / f"{angle}{ext}"
+            save_path.write_bytes(file_data)
+            saved_paths[angle] = str(save_path)
+
+        if "front" not in saved_paths:
+            self._send_json(
+                {"error": "At least a front_straight image is required"}, status=400
+            )
+            return
+
+        logger.info(
+            "Camera condition assess: received %d images (card_id=%s), saved to %s",
+            len(saved_paths), supplied_card_id, tmpdir,
+        )
+
+        # Build response using the same pipeline as _handle_condition_assess
+        front_path = saved_paths.get("front")
+        tmpdir_name = Path(tmpdir).name
+        response = {
+            "overall_grade": None,
+            "overall_confidence": 0.0,
+            "condition": None,
+            "sub_grades": {
+                "centering": 0.0,
+                "surface": 0.0,
+                "edges": 0.0,
+                "corners": 0.0,
+            },
+            "defects": [],
+            "card_id": supplied_card_id,
+            "card_name": None,
+            "angles_received": list(saved_paths.keys()),
+            "price_multiplier": None,
+            "heatmap_url": None,
+        }
+
+        # --- Centering ---
+        try:
+            from cardprice.ml.centering_detector import measure_centering
+            centering = measure_centering(image_path=front_path)
+            response["sub_grades"]["centering"] = round(
+                centering.get("centering_score", 0.0), 1
+            )
+        except Exception as e:
+            logger.warning("Camera assess centering failed: %s", e)
+
+        # --- Edge whitening ---
+        try:
+            from cardprice.ml.edge_whitening import measure_edge_whitening
+            whitening = measure_edge_whitening(front_path)
+            tcg_cond = whitening.get("tcg_condition", "NM")
+            edge_grade_map = {"NM": 9.5, "LP": 7.0, "MP": 4.5, "HP": 2.0}
+            response["sub_grades"]["edges"] = edge_grade_map.get(tcg_cond, 5.0)
+
+            # Corner wear from edge data
+            try:
+                edge_ratios = sorted(
+                    [whitening["edges"][s]["whitening_ratio"]
+                     for s in ("top", "bottom", "left", "right")],
+                    reverse=True,
+                )
+                corner_ratio = (edge_ratios[0] + edge_ratios[1]) / 2
+                corner_label, _ = _corner_condition(corner_ratio)
+                corner_grade_map = {
+                    "NM": 9.5, "LP": 7.0, "MP": 4.5, "HP": 2.0, "DMG": 1.0,
+                }
+                response["sub_grades"]["corners"] = corner_grade_map.get(
+                    corner_label, 5.0
+                )
+            except Exception as ce:
+                logger.warning("Camera assess corner derivation failed: %s", ce)
+        except Exception as e:
+            logger.warning("Camera assess edge whitening failed: %s", e)
+
+        # --- Surface defect detection (if we have a card_id) ---
+        card_id = supplied_card_id
+        if not card_id:
+            try:
+                from cardprice.ml import identify_card
+                from cardprice.db.session import SessionLocal
+                with SessionLocal() as session:
+                    id_result = identify_card(front_path, session=session)
+                    card_id = id_result.get("card_id")
+                    if card_id:
+                        response["card_id"] = card_id
+            except Exception as e:
+                logger.warning("Camera assess: card identification failed: %s", e)
+
+        if card_id:
+            try:
+                from cardprice.db.session import SessionLocal
+                from sqlalchemy import text as sql_text
+                with SessionLocal() as session:
+                    row = session.execute(
+                        sql_text("SELECT name FROM dim_cards WHERE card_id = :cid"),
+                        {"cid": card_id},
+                    ).fetchone()
+                    if row:
+                        response["card_name"] = row[0]
+            except Exception:
+                pass
+
+            # Surface detection
+            ref_image_path = None
+            ref_dir = Path("data/ref_images")
+            for ext in (".png", ".jpg", ".jpeg", ".webp"):
+                candidate = ref_dir / f"{card_id}{ext}"
+                if candidate.is_file():
+                    ref_image_path = str(candidate)
+                    break
+
+            if ref_image_path:
+                try:
+                    from cardprice.ml.surface_detector import detect_surface_defects
+                    surface = detect_surface_defects(
+                        front_path, ref_image_path,
+                        output_dir=tmpdir,
+                    )
+                    surface_score = surface.get("surface_score", 5.0)
+                    response["sub_grades"]["surface"] = round(surface_score, 1)
+                    response["defects"] = surface.get("defects", [])
+                    heatmap_file = Path(tmpdir) / "heatmap.png"
+                    if heatmap_file.is_file():
+                        response["heatmap_url"] = f"/condition/heatmap/{tmpdir_name}"
+                except Exception as e:
+                    logger.warning("Camera assess surface detection failed: %s", e)
+
+        # --- Compute overall grade ---
+        grades = response["sub_grades"]
+        non_zero = [v for v in grades.values() if v > 0]
+        if non_zero:
+            avg = sum(non_zero) / len(non_zero)
+            # Map numeric avg to TCG condition
+            if avg >= 9.0:
+                response["overall_grade"] = "NM"
+                response["price_multiplier"] = 1.0
+            elif avg >= 7.0:
+                response["overall_grade"] = "LP"
+                response["price_multiplier"] = 0.80
+            elif avg >= 4.5:
+                response["overall_grade"] = "MP"
+                response["price_multiplier"] = 0.60
+            elif avg >= 2.0:
+                response["overall_grade"] = "HP"
+                response["price_multiplier"] = 0.40
+            else:
+                response["overall_grade"] = "DMG"
+                response["price_multiplier"] = 0.20
+            response["overall_confidence"] = min(len(non_zero) / 4.0, 1.0)
+            response["condition"] = response["overall_grade"]
+
+        self._send_json(response)
+
+    def _handle_training_save(self):
+        """Save captured images as labeled training data for condition grading.
+
+        Receives multipart/form-data with:
+          - condition (required): NM/LP/MP/HP/DMG
+          - card_id (optional): card identifier
+          - front_straight, front_tilt_left, etc.: image files
+        """
+        import json as _json
+        from datetime import datetime, timezone
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0 or length > 80 * 1024 * 1024:
+            self.send_error(400, "Invalid request size")
+            return
+
+        body = self.rfile.read(length)
+        files = _parse_multipart_named(body, content_type)
+
+        # Extract condition label
+        valid_conditions = {"NM", "LP", "MP", "HP", "DMG"}
+        condition = None
+        if "condition" in files:
+            _, raw = files["condition"]
+            condition = raw.decode("utf-8", errors="replace").strip().upper()
+        if condition not in valid_conditions:
+            self._send_json(
+                {"error": f"condition must be one of {sorted(valid_conditions)}"},
+                status=400,
+            )
+            return
+
+        # Extract optional card_id
+        card_id = None
+        if "card_id" in files:
+            _, raw = files["card_id"]
+            card_id = raw.decode("utf-8", errors="replace").strip() or None
+
+        # Setup directories
+        base_dir = Path("data/condition_training/camera")
+        cond_dir = base_dir / condition
+        cond_dir.mkdir(parents=True, exist_ok=True)
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        card_id_safe = (card_id or "unknown").replace("/", "_").replace("\\", "_")
+
+        # Save image files
+        saved_images = []
+        for field_name, (filename, file_data) in files.items():
+            if field_name in ("condition", "card_id"):
+                continue
+            if filename is None:
+                continue
+            ext = Path(filename).suffix or ".jpg"
+            save_name = f"{ts}_{card_id_safe}_{field_name}{ext}"
+            save_path = cond_dir / save_name
+            save_path.write_bytes(file_data)
+            saved_images.append(str(save_path))
+
+        if not saved_images:
+            self._send_json({"error": "No image files received"}, status=400)
+            return
+
+        # Append to labels.jsonl
+        labels_path = base_dir / "labels.jsonl"
+        label_entry = {
+            "images": saved_images,
+            "condition": condition,
+            "card_id": card_id or None,
+            "timestamp": ts,
+            "source": "camera_ui",
+        }
+        with open(labels_path, "a") as f:
+            f.write(_json.dumps(label_entry) + "\n")
+
+        # Count total samples
+        total = 0
+        if labels_path.is_file():
+            with open(labels_path) as f:
+                total = sum(1 for _ in f)
+
+        logger.info(
+            "Training data saved: condition=%s card_id=%s images=%d total=%d",
+            condition, card_id, len(saved_images), total,
+        )
+
+        self._send_json({
+            "saved": len(saved_images),
+            "condition": condition,
+            "total_count": total,
+        })
+
+    def _handle_training_stats(self):
+        """Return counts of training samples per condition."""
+        import json as _json
+
+        labels_path = Path("data/condition_training/camera/labels.jsonl")
+        counts = {"NM": 0, "LP": 0, "MP": 0, "HP": 0, "DMG": 0}
+        total = 0
+
+        if labels_path.is_file():
+            with open(labels_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = _json.loads(line)
+                        cond = entry.get("condition", "")
+                        if cond in counts:
+                            counts[cond] += 1
+                        total += 1
+                    except _json.JSONDecodeError:
+                        continue
+
+        self._send_json({"counts": counts, "total": total})
 
     def _handle_condition_assess(self):
         """Receive up to 4 card photos, run condition assessment pipeline.
@@ -2351,10 +2732,12 @@ class ScanHandler(BaseHTTPRequestHandler):
 
             with SessionLocal() as session:
                 rows = session.execute(sql_text("""
-                    SELECT ui.card_id, dc.name, dc.set_id, ui.quantity,
+                    SELECT ui.card_id, dc.name, dc.set_id, ds.name as set_name,
+                           dc.tcg_product_id, ui.quantity,
                            ui.condition, lp.market_price
                     FROM user_inventory ui
                     JOIN dim_cards dc ON dc.card_id = ui.card_id
+                    JOIN dim_sets ds ON ds.set_id = dc.set_id
                     LEFT JOIN LATERAL (
                         SELECT market_price FROM fact_market_prices
                         WHERE card_id = ui.card_id
@@ -2363,19 +2746,22 @@ class ScanHandler(BaseHTTPRequestHandler):
                     ORDER BY dc.name
                 """)).fetchall()
 
-                items = [
-                    {
+                items = []
+                for r in rows:
+                    item = {
                         "card_id": r.card_id,
                         "name": r.name,
                         "set_id": r.set_id,
+                        "set_name": r.set_name,
                         "quantity": r.quantity,
                         "condition": r.condition,
                         "market_price": (
                             float(r.market_price) if r.market_price else None
                         ),
                     }
-                    for r in rows
-                ]
+                    if r.tcg_product_id:
+                        item["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{r.tcg_product_id}"
+                    items.append(item)
                 self._send_json({"items": items, "count": len(items)})
         except Exception as e:
             logger.error("Inventory error: %s", e)

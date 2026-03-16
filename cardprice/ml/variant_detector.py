@@ -1484,6 +1484,142 @@ def detect_first_edition(image_path: str) -> tuple[bool, float]:
 
 
 # ---------------------------------------------------------------------------
+# EX-era stamped reverse holo detection
+# ---------------------------------------------------------------------------
+# EX Team Rocket Returns (ex7) through EX Power Keepers (ex16) reverse holo
+# cards have the set logo stamped in the bottom-right area of the artwork.
+# The stamp is semi-transparent with the set name text.
+#
+# Detection: OCR the artwork bottom-right region for known set name text.
+# The stamp text is typically the set name in small caps, e.g. "DELTA SPECIES",
+# "POWER KEEPERS", etc.  We also check for a higher-than-expected text density
+# in that region compared to normal artwork.
+# ---------------------------------------------------------------------------
+
+# Sets that have stamped reverse holos (EX Team Rocket Returns through Power Keepers)
+STAMPED_SETS = frozenset({
+    "ex7", "ex8", "ex9", "ex10", "ex11", "ex12", "ex13", "ex14", "ex15", "ex16",
+})
+
+# Known stamp text fragments for each set (lowercase, for fuzzy matching)
+STAMPED_SET_TEXT: dict[str, list[str]] = {
+    "ex7":  ["team", "rocket", "returns"],
+    "ex8":  ["deoxys"],
+    "ex9":  ["emerald"],
+    "ex10": ["unseen", "forces"],
+    "ex11": ["delta", "species"],
+    "ex12": ["legend", "maker"],
+    "ex13": ["holon", "phantoms"],
+    "ex14": ["crystal", "guardians"],
+    "ex15": ["dragon", "frontiers"],
+    "ex16": ["power", "keepers"],
+}
+
+# All known stamp words across all sets (for set-agnostic detection)
+_ALL_STAMP_WORDS = frozenset({
+    "team", "rocket", "returns", "deoxys", "emerald", "unseen", "forces",
+    "delta", "species", "legend", "maker", "holon", "phantoms", "crystal",
+    "guardians", "dragon", "frontiers", "power", "keepers",
+})
+
+# Stamp region: bottom-right quadrant of the artwork area.
+# The stamp sits roughly at x: 55-88%, y: 35-55% of card dimensions.
+STAMP_ART_X0, STAMP_ART_Y0 = 0.50, 0.30
+STAMP_ART_X1, STAMP_ART_Y1 = 0.90, 0.58
+
+
+def _check_stamped(img_bgr: np.ndarray,
+                   set_id: str = "") -> tuple[bool, float]:
+    """Check for EX-era set logo stamp on a reverse holo card.
+
+    The stamp is a semi-transparent set logo/text overlaid on the card art,
+    in the bottom-right area of the artwork window.
+
+    Detection strategy:
+    1. Extract the stamp region (bottom-right of artwork).
+    2. Run OCR on the region.
+    3. Check if any known stamp text fragments match the OCR output.
+    4. If set_id is known, check for that set's specific stamp text.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set prefix (e.g. "ex11").  If provided, matches against
+            that set's stamp text.  If empty, matches against all known stamps.
+
+    Returns:
+        (is_stamped, confidence) where:
+          - is_stamped: True if a stamp was detected.
+          - confidence: 0.90 if set-specific text found, 0.75 if generic
+            stamp text found, 0.0 if not detected.
+    """
+    stamp_region = _extract_region(img_bgr, STAMP_ART_X0, STAMP_ART_Y0,
+                                   STAMP_ART_X1, STAMP_ART_Y1)
+    if stamp_region.size == 0:
+        return False, 0.0
+
+    # OCR the stamp region
+    ocr_text = _ocr_stamp_region(stamp_region)
+    if not ocr_text:
+        return False, 0.0
+
+    logger.debug("Stamped OCR text: %r (set=%s)", ocr_text, set_id)
+
+    # Check for set-specific stamp text
+    if set_id and set_id in STAMPED_SET_TEXT:
+        expected_words = STAMPED_SET_TEXT[set_id]
+        matches = sum(1 for w in expected_words if w in ocr_text)
+        if matches >= 1:
+            logger.debug("Stamped: matched %d/%d words for %s",
+                         matches, len(expected_words), set_id)
+            conf = 0.90 if matches >= 2 else 0.80
+            return True, conf
+
+    # Check for any known stamp text (set-agnostic)
+    found_words = [w for w in _ALL_STAMP_WORDS if w in ocr_text]
+    if len(found_words) >= 2:
+        logger.debug("Stamped: found generic stamp words: %s", found_words)
+        return True, 0.75
+    elif len(found_words) == 1:
+        # Single word match -- too low confidence for standalone detection
+        # but could be combined with other signals
+        logger.debug("Stamped: single word match: %s (too weak alone)", found_words)
+        return False, 0.0
+
+    return False, 0.0
+
+
+def detect_stamped(image_path: str | Path,
+                   set_id: str = "") -> tuple[bool, float]:
+    """Detect if a card has an EX-era set logo stamp on the artwork.
+
+    These stamped cards appear in EX Team Rocket Returns (ex7) through
+    EX Power Keepers (ex16).  The reverse holo cards in these sets have
+    the set logo/name stamped semi-transparently in the bottom-right
+    area of the card artwork.
+
+    Args:
+        image_path: Path to the card image.
+        set_id: Set prefix (e.g. "ex11" for Delta Species).  If provided,
+            detection looks for that set's specific stamp text.
+
+    Returns:
+        (is_stamped, confidence) where:
+          - is_stamped: True if stamp detected.
+          - confidence: 0.80-0.90 for set-specific match,
+                       0.75 for generic match, 0.0 if not detected.
+    """
+    img = cv2.imread(str(image_path))
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    # Only check on sets that actually had stamps
+    if set_id and set_id not in STAMPED_SETS:
+        return False, 0.0
+
+    return _check_stamped(img, set_id=set_id)
+
+
+# ---------------------------------------------------------------------------
 # Gold / Secret Rare and Rainbow Rare detection
 # ---------------------------------------------------------------------------
 # Gold/secret rare cards have a distinctive gold color scheme that dominates
@@ -1675,6 +1811,7 @@ def detect_variant(image_path: str | Path, era: int = 0,
 
     Detection priority:
       1. 1st Edition stamp (highest priority -- overrides all others).
+      1b. EX-era stamped reverse holo (ex7-ex16, returns "reverse_holofoil").
       2. Gold / rainbow rare (era >= 7 only, checked early since gold
          cards also trigger holo/full-art detectors).
       3. Shadowless (base1 only -- right/bottom edge gradient analysis).
@@ -1713,6 +1850,21 @@ def detect_variant(image_path: str | Path, era: int = 0,
             logger.info("Detected variant: 1st_edition for %s (conf=%.2f, unknown card)",
                         image_path, stamp_conf)
             return "1st_edition"
+
+    # --- EX-era stamped reverse holo check (ex7-ex16 only) ---
+    # Stamped cards have a set logo overlaid on the artwork. This is a
+    # sub-type of reverse_holofoil but visually distinct.  We detect
+    # the stamp text via OCR on the artwork bottom-right region.
+    # Note: for pricing purposes, stamped = reverse_holofoil (same TCGCSV
+    # subtype), but we report it for collection tracking.
+    if set_prefix in STAMPED_SETS:
+        stamped_detected, stamped_conf = _check_stamped(img, set_id=set_prefix)
+        if stamped_detected:
+            logger.info("Detected EX-era stamp for %s (conf=%.2f), "
+                        "reporting as reverse_holofoil",
+                        image_path, stamped_conf)
+            # Stamped reverse holos are priced as reverse_holofoil
+            return "reverse_holofoil"
 
     # --- Gold / Rainbow Rare check (era >= 7 only) ---
     # When era is unknown (0), skip gold/rainbow detection entirely.
@@ -1849,6 +2001,12 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     else:
         has_stamp, stamp_conf = False, 0.0
 
+    # EX-era stamped check
+    if set_prefix in STAMPED_SETS:
+        has_ex_stamp, ex_stamp_conf = _check_stamped(img, set_id=set_prefix)
+    else:
+        has_ex_stamp, ex_stamp_conf = False, 0.0
+
     # Gold/rainbow: only when era is known and >= 7
     if era >= GOLD_RAINBOW_MIN_ERA:
         gold_rare_result, gold_conf = _check_gold_rare(img, era)
@@ -1902,9 +2060,11 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     border_sat = _saturation_std(border_region)
 
     # Determine variant using same logic as detect_variant
-    # Priority: 1st Ed > Gold/Rainbow > Shadowless > Full Art > Reverse Holo > Holo
+    # Priority: 1st Ed > Stamped > Gold/Rainbow > Shadowless > Full Art > Reverse Holo > Holo
     if has_stamp:
         variant = "1st_edition"
+    elif has_ex_stamp:
+        variant = "reverse_holofoil"  # stamped is a sub-type of reverse_holofoil for pricing
     elif gold_rare_result is not None:
         variant = gold_rare_result
     elif is_shadowless is True:
@@ -1934,6 +2094,8 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
         "border_saturation_std": round(border_sat, 2),
         "has_1st_edition_stamp": has_stamp,
         "stamp_confidence": round(stamp_conf, 2),
+        "has_ex_era_stamp": has_ex_stamp,
+        "ex_stamp_confidence": round(ex_stamp_conf, 2),
         "is_full_art": is_full_art,
         "is_reverse_holo": is_reverse_holo,
         "gold_rare_result": gold_rare_result,

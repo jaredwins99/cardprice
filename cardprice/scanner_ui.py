@@ -159,16 +159,89 @@ input[type=file] { display: none; }
 .summary-value { font-size: 22px; font-weight: 700; color: var(--green); }
 .summary-count { font-size: 14px; color: var(--text-dim); }
 
+/* Session Action Buttons */
+.session-actions {
+    display: none;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.session-actions.show { display: flex; }
+.session-btn {
+    flex: 1;
+    padding: 14px 12px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.session-btn.scan-next {
+    background: var(--accent);
+    color: #fff;
+}
+.session-btn.scan-next:active { background: var(--accent-dark); }
+.session-btn.new-session {
+    background: var(--bg-card);
+    color: var(--text-dim);
+    border: 2px solid var(--text-faint);
+}
+.session-btn.new-session:active { background: var(--bg-card-hover); }
+
+/* Page Divider */
+.page-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 6px;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-weight: 600;
+}
+.page-divider .divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--text-faint);
+}
+.page-divider .page-subtotal {
+    color: var(--green-dim);
+    font-size: 12px;
+    font-weight: 700;
+}
+
 /* Scanning Indicator */
 .scanning-indicator {
     display: none;
-    text-align: center;
-    padding: 24px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
     color: var(--text-dim);
     font-size: 15px;
+    gap: 12px;
 }
-.scanning-indicator.show { display: block; }
-.scanning-indicator .dots::after {
+.scanning-indicator.show { display: flex; }
+.scanning-indicator .scan-spinner-wrap {
+    position: relative;
+    width: 64px; height: 64px;
+}
+.scanning-indicator .scan-spinner-ring {
+    width: 64px; height: 64px;
+    border: 3px solid var(--text-faint);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+.scanning-indicator .scan-timer {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.scanning-indicator .scan-label .dots::after {
     content: '';
     animation: dots 1.5s steps(4, end) infinite;
 }
@@ -328,6 +401,39 @@ input[type=file] { display: none; }
 .binder-card-info .info-price.no-price {
     color: var(--text-dim);
     font-size: 14px;
+}
+
+/* Condition prices row */
+.cond-prices {
+    display: flex;
+    gap: 2px;
+    padding: 0 12px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.cond-prices .cp {
+    flex: 1;
+    text-align: center;
+    padding: 3px 0;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.04);
+}
+.cond-prices .cp .cl { opacity: 0.5; font-size: 9px; display: block; }
+.cond-prices .cp.nm { color: #4ecca3; }
+.cond-prices .cp.lp { color: #a8d8a8; }
+.cond-prices .cp.mp { color: #f1c40f; }
+.cond-prices .cp.hp { color: #e67e22; }
+.cond-prices .cp.dmg { color: #e74c3c; }
+.cond-prices .cp.blank { color: var(--text-faint); }
+
+/* Card name as TCGPlayer link */
+.binder-card-info .info-name a {
+    color: inherit;
+    text-decoration: none;
+}
+.binder-card-info .info-name a:active {
+    color: var(--accent);
 }
 
 /* Queued state for binder rows */
@@ -531,8 +637,11 @@ input[type=file] { display: none; }
 
     <!-- Scanning Indicator -->
     <div class="scanning-indicator" id="scanningIndicator">
-        <span class="spinner-ring"></span>
-        <span>Scanning<span class="dots"></span></span>
+        <div class="scan-spinner-wrap">
+            <div class="scan-spinner-ring"></div>
+            <div class="scan-timer" id="scanTimer">0s</div>
+        </div>
+        <span class="scan-label">Scanning<span class="dots"></span></span>
     </div>
 
     <!-- Single Card Result -->
@@ -547,13 +656,19 @@ input[type=file] { display: none; }
     <!-- Binder Page Summary -->
     <div class="summary-bar" id="summaryBar">
         <div>
-            <div class="summary-label">Page Total</div>
+            <div class="summary-label" id="summaryLabel">Page Total</div>
             <div class="summary-value" id="summaryTotal">$0.00</div>
         </div>
         <div style="text-align:right">
             <div class="summary-count" id="summaryCount">0 cards</div>
             <div class="summary-label" id="summaryStatus"></div>
         </div>
+    </div>
+
+    <!-- Session Action Buttons (shown after binder scan completes) -->
+    <div class="session-actions" id="sessionActions">
+        <button class="session-btn scan-next" id="scanNextBtn" onclick="scanNextPage()">Scan Next Page</button>
+        <button class="session-btn new-session" onclick="newSession()">New Session</button>
     </div>
 
     <!-- Binder Results (list of card rows with thumbnails) -->
@@ -697,6 +812,8 @@ function drawQR(canvasId,text,cellSize){
     var currentMode = 'single';  // 'single' or 'binder'
     var cards = [];               // Array of card result objects for binder mode
     var activePolls = {};         // scan_id -> intervalId
+    var pageCount = 0;            // Number of binder pages scanned in this session
+    var pageBoundaries = [];      // Array of {startIdx, endIdx, pageNum} for page dividers
 
     // ---- Mode Toggle ----
     window.setMode = function(mode) {
@@ -708,10 +825,13 @@ function drawQR(canvasId,text,cellSize){
         // Reset display
         document.getElementById('singleResult').classList.remove('show');
         document.getElementById('summaryBar').classList.remove('show');
+        document.getElementById('sessionActions').classList.remove('show');
         document.getElementById('binderResults').innerHTML = '';
         document.getElementById('preview').style.display = 'none';
         document.getElementById('scanningIndicator').classList.remove('show');
         cards = [];
+        pageCount = 0;
+        pageBoundaries = [];
         clearAllPolls();
     };
 
@@ -827,15 +947,34 @@ function drawQR(canvasId,text,cellSize){
     // Posts to /scan-page which segments the binder page and identifies each card.
     // Response: { status, cards: [{position, row, col, card_id, card_name, ...}], total_value }
 
+    var scanTimerInterval = null;
+
+    function startScanTimer() {
+        var start = Date.now();
+        var timerEl = document.getElementById('scanTimer');
+        timerEl.textContent = '0s';
+        scanTimerInterval = setInterval(function() {
+            var elapsed = Math.round((Date.now() - start) / 1000);
+            timerEl.textContent = elapsed + 's';
+        }, 1000);
+    }
+    function stopScanTimer() {
+        if (scanTimerInterval) {
+            clearInterval(scanTimerInterval);
+            scanTimerInterval = null;
+        }
+    }
+
     function handleBinderScan(file) {
         var indicator = document.getElementById('scanningIndicator');
         indicator.classList.add('show');
+        startScanTimer();
         document.getElementById('singleResult').classList.remove('show');
+        document.getElementById('sessionActions').classList.remove('show');
 
-        // Clear previous results
-        cards = [];
-        renderBinderResults();
-        clearAllPolls();
+        // Track page boundary: new page starts at current end of cards array
+        pageCount++;
+        var pageStartIdx = cards.length;
 
         var fd = new FormData();
         fd.append('image', file);
@@ -843,6 +982,7 @@ function drawQR(canvasId,text,cellSize){
         fetch('/scan-page', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                stopScanTimer();
                 indicator.classList.remove('show');
 
                 if (data.cards && data.cards.length > 0) {
@@ -857,7 +997,7 @@ function drawQR(canvasId,text,cellSize){
                         row: 0,
                         col: 0,
                     });
-                    startPollForTile(0, data.scan_id);
+                    startPollForTile(cards.length - 1, data.scan_id);
                 } else if (data.error) {
                     cards.push({
                         status: 'error',
@@ -867,10 +1007,20 @@ function drawQR(canvasId,text,cellSize){
                         col: 0,
                     });
                 }
+
+                // Record this page's boundary
+                pageBoundaries.push({
+                    startIdx: pageStartIdx,
+                    endIdx: cards.length,
+                    pageNum: pageCount,
+                });
+
                 renderBinderResults();
                 updateSummary();
+                document.getElementById('sessionActions').classList.add('show');
             })
             .catch(function(e) {
+                stopScanTimer();
                 indicator.classList.remove('show');
                 cards.push({
                     status: 'error',
@@ -879,8 +1029,16 @@ function drawQR(canvasId,text,cellSize){
                     row: 0,
                     col: 0,
                 });
+
+                pageBoundaries.push({
+                    startIdx: pageStartIdx,
+                    endIdx: cards.length,
+                    pageNum: pageCount,
+                });
+
                 renderBinderResults();
                 updateSummary();
+                document.getElementById('sessionActions').classList.add('show');
             });
     }
 
@@ -899,6 +1057,8 @@ function drawQR(canvasId,text,cellSize){
             segment_image_url: data.segment_image_url || null,
             confidence: data.confidence || null,
             method: data.method || null,
+            condition_prices: data.condition_prices || null,
+            tcgplayer_url: data.tcgplayer_url || null,
         };
     }
 
@@ -987,11 +1147,53 @@ function drawQR(canvasId,text,cellSize){
     }
 
     // ---- Binder Results Rendering ----
+    function getPageForIndex(idx) {
+        for (var p = 0; p < pageBoundaries.length; p++) {
+            if (idx >= pageBoundaries[p].startIdx && idx < pageBoundaries[p].endIdx) {
+                return pageBoundaries[p];
+            }
+        }
+        return null;
+    }
+
+    function calcPageSubtotal(page) {
+        var total = 0;
+        for (var i = page.startIdx; i < page.endIdx; i++) {
+            if (cards[i] && cards[i].status === 'resolved' && cards[i].market_price) {
+                total += Number(cards[i].market_price);
+            }
+        }
+        return total;
+    }
+
     function renderBinderResults() {
         var container = document.getElementById('binderResults');
         container.innerHTML = '';
 
         for (var i = 0; i < cards.length; i++) {
+            // Insert page divider at start of each page
+            var page = getPageForIndex(i);
+            if (page && i === page.startIdx && pageBoundaries.length > 0) {
+                var divider = document.createElement('div');
+                divider.className = 'page-divider';
+                var line1 = document.createElement('span');
+                line1.className = 'divider-line';
+                var label = document.createElement('span');
+                label.textContent = 'Page ' + page.pageNum;
+                var subtotal = document.createElement('span');
+                subtotal.className = 'page-subtotal';
+                subtotal.id = 'pageSubtotal_' + page.pageNum;
+                var st = calcPageSubtotal(page);
+                subtotal.textContent = '$' + st.toFixed(2);
+                var line2 = document.createElement('span');
+                line2.className = 'divider-line';
+                divider.appendChild(line1);
+                divider.appendChild(label);
+                divider.appendChild(subtotal);
+                divider.appendChild(line2);
+                container.appendChild(divider);
+            }
+
             var card = cards[i];
             var row = document.createElement('div');
             row.className = 'binder-card-row';
@@ -1095,6 +1297,13 @@ function drawQR(canvasId,text,cellSize){
                 nameDiv.textContent = 'Scanning...';
             } else if (card.status === 'pending') {
                 nameDiv.textContent = 'Queued...';
+            } else if (card.tcgplayer_url) {
+                var nameLink = document.createElement('a');
+                nameLink.href = card.tcgplayer_url;
+                nameLink.target = '_blank';
+                nameLink.rel = 'noopener';
+                nameLink.textContent = card.card_name || 'Unknown';
+                nameDiv.appendChild(nameLink);
             } else {
                 nameDiv.textContent = card.card_name || 'Unknown';
             }
@@ -1131,6 +1340,27 @@ function drawQR(canvasId,text,cellSize){
 
             row.appendChild(info);
 
+            // Condition prices row (5 conditions, inline)
+            if (card.condition_prices || card.market_price) {
+                var cpRow = document.createElement('div');
+                cpRow.className = 'cond-prices';
+                var conds = ['NM', 'LP', 'MP', 'HP', 'DMG'];
+                var condClasses = ['nm', 'lp', 'mp', 'hp', 'dmg'];
+                for (var ci = 0; ci < conds.length; ci++) {
+                    var cpEl = document.createElement('div');
+                    var cp = card.condition_prices && card.condition_prices[conds[ci]];
+                    if (cp && cp.price != null) {
+                        cpEl.className = 'cp ' + condClasses[ci];
+                        cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
+                    } else {
+                        cpEl.className = 'cp blank';
+                        cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>—';
+                    }
+                    cpRow.appendChild(cpEl);
+                }
+                row.appendChild(cpRow);
+            }
+
             // Tap handler for detail modal (resolved/error cards)
             if (card.status === 'resolved' || card.status === 'error') {
                 (function(c) {
@@ -1162,7 +1392,18 @@ function drawQR(canvasId,text,cellSize){
         }
 
         document.getElementById('summaryTotal').textContent = '$' + total.toFixed(2);
-        document.getElementById('summaryCount').textContent = cards.length + ' card' + (cards.length !== 1 ? 's' : '');
+
+        // Multi-page summary: "X pages . Y cards"
+        var countParts = [];
+        if (pageCount > 1) {
+            countParts.push(pageCount + ' page' + (pageCount !== 1 ? 's' : ''));
+        }
+        countParts.push(cards.length + ' card' + (cards.length !== 1 ? 's' : ''));
+        document.getElementById('summaryCount').textContent = countParts.join(' \u00b7 ');
+
+        // Update label text
+        document.getElementById('summaryLabel').textContent = pageCount > 1 ? 'Session Total' : 'Page Total';
+
         var statusEl = document.getElementById('summaryStatus');
         if (pending > 0) {
             statusEl.innerHTML = '<span class="spinner-ring" style="width:12px;height:12px;border-width:2px"></span> ' + pending + ' pending';
@@ -1170,6 +1411,29 @@ function drawQR(canvasId,text,cellSize){
             statusEl.textContent = resolved + ' identified';
         }
     }
+
+    // ---- Session Controls ----
+    window.scanNextPage = function() {
+        // Hide session actions and show upload buttons for next photo
+        document.getElementById('sessionActions').classList.remove('show');
+        document.getElementById('preview').style.display = 'none';
+        // Scroll to top so user sees upload buttons
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.newSession = function() {
+        // Full reset: clear all cards, pages, and UI
+        cards = [];
+        pageCount = 0;
+        pageBoundaries = [];
+        clearAllPolls();
+        document.getElementById('summaryBar').classList.remove('show');
+        document.getElementById('sessionActions').classList.remove('show');
+        document.getElementById('binderResults').innerHTML = '';
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('scanningIndicator').classList.remove('show');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     // ---- Detail Modal ----
     window.openModal = function(card) {
@@ -1207,7 +1471,12 @@ function drawQR(canvasId,text,cellSize){
             imagesDiv.appendChild(refCol);
         }
 
-        document.getElementById('modalName').textContent = card.card_name || 'Unknown Card';
+        var modalNameEl = document.getElementById('modalName');
+        if (card.tcgplayer_url) {
+            modalNameEl.innerHTML = '<a href="' + card.tcgplayer_url + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-decoration-color:var(--text-faint)">' + (card.card_name || 'Unknown Card') + '</a>';
+        } else {
+            modalNameEl.textContent = card.card_name || 'Unknown Card';
+        }
         document.getElementById('modalSet').textContent = card.set_name || '';
         document.getElementById('modalPrice').textContent = card.market_price ? '$' + Number(card.market_price).toFixed(2) : 'No price data';
 

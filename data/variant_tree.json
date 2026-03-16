@@ -1,0 +1,436 @@
+{
+  "eras": {
+    "wotc_base": {
+      "era_number": 1,
+      "name": "WotC Classic (1999-2003)",
+      "years": "1999-2003",
+      "sets": ["base1", "base2", "base3", "base4", "base5", "base6",
+               "basep", "gym1", "gym2", "neo1", "neo2", "neo3", "neo4",
+               "ecard1", "ecard2", "ecard3", "bp", "si1"],
+      "possible_variants": {
+        "normal": {
+          "description": "Unlimited non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic pattern on artwork only",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "1st_edition": {
+          "description": "1st Edition stamp, non-holo",
+          "detection": "stamp_ocr",
+          "region": [0.02, 0.44, 0.24, 0.65],
+          "sets": ["base1", "base2", "base3", "base5", "gym1", "gym2",
+                   "neo1", "neo2", "neo3", "neo4"],
+          "notes": "Small black circle with '1' and 'EDITION' text, left side below artwork"
+        },
+        "1st_edition_holofoil": {
+          "description": "1st Edition stamp + holographic artwork",
+          "detection": "stamp_ocr+holo_detector",
+          "region": [0.02, 0.44, 0.24, 0.65],
+          "sets": ["base1", "base2", "base3", "base5", "gym1", "gym2",
+                   "neo1", "neo2", "neo3", "neo4"]
+        },
+        "unlimited": {
+          "description": "Explicitly unlimited print (no 1st Ed stamp, not shadowless)",
+          "detection": "default",
+          "sets": ["base1", "base2", "base3", "base5", "gym1", "gym2",
+                   "neo1", "neo2", "neo3", "neo4"],
+          "notes": "Same as normal for pricing; distinct for collector grading"
+        },
+        "unlimited_holofoil": {
+          "description": "Unlimited holo (no 1st Ed stamp)",
+          "detection": "holo_detector",
+          "sets": ["base1", "base2", "base3", "base5", "gym1", "gym2",
+                   "neo1", "neo2", "neo3", "neo4"]
+        },
+        "shadowless": {
+          "description": "No drop shadow on right/bottom card frame border",
+          "detection": "edge_gradient",
+          "sets": ["base1"],
+          "notes": "Only Base Set. Printed between 1st Edition and standard Unlimited runs."
+        },
+        "shadowless_holofoil": {
+          "description": "Shadowless + holographic artwork",
+          "detection": "edge_gradient+holo_detector",
+          "sets": ["base1"]
+        },
+        "reverse_holofoil": {
+          "description": "Holographic on everything except artwork (fireworks/cosmic pattern)",
+          "detection": "holo_detector",
+          "sets": ["base6", "ecard1", "ecard2", "ecard3"],
+          "notes": "Legendary Collection has unique 'fireworks' pattern. e-Card sets have 'cosmic' pattern."
+        }
+      }
+    },
+    "ex_era": {
+      "era_number": 2,
+      "name": "EX Era (2003-2007)",
+      "years": "2003-2007",
+      "sets": ["ex1", "ex2", "ex3", "ex4", "ex5", "ex6", "ex7", "ex8",
+               "ex9", "ex10", "ex11", "ex12", "ex13", "ex14", "ex15", "ex16",
+               "np", "pop1", "pop2", "pop3", "pop4", "pop5",
+               "tk1a", "tk1b", "tk2a", "tk2b"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with set logo stamp on artwork",
+          "detection": "holo_detector",
+          "sets": ["ex1", "ex2", "ex3", "ex4", "ex5", "ex6", "ex7", "ex8",
+                   "ex9", "ex10", "ex11", "ex12", "ex13", "ex14", "ex15", "ex16"],
+          "notes": "All EX main sets have reverse holo. EX Team Rocket Returns (ex7) through EX Power Keepers (ex16) have stamped set logo on artwork bottom-right."
+        },
+        "stamped": {
+          "description": "Reverse holo with set logo stamp overlaid on card art",
+          "detection": "stamped_detector",
+          "stamp_region": [0.55, 0.35, 0.88, 0.55],
+          "sets": ["ex7", "ex8", "ex9", "ex10", "ex11", "ex12", "ex13", "ex14", "ex15", "ex16"],
+          "notes": "EX Team Rocket Returns through EX Power Keepers. Stamp is set logo in bottom-right of artwork area. This is a sub-type of reverse_holofoil in pricing (same TCGCSV subtype) but visually distinct and collectible."
+        }
+      }
+    },
+    "dp_era": {
+      "era_number": 3,
+      "name": "Diamond & Pearl (2007-2010)",
+      "years": "2007-2010",
+      "sets": ["dp1", "dp2", "dp3", "dp4", "dp5", "dp6", "dp7",
+               "dpp", "pl1", "pl2", "pl3", "pl4",
+               "pop6", "pop7", "pop8", "pop9"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo on entire card except artwork, non-patterned rainbow sheen",
+          "detection": "holo_detector",
+          "sets": ["dp1", "dp2", "dp3", "dp4", "dp5", "dp6", "dp7",
+                   "pl1", "pl2", "pl3", "pl4"],
+          "notes": "No set logo stamp. Clean rainbow holographic sheen on border/text areas."
+        }
+      }
+    },
+    "hgss_era": {
+      "era_number": 4,
+      "name": "HeartGold SoulSilver (2010-2011)",
+      "years": "2010-2011",
+      "sets": ["hgss1", "hgss2", "hgss3", "hgss4", "hsp", "col1", "ru1"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo, vertical rainbow pattern on border/text",
+          "detection": "holo_detector",
+          "sets": ["hgss1", "hgss2", "hgss3", "hgss4", "col1"],
+          "notes": "Continues the DP-era clean rainbow sheen style. LEGEND cards are holo-only (no reverse)."
+        }
+      }
+    },
+    "bw_era": {
+      "era_number": 5,
+      "name": "Black & White (2011-2013)",
+      "years": "2011-2013",
+      "sets": ["bw1", "bw2", "bw3", "bw4", "bw5", "bw6", "bw7", "bw8",
+               "bw9", "bw10", "bw11", "bwp", "dv1", "dc1"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with type-colored tinsel pattern (horizontal stripes)",
+          "detection": "holo_detector",
+          "sets": ["bw1", "bw2", "bw3", "bw4", "bw5", "bw6", "bw7", "bw8",
+                   "bw9", "bw10", "bw11"],
+          "notes": "BW Base Set has plain type-colored sheen. BW2+ have type symbol pattern. Legendary Treasures (bw11) included Radiant Collection subset."
+        },
+        "full_art": {
+          "description": "Full art EX cards, artwork extends to card edges",
+          "detection": "full_art_detector",
+          "sets": ["bw1", "bw2", "bw3", "bw4", "bw5", "bw6", "bw7", "bw8",
+                   "bw9", "bw10", "bw11"],
+          "notes": "First era with full art cards. Pokemon-EX full arts and full art Supporters introduced."
+        }
+      }
+    },
+    "xy_era": {
+      "era_number": 6,
+      "name": "XY (2014-2016)",
+      "years": "2014-2016",
+      "sets": ["xy0", "xy1", "xy2", "xy3", "xy4", "xy5", "xy6", "xy7",
+               "xy8", "xy9", "xy10", "xy11", "xy12", "xyp", "g1",
+               "me1", "me2", "me2pt5"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with type symbol pattern (same style as BW era)",
+          "detection": "holo_detector",
+          "sets": ["xy1", "xy2", "xy3", "xy4", "xy5", "xy6", "xy7",
+                   "xy8", "xy9", "xy10", "xy11", "xy12", "g1"],
+          "notes": "Continues BW-era type symbol pattern. Evolutions (xy12) has unique holo style as a throwback."
+        },
+        "full_art": {
+          "description": "Full art EX/BREAK/Mega cards, artwork extends to edges",
+          "detection": "full_art_detector",
+          "sets": ["xy1", "xy2", "xy3", "xy4", "xy5", "xy6", "xy7",
+                   "xy8", "xy9", "xy10", "xy11", "xy12", "g1"],
+          "notes": "Pokemon-EX, Mega EX, and BREAK full arts. Also full art Supporters and Items."
+        }
+      }
+    },
+    "sm_era": {
+      "era_number": 7,
+      "name": "Sun & Moon (2017-2019)",
+      "years": "2017-2019",
+      "sets": ["sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6", "sm7",
+               "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12",
+               "smp", "sma", "det1", "mcd18", "mcd19"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with type symbol rows and large type symbol bottom-right",
+          "detection": "holo_detector",
+          "sets": ["sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6", "sm7",
+                   "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12"],
+          "notes": "Distinctive pattern: horizontal rows of type symbols with one large symbol in bottom-right corner."
+        },
+        "full_art": {
+          "description": "Full art GX/Ultra Beast/Tag Team/Trainer cards",
+          "detection": "full_art_detector",
+          "sets": ["sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6", "sm7",
+                   "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12"]
+        },
+        "gold": {
+          "description": "Gold/secret rare - entire card dominated by gold hue including borders",
+          "detection": "gold_detector",
+          "sets": ["sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6", "sm7",
+                   "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12"],
+          "notes": "First era with gold secret rares. Gold energy cards, gold Pokemon-GX, gold trainer items."
+        },
+        "rainbow_rare": {
+          "description": "Rainbow rare - high saturation across multiple hue peaks, rainbow texture",
+          "detection": "rainbow_detector",
+          "sets": ["sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6", "sm7",
+                   "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12"],
+          "notes": "Hyper Rare / Rainbow Rare cards. Full art with rainbow foil texture across entire card."
+        }
+      }
+    },
+    "swsh_era": {
+      "era_number": 8,
+      "name": "Sword & Shield (2020-2022)",
+      "years": "2020-2022",
+      "sets": ["swsh1", "swsh2", "swsh3", "swsh35", "swsh4", "swsh45", "swsh45sv",
+               "swsh5", "swsh6", "swsh7", "swsh8", "swsh9", "swsh9tg",
+               "swsh10", "swsh10tg", "swsh11", "swsh11tg", "swsh12", "swsh12tg",
+               "swsh12pt5", "swsh12pt5gg", "swshp",
+               "cel25", "cel25c", "pgo", "fut20", "mcd21", "mcd22"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork",
+          "detection": "holo_detector",
+          "sets": "all"
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with chevron/type symbol pattern",
+          "detection": "holo_detector",
+          "sets": ["swsh1", "swsh2", "swsh3", "swsh35", "swsh4", "swsh45",
+                   "swsh5", "swsh6", "swsh7", "swsh8", "swsh9", "swsh10",
+                   "swsh11", "swsh12", "swsh12pt5", "pgo"],
+          "notes": "Upward-facing chevrons containing type symbol repeated across card. Criticized for making text hard to read."
+        },
+        "full_art": {
+          "description": "Full art V/VMAX/VSTAR/Alt art cards",
+          "detection": "full_art_detector",
+          "sets": ["swsh1", "swsh2", "swsh3", "swsh35", "swsh4", "swsh45",
+                   "swsh5", "swsh6", "swsh7", "swsh8", "swsh9",
+                   "swsh10", "swsh11", "swsh12", "swsh12pt5"],
+          "notes": "V, VMAX, VSTAR full arts. Alt art variants (alternate illustration V/VMAX) are highly valued."
+        },
+        "gold": {
+          "description": "Gold/secret rare cards",
+          "detection": "gold_detector",
+          "sets": ["swsh1", "swsh2", "swsh3", "swsh4", "swsh5", "swsh6",
+                   "swsh7", "swsh8", "swsh9", "swsh10", "swsh11", "swsh12",
+                   "swsh12pt5"]
+        },
+        "rainbow_rare": {
+          "description": "Rainbow rare / Hyper Rare cards",
+          "detection": "rainbow_detector",
+          "sets": ["swsh1", "swsh2", "swsh3", "swsh4", "swsh5", "swsh6",
+                   "swsh7", "swsh8", "swsh9", "swsh10", "swsh11", "swsh12",
+                   "swsh12pt5"]
+        }
+      }
+    },
+    "sv_era": {
+      "era_number": 9,
+      "name": "Scarlet & Violet (2023+)",
+      "years": "2023-present",
+      "sets": ["sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5", "sv5", "sv6",
+               "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9", "sv10",
+               "sve", "svp", "rsv10pt5", "zsv10pt5"],
+      "possible_variants": {
+        "normal": {
+          "description": "Non-holo print",
+          "detection": "default",
+          "sets": "all"
+        },
+        "holofoil": {
+          "description": "Holographic artwork (cosmos holo pattern on rares)",
+          "detection": "holo_detector",
+          "sets": "all",
+          "notes": "SV rares use cosmos holo pattern by default. Different from traditional holo."
+        },
+        "reverse_holofoil": {
+          "description": "Reverse holo with type-specific pattern (lightning bolts, leaves, etc.)",
+          "detection": "holo_detector",
+          "sets": ["sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5", "sv5", "sv6",
+                   "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9", "sv10"],
+          "notes": "Type-specific patterns: Lightning type has lightning bolts, Grass has leaves, etc. Pebble-like shapes with type symbol in circle."
+        },
+        "full_art": {
+          "description": "Illustration Rare / Special Illustration Rare / Art Rare cards",
+          "detection": "full_art_detector",
+          "sets": ["sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5", "sv5", "sv6",
+                   "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9", "sv10"],
+          "notes": "Illustration Rare (single gold star): Pokemon in natural environments. Special Illustration Rare (double gold star): chase cards with glitter foil. Special Art Rare for ex and Supporters."
+        },
+        "gold": {
+          "description": "Hyper Rare / gold-bordered secret rare cards",
+          "detection": "gold_detector",
+          "sets": ["sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5", "sv5", "sv6",
+                   "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9", "sv10"],
+          "notes": "Triple gold star rarity. Full-art foil with gilded borders and accents."
+        },
+        "rainbow_rare": {
+          "description": "Rainbow rare cards (less common in SV than SM/SWSH)",
+          "detection": "rainbow_detector",
+          "sets": ["sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5", "sv5", "sv6",
+                   "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9", "sv10"],
+          "notes": "Less common in SV era. Some sets may not include rainbow rares."
+        }
+      }
+    }
+  },
+  "stamped_sets": {
+    "description": "Sets where reverse holo cards have a set logo stamp overlaid on the card artwork. The stamp appears in the bottom-right area of the artwork window.",
+    "detection_method": "stamped_detector",
+    "stamp_region_normalized": [0.55, 0.35, 0.88, 0.55],
+    "sets": {
+      "ex7":  {"name": "EX Team Rocket Returns", "stamp_text": "TEAM ROCKET"},
+      "ex8":  {"name": "EX Deoxys", "stamp_text": "DEOXYS"},
+      "ex9":  {"name": "EX Emerald", "stamp_text": "EMERALD"},
+      "ex10": {"name": "EX Unseen Forces", "stamp_text": "UNSEEN FORCES"},
+      "ex11": {"name": "EX Delta Species", "stamp_text": "DELTA SPECIES"},
+      "ex12": {"name": "EX Legend Maker", "stamp_text": "LEGEND MAKER"},
+      "ex13": {"name": "EX Holon Phantoms", "stamp_text": "HOLON PHANTOMS"},
+      "ex14": {"name": "EX Crystal Guardians", "stamp_text": "CRYSTAL GUARDIANS"},
+      "ex15": {"name": "EX Dragon Frontiers", "stamp_text": "DRAGON FRONTIERS"},
+      "ex16": {"name": "EX Power Keepers", "stamp_text": "POWER KEEPERS"}
+    },
+    "notes": "EX Ruby & Sapphire (ex1) through EX FireRed & LeafGreen (ex6) did NOT have stamped reverse holos. The stamp was introduced with EX Team Rocket Returns (ex7). All reverse holos in stamped sets have the stamp; it is not a separate pricing variant but a visual sub-type of reverse_holofoil."
+  },
+  "detection_methods": {
+    "default": {
+      "description": "No detection needed; card is normal if no other variant detected",
+      "module": null
+    },
+    "holo_detector": {
+      "description": "HSV hue spread + spatial noise analysis to detect holographic prismatic reflections",
+      "module": "variant_detector",
+      "function": "detect_variant",
+      "notes": "Distinguishes holo (art only) vs reverse holo (border only) by comparing signal in art vs border regions"
+    },
+    "stamp_ocr": {
+      "description": "PaddleOCR on stamp region looking for '1st' and 'edition' text + circular blob detection",
+      "module": "variant_detector",
+      "function": "_check_1st_edition",
+      "region_format": "[x0, y0, x1, y1] as fractions of card dimensions"
+    },
+    "stamped_detector": {
+      "description": "Detect EX-era set logo stamp on reverse holo card artwork using OCR + template matching",
+      "module": "variant_detector",
+      "function": "detect_stamped",
+      "notes": "Stamp is semi-transparent set logo in bottom-right of artwork. Uses OCR to read stamp text and match against known set names."
+    },
+    "edge_gradient": {
+      "description": "Right/bottom border gradient analysis to detect shadowless cards (no drop shadow)",
+      "module": "variant_detector",
+      "function": "detect_variant",
+      "notes": "Shadowless cards lack the dark gradient on right and bottom card edges that standard Unlimited prints have"
+    },
+    "full_art_detector": {
+      "description": "Edge strip analysis: high saturation + hue variance in outer 5% strip indicates artwork extends to borders",
+      "module": "variant_detector",
+      "function": "detect_variant",
+      "notes": "Requires 3/4 edge strips passing. Era-gated to era 5+ (BW onward)."
+    },
+    "gold_detector": {
+      "description": "HSV analysis for gold-dominant color (hue 15-45) covering >40% of card surface",
+      "module": "variant_detector",
+      "function": "detect_variant",
+      "notes": "Era-gated to era 7+ (SM onward)"
+    },
+    "rainbow_detector": {
+      "description": "High saturation spread across 4+ of 6 hue segments indicates rainbow foil",
+      "module": "variant_detector",
+      "function": "detect_variant",
+      "notes": "Era-gated to era 7+ (SM onward)"
+    }
+  }
+}
