@@ -581,6 +581,21 @@ input[type=file] { display: none; }
 }
 .modal-meta-row .label { color: var(--text-dim); }
 .modal-meta-row .value { font-weight: 600; }
+
+.variant-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+.variant-badge.stamped { background: #9b59b6; color: #fff; }
+.variant-badge.first-edition { background: #f1c40f; color: #333; }
+.variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
+.variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
 .modal-close {
     display: block;
     width: 100%;
@@ -699,6 +714,10 @@ input[type=file] { display: none; }
             <div class="modal-meta-row">
                 <span class="label">Confidence</span>
                 <span class="value" id="modalConfidence">--</span>
+            </div>
+            <div class="modal-meta-row" id="modalVariantRow" style="display:none">
+                <span class="label">Variant</span>
+                <span class="value" id="modalVariant">--</span>
             </div>
         </div>
         <button class="modal-close" onclick="closeModal()">Close</button>
@@ -1059,6 +1078,8 @@ function drawQR(canvasId,text,cellSize){
             method: data.method || null,
             condition_prices: data.condition_prices || null,
             tcgplayer_url: data.tcgplayer_url || null,
+            variant: data.variant || null,
+            variant_confidence: data.variant_confidence || null,
         };
     }
 
@@ -1307,6 +1328,12 @@ function drawQR(canvasId,text,cellSize){
             } else {
                 nameDiv.textContent = card.card_name || 'Unknown';
             }
+            if (card.variant && card.variant !== 'normal') {
+                var badge = document.createElement('span');
+                badge.className = 'variant-badge ' + card.variant.toLowerCase().replace(/\s+/g, '-').replace(/1st-edition/, 'first-edition');
+                badge.textContent = card.variant;
+                nameDiv.appendChild(badge);
+            }
             infoLeft.appendChild(nameDiv);
 
             var setDiv = document.createElement('div');
@@ -1489,6 +1516,17 @@ function drawQR(canvasId,text,cellSize){
         document.getElementById('modalCardId').textContent = card.card_id || '--';
         document.getElementById('modalMethod').textContent = card.method || '--';
         document.getElementById('modalConfidence').textContent = card.confidence ? (Math.round(card.confidence * 100) + '%') : '--';
+
+        // Variant
+        var variantRow = document.getElementById('modalVariantRow');
+        if (card.variant && card.variant !== 'normal') {
+            variantRow.style.display = '';
+            var varText = card.variant;
+            if (card.variant_confidence) varText += ' (' + Math.round(card.variant_confidence * 100) + '%)';
+            document.getElementById('modalVariant').textContent = varText;
+        } else {
+            variantRow.style.display = 'none';
+        }
     };
 
     window.closeModal = function() {

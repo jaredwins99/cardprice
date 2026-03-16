@@ -564,7 +564,8 @@ function handlePageFile(file) {
             var html = '<div style="display:grid;grid-template-columns:repeat(' + numCols + ',1fr);gap:8px;max-width:600px;margin:12px auto;">';
             for (var i = 0; i < cards.length; i++) {
                 var c = cards[i];
-                var price = c.market_price ? parseFloat(c.market_price) : 0;
+                var displayPrice = c.variant_price || c.market_price;
+                var price = displayPrice ? parseFloat(displayPrice) : 0;
                 total += price;
                 var imgSrc = c.local_image_url || c.image_url || '';
                 html += '<div style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;">';
@@ -575,8 +576,11 @@ function handlePageFile(file) {
                 }
                 html += '<div style="padding:6px 4px;">';
                 html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.card_name || 'Unknown') + '</div>';
-                if (c.market_price) {
-                    html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(c.market_price).toFixed(2) + '</div>';
+                if (displayPrice) {
+                    html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+                    if (c.variant_price && c.detected_variant && c.detected_variant !== 'normal') {
+                        html += '<div style="font-size:10px;color:#f0c040;">' + c.detected_variant.replace(/_/g, ' ') + '</div>';
+                    }
                     if (c.condition_prices) {
                         var lp = c.condition_prices.LP;
                         if (lp) html += '<div style="font-size:10px;color:#a8d8a8;">LP $' + lp.price.toFixed(2) + '</div>';
@@ -1473,6 +1477,16 @@ class ScanHandler(BaseHTTPRequestHandler):
                     col = idx % num_cols
                     # Build URL for the segmented card image
                     seg_rel = str(Path(card_img_path).relative_to(UPLOAD_DIR))
+                    # Map detected variant to fact_market_prices subtype_name
+                    _VARIANT_TO_SUBTYPE = {
+                        "stamped": "Reverse Holofoil",
+                        "reverse_holo": "Reverse Holofoil",
+                        "holofoil": "Holofoil",
+                        "1st_edition": "1st Edition Holofoil",
+                        "normal": "Normal",
+                    }
+                    detected_variant = result.get("detected_variant", "normal")
+
                     card_data = {
                         "position": idx,
                         "row": row,
@@ -1480,8 +1494,11 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "card_id": result["card_id"],
                         "confidence": result["confidence"],
                         "method": result["method"],
+                        "detected_variant": detected_variant,
+                        "variant_confidence": result.get("variant_confidence"),
                         "card_name": None,
                         "market_price": None,
+                        "variant_price": None,
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
@@ -1499,6 +1516,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 LEFT JOIN LATERAL (
                                     SELECT market_price FROM fact_market_prices
                                     WHERE card_id = c.card_id
+                                      AND subtype_name = 'Normal'
                                     ORDER BY price_date DESC LIMIT 1
                                 ) p ON true
                                 WHERE c.card_id = :cid
@@ -1515,11 +1533,29 @@ class ScanHandler(BaseHTTPRequestHandler):
                             if row.tcg_product_id:
                                 card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
 
-                            if row.market_price:
+                            # Look up variant-specific price if variant is not normal
+                            if detected_variant != "normal":
+                                subtype = _VARIANT_TO_SUBTYPE.get(detected_variant)
+                                if subtype:
+                                    vrow = session.execute(
+                                        sql_text("""
+                                            SELECT market_price FROM fact_market_prices
+                                            WHERE card_id = :cid
+                                              AND subtype_name = :subtype
+                                            ORDER BY price_date DESC LIMIT 1
+                                        """),
+                                        {"cid": result["card_id"], "subtype": subtype},
+                                    ).fetchone()
+                                    if vrow and vrow.market_price:
+                                        card_data["variant_price"] = float(vrow.market_price)
+
+                            # Use variant_price for condition pricing if available, else market_price
+                            price_for_conditions = card_data["variant_price"] or card_data["market_price"]
+                            if price_for_conditions:
                                 from cardprice.models.condition_pricing import (
                                     CONDITION_MULTIPLIERS_WITH_CI,
                                 )
-                                nm = float(row.market_price)
+                                nm = price_for_conditions
                                 cond_prices = {}
                                 for cond in ("NM", "LP", "MP", "HP", "DMG"):
                                     mult, _, _ = CONDITION_MULTIPLIERS_WITH_CI[cond]
@@ -1535,7 +1571,11 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e), "cards": []}, status=500)
             return
 
-        total_value = sum(c["market_price"] for c in cards if c["market_price"])
+        total_value = sum(
+            (c["variant_price"] or c["market_price"])
+            for c in cards
+            if (c["variant_price"] or c["market_price"])
+        )
         self._send_json({
             "status": "ok",
             "cards": cards,

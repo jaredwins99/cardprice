@@ -230,19 +230,22 @@ _ERA_VARIANT_ALLOWED = {
 }
 
 
-def _apply_variant_detection(result, image_path):
+def _apply_variant_detection(result, image_path, detect_variants=True):
     """Apply variant detection to a v2 result dict (in-place).
 
-    Detects variant via OpenCV heuristics (~50ms), applies era gating,
-    attempts card_id remapping (currently all DB rows are /normal, so
-    remapping always falls back to original), and stores detection info
-    in the result dict for future use.
+    Uses variant_tree to determine which checks are relevant for the card's
+    set/era, then runs the appropriate detectors:
+      - OpenCV heuristics (variant_detector.detect_variant) for holo/reverse/etc.
+      - Stamp classifier (stamp_classifier.classify_stamp) for EX-era stamped cards
+      - 1st Edition OCR detection (built into variant_detector)
 
-    Safe to call on any result -- silently skips if card_id is None or
-    if detection fails for any reason.
+    Falls back gracefully if any detector or model is unavailable.
+
+    Safe to call on any result -- silently skips if card_id is None,
+    detect_variants is False, or if detection fails for any reason.
     """
     card_id = result.get("card_id")
-    if not card_id:
+    if not card_id or not detect_variants:
         return
 
     try:
@@ -250,16 +253,89 @@ def _apply_variant_detection(result, image_path):
         from cardprice.ml.era_detector import get_card_era
 
         era = get_card_era(card_id)
+        checks_run = []
+
+        # --- Determine possible variants via variant_tree ---
+        possible_variants = ["normal", "holofoil"]
+        try:
+            from cardprice.ml.variant_tree import get_possible_variants
+            possible_variants = get_possible_variants(card_id)
+        except Exception as e:
+            logger.debug("variant_tree lookup failed, using defaults: %s", e)
+
+        # If the only possibilities are "normal" and "holofoil" (most modern
+        # cards), we can still run the base detector but skip specialized checks.
+        has_specialized = any(
+            v not in ("normal", "holofoil") for v in possible_variants
+        )
+
+        # --- Base variant detection (OpenCV heuristics) ---
         variant = detect_variant(image_path, era=era, card_id=card_id)
         confidence = 1.0  # placeholder; detect_variant doesn't return confidence
+        checks_run.append("variant_detector")
 
-        # Era gating: override to "normal" if variant is invalid for this era
+        # --- Stamp classifier: run for stamped-eligible sets ---
+        stamp_result = None
+        if has_specialized and any(
+            v in ("reverse_holofoil",) for v in possible_variants
+        ):
+            # Check if this is a stamped-eligible set (EX era ex7-ex16)
+            try:
+                from cardprice.ml.variant_tree import is_stamped_set
+                bare_id = card_id.split("/")[0]
+                set_id = bare_id.rsplit("-", 1)[0] if "-" in bare_id else bare_id
+                if is_stamped_set(set_id):
+                    try:
+                        from cardprice.ml.stamp_classifier import classify_stamp
+                        stamp_result = classify_stamp(image_path)
+                        checks_run.append("stamp_classifier")
+                        if stamp_result.get("stamped"):
+                            # Stamp classifier says stamped — override to
+                            # reverse_holofoil (stamped cards are priced as
+                            # reverse holo) and use classifier confidence.
+                            variant = "reverse_holofoil"
+                            confidence = stamp_result["confidence"]
+                            logger.info(
+                                "stamp classifier: stamped=True (conf=%.3f) "
+                                "for %s, overriding variant to reverse_holofoil",
+                                confidence, card_id,
+                            )
+                    except FileNotFoundError:
+                        logger.debug(
+                            "stamp classifier model not found, skipping"
+                        )
+                    except Exception as e:
+                        logger.debug("stamp classifier failed: %s", e)
+            except Exception as e:
+                logger.debug("stamped set check failed: %s", e)
+
+        # --- 1st Edition detection ---
+        # Already handled inside detect_variant() for eligible sets,
+        # just record that the check was run.
+        if "1st_edition" in possible_variants or "1st_edition_holofoil" in possible_variants:
+            if "1st_edition_ocr" not in checks_run:
+                checks_run.append("1st_edition_ocr")
+
+        # --- Note reverse holo possibility (can't fully detect from binder scans) ---
+        if "reverse_holofoil" in possible_variants:
+            if "reverse_holo_check" not in checks_run:
+                checks_run.append("reverse_holo_check")
+
+        # --- Era gating: override to "normal" if variant is invalid for this era ---
         allowed = _ERA_VARIANT_ALLOWED.get(era, {"normal", "holofoil", "reverse_holofoil"})
         if variant not in allowed:
             logger.debug("variant %s not allowed for era %d, overriding to normal", variant, era)
             variant = "normal"
 
-        # Attempt card_id remapping (for future when variant rows exist)
+        # Also gate against variant_tree's possible variants for this set
+        if variant not in possible_variants and variant != "normal":
+            logger.debug(
+                "variant %s not in possible_variants %s for %s, overriding to normal",
+                variant, possible_variants, card_id,
+            )
+            variant = "normal"
+
+        # --- Attempt card_id remapping (for future when variant rows exist) ---
         if variant != "normal":
             base_id = card_id.rsplit("/", 1)[0]
             remapped_id = f"{base_id}/{variant}"
@@ -284,6 +360,9 @@ def _apply_variant_detection(result, image_path):
 
         result["detected_variant"] = variant
         result["variant_confidence"] = confidence
+        result["variant_checks_run"] = checks_run
+        if stamp_result is not None:
+            result["stamp_result"] = stamp_result
     except Exception as e:
         logger.debug("variant detection failed: %s", e)
 
@@ -3689,7 +3768,8 @@ def _is_card_back(image_path: str) -> bool:
 
 def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=None,
                      _precomputed_dino_embedding=None, _precomputed_attacks=None,
-                     _precomputed_clip_embedding=None, _precomputed_easyocr_name=None):
+                     _precomputed_clip_embedding=None, _precomputed_easyocr_name=None,
+                     detect_variants=True):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -3717,9 +3797,13 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             When provided, skips GPU DINOv2 extraction (used for batch processing).
         _precomputed_attacks: Optional pre-computed attack OCR results.
             When provided, skips EasyOCR attack extraction.
+        detect_variants: Whether to run variant detection after identification
+            (default True).  Set False to skip variant classification entirely.
 
     Returns:
         Dict with keys: card_id, confidence, method, explanation, raw_response.
+        When detect_variants is True, may also include:
+            detected_variant, variant_confidence, variant_checks_run.
     """
     image_path = str(image_path)
 
@@ -3943,7 +4027,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         "dino_sanity": dino_score,
                     },
                 }
-                _apply_variant_detection(result, image_path)
+                _apply_variant_detection(result, image_path, detect_variants=detect_variants)
                 _cache_store(cache_key, result)
                 return result
             else:
@@ -4028,7 +4112,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                                     "will also try attack path",
                                     best_detail['dino_score'], ocr_conf)
                     else:
-                        _apply_variant_detection(ref_match_result, image_path)
+                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                 else:
@@ -4210,7 +4294,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     if best_alt:
         logger.info("v2: %s (%.3f) > ensemble (%.3f)",
                      best_alt["method"], best_alt_conf, fallback_conf)
-        _apply_variant_detection(best_alt, image_path)
+        _apply_variant_detection(best_alt, image_path, detect_variants=detect_variants)
         _cache_store(cache_key, best_alt)
         return best_alt
 
@@ -4250,7 +4334,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     }
     fallback["raw_response"] = raw
 
-    _apply_variant_detection(fallback, image_path)
+    _apply_variant_detection(fallback, image_path, detect_variants=detect_variants)
     _cache_store(cache_key, fallback)
     return fallback
 
