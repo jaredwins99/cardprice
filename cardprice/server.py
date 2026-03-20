@@ -1516,8 +1516,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 LEFT JOIN LATERAL (
                                     SELECT market_price FROM fact_market_prices
                                     WHERE card_id = c.card_id
-                                      AND subtype_name = 'Normal'
-                                    ORDER BY price_date DESC LIMIT 1
+                                    ORDER BY
+                                        CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                                        price_date DESC
+                                    LIMIT 1
                                 ) p ON true
                                 WHERE c.card_id = :cid
                             """),
