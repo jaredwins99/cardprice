@@ -286,8 +286,10 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                 set_id = bare_id.rsplit("-", 1)[0] if "-" in bare_id else bare_id
                 if is_stamped_set(set_id):
                     try:
-                        from cardprice.ml.stamp_classifier import classify_stamp
-                        stamp_result = classify_stamp(image_path)
+                        from cardprice.ml.stamp_classifier import classify_stamp_region
+                        stamp_result = classify_stamp_region(
+                            image_path, card_id=card_id, set_id=set_id
+                        )
                         checks_run.append("stamp_classifier")
                         if stamp_result.get("stamped"):
                             # Stamp classifier says stamped — override to
@@ -296,9 +298,12 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                             variant = "reverse_holofoil"
                             confidence = stamp_result["confidence"]
                             logger.info(
-                                "stamp classifier: stamped=True (conf=%.3f) "
-                                "for %s, overriding variant to reverse_holofoil",
-                                confidence, card_id,
+                                "stamp classifier: stamped=True (conf=%.3f, "
+                                "method=%s) for %s, overriding variant to "
+                                "reverse_holofoil",
+                                confidence,
+                                stamp_result.get("method", "unknown"),
+                                card_id,
                             )
                     except FileNotFoundError:
                         logger.debug(
