@@ -1597,6 +1597,80 @@ def _check_prerelease(img_bgr: np.ndarray, set_id: str = "",
         return _check_prerelease_text(img_bgr)
 
 
+def _check_build_battle_stamp(img_bgr: np.ndarray, set_id: str,
+                               era: int) -> dict:
+    """Check for Build & Battle stamp (SWSH/SV era SVP promos).
+
+    Build & Battle box promos have a pokeball + trainer silhouette stamp
+    on the artwork bottom-right, similar in position to prerelease stamps.
+    Many also read as "PRERELEASE" via OCR since the stamp text is similar.
+
+    Detection strategy:
+      1. Multi-preprocessing OCR on the stamp region for "BUILD" / "BATTLE" text.
+      2. Fallback: check if the prerelease detector fires (Build & Battle stamps
+         often contain "PRERELEASE" text alongside the icon).
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (typically 'svp').
+        era: Era number (8 = SWSH, 9 = SV).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    regions = STAMP_REGIONS["build_battle"]
+    result_base = {
+        "detected": False, "confidence": 0.0,
+        "position": "artwork_bottom_right",
+    }
+
+    wide = _extract_region(img_bgr, *regions["wide"])
+    if wide.size == 0:
+        return result_base
+
+    # Multi-preprocessing OCR for stamp text
+    ocr_results = _ocr_region_multi(wide, scale=3)
+
+    for text, conf, strategy in ocr_results:
+        lower = text.strip().lower()
+
+        # Look for "build" and/or "battle" text
+        has_build = "build" in lower
+        has_battle = "battle" in lower
+
+        if has_build and has_battle:
+            return {
+                "detected": True, "confidence": 0.90,
+                "position": "artwork_bottom_right",
+                "evidence": "ocr_build_battle",
+                "ocr_text": text,
+                "ocr_strategy": strategy,
+            }
+
+        if has_build or has_battle:
+            return {
+                "detected": True, "confidence": 0.75,
+                "position": "artwork_bottom_right",
+                "evidence": "ocr_partial_build_battle",
+                "ocr_text": text,
+                "ocr_strategy": strategy,
+            }
+
+    # Fallback: check if prerelease detector fires (many Build & Battle
+    # stamps are functionally the same as prerelease stamps for pricing)
+    prerelease_result = _check_prerelease(img_bgr, set_id, era)
+    if prerelease_result.get("detected"):
+        return {
+            "detected": True,
+            "confidence": max(0.65, prerelease_result["confidence"] - 0.10),
+            "position": "artwork_bottom_right",
+            "evidence": "prerelease_proxy",
+            "ocr_text": prerelease_result.get("ocr_text", ""),
+        }
+
+    return result_base
+
+
 def _check_staff_stamp(img_bgr: np.ndarray, set_id: str, era: int) -> dict:
     """Detect STAFF stamp on prerelease cards.
 
@@ -2516,10 +2590,38 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     if set_id in _PRERELEASE_TEXT_SETS or set_id in _PRERELEASE_LOGO_SETS:
         checks.append("prerelease")
 
+    # Staff stamp: check proactively alongside prerelease (era 3+ = DP onward)
+    # Staff stamps only exist on prerelease event cards, but we check
+    # proactively rather than conditionally after prerelease detection to
+    # ensure they appear in stamps_checked for transparency.
+    if era >= 3 or set_id in _PRERELEASE_TEXT_SETS:
+        checks.append("staff_stamp")
+
+    # === P2: Moderate-impact ===
+
+    # EX-era set logo stamp on reverse holos (already added above for ex_set_stamp)
+
+    # === P3: Holo variants (best-effort, lighting-dependent) ===
+
+    # Holo finish detection (artwork area holographic signal)
+    if era >= 1 or era == 0:
+        checks.append("holo_finish")
+
+    # Reverse holo detection (body area holographic signal, era 2+ only)
+    if era >= 2 or era == 0:
+        checks.append("reverse_holo")
+
+    # === SV-specific stamps ===
+
+    # Build & Battle stamp (SV era SVP promos)
+    if set_id == "svp" and (era >= 8 or era == 0):
+        checks.append("build_battle")
+
     # Pokemon Center exclusive stamp (SVP promos, SWSH/SV era)
     if set_id == "svp":
         checks.append("pokemon_center")
 
+    # === Special error variants ===
 
     # Jungle no-symbol error: base2 holos only
     # Extract variant/rarity from card_id (e.g. "base2-4/holofoil" -> "holofoil")
@@ -2527,7 +2629,16 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         variant = card_id.split("/", 1)[1] if "/" in card_id else ""
         if "holo" in variant.lower():
             checks.append("no_symbol_error")
-    return checks
+
+    # Deduplicate while preserving priority order
+    seen = set()
+    deduped = []
+    for c in checks:
+        if c not in seen:
+            seen.add(c)
+            deduped.append(c)
+
+    return deduped
 
 
 
@@ -2718,6 +2829,38 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
     logger.debug("Checking %d stamp types for %s (era=%d, set=%s): %s",
                  len(stamps_to_check), card_id, era, set_id, stamps_to_check)
 
+    # Cache holo detector result to avoid running the expensive analysis
+    # twice when both holo_finish and reverse_holo are checked.
+    _holo_cache: dict = {}
+
+    def _holo_finish_as_dict(img_bgr):
+        """Wrap _check_holo_finish (returns tuple) into a dict for dispatch."""
+        if "result" not in _holo_cache:
+            finish, conf = _check_holo_finish(img_bgr, set_id, era)
+            _holo_cache["result"] = (finish, conf)
+        finish, conf = _holo_cache["result"]
+        return {
+            "detected": finish == "holofoil",
+            "confidence": conf,
+            "position": "artwork",
+            "evidence": "holo_detector",
+            "holo_type": finish,
+        }
+
+    def _reverse_holo_as_dict(img_bgr):
+        """Wrap _check_reverse_holo (returns tuple) into a dict for dispatch."""
+        if "rev_result" not in _holo_cache:
+            label, conf = _check_reverse_holo(img_bgr, set_id, era)
+            _holo_cache["rev_result"] = (label, conf)
+        label, conf = _holo_cache["rev_result"]
+        return {
+            "detected": label == "reverse_holo",
+            "confidence": conf,
+            "position": "body",
+            "evidence": "reverse_holo_detector",
+            "holo_type": label,
+        }
+
     # Dispatch to appropriate checker
     _STAMP_CHECKERS = {
         "1st_edition": lambda img_bgr: _check_1st_edition(img_bgr),
@@ -2731,10 +2874,14 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         "retailer_stamp": lambda img_bgr: _check_retailer_stamp(img_bgr, set_id, era),
         "prerelease": lambda img_bgr: _check_prerelease(img_bgr, set_id, era),
         "staff_stamp": lambda img_bgr: _check_staff_stamp(img_bgr, set_id, era),
+        "build_battle": lambda img_bgr: _check_build_battle_stamp(img_bgr, set_id, era),
+        "holo_finish": _holo_finish_as_dict,
+        "reverse_holo": _reverse_holo_as_dict,
         "no_symbol_error": lambda img_bgr: _check_no_symbol_error_as_stamp(
             img_bgr, set_id,
             card_id.split("/", 1)[1] if "/" in card_id else "",
         ),
+        "crosshatch_holo": lambda img_bgr: _check_crosshatch_holo(img_bgr, set_id, era),
     }
 
     for stamp_type in stamps_to_check:
@@ -2764,6 +2911,9 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
                     stamp_info["thickness_confidence"] = detail.get(
                         "thickness_confidence", 0.0,
                     )
+                # Include holo_type for holo_finish / reverse_holo checks
+                if "holo_type" in detail:
+                    stamp_info["holo_type"] = detail["holo_type"]
                 result["stamp_details"][stamp_type] = stamp_info
                 logger.info("Stamp detected: %s on %s (conf=%.2f, evidence=%s%s)",
                             stamp_type, card_id, detail["confidence"],
