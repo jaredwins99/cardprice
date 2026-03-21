@@ -461,29 +461,31 @@ input[type=file] { display: none; }
     font-size: 14px;
 }
 
-/* Condition prices row */
-.cond-prices {
-    display: flex;
-    gap: 2px;
+/* Condition prices (2 rows: LP+MP then HP+DMG, no NM duplicate) */
+.cond-prices-wrap {
     padding: 0 12px 8px;
     font-size: 10px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
-.cond-prices .cp {
+.cond-row {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 2px;
+}
+.cond-row .cp {
     flex: 1;
     text-align: center;
     padding: 3px 0;
     border-radius: 3px;
     background: rgba(255,255,255,0.04);
 }
-.cond-prices .cp .cl { opacity: 0.5; font-size: 9px; display: block; }
-.cond-prices .cp.nm { color: #4ecca3; }
-.cond-prices .cp.lp { color: #a8d8a8; }
-.cond-prices .cp.mp { color: #f1c40f; }
-.cond-prices .cp.hp { color: #e67e22; }
-.cond-prices .cp.dmg { color: #e74c3c; }
-.cond-prices .cp.blank { color: var(--text-faint); }
+.cond-row .cp .cl { opacity: 0.5; font-size: 9px; display: block; }
+.cond-row .cp.lp { color: #a8d8a8; }
+.cond-row .cp.mp { color: #f1c40f; }
+.cond-row .cp.hp { color: #e67e22; }
+.cond-row .cp.dmg { color: #e74c3c; }
+.cond-row .cp.blank { color: var(--text-faint); }
 
 /* Action Buttons (Add to Inventory / Cart) */
 .action-btns {
@@ -909,7 +911,7 @@ input[type=file] { display: none; }
         <div class="modal-set" id="modalSet"></div>
         <div id="modalVariantBadge" style="text-align:center"></div>
         <div class="modal-price" id="modalPrice"></div>
-        <div class="cond-prices" id="modalCondPrices" style="justify-content:center;padding:0 20px 12px;"></div>
+        <div class="cond-prices-wrap" id="modalCondPrices" style="padding:0 20px 12px;"></div>
         <a id="modalTcgLink" class="modal-tcg-link" href="#" target="_blank" rel="noopener" style="display:none">View on TCGPlayer <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z"/></svg></a>
         <div class="modal-actions">
             <button class="action-btn btn-inventory" id="modalAddInventory">Add to Inventory</button>
@@ -1595,25 +1597,31 @@ function drawQR(canvasId,text,cellSize){
 
             row.appendChild(info);
 
-            // Condition prices row (5 conditions, inline)
+            // Condition prices: 2 rows (LP+MP, HP+DMG), no NM duplicate
             if (card.condition_prices || card.market_price) {
-                var cpRow = document.createElement('div');
-                cpRow.className = 'cond-prices';
-                var conds = ['NM', 'LP', 'MP', 'HP', 'DMG'];
-                var condClasses = ['nm', 'lp', 'mp', 'hp', 'dmg'];
-                for (var ci = 0; ci < conds.length; ci++) {
-                    var cpEl = document.createElement('div');
-                    var cp = card.condition_prices && card.condition_prices[conds[ci]];
-                    if (cp && cp.price != null) {
-                        cpEl.className = 'cp ' + condClasses[ci];
-                        cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
-                    } else {
-                        cpEl.className = 'cp blank';
-                        cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>—';
+                var cpWrap = document.createElement('div');
+                cpWrap.className = 'cond-prices-wrap';
+                var rows = [['LP', 'MP'], ['HP', 'DMG']];
+                var classMap = {LP:'lp', MP:'mp', HP:'hp', DMG:'dmg'};
+                for (var ri = 0; ri < rows.length; ri++) {
+                    var condRow = document.createElement('div');
+                    condRow.className = 'cond-row';
+                    for (var ci = 0; ci < rows[ri].length; ci++) {
+                        var cond = rows[ri][ci];
+                        var cpEl = document.createElement('div');
+                        var cp = card.condition_prices && card.condition_prices[cond];
+                        if (cp && cp.price != null) {
+                            cpEl.className = 'cp ' + classMap[cond];
+                            cpEl.innerHTML = '<span class="cl">' + cond + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
+                        } else {
+                            cpEl.className = 'cp blank';
+                            cpEl.innerHTML = '<span class="cl">' + cond + '</span>—';
+                        }
+                        condRow.appendChild(cpEl);
                     }
-                    cpRow.appendChild(cpEl);
+                    cpWrap.appendChild(condRow);
                 }
-                row.appendChild(cpRow);
+                row.appendChild(cpWrap);
             }
 
             // Action buttons (Add to Inventory / Add to Cart)
@@ -1956,23 +1964,29 @@ function drawQR(canvasId,text,cellSize){
         document.getElementById('modalMethod').textContent = card.method || '--';
         document.getElementById('modalConfidence').textContent = card.confidence ? (Math.round(card.confidence * 100) + '%') : '--';
 
-        // Condition prices in modal
+        // Condition prices in modal (2 rows: LP+MP, HP+DMG)
         var mcpDiv = document.getElementById('modalCondPrices');
         mcpDiv.innerHTML = '';
         if (card.condition_prices || card.market_price) {
-            var conds = ['NM', 'LP', 'MP', 'HP', 'DMG'];
-            var condClasses = ['nm', 'lp', 'mp', 'hp', 'dmg'];
-            for (var ci = 0; ci < conds.length; ci++) {
-                var cpEl = document.createElement('div');
-                var cp = card.condition_prices && card.condition_prices[conds[ci]];
-                if (cp && cp.price != null) {
-                    cpEl.className = 'cp ' + condClasses[ci];
-                    cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
-                } else {
-                    cpEl.className = 'cp blank';
-                    cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>\u2014';
+            var mRows = [['LP', 'MP'], ['HP', 'DMG']];
+            var mClassMap = {LP:'lp', MP:'mp', HP:'hp', DMG:'dmg'};
+            for (var ri = 0; ri < mRows.length; ri++) {
+                var mCondRow = document.createElement('div');
+                mCondRow.className = 'cond-row';
+                for (var ci = 0; ci < mRows[ri].length; ci++) {
+                    var cond = mRows[ri][ci];
+                    var cpEl = document.createElement('div');
+                    var cp = card.condition_prices && card.condition_prices[cond];
+                    if (cp && cp.price != null) {
+                        cpEl.className = 'cp ' + mClassMap[cond];
+                        cpEl.innerHTML = '<span class="cl">' + cond + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
+                    } else {
+                        cpEl.className = 'cp blank';
+                        cpEl.innerHTML = '<span class="cl">' + cond + '</span>\u2014';
+                    }
+                    mCondRow.appendChild(cpEl);
                 }
-                mcpDiv.appendChild(cpEl);
+                mcpDiv.appendChild(mCondRow);
             }
         }
 

@@ -2923,7 +2923,8 @@ def _paddle_ocr_name_and_hp(image_path: str):
     non_possessive = []
     for cleaned, conf, method, size_ratio in name_candidates:
         # Match "X's" pattern (owner name) — allow OCR typos
-        if re.search(r"'s$|'s$|s'$", cleaned.strip()):
+        # Case-insensitive: OCR may return "TEAM AQUA'S" in all-caps
+        if re.search(r"'s$|'s$|s'$", cleaned.strip(), re.IGNORECASE):
             possessive_frags.append((cleaned.strip(), conf, method, size_ratio))
         else:
             non_possessive.append((cleaned, conf, method, size_ratio))
@@ -2959,6 +2960,12 @@ def _paddle_ocr_name_and_hp(image_path: str):
     best_match = None
     best_score = 0.0
     best_ocr_text = ""
+    # Track possessive-combined matches separately so we can prefer them
+    # when they are more specific than the base name match.
+    best_poss_match = None
+    best_poss_score = 0.0
+    best_poss_ocr_text = ""
+    best_poss_fuzzy_score = 0.0
 
     for cleaned, ocr_conf, method, size_ratio in deduped:
         query = cleaned.lower()
@@ -3019,10 +3026,34 @@ def _paddle_ocr_name_and_hp(image_path: str):
         # size_ratio: 1.0 = tallest text, <1.0 = smaller text
         size_bonus = size_ratio * 15.0  # up to +15 points for largest text
         combined = score * 0.7 + min(ocr_conf, 1.0) * 100.0 * 0.15 + size_bonus
+
+        # Track possessive-combined matches separately
+        if "+poss" in method and score >= 85.0:
+            if combined > best_poss_score:
+                best_poss_score = combined
+                best_poss_match = match_name
+                best_poss_ocr_text = cleaned
+                best_poss_fuzzy_score = score
+
         if combined > best_score:
             best_score = combined
             best_match = match_name
             best_ocr_text = cleaned
+
+    # ------------------------------------------------------------------
+    # Possessive specificity override: if a possessive-combined match
+    # (e.g., "Team Aqua's Poochyena") matched a known name well, prefer
+    # it over the base name alone (e.g., "Poochyena"). The combined name
+    # is more specific and narrows to the correct card/set.
+    # ------------------------------------------------------------------
+    if (best_poss_match and best_match and best_poss_fuzzy_score >= 85.0
+            and best_poss_match != best_match
+            and best_match.lower() in best_poss_match.lower()):
+        logger.debug("Possessive override: %r -> %r (poss_score=%.1f, base_score=%.1f)",
+                     best_match, best_poss_match, best_poss_score, best_score)
+        best_match = best_poss_match
+        best_score = best_poss_score
+        best_ocr_text = best_poss_ocr_text
 
     if best_match is None or best_score / 100.0 < 0.65:
         return None, 0.0, None, hp_value
@@ -3241,6 +3272,53 @@ def _get_candidates_from_db(
         logger.warning("v2 DB fuzzy lookup failed: %s", e)
 
     return []
+
+
+def _get_candidates_from_sets_broad(
+    name: str,
+    set_ids: set,
+    session=None,
+) -> list:
+    """Query DB for card_ids whose name CONTAINS `name` within specific sets.
+
+    This is used by page context reranking to find cards like
+    "Team Aqua's Poochyena" when OCR only read "Poochyena", within
+    the page's likely sets.
+
+    Returns list of card_id strings.
+    """
+    if not name or not set_ids:
+        return []
+    from sqlalchemy import text as _text
+    own_session = session is None
+    if own_session:
+        from cardprice.db.session import SessionLocal
+        session = SessionLocal()
+    try:
+        # Use ILIKE '%name%' to find cards containing the name
+        # Also search by exact/prefix match (normal _get_candidates_from_db behavior)
+        rows = session.execute(
+            _text(
+                "SELECT card_id FROM dim_cards "
+                "WHERE LOWER(name) LIKE LOWER(:pattern) "
+                "AND set_id = ANY(:sets) "
+                "ORDER BY card_id"
+            ),
+            {"pattern": f"%{name}%", "sets": list(set_ids)},
+        ).fetchall()
+        result = [r[0] for r in rows]
+        if result:
+            logger.info(
+                "v2 broad set query: %d candidates for %r in sets %s",
+                len(result), name, list(set_ids)[:5],
+            )
+        return result
+    except Exception as e:
+        logger.warning("v2 broad set query failed: %s", e)
+        return []
+    finally:
+        if own_session and session:
+            session.close()
 
 
 def _filter_candidates_by_attacks(
@@ -4561,7 +4639,7 @@ def identify_page_v2(card_image_paths, session=None):
     # -----------------------------------------------------------------------
     # Pass 2: Page context reranking
     # -----------------------------------------------------------------------
-    RERUN_THRESHOLD = 0.65  # re-run cards below this confidence
+    RERUN_THRESHOLD = 0.85  # re-examine cards below this confidence
 
     ctx = identify_page_context(results)
     logger.info(
@@ -4600,73 +4678,98 @@ def identify_page_v2(card_image_paths, session=None):
         combined_results = raw.get("combined_results", [])
         v2_signals = raw.get("v2_signals", {})
 
-        # Check if the current best is already from the page's set
+        # Check if the current best is already from the page's set.
+        # If confidence is high enough, just boost and skip. Otherwise,
+        # still try the broad search — the current card might be from
+        # the right era but wrong set (e.g. "Mightyena" from ex8 when
+        # the correct answer is "Team Aqua's Mightyena" from ex4).
         current_set = _extract_set_from_card_id(result.get("card_id"))
-        if current_set in loo_sets:
-            # Already in the right set, just boost confidence slightly
+        if current_set in loo_sets and result["confidence"] >= 0.70:
             result["confidence"] = min(result["confidence"] + 0.05, 1.0)
             result["explanation"] = (
                 (result.get("explanation") or "") + " (page context confirms set)"
             )
             continue
 
-        # Look through combined results for a candidate from the page set
-        reranked = False
+        # Collect best candidate from combined_results that's in a page set
+        best_combined_cid = None
+        best_combined_score = 0.0
         for entry in combined_results:
             cid, score = entry[0], entry[1]
             cand_set = _extract_set_from_card_id(cid)
             if cand_set in loo_sets and score >= _V2_FALLBACK_CONFIDENCE:
-                # Found a candidate from the page's set with acceptable score
-                old_cid = result.get("card_id")
-                result["card_id"] = cid
-                result["confidence"] = float(score) + 0.10  # page context bonus
-                result["method"] = "v2_page_context"
-                result["explanation"] = (
-                    f"v2 page context rerank: {old_cid} -> {cid} "
-                    f"(set {cand_set} matches page context, score={score:.3f}+0.10)"
-                )
-                reranked = True
-                logger.info(
-                    "identify_page_v2 pass2: card %d reranked %s -> %s (page context)",
-                    i, old_cid, cid,
-                )
+                best_combined_cid = cid
+                best_combined_score = score
                 break
 
-        if not reranked:
-            # Try re-running with the page context's set as a strong prior.
-            # Re-query DB with the name (if we had one) filtered to page context sets.
-            ocr_name = v2_signals.get("ocr_name") or raw.get("ocr_name")
-            if ocr_name:
-                # Get candidates specifically from page context sets
-                all_candidates = _get_candidates_from_db(
-                    name=ocr_name, hp=v2_signals.get("hp"),
-                    card_type=None, session=session,
+        # Also do a broad name search within page context sets.
+        # This catches cards like "Team Aqua's Poochyena" when OCR
+        # only read "Poochyena" (OCR often misses name prefixes).
+        best_broad_cid = None
+        best_broad_score = 0.0
+        ocr_name = v2_signals.get("ocr_name") or raw.get("ocr_name")
+        if ocr_name:
+            broad_candidates = _get_candidates_from_sets_broad(
+                ocr_name, loo_sets, session=session,
+            )
+            # Remove candidates already in combined_results (avoid dup work)
+            combined_cids = {e[0] for e in combined_results}
+            broad_only = [c for c in broad_candidates if c not in combined_cids]
+            if broad_only:
+                dino_broad = _dino_dot_product_against_refs(
+                    str(path), broad_only,
+                    query_embedding=dino_embeddings[i] if dino_embeddings[i] is not None else None,
                 )
-                # Filter to page context sets
-                set_filtered = [
-                    cid for cid in all_candidates
-                    if _extract_set_from_card_id(cid) in loo_sets
-                ]
-                if set_filtered:
-                    dino_set_results = _dino_dot_product_against_refs(
-                        str(path), set_filtered,
-                        query_embedding=dino_embeddings[i] if dino_embeddings[i] is not None else None,
-                    )
-                    if dino_set_results and dino_set_results[0][1] >= _V2_FALLBACK_CONFIDENCE:
-                        best_cid, best_score = dino_set_results[0]
-                        old_cid = result.get("card_id")
-                        result["card_id"] = best_cid
-                        result["confidence"] = float(best_score) + 0.10
-                        result["method"] = "v2_page_context_requery"
-                        result["explanation"] = (
-                            f"v2 page context requery: {old_cid} -> {best_cid} "
-                            f"(filtered to sets {list(loo_sets)[:3]}, "
-                            f"score={best_score:.3f}+0.10)"
-                        )
-                        logger.info(
-                            "identify_page_v2 pass2: card %d requeried %s -> %s",
-                            i, old_cid, best_cid,
-                        )
+                if dino_broad and dino_broad[0][1] >= _V2_FALLBACK_CONFIDENCE:
+                    best_broad_cid = dino_broad[0][0]
+                    best_broad_score = dino_broad[0][1]
+
+        # Pick the best between combined-results set match and broad search
+        old_cid = result.get("card_id")
+        if best_broad_cid and best_broad_score > best_combined_score:
+            # Broad search found a better match (e.g. "Team Aqua's Mightyena"
+            # beats plain "Mightyena" from a different set)
+            result["card_id"] = best_broad_cid
+            result["confidence"] = float(best_broad_score) + 0.15
+            result["method"] = "v2_page_context_requery"
+            result["explanation"] = (
+                f"v2 page context requery: {old_cid} -> {best_broad_cid} "
+                f"(broad search in sets {list(loo_sets)[:3]}, "
+                f"dino={best_broad_score:.3f}+0.15)"
+            )
+            logger.info(
+                "identify_page_v2 pass2: card %d requeried %s -> %s "
+                "(broad search, dino=%.3f)",
+                i, old_cid, best_broad_cid, best_broad_score,
+            )
+        elif best_combined_cid:
+            # Use the best from existing combined results in the page set
+            result["card_id"] = best_combined_cid
+            result["confidence"] = float(best_combined_score) + 0.10
+            result["method"] = "v2_page_context"
+            result["explanation"] = (
+                f"v2 page context rerank: {old_cid} -> {best_combined_cid} "
+                f"(set matches page context, score={best_combined_score:.3f}+0.10)"
+            )
+            logger.info(
+                "identify_page_v2 pass2: card %d reranked %s -> %s (page context)",
+                i, old_cid, best_combined_cid,
+            )
+        elif best_broad_cid:
+            # Broad search found something, even if not great
+            result["card_id"] = best_broad_cid
+            result["confidence"] = float(best_broad_score) + 0.15
+            result["method"] = "v2_page_context_requery"
+            result["explanation"] = (
+                f"v2 page context requery: {old_cid} -> {best_broad_cid} "
+                f"(broad search in sets {list(loo_sets)[:3]}, "
+                f"dino={best_broad_score:.3f}+0.15)"
+            )
+            logger.info(
+                "identify_page_v2 pass2: card %d requeried %s -> %s "
+                "(broad search, dino=%.3f)",
+                i, old_cid, best_broad_cid, best_broad_score,
+            )
 
     # -----------------------------------------------------------------------
     # Pass 3: Re-run fallback cards with era context
