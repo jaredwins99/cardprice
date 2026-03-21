@@ -18,7 +18,10 @@
           "Sleep Powder",
           "Tackle"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "neo1-53/normal",
+        "identification_confidence": 0.58,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Bayleef",
@@ -29,7 +32,10 @@
         "attacks": [
           "Poisonpowder"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "ex15-26/normal",
+        "identification_confidence": 0.96,
+        "identification_method": "v2_card_number"
       },
       "card_02": {
         "name": "Meganium",
@@ -43,7 +49,10 @@
           "Mega Impact"
         ],
         "stage": "Stage 2",
-        "notable": "Poke-POWER"
+        "notable": "Poke-POWER",
+        "card_id": "ex15-4/normal",
+        "identification_confidence": 0.83,
+        "identification_method": "v2_attack_fallback"
       },
       "card_03": {
         "name": "Totodile",
@@ -55,7 +64,10 @@
           "Scratch",
           "Rage"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ex15-67/normal",
+        "identification_confidence": 0.97,
+        "identification_method": "v2_card_number"
       },
       "card_04": {
         "name": "Croconaw",
@@ -67,7 +79,10 @@
           "Scary Face",
           "Slash"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "ex15-27/normal",
+        "identification_confidence": 0.97,
+        "identification_method": "v2_card_number"
       },
       "card_05": {
         "name": "Feraligatr",
@@ -80,7 +95,10 @@
           "Sharp Fang"
         ],
         "stage": "Stage 2",
-        "notable": "Poke-BODY Battle Aura"
+        "notable": "Poke-BODY Battle Aura",
+        "card_id": "ex15-2/normal",
+        "identification_confidence": 0.57,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Cyndaquil",
@@ -91,7 +109,10 @@
         "attacks": [
           "Swift"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ex15-45/normal",
+        "identification_confidence": 0.84,
+        "identification_method": "v2_ref_match"
       },
       "card_07": {
         "name": "Quilava",
@@ -103,7 +124,10 @@
           "Smash Kick",
           "Quick Attack"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "ex15-36/normal",
+        "identification_confidence": 0.69,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Typhlosion",
@@ -116,7 +140,10 @@
           "Burning Ball"
         ],
         "stage": "Stage 2",
-        "notable": "Poke-POWER, holo"
+        "notable": "Poke-POWER, holo",
+        "card_id": "ex15-12/normal",
+        "identification_confidence": 0.64,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260307_014406_cards": {
@@ -129,7 +156,10 @@
           "Ink Spurt"
         ],
         "stage": "Basic",
-        "notable": "dark art version"
+        "notable": "dark art version",
+        "card_id": "gym2-87/normal",
+        "identification_confidence": 0.54,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Misty's Horsea",
@@ -140,7 +170,10 @@
           "Smokescreen"
         ],
         "stage": "Basic",
-        "notable": "light art version"
+        "notable": "light art version",
+        "card_id": "gym1-86/normal",
+        "identification_confidence": 0.59,
+        "identification_method": "v2_ref_match"
       },
       "card_02": {
         "name": "Misty's Seadra",
@@ -151,7 +184,10 @@
           "Knockout Needle"
         ],
         "stage": "Stage 1",
-        "notable": "PRERELEASE stamp"
+        "notable": "PRERELEASE stamp",
+        "card_id": "gym1-9/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_single_candidate"
       },
       "card_03": {
         "name": "Misty's Shellder",
@@ -161,7 +197,10 @@
           "Tackle",
           "Clamp"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "gym1-89/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_single_candidate"
       },
       "card_04": {
         "name": "Misty's Duel",
@@ -169,7 +208,10 @@
         "era": "WotC (Gym Heroes)",
         "type": "Trainer",
         "attacks": [],
-        "stage": "Trainer"
+        "stage": "Trainer",
+        "card_id": "gym1-123/normal",
+        "identification_confidence": 0.9,
+        "identification_method": "v2_single_candidate"
       },
       "card_05": {
         "name": "Misty's Seaking",
@@ -180,7 +222,10 @@
           "Mud Splash"
         ],
         "stage": "Stage 1",
-        "notable": "holo"
+        "notable": "holo",
+        "card_id": "gym1-55/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_single_candidate"
       },
       "card_06": {
         "name": "Misty's Staryu",
@@ -199,7 +244,10 @@
           "Hypnotic Stare",
           "Tail Rap"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "gym1-87/normal",
+        "identification_confidence": 0.75,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Misty's Tentacruel",
@@ -209,7 +257,10 @@
           "Jellyfish Poison"
         ],
         "stage": "Stage 1",
-        "notable": "Pokemon Power: Poison Tentacles, holo"
+        "notable": "Pokemon Power: Poison Tentacles, holo",
+        "card_id": "gym1-10/normal",
+        "identification_confidence": 0.92,
+        "identification_method": "v2_single_candidate"
       }
     },
     "page_20260307_015320_cards": {
@@ -222,7 +273,10 @@
           "Ecras' Face"
         ],
         "stage": "Basic",
-        "notable": "FRENCH language Dratini (Minidraco), card is rotated 90 degrees"
+        "notable": "FRENCH language Dratini (Minidraco), card is rotated 90 degrees",
+        "card_id": "base1-26/normal",
+        "identification_confidence": 0.69,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Dark Dragonair",
@@ -232,7 +286,10 @@
           "Tail Strike"
         ],
         "stage": "Stage 1",
-        "notable": "Pokemon Power: Evolutionary Light"
+        "notable": "Pokemon Power: Evolutionary Light",
+        "card_id": "base5-33/normal",
+        "identification_confidence": 0.69,
+        "identification_method": "v2_ref_match"
       },
       "card_02": {
         "name": "Dark Dragonite",
@@ -242,7 +299,10 @@
           "Giant Tail"
         ],
         "stage": "Stage 2",
-        "notable": "Pokemon Power: Summon Minions, holo"
+        "notable": "Pokemon Power: Summon Minions, holo",
+        "card_id": "base5-22/normal",
+        "identification_confidence": 0.64,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Kangaskhan",
@@ -253,7 +313,10 @@
           "Comet Punch"
         ],
         "stage": "Basic",
-        "notable": "partially cropped at top"
+        "notable": "partially cropped at top",
+        "card_id": "base4-26/normal",
+        "identification_confidence": 0.64,
+        "identification_method": "v2_ref_match"
       },
       "card_04": {
         "name": "Light Dragonair",
@@ -263,7 +326,10 @@
           "Healing Light",
           "Protective Wave"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "neo4-22/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_single_candidate"
       },
       "card_05": {
         "name": "Dragonite",
@@ -273,7 +339,10 @@
           "Supersonic Flight"
         ],
         "stage": "Stage 2",
-        "notable": "Pokemon Power: Special Delivery"
+        "notable": "Pokemon Power: Special Delivery",
+        "card_id": "basep-5/normal",
+        "identification_confidence": 0.73,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Chinchou",
@@ -281,7 +350,10 @@
         "era": "WotC (Neo Revelation)",
         "attacks": [],
         "stage": "Basic",
-        "notable": "rotated 90 degrees, partially cropped"
+        "notable": "rotated 90 degrees, partially cropped",
+        "card_id": "neo3-42/normal",
+        "identification_confidence": 0.86,
+        "identification_method": "v2_ref_match"
       },
       "card_07": {
         "name": "Lanturn",
@@ -289,7 +361,10 @@
         "era": "WotC (Neo Revelation)",
         "attacks": [],
         "stage": "Stage 1",
-        "notable": "rotated 90 degrees, partially cropped, Pokemon Power: Hydroelectric Power"
+        "notable": "rotated 90 degrees, partially cropped, Pokemon Power: Hydroelectric Power",
+        "card_id": "neo1-38/normal",
+        "identification_confidence": 0.93,
+        "identification_method": "v2_single_candidate"
       },
       "card_08": {
         "name": "Lanturn",
@@ -300,7 +375,10 @@
           "Conduction"
         ],
         "stage": "Stage 1",
-        "notable": "rotated 90 degrees, partially cropped, different Lanturn from card_07"
+        "notable": "rotated 90 degrees, partially cropped, different Lanturn from card_07",
+        "card_id": "ecard2-20/normal",
+        "identification_confidence": 0.59,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260307_020047_cards": {
@@ -311,7 +389,10 @@
         "era": "WotC (Neo Genesis)",
         "attacks": [],
         "stage": "Basic",
-        "notable": "rotated 90 degrees, e-reader style art frame"
+        "notable": "rotated 90 degrees, e-reader style art frame",
+        "card_id": "neo4-61/normal",
+        "identification_confidence": 0.65,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Cyndaquil",
@@ -319,7 +400,10 @@
         "era": "WotC (Neo Genesis)",
         "attacks": [],
         "stage": "Basic",
-        "notable": "rotated, different artwork from card_00"
+        "notable": "rotated, different artwork from card_00",
+        "card_id": "neo1-57/normal",
+        "identification_confidence": 0.92,
+        "identification_method": "v2_ref_match"
       },
       "card_02": {
         "name": "Typhlosion",
@@ -327,7 +411,10 @@
         "era": "WotC (Neo Genesis)",
         "attacks": [],
         "stage": "Stage 2",
-        "notable": "holo, partially cropped"
+        "notable": "holo, partially cropped",
+        "card_id": "neo1-17/normal",
+        "identification_confidence": 0.56,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Blaine's Vulpix",
@@ -337,7 +424,10 @@
           "Smokescreen"
         ],
         "stage": "Basic",
-        "notable": "partially cropped, two cards visible"
+        "notable": "partially cropped, two cards visible",
+        "card_id": "gym1-65/normal",
+        "identification_confidence": 0.67,
+        "identification_method": "v2_ref_match"
       },
       "card_04": {
         "name": "Blaine's Ninetales",
@@ -347,7 +437,10 @@
           "Burn Up"
         ],
         "stage": "Stage 1",
-        "notable": "Pokemon Power: Healing Fire"
+        "notable": "Pokemon Power: Healing Fire",
+        "card_id": "gym2-21/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_single_candidate"
       },
       "card_05": {
         "name": "Entei",
@@ -357,7 +450,10 @@
           "Protective Flame"
         ],
         "stage": "Basic",
-        "notable": "Pokemon Power: Bolt, holo"
+        "notable": "Pokemon Power: Bolt, holo",
+        "card_id": "basep-34/normal",
+        "identification_confidence": 0.63,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Dark Electrode",
@@ -375,7 +471,10 @@
           "Frappe Atlas"
         ],
         "stage": "Stage 2",
-        "notable": "French version (Mackogneur), not in English DB"
+        "notable": "French version (Mackogneur), not in English DB",
+        "card_id": "xy7-90/normal",
+        "identification_confidence": 0.41,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Aerodactyl",
@@ -385,7 +484,10 @@
           "Wing Attack"
         ],
         "stage": "Stage 1",
-        "notable": "PRERELEASE stamp, Pokemon Power: Prehistoric Power, partially cropped"
+        "notable": "PRERELEASE stamp, Pokemon Power: Prehistoric Power, partially cropped",
+        "card_id": "base3-1/normal",
+        "identification_confidence": 0.7,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260307_120653_cards": {
@@ -398,7 +500,10 @@
           "Supersonic",
           "Hide in Shell"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "base3-54/normal",
+        "identification_confidence": 0.92,
+        "identification_method": "v2_single_candidate"
       },
       "card_01": {
         "name": "Cloyster",
@@ -408,7 +513,10 @@
           "Clamp",
           "Spike Cannon"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base3-32/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_single_candidate"
       },
       "card_02": {
         "name": "Remoraid",
@@ -417,7 +525,10 @@
         "attacks": [
           "Sharpshooting"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "neo3-50/normal",
+        "identification_confidence": 0.8,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Tentacool",
@@ -427,7 +538,10 @@
           "Acid"
         ],
         "stage": "Basic",
-        "notable": "Pokemon Power: Cowardice"
+        "notable": "Pokemon Power: Cowardice",
+        "card_id": "base3-56/normal",
+        "identification_confidence": 0.7,
+        "identification_method": "v2_ref_match"
       },
       "card_04": {
         "name": "Tentacruel",
@@ -437,7 +551,10 @@
           "Supersonic",
           "Jellyfish Sting"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base3-44/normal",
+        "identification_confidence": 1.02,
+        "identification_method": "v2_ref_match"
       },
       "card_05": {
         "name": "Octillery",
@@ -448,7 +565,10 @@
           "Octazooka"
         ],
         "stage": "Stage 1",
-        "notable": "1st Edition stamp visible"
+        "notable": "1st Edition stamp visible",
+        "card_id": "neo3-34/normal",
+        "identification_confidence": 0.94,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Horsea",
@@ -457,7 +577,10 @@
         "attacks": [
           "Smokescreen"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "base3-49/normal",
+        "identification_confidence": 0.86,
+        "identification_method": "v2_ref_match"
       },
       "card_07": {
         "name": "Seadra",
@@ -468,7 +591,10 @@
           "Mud Splash"
         ],
         "stage": "Stage 1",
-        "notable": "1st Edition stamp visible"
+        "notable": "1st Edition stamp visible",
+        "card_id": "neo1-48/normal",
+        "identification_confidence": 0.75,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Kingdra",
@@ -478,7 +604,10 @@
           "Agility",
           "Dragon Tornado"
         ],
-        "stage": "Stage 2"
+        "stage": "Stage 2",
+        "card_id": "ex7-12/normal",
+        "identification_confidence": 0.6,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260307_123235_cards": {
@@ -491,7 +620,10 @@
           "Tackle",
           "Flail"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "base1-35/normal",
+        "identification_confidence": 0.67,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Gyarados",
@@ -502,7 +634,10 @@
           "Bubblebeam"
         ],
         "stage": "Stage 1",
-        "notable": "holo"
+        "notable": "holo",
+        "card_id": "base4-7/normal",
+        "identification_confidence": 0.67,
+        "identification_method": "v2_ref_match"
       },
       "card_02": {
         "name": "Articuno",
@@ -513,7 +648,10 @@
           "Blizzard"
         ],
         "stage": "Basic",
-        "notable": "holo"
+        "notable": "holo",
+        "card_id": "base3-17/normal",
+        "identification_confidence": 0.94,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Krabby",
@@ -523,7 +661,10 @@
           "Call for Family",
           "Irongrip"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "base3-51/normal",
+        "identification_confidence": 0.48,
+        "identification_method": "v2_ref_match"
       },
       "card_04": {
         "name": "Kingler",
@@ -533,7 +674,10 @@
           "Flail",
           "Crabhammer"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base3-38/normal",
+        "identification_confidence": 0.97,
+        "identification_method": "v2_card_number"
       },
       "card_05": {
         "name": "Golduck",
@@ -543,7 +687,10 @@
           "Psyshock",
           "Hyper Beam"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base3-35/normal",
+        "identification_confidence": 0.6,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Staryu",
@@ -552,7 +699,10 @@
         "attacks": [
           "Slap"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "base1-65/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_ref_match"
       },
       "card_07": {
         "name": "Starmie",
@@ -562,7 +712,10 @@
           "Recover",
           "Star Freeze"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base1-64/normal",
+        "identification_confidence": 0.97,
+        "identification_method": "v2_card_number"
       },
       "card_08": {
         "name": "Vaporeon",
@@ -572,7 +725,10 @@
           "Quick Attack",
           "Water Gun"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "base2-12/normal",
+        "identification_confidence": 0.98,
+        "identification_method": "v2_card_number"
       }
     },
     "page_20260307_123427_cards": {
@@ -586,7 +742,10 @@
           "Triple Smash"
         ],
         "stage": "Basic",
-        "notable": "partially cropped, name not fully visible"
+        "notable": "partially cropped, name not fully visible",
+        "card_id": "ecard3-116/normal",
+        "identification_confidence": 0.76,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Pineco",
@@ -595,7 +754,10 @@
         "attacks": [
           "Double-edge"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ecard3-86/normal",
+        "identification_confidence": 0.84,
+        "identification_method": "v2_ref_match"
       },
       "card_02": {
         "name": "Tentacool",
@@ -605,7 +767,10 @@
           "Poison Sting",
           "Recover"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ex12-66/normal",
+        "identification_confidence": 0.74,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Dratini",
@@ -614,7 +779,10 @@
         "attacks": [
           "Dragon Smash"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ecard1-107/normal",
+        "identification_confidence": 0.68,
+        "identification_method": "v2_ref_match"
       },
       "card_04": {
         "name": "Onix",
@@ -623,7 +791,10 @@
         "attacks": [
           "Crush"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ecard2-98/normal",
+        "identification_confidence": 0.65,
+        "identification_method": "v2_ref_match"
       },
       "card_05": {
         "name": "Murkrow",
@@ -633,7 +804,10 @@
           "Evil Eye",
           "Blindside"
         ],
-        "stage": "Basic"
+        "stage": "Basic",
+        "card_id": "ecard3-79/normal",
+        "identification_confidence": 0.67,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Growlithe",
@@ -643,7 +817,10 @@
           "Flare"
         ],
         "stage": "Basic",
-        "notable": "Poke-BODY: Fire Veil"
+        "notable": "Poke-BODY: Fire Veil",
+        "card_id": "ex2-65/normal",
+        "identification_confidence": 0.81,
+        "identification_method": "v2_ref_match"
       },
       "card_07": {
         "name": "Arcanine",
@@ -653,7 +830,10 @@
           "Burn Up"
         ],
         "stage": "Stage 1",
-        "notable": "Poke-BODY: Fire Veil"
+        "notable": "Poke-BODY: Fire Veil",
+        "card_id": "ex2-15/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Houndoom",
@@ -663,7 +843,10 @@
           "Feint Attack",
           "Flamethrower"
         ],
-        "stage": "Stage 1"
+        "stage": "Stage 1",
+        "card_id": "ex3-34/normal",
+        "identification_confidence": 0.93,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260307_132359_cards": {
@@ -676,7 +859,10 @@
           "Vigorous Dash"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-POWER: Forest Murmurs"
+        "notable": "Lv.X, Poke-POWER: Forest Murmurs",
+        "card_id": "dpp-DP09/normal",
+        "identification_confidence": 0.95,
+        "identification_method": "v2_ref_match"
       },
       "card_01": {
         "name": "Electivire Lv.X",
@@ -686,7 +872,10 @@
           "Pulse Barrier"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-BODY: Shocking Tail, 121/123"
+        "notable": "Lv.X, Poke-BODY: Shocking Tail, 121/123",
+        "card_id": "dp2-121/normal",
+        "identification_confidence": 0.87,
+        "identification_method": "v2_card_number"
       },
       "card_02": {
         "name": "Rhyperior Lv.X",
@@ -697,7 +886,10 @@
           "Upthrow"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X"
+        "notable": "Lv.X",
+        "card_id": "dpp-DP29/normal",
+        "identification_confidence": 1.03,
+        "identification_method": "v2_ref_match"
       },
       "card_03": {
         "name": "Darkrai Lv.X",
@@ -707,7 +899,10 @@
           "Endless Darkness"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-BODY: Dark Shadow, 104/106"
+        "notable": "Lv.X, Poke-BODY: Dark Shadow, 104/106",
+        "card_id": "dp4-104/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_card_number"
       },
       "card_04": {
         "name": "Giratina Lv.X",
@@ -717,7 +912,10 @@
           "Darkness Lost"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-BODY: Invisible Tentacles, 124/127"
+        "notable": "Lv.X, Poke-BODY: Invisible Tentacles, 124/127",
+        "card_id": "pl1-124/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_card_number"
       },
       "card_05": {
         "name": "Gardevoir Lv.X",
@@ -727,7 +925,10 @@
           "Bring Down"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-POWER: Teleportation, 131/132"
+        "notable": "Lv.X, Poke-POWER: Teleportation, 131/132",
+        "card_id": "dp3-131/normal",
+        "identification_confidence": 0.92,
+        "identification_method": "v2_ref_match"
       },
       "card_06": {
         "name": "Mesprit Lv.X",
@@ -737,7 +938,10 @@
           "Supreme Blast"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Healing Look, 143/146"
+        "notable": "Lv.X, Healing Look, 143/146",
+        "card_id": "dp6-143/normal",
+        "identification_confidence": 0.89,
+        "identification_method": "v2_single_candidate"
       },
       "card_07": {
         "name": "Salamence Lv.X",
@@ -747,7 +951,10 @@
           "Steam Blast"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-POWER: Double Fall, 98/99"
+        "notable": "Lv.X, Poke-POWER: Double Fall, 98/99",
+        "card_id": "pl4-98/normal",
+        "identification_confidence": 0.96,
+        "identification_method": "v2_ref_match"
       },
       "card_08": {
         "name": "Arceus Lv.X",
@@ -757,7 +964,10 @@
           "Meteor Blast"
         ],
         "stage": "LEVEL-UP",
-        "notable": "Lv.X, Poke-BODY: Multitype"
+        "notable": "Lv.X, Poke-BODY: Multitype",
+        "card_id": "dpp-DP56/normal",
+        "identification_confidence": 0.9,
+        "identification_method": "v2_ref_match"
       }
     },
     "page_20260309_225737_cards": {
@@ -768,7 +978,7 @@
       },
       "card_01": {
         "name": "Chien-Pao ex",
-        "card_id": "sv2-61",
+        "card_id": "sv2-61/normal",
         "hp": 220,
         "era": "SV (Paldea Evolved)",
         "attacks": [
@@ -778,7 +988,7 @@
       },
       "card_02": {
         "name": "Kingdra ex",
-        "card_id": "sv6pt5-12",
+        "card_id": "sv6pt5-12/normal",
         "hp": 310,
         "era": "SV (Shrouded Fable)",
         "attacks": [
@@ -793,7 +1003,7 @@
       },
       "card_04": {
         "name": "Arcanine ex",
-        "card_id": "sv1-32",
+        "card_id": "sv1-32/normal",
         "hp": 280,
         "era": "SV (Scarlet & Violet)",
         "attacks": [
@@ -804,7 +1014,7 @@
       },
       "card_05": {
         "name": "Clamperl",
-        "card_id": "sv10-195",
+        "card_id": "sv10-195/normal",
         "hp": 60,
         "era": "SV (Destined Rivals)",
         "attacks": [
@@ -815,7 +1025,7 @@
       },
       "card_06": {
         "name": "Torkoal",
-        "card_id": "sv6-172",
+        "card_id": "sv6-172/normal",
         "hp": 130,
         "era": "SV (Twilight Masquerade)",
         "attacks": [
@@ -827,7 +1037,7 @@
       },
       "card_07": {
         "name": "Mew ex",
-        "card_id": "sv3pt5-205",
+        "card_id": "sv3pt5-205/normal",
         "hp": 180,
         "era": "SV (151)",
         "attacks": [
@@ -839,7 +1049,7 @@
       },
       "card_08": {
         "name": "Orthworm ex",
-        "card_id": "sv7-110",
+        "card_id": "sv7-110/normal",
         "hp": 220,
         "era": "SV (Stellar Crown)",
         "attacks": [
@@ -848,10 +1058,107 @@
         ],
         "stage": "Basic"
       }
+    },
+    "page_20260320_223702_cards": {
+      "description": "Team Aqua/Magma Poochyena/Mightyena page (EX Team Magma vs Team Aqua)",
+      "card_00": {
+        "name": "Poochyena",
+        "card_id": "ex1-64/normal",
+        "era": "EX"
+      },
+      "card_01": {
+        "name": "Poochyena",
+        "card_id": "ex1-64/normal",
+        "era": "EX",
+        "note": "holo"
+      },
+      "card_02": {
+        "name": "Team Aqua's Mightyena",
+        "card_id": "ex4-30/normal",
+        "era": "EX"
+      },
+      "card_03": {
+        "name": "Team Aqua's Poochyena",
+        "card_id": "ex4-54/normal",
+        "era": "EX"
+      },
+      "card_04": {
+        "name": "Team Aqua's Poochyena",
+        "card_id": "ex4-55/normal",
+        "era": "EX"
+      },
+      "card_05": {
+        "name": "Team Aqua's Mightyena",
+        "card_id": "ex4-15/normal",
+        "era": "EX"
+      },
+      "card_06": {
+        "name": "Team Magma's Poochyena",
+        "card_id": "ex4-65/normal",
+        "era": "EX"
+      },
+      "card_07": {
+        "name": "Team Magma's Poochyena",
+        "card_id": "ex4-66/normal",
+        "era": "EX"
+      },
+      "card_08": {
+        "name": "Team Magma's Mightyena",
+        "card_id": "ex4-21/normal",
+        "era": "EX"
+      }
+    },
+    "page_20260320_191743_cards": {
+      "description": "Absol collection page - EX, DP, HGSS, SWSH, SV eras",
+      "card_00": {
+        "name": "Absol",
+        "card_id": "ex13-18/normal",
+        "era": "EX"
+      },
+      "card_01": {
+        "name": "Absol G",
+        "card_id": "pl3-1/normal",
+        "era": "DP"
+      },
+      "card_02": {
+        "name": "Absol G LV.X",
+        "card_id": "pl3-141/normal",
+        "era": "DP"
+      },
+      "card_03": {
+        "name": "Absol",
+        "card_id": "hgss4-91/normal",
+        "era": "HGSS"
+      },
+      "card_04": {
+        "name": "Absol",
+        "card_id": "swsh12pt5gg-GG16/normal",
+        "era": "SWSH",
+        "note": "Galarian Gallery"
+      },
+      "card_05": {
+        "name": "",
+        "empty_slot": true
+      },
+      "card_06": {
+        "name": "Absol",
+        "card_id": "sv6pt5-30/normal",
+        "era": "SV"
+      },
+      "card_07": {
+        "name": "Absol ex",
+        "card_id": "sv3-135/normal",
+        "era": "SV"
+      },
+      "card_08": {
+        "name": "Mega Absol ex",
+        "card_id": "me1-86/normal",
+        "era": "XY"
+      }
     }
   },
   "summary": {
-    "total_pages": 12,
+    "total_pages": 11,
     "unique_physical_pages": 8,
     "duplicate_scans": {
       "delta_species_page": [
@@ -869,7 +1176,7 @@
         "page_20260307_121117_cards"
       ]
     },
-    "total_unique_cards": 72,
+    "total_unique_cards": 96,
     "era_breakdown": {
       "ex_delta_species": 9,
       "wotc_gym_heroes_challenge": 18,
