@@ -180,6 +180,72 @@ def _build_condition_prices(nm_price):
     return cond_prices
 
 
+# ---------------------------------------------------------------------------
+# Variant → TCGCSV subtype mapping + variant price lookup
+# ---------------------------------------------------------------------------
+# Maps ML-detected variant names to fact_market_prices.subtype_name values.
+# The ML pipeline returns: normal, holofoil, reverse_holofoil, 1st_edition,
+# promo, full_art, shadowless, gold, rainbow_rare, stamped.
+_VARIANT_TO_SUBTYPE = {
+    "normal":           "Normal",
+    "holofoil":         "Holofoil",
+    "reverse_holofoil": "Reverse Holofoil",
+    "stamped":          "Reverse Holofoil",   # EX stamped = reverse holo pricing
+    "promo":            "Normal",             # promos have their own card_id
+    "shadowless":       "Normal",             # no separate TCGCSV subtype
+    "full_art":         "Holofoil",           # full arts priced as holofoil
+    "gold":             "Holofoil",
+    "rainbow_rare":     "Holofoil",
+    "cosmos":           "Holofoil",
+    "cracked_ice":      "Holofoil",
+}
+
+# 1st Edition has multiple possible subtypes in TCGCSV; try them in priority order.
+_1ST_EDITION_SUBTYPES = ["1st Edition Holofoil", "1st Edition", "1st Edition Normal"]
+
+
+def _lookup_variant_price(session, card_id, detected_variant):
+    """Look up variant-specific price from fact_market_prices.
+
+    For 1st Edition, tries multiple subtype names since TCGCSV uses different
+    ones depending on era (Holofoil vs Normal vs bare "1st Edition").
+
+    Returns the market_price as float, or None if not found.
+    """
+    from sqlalchemy import text as sql_text
+
+    if detected_variant == "1st_edition":
+        # Try each 1st Edition subtype in priority order
+        for subtype in _1ST_EDITION_SUBTYPES:
+            vrow = session.execute(
+                sql_text("""
+                    SELECT market_price FROM fact_market_prices
+                    WHERE card_id = :cid AND subtype_name = :subtype
+                    ORDER BY price_date DESC LIMIT 1
+                """),
+                {"cid": card_id, "subtype": subtype},
+            ).fetchone()
+            if vrow and vrow.market_price:
+                return float(vrow.market_price)
+        return None
+
+    subtype = _VARIANT_TO_SUBTYPE.get(detected_variant)
+    if not subtype:
+        return None
+
+    vrow = session.execute(
+        sql_text("""
+            SELECT market_price FROM fact_market_prices
+            WHERE card_id = :cid AND subtype_name = :subtype
+            ORDER BY price_date DESC LIMIT 1
+        """),
+        {"cid": card_id, "subtype": subtype},
+    ).fetchone()
+    if vrow and vrow.market_price:
+        return float(vrow.market_price)
+    return None
+
+
 def _get_lan_ip():
     """Return the LAN IP address of this machine."""
     try:
@@ -1310,16 +1376,7 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 result = identify_card(str(save_path), session=session)
 
-                _raw_variant = result.get("detected_variant", "normal")
-                # Only surface physical variants not represented by card_id
-                detected_variant = _raw_variant if _raw_variant in ("stamped", "1st_edition") else "normal"
-                _VARIANT_TO_SUBTYPE_S = {
-                    "stamped": "Reverse Holofoil",
-                    "reverse_holo": "Reverse Holofoil",
-                    "holofoil": "Holofoil",
-                    "1st_edition": "1st Edition Holofoil",
-                    "normal": "Normal",
-                }
+                detected_variant = result.get("detected_variant", "normal")
 
                 response = {
                     "card_id": result["card_id"],
@@ -1334,6 +1391,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "phash": phash_hex,
                     "detected_variant": detected_variant,
                     "variant_confidence": result.get("variant_confidence"),
+                    "stamp_details": result.get("stamp_details", {}),
                     "tcgplayer_url": None,
                 }
 
@@ -1352,21 +1410,11 @@ class ScanHandler(BaseHTTPRequestHandler):
                         if row.tcg_product_id:
                             response["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
 
-                        # Look up variant-specific price if variant is not normal
+                        # Look up variant-specific price
                         if detected_variant != "normal":
-                            subtype = _VARIANT_TO_SUBTYPE_S.get(detected_variant)
-                            if subtype:
-                                vrow = session.execute(
-                                    sql_text("""
-                                        SELECT market_price FROM fact_market_prices
-                                        WHERE card_id = :cid
-                                          AND subtype_name = :subtype
-                                        ORDER BY price_date DESC LIMIT 1
-                                    """),
-                                    {"cid": result["card_id"], "subtype": subtype},
-                                ).fetchone()
-                                if vrow and vrow.market_price:
-                                    response["variant_price"] = float(vrow.market_price)
+                            vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
+                            if vprice:
+                                response["variant_price"] = vprice
 
                         # Condition-adjusted prices for all raw conditions
                         price_for_conditions = response.get("variant_price") or response.get("market_price")
@@ -1823,17 +1871,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     col = idx % num_cols
                     # Build URL for the segmented card image
                     seg_rel = str(Path(card_img_path).relative_to(UPLOAD_DIR))
-                    # Map detected variant to fact_market_prices subtype_name
-                    _VARIANT_TO_SUBTYPE = {
-                        "stamped": "Reverse Holofoil",
-                        "reverse_holo": "Reverse Holofoil",
-                        "holofoil": "Holofoil",
-                        "1st_edition": "1st Edition Holofoil",
-                        "normal": "Normal",
-                    }
-                    _raw_variant = result.get("detected_variant", "normal")
-                    # Only surface physical variants not represented by card_id
-                    detected_variant = _raw_variant if _raw_variant in ("stamped", "1st_edition") else "normal"
+                    detected_variant = result.get("detected_variant", "normal")
 
                     card_data = {
                         "position": idx,
@@ -1844,6 +1882,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "method": result["method"],
                         "detected_variant": detected_variant,
                         "variant_confidence": result.get("variant_confidence"),
+                        "stamp_details": result.get("stamp_details", {}),
                         "card_name": None,
                         "market_price": None,
                         "variant_price": None,
@@ -1869,21 +1908,11 @@ class ScanHandler(BaseHTTPRequestHandler):
                             if row.tcg_product_id:
                                 card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
 
-                            # Look up variant-specific price if variant is not normal
+                            # Look up variant-specific price
                             if detected_variant != "normal":
-                                subtype = _VARIANT_TO_SUBTYPE.get(detected_variant)
-                                if subtype:
-                                    vrow = session.execute(
-                                        sql_text("""
-                                            SELECT market_price FROM fact_market_prices
-                                            WHERE card_id = :cid
-                                              AND subtype_name = :subtype
-                                            ORDER BY price_date DESC LIMIT 1
-                                        """),
-                                        {"cid": result["card_id"], "subtype": subtype},
-                                    ).fetchone()
-                                    if vrow and vrow.market_price:
-                                        card_data["variant_price"] = float(vrow.market_price)
+                                vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
+                                if vprice:
+                                    card_data["variant_price"] = vprice
 
                             # Use variant_price for condition pricing if available, else market_price
                             price_for_conditions = card_data["variant_price"] or card_data["market_price"]
