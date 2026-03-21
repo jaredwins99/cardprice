@@ -1721,59 +1721,68 @@ def _check_build_battle_stamp(img_bgr: np.ndarray, set_id: str,
         diagnostics["red_ratio_vs_context"] = round(red_ratio_vs_context, 3)
 
     # --- Multi-signal scoring ---
+    # The B&B stamp is distinguished from red artwork by the CO-OCCURRENCE
+    # of red, white, AND dark pixels.  Red cards (Arcanine, Orthworm) have
+    # red_frac > 0.8 but white_frac = 0 and dark_frac = 0.  The stamp has
+    # red ~0.41, white ~0.025, dark ~0.06.
+    #
+    # Strategy: require at least 2 of {white_present, dark_present,
+    # pokeball_blob, context_spike} alongside red, rather than summing
+    # independent weak signals that fire on any warm-toned card.
     score = 0.0
     evidence_parts = []
 
-    # Signal 1: Red fraction in tight region (stamp ~0.41)
-    if tight_red_frac > 0.25:
-        score += 0.20
-        evidence_parts.append("tight_red_high")
-    elif tight_red_frac > 0.15:
-        score += 0.10
-        evidence_parts.append("tight_red_moderate")
+    # Gate: red must be present (but not too high -- pure red = artwork)
+    has_moderate_red = 0.15 < tight_red_frac < 0.70
+    has_white = tight_white_frac > 0.005
+    has_dark = tight_dark_frac > 0.02
+    has_context_spike = red_ratio_vs_context > 1.3
 
-    # Signal 2: White pixels (stamp ~0.025)
-    if tight_white_frac > 0.01:
-        score += 0.10
-        evidence_parts.append("white_pixels")
+    # Count co-occurrence signals (stamp-specific, not just "has red")
+    cooccurrence_count = sum([has_white, has_dark, has_pokeball_blob,
+                              has_context_spike])
 
-    # Signal 3: Mixed color profile (red + white + dark)
-    mixed = tight_red_frac + tight_white_frac + tight_dark_frac
-    if mixed > 0.35:
+    if has_moderate_red:
+        evidence_parts.append("moderate_red")
+        # Base score from red
         score += 0.15
-        evidence_parts.append("mixed_color_profile")
-    elif mixed > 0.20:
-        score += 0.08
-        evidence_parts.append("moderate_mixed")
 
-    # Signal 4: Red dominance (stamp ~1.87, artwork ~1.0)
-    if red_dominance > 1.5:
-        score += 0.15
-        evidence_parts.append("strong_red_dominance")
-    elif red_dominance > 1.3:
-        score += 0.10
-        evidence_parts.append("red_dominance")
+        # Co-occurrence bonus: each additional signal adds confidence
+        if has_white:
+            score += 0.15
+            evidence_parts.append("white_pixels")
+        if has_dark:
+            score += 0.15
+            evidence_parts.append("dark_pixels")
+        if has_pokeball_blob:
+            score += 0.20
+            evidence_parts.append("pokeball_blob")
+        if has_context_spike:
+            score += 0.15
+            evidence_parts.append("red_spike_vs_context")
+        if left_redder and has_pokeball_blob:
+            score += 0.05
+            evidence_parts.append("lr_structure")
 
-    # Signal 5: Pokeball blob
-    if has_pokeball_blob:
-        score += 0.20
-        evidence_parts.append("pokeball_blob")
+        # Penalty: pure red artwork (no co-occurrence signals)
+        if cooccurrence_count == 0:
+            score = max(score - 0.10, 0.0)
+            evidence_parts.append("no_cooccurrence_penalty")
+    else:
+        # Not moderate red -- could still detect with very strong signals
+        if tight_red_frac >= 0.70:
+            evidence_parts.append("red_too_high")
+        elif tight_red_frac <= 0.15:
+            evidence_parts.append("red_too_low")
 
-    # Signal 6: Red ratio vs surrounding context
-    if red_ratio_vs_context > 1.5:
-        score += 0.15
-        evidence_parts.append("red_spike_vs_context")
-    elif red_ratio_vs_context > 1.2:
-        score += 0.08
-        evidence_parts.append("elevated_red_vs_context")
-
-    # Signal 7: Left-right structure with pokeball
-    if left_redder and has_pokeball_blob:
-        score += 0.05
-        evidence_parts.append("lr_structure")
+        # Only pokeball blob + context can trigger without moderate red
+        if has_pokeball_blob and has_context_spike and has_white:
+            score += 0.45
+            evidence_parts.extend(["pokeball_blob", "red_spike_vs_context",
+                                   "white_pixels"])
 
     score = min(score, 1.0)
-    detected = score >= 0.40
+    detected = score >= 0.40 and cooccurrence_count >= 2
     evidence = "+".join(evidence_parts) if evidence_parts else "none"
 
     if detected:
