@@ -511,6 +511,48 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["detected_variant"] = "reverse_holofoil"
                         result["variant_confidence"] = ex_conf
 
+                # If reverse_holo detected, set variant to reverse_holofoil
+                if "reverse_holo" in stamp_pipeline_result["stamps_detected"]:
+                    rh_conf = stamp_pipeline_result["stamp_details"]["reverse_holo"]["confidence"]
+                    if variant not in ("reverse_holofoil", "1st_edition") and rh_conf >= 0.60:
+                        logger.info(
+                            "stamp pipeline: overriding variant %s -> "
+                            "reverse_holofoil (reverse holo, conf=%.2f) for %s",
+                            variant, rh_conf, card_id,
+                        )
+                        result["detected_variant"] = "reverse_holofoil"
+                        result["variant_confidence"] = rh_conf
+
+                # If holo_finish detected, set variant to holofoil
+                if "holo_finish" in stamp_pipeline_result["stamps_detected"]:
+                    hf_conf = stamp_pipeline_result["stamp_details"]["holo_finish"]["confidence"]
+                    if variant not in ("holofoil", "1st_edition", "reverse_holofoil") and hf_conf >= 0.60:
+                        logger.info(
+                            "stamp pipeline: overriding variant %s -> "
+                            "holofoil (holo finish, conf=%.2f) for %s",
+                            variant, hf_conf, card_id,
+                        )
+                        result["detected_variant"] = "holofoil"
+                        result["variant_confidence"] = hf_conf
+
+                # If prerelease stamp detected, record it on the result
+                if "prerelease" in stamp_pipeline_result["stamps_detected"]:
+                    pr_conf = stamp_pipeline_result["stamp_details"]["prerelease"]["confidence"]
+                    result["prerelease_detected"] = True
+                    result["prerelease_confidence"] = pr_conf
+
+                # If staff stamp detected, record it on the result
+                if "staff_stamp" in stamp_pipeline_result["stamps_detected"]:
+                    st_conf = stamp_pipeline_result["stamp_details"]["staff_stamp"]["confidence"]
+                    result["staff_stamp_detected"] = True
+                    result["staff_stamp_confidence"] = st_conf
+
+                # If shadowless detected, record it on the result
+                if "shadowless" in stamp_pipeline_result["stamps_detected"]:
+                    sh_conf = stamp_pipeline_result["stamp_details"]["shadowless"]["confidence"]
+                    result["shadowless_detected"] = True
+                    result["shadowless_confidence"] = sh_conf
+
             result["stamps_checked"] = stamp_pipeline_result["stamps_checked"]
         except Exception as e:
             logger.debug("stamp detection pipeline failed: %s", e)

@@ -1598,17 +1598,22 @@ def _check_prerelease(img_bgr: np.ndarray, set_id: str = "",
 
 
 def _check_build_battle_stamp(img_bgr: np.ndarray, set_id: str,
-                               era: int) -> dict:
-    """Check for Build & Battle stamp (SWSH/SV era SVP promos).
+                              era: int) -> dict:
+    """Detect Build & Battle box promo stamp (pokeball + trainer silhouette).
 
-    Build & Battle box promos have a pokeball + trainer silhouette stamp
-    on the artwork bottom-right, similar in position to prerelease stamps.
-    Many also read as "PRERELEASE" via OCR since the stamp text is similar.
+    The stamp is a rounded rectangle in the bottom-left of the artwork area.
+    Left half: pokeball graphic.  Right half: trainer silhouette.
+    Rendered in red/white/dark colors against the card artwork.
 
-    Detection strategy:
-      1. Multi-preprocessing OCR on the stamp region for "BUILD" / "BATTLE" text.
-      2. Fallback: check if the prerelease detector fires (Build & Battle stamps
-         often contain "PRERELEASE" text alongside the icon).
+    Detection uses pixel-level color analysis rather than OCR:
+      1. Red channel analysis: stamp creates elevated red (R/max(G,B) ~1.87x)
+      2. Mixed color profile: red + white + dark pixels co-occurring
+      3. Pokeball blob: dark circular outline in the tight region
+      4. Horizontal structure: left half redder than right
+      5. Context comparison: red channel spike vs artwork above
+
+    Calibrated from stamp_full_10x.png vs ref_same_spot_10x.png:
+      Red ratio ~1.87x, red pixel fraction 0.41, white 0.025, dark 0.062.
 
     Args:
         img_bgr: Card image in BGR format.
@@ -1621,54 +1626,176 @@ def _check_build_battle_stamp(img_bgr: np.ndarray, set_id: str,
     regions = STAMP_REGIONS["build_battle"]
     result_base = {
         "detected": False, "confidence": 0.0,
-        "position": "artwork_bottom_right",
+        "position": "artwork_bottom_left",
     }
 
     wide = _extract_region(img_bgr, *regions["wide"])
     if wide.size == 0:
         return result_base
+    h_w, w_w = wide.shape[:2]
+    if h_w < 10 or w_w < 10:
+        return result_base
 
-    # Multi-preprocessing OCR for stamp text
-    ocr_results = _ocr_region_multi(wide, scale=3)
+    # --- Color analysis on wide region ---
+    hsv = cv2.cvtColor(wide, cv2.COLOR_BGR2HSV)
+    hue, sat, val = cv2.split(hsv)
 
-    for text, conf, strategy in ocr_results:
-        lower = text.strip().lower()
+    # Red pixels: H < 15 or H > 165 (OpenCV 0-180), min sat/val
+    red_mask = ((hue < 15) | (hue > 165)) & (sat > 40) & (val > 80)
+    red_frac = float(red_mask.astype(np.float32).mean())
+    # White pixels: low saturation, high value
+    white_mask = (sat < 30) & (val > 180)
+    white_frac = float(white_mask.astype(np.float32).mean())
+    # Dark pixels: pokeball outline, trainer silhouette
+    dark_mask = val < 60
+    dark_frac = float(dark_mask.astype(np.float32).mean())
 
-        # Look for "build" and/or "battle" text
-        has_build = "build" in lower
-        has_battle = "battle" in lower
+    # Red channel dominance
+    b_ch, g_ch, r_ch = cv2.split(wide)
+    r_mean = float(r_ch.mean())
+    g_mean = float(g_ch.mean())
+    b_mean = float(b_ch.mean())
+    red_dominance = r_mean / max(g_mean, b_mean, 1.0)
 
-        if has_build and has_battle:
-            return {
-                "detected": True, "confidence": 0.90,
-                "position": "artwork_bottom_right",
-                "evidence": "ocr_build_battle",
-                "ocr_text": text,
-                "ocr_strategy": strategy,
-            }
+    diagnostics = {
+        "red_frac": round(red_frac, 4),
+        "white_frac": round(white_frac, 4),
+        "dark_frac": round(dark_frac, 4),
+        "red_dominance": round(red_dominance, 3),
+        "r_mean": round(r_mean, 1),
+        "g_mean": round(g_mean, 1),
+        "b_mean": round(b_mean, 1),
+    }
 
-        if has_build or has_battle:
-            return {
-                "detected": True, "confidence": 0.75,
-                "position": "artwork_bottom_right",
-                "evidence": "ocr_partial_build_battle",
-                "ocr_text": text,
-                "ocr_strategy": strategy,
-            }
+    # --- Tight region analysis ---
+    tight = _extract_region(img_bgr, *regions["tight"])
+    tight_red_frac = 0.0
+    tight_white_frac = 0.0
+    tight_dark_frac = 0.0
+    has_pokeball_blob = False
 
-    # Fallback: check if prerelease detector fires (many Build & Battle
-    # stamps are functionally the same as prerelease stamps for pricing)
-    prerelease_result = _check_prerelease(img_bgr, set_id, era)
-    if prerelease_result.get("detected"):
-        return {
-            "detected": True,
-            "confidence": max(0.65, prerelease_result["confidence"] - 0.10),
-            "position": "artwork_bottom_right",
-            "evidence": "prerelease_proxy",
-            "ocr_text": prerelease_result.get("ocr_text", ""),
-        }
+    if tight.size > 0 and tight.shape[0] >= 5 and tight.shape[1] >= 5:
+        t_hsv = cv2.cvtColor(tight, cv2.COLOR_BGR2HSV)
+        t_hue, t_sat, t_val = cv2.split(t_hsv)
 
-    return result_base
+        t_red = (((t_hue < 15) | (t_hue > 165))
+                 & (t_sat > 40) & (t_val > 80))
+        tight_red_frac = float(t_red.astype(np.float32).mean())
+        t_white = (t_sat < 30) & (t_val > 180)
+        tight_white_frac = float(t_white.astype(np.float32).mean())
+        t_dark = t_val < 60
+        tight_dark_frac = float(t_dark.astype(np.float32).mean())
+
+        has_pokeball_blob = _has_dark_circular_blob(
+            tight, min_area_frac=0.01, max_area_frac=0.25,
+            min_circularity=0.45,
+        )
+        diagnostics.update({
+            "tight_red_frac": round(tight_red_frac, 4),
+            "tight_white_frac": round(tight_white_frac, 4),
+            "tight_dark_frac": round(tight_dark_frac, 4),
+            "has_pokeball_blob": has_pokeball_blob,
+        })
+
+    # --- Horizontal structure: pokeball (left) vs silhouette (right) ---
+    left_redder = False
+    if tight.size > 0 and tight.shape[1] >= 4:
+        mid_x = tight.shape[1] // 2
+        left_r = float(tight[:, :mid_x, 2].mean())
+        right_r = float(tight[:, mid_x:, 2].mean())
+        left_redder = left_r > right_r * 0.9
+        diagnostics["left_r"] = round(left_r, 1)
+        diagnostics["right_r"] = round(right_r, 1)
+
+    # --- Context comparison: stamp region vs artwork above ---
+    control_y0 = max(0.0, regions["wide"][1] - 0.14)
+    control_y1 = regions["wide"][1]
+    control = _extract_region(img_bgr, regions["wide"][0], control_y0,
+                              regions["wide"][2], control_y1)
+    red_ratio_vs_context = 1.0
+    if control.size > 0:
+        control_r = float(control[:, :, 2].mean())
+        if control_r > 0:
+            red_ratio_vs_context = r_mean / control_r
+        diagnostics["control_r_mean"] = round(control_r, 1)
+        diagnostics["red_ratio_vs_context"] = round(red_ratio_vs_context, 3)
+
+    # --- Multi-signal scoring ---
+    score = 0.0
+    evidence_parts = []
+
+    # Signal 1: Red fraction in tight region (stamp ~0.41)
+    if tight_red_frac > 0.25:
+        score += 0.20
+        evidence_parts.append("tight_red_high")
+    elif tight_red_frac > 0.15:
+        score += 0.10
+        evidence_parts.append("tight_red_moderate")
+
+    # Signal 2: White pixels (stamp ~0.025)
+    if tight_white_frac > 0.01:
+        score += 0.10
+        evidence_parts.append("white_pixels")
+
+    # Signal 3: Mixed color profile (red + white + dark)
+    mixed = tight_red_frac + tight_white_frac + tight_dark_frac
+    if mixed > 0.35:
+        score += 0.15
+        evidence_parts.append("mixed_color_profile")
+    elif mixed > 0.20:
+        score += 0.08
+        evidence_parts.append("moderate_mixed")
+
+    # Signal 4: Red dominance (stamp ~1.87, artwork ~1.0)
+    if red_dominance > 1.5:
+        score += 0.15
+        evidence_parts.append("strong_red_dominance")
+    elif red_dominance > 1.3:
+        score += 0.10
+        evidence_parts.append("red_dominance")
+
+    # Signal 5: Pokeball blob
+    if has_pokeball_blob:
+        score += 0.20
+        evidence_parts.append("pokeball_blob")
+
+    # Signal 6: Red ratio vs surrounding context
+    if red_ratio_vs_context > 1.5:
+        score += 0.15
+        evidence_parts.append("red_spike_vs_context")
+    elif red_ratio_vs_context > 1.2:
+        score += 0.08
+        evidence_parts.append("elevated_red_vs_context")
+
+    # Signal 7: Left-right structure with pokeball
+    if left_redder and has_pokeball_blob:
+        score += 0.05
+        evidence_parts.append("lr_structure")
+
+    score = min(score, 1.0)
+    detected = score >= 0.40
+    evidence = "+".join(evidence_parts) if evidence_parts else "none"
+
+    if detected:
+        logger.info(
+            "Build & Battle stamp detected (set=%s): score=%.2f evidence=%s "
+            "red=%.3f white=%.3f dark=%.3f dom=%.2f",
+            set_id, score, evidence, tight_red_frac, tight_white_frac,
+            tight_dark_frac, red_dominance,
+        )
+    else:
+        logger.debug(
+            "Build & Battle stamp NOT detected (set=%s): score=%.2f "
+            "red=%.3f dom=%.2f", set_id, score, tight_red_frac, red_dominance,
+        )
+
+    return {
+        "detected": detected,
+        "confidence": round(score, 3),
+        "position": "artwork_bottom_left",
+        "evidence": evidence,
+        **diagnostics,
+    }
 
 
 def _check_staff_stamp(img_bgr: np.ndarray, set_id: str, era: int) -> dict:
@@ -2555,6 +2682,194 @@ def _check_cracked_ice_holo(
     return True, confidence
 
 
+
+# ---------------------------------------------------------------------------
+# McDonald's confetti holo detection
+# ---------------------------------------------------------------------------
+
+# All known McDonald's promo set prefixes
+_MCDONALDS_SETS = frozenset({
+    "mcd11", "mcd12", "mcd14", "mcd15", "mcd16",
+    "mcd17", "mcd18", "mcd19", "mcd21", "mcd22",
+})
+
+# Confetti holo analysis region: artwork area where the confetti pattern is
+# most visible.  Excludes name bar and text box.
+_CONFETTI_ART_REGION = (0.08, 0.12, 0.92, 0.56)  # (x0, y0, x1, y1)
+
+
+def _check_mcdonalds_holo(
+    img_bgr: np.ndarray,
+    set_id: str,
+    era: int,
+) -> dict:
+    """Detect McDonald's confetti holo pattern.
+
+    McDonald's promo cards have a distinctive pixelated/confetti holographic
+    pattern with thick, sparse glitter dots -- visually chunkier than cosmos
+    holo (fine uniform shimmer) or standard holo (smooth rainbow gradient).
+
+    Detection strategy:
+      1. **Metadata shortcut**: If set_id starts with 'mcd', return high
+         confidence immediately.
+      2. **Visual detection**: Analyze the artwork region for the confetti
+         signature -- sparse, intense bright spots with high local brightness
+         variance.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g., 'mcd21', 'swsh1').
+        era: Era number (unused, reserved for future gating).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence',
+        'is_mcdonalds_set'.
+    """
+    result_base = {
+        "detected": False,
+        "confidence": 0.0,
+        "position": "artwork",
+        "is_mcdonalds_set": False,
+    }
+
+    # --- Path 1: Metadata-based detection (authoritative) ---
+    is_mcd_set = set_id.startswith("mcd")
+    if is_mcd_set:
+        return {
+            "detected": True,
+            "confidence": 0.95,
+            "position": "artwork",
+            "evidence": "mcdonalds_set_id",
+            "is_mcdonalds_set": True,
+        }
+
+    # --- Path 2: Visual detection of confetti pattern ---
+    art = _extract_region(img_bgr, *_CONFETTI_ART_REGION)
+    if art.size == 0 or art.shape[0] < 20 or art.shape[1] < 20:
+        return result_base
+
+    try:
+        h, w = art.shape[:2]
+
+        # Convert to HSV for brightness and saturation analysis
+        hsv = cv2.cvtColor(art, cv2.COLOR_BGR2HSV)
+        v_chan = hsv[:, :, 2].astype(np.float32)
+        s_chan = hsv[:, :, 1].astype(np.float32)
+
+        # --- Metric 1: Bright spot density and size ---
+        p95 = float(np.percentile(v_chan, 95))
+        bright_thresh = max(200.0, p95)
+        bright_mask = (v_chan >= bright_thresh).astype(np.uint8) * 255
+
+        contours, _ = cv2.findContours(
+            bright_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+        )
+
+        total_pixels = h * w
+        bright_pixel_count = int(np.sum(bright_mask > 0))
+        bright_density = bright_pixel_count / total_pixels
+
+        spot_areas: list[float] = []
+        min_spot = max(4, int(total_pixels * 0.0002))
+        max_spot = int(total_pixels * 0.05)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if min_spot <= area <= max_spot:
+                spot_areas.append(float(area))
+
+        num_spots = len(spot_areas)
+        median_spot_area = float(np.median(spot_areas)) if spot_areas else 0.0
+
+        # --- Metric 2: Local brightness variance ---
+        block_size = max(8, min(h, w) // 12)
+        local_stds: list[float] = []
+        for by in range(0, h - block_size, block_size):
+            for bx in range(0, w - block_size, block_size):
+                block = v_chan[by:by + block_size, bx:bx + block_size]
+                local_stds.append(float(np.std(block)))
+
+        high_var_blocks = sum(1 for s in local_stds if s > 40.0)
+        high_var_frac = (
+            high_var_blocks / len(local_stds) if local_stds else 0.0
+        )
+
+        # --- Metric 3: Saturation of bright spots ---
+        bright_sat = s_chan[v_chan >= bright_thresh]
+        mean_bright_sat = (
+            float(np.mean(bright_sat)) if len(bright_sat) > 0 else 0.0
+        )
+
+        logger.debug(
+            "McD confetti: density=%.4f spots=%d median_area=%.1f "
+            "high_var_frac=%.2f bright_sat=%.1f",
+            bright_density, num_spots, median_spot_area,
+            high_var_frac, mean_bright_sat,
+        )
+
+        # --- Scoring ---
+        score = 0.0
+
+        # Bright density: confetti is 1-8% of artwork pixels
+        if 0.01 <= bright_density <= 0.08:
+            score += 0.25
+        elif 0.005 <= bright_density <= 0.12:
+            score += 0.10
+
+        # Spot count: confetti produces many individual dots
+        if num_spots >= 25:
+            score += 0.25
+        elif num_spots >= 15:
+            score += 0.15
+        elif num_spots >= 8:
+            score += 0.05
+
+        # Median spot size: confetti dots are chunky (larger than cosmos)
+        spot_frac = median_spot_area / total_pixels if total_pixels > 0 else 0
+        if 0.0005 <= spot_frac <= 0.005:
+            score += 0.20
+        elif 0.0002 <= spot_frac <= 0.01:
+            score += 0.10
+
+        # Local brightness variance
+        if high_var_frac >= 0.30:
+            score += 0.20
+        elif high_var_frac >= 0.15:
+            score += 0.10
+
+        # Bright spot saturation: prismatic confetti has colored highlights
+        if mean_bright_sat >= 30:
+            score += 0.10
+        elif mean_bright_sat >= 15:
+            score += 0.05
+
+        # Threshold: need >= 0.55 out of 1.00 possible
+        detected = score >= 0.55
+        confidence = min(0.85, score) if detected else score
+
+        if detected:
+            return {
+                "detected": True,
+                "confidence": round(confidence, 2),
+                "position": "artwork",
+                "evidence": "visual_confetti_pattern",
+                "is_mcdonalds_set": False,
+                "metrics": {
+                    "bright_density": round(bright_density, 4),
+                    "num_spots": num_spots,
+                    "median_spot_area": round(median_spot_area, 1),
+                    "high_var_frac": round(high_var_frac, 2),
+                    "mean_bright_sat": round(mean_bright_sat, 1),
+                    "score": round(score, 2),
+                },
+            }
+
+        return result_base
+
+    except Exception as e:
+        logger.debug("McDonald\'s confetti holo check failed: %s", e)
+        return result_base
+
+
 def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     """Return list of stamp types to check based on era and set.
 
@@ -2637,6 +2952,10 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         if c not in seen:
             seen.add(c)
             deduped.append(c)
+
+    # McDonald's sets: confetti holo detection
+    if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
+        checks.append("mcdonalds_holo")
 
     return deduped
 
@@ -2882,6 +3201,7 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
             card_id.split("/", 1)[1] if "/" in card_id else "",
         ),
         "crosshatch_holo": lambda img_bgr: _check_crosshatch_holo(img_bgr, set_id, era),
+        "mcdonalds_holo": lambda img_bgr: _check_mcdonalds_holo(img_bgr, set_id, era),
     }
 
     for stamp_type in stamps_to_check:
