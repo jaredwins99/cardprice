@@ -484,6 +484,7 @@ let stream = null;
 let frameCount = 0;
 let goodFrames = 0;        // consecutive frames where card is aligned
 const GOOD_FRAMES_NEEDED = 8; // ~0.5s at 15fps
+let loopRunning = false;     // prevent duplicate detectLoop RAF chains
 
 // ===== Camera setup =====
 const video = document.getElementById('cam');
@@ -493,35 +494,101 @@ const ctx = overlay.getContext('2d');
 const capCtx = captureCanvas.getContext('2d');
 
 async function startCamera() {
+    // Check if getUserMedia is available at all
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isHTTP = location.protocol === 'http:';
+        if (isHTTP) {
+            setStatus(isIOS
+                ? 'Camera requires HTTPS on iOS. Ask your admin to enable HTTPS, or open this page on a computer.'
+                : 'Camera unavailable over HTTP. Try HTTPS, or use Chrome on Android (allows HTTP on local network).');
+        } else {
+            setStatus('Camera not available on this device/browser.');
+        }
+        document.getElementById('captureBtn').classList.add('disabled');
+        return;
+    }
+
     try {
         stream = await navigator.mediaDevices.getUserMedia({
             video: {
-                facingMode: 'environment',
+                facingMode: { ideal: 'environment' },
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
             },
             audio: false,
         });
         video.srcObject = stream;
-        await video.play();
-        // Wait for video dimensions to be available
-        video.addEventListener('loadedmetadata', () => {
-            resizeOverlay();
-            requestAnimationFrame(detectLoop);
+
+        // Wait for actual video frames to be available (not just metadata).
+        // 'loadeddata' fires when the first frame is ready, which guarantees
+        // videoWidth/videoHeight are set and the video can be drawn to canvas.
+        // On iOS Safari, 'loadedmetadata' fires too early (before frames exist).
+        await new Promise((resolve, reject) => {
+            video.addEventListener('loadeddata', resolve, { once: true });
+            video.addEventListener('error', reject, { once: true });
+            // Timeout after 10s in case the event never fires
+            setTimeout(() => resolve(), 10000);
         });
+
+        await video.play();
+
+        // Delay resizeOverlay slightly so the layout has settled on mobile.
+        // On some Android devices, clientWidth/Height are still 0 immediately
+        // after play() resolves.
+        await new Promise(r => setTimeout(r, 100));
+        resizeOverlay();
+
+        // Verify canvas got real dimensions; retry if not
+        if (!overlay.width || !overlay.height) {
+            await new Promise(r => setTimeout(r, 300));
+            resizeOverlay();
+        }
+
+        loopRunning = true;
+        requestAnimationFrame(detectLoop);
         setStatus('Position your card in the frame');
     } catch (e) {
-        setStatus('Camera error: ' + e.message);
         console.error('Camera error:', e);
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isHTTP = location.protocol === 'http:';
+
+        if (e.name === 'NotAllowedError') {
+            setStatus('Camera access denied. Please allow camera permission and reload.');
+        } else if (e.name === 'NotFoundError') {
+            setStatus('No camera found on this device.');
+        } else if (e.name === 'NotReadableError' || e.name === 'AbortError') {
+            setStatus('Camera is in use by another app. Close it and reload.');
+        } else if (isHTTP && isIOS) {
+            setStatus('Camera requires HTTPS on iOS Safari. Use Chrome on Android, or enable HTTPS on the server.');
+        } else if (isHTTP) {
+            setStatus('Camera failed over HTTP. Try HTTPS, or use Chrome on Android (allows HTTP on local network).');
+        } else {
+            setStatus('Camera error: ' + e.message);
+        }
+        document.getElementById('captureBtn').classList.add('disabled');
     }
 }
 
 function resizeOverlay() {
-    overlay.width = overlay.clientWidth * (window.devicePixelRatio || 1);
-    overlay.height = overlay.clientHeight * (window.devicePixelRatio || 1);
-    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const w = overlay.clientWidth;
+    const h = overlay.clientHeight;
+    // Guard against 0 dimensions (layout not settled yet on mobile)
+    if (w === 0 || h === 0) return;
+    overlay.width = w * dpr;
+    overlay.height = h * dpr;
+    // Reset transform to avoid accumulated scaling on repeated calls
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-window.addEventListener('resize', resizeOverlay);
+window.addEventListener('resize', () => {
+    // Delay slightly so mobile browsers finish layout before we read dimensions
+    setTimeout(resizeOverlay, 50);
+});
+// Also handle orientation changes (some mobile browsers don't fire resize)
+window.addEventListener('orientationchange', () => {
+    setTimeout(resizeOverlay, 200);
+});
 
 // ===== UI updates =====
 function updateStepUI() {
@@ -568,10 +635,19 @@ function setStatus(text, ready) {
 // 2. Does its perspective skew match the required angle?
 
 function detectLoop() {
-    if (currentStep >= STEPS.length) return;
+    if (currentStep >= STEPS.length) {
+        loopRunning = false;
+        return;
+    }
 
     const w = overlay.clientWidth;
     const h = overlay.clientHeight;
+
+    // Skip if video not ready yet (dimensions unknown)
+    if (!video.videoWidth || !video.videoHeight || !w || !h) {
+        requestAnimationFrame(detectLoop);
+        return;
+    }
 
     // Draw template overlay
     drawOverlay(w, h);
@@ -947,10 +1023,15 @@ function acceptPhoto() {
     goodFrames = 0;
 
     if (currentStep >= STEPS.length) {
+        loopRunning = false;
         showDone();
     } else {
         updateStepUI();
-        requestAnimationFrame(detectLoop);
+        // Only start a new loop if one isn't already running
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(detectLoop);
+        }
     }
 }
 

@@ -20,6 +20,10 @@ Endpoints:
     POST /inventory/remove -> Remove card from inventory (decrement)
     GET  /inventory  -> Current inventory as JSON
     GET  /export     -> Export inventory as CSV attachment
+    POST /cart/add   -> Add card to shopping cart (in-memory)
+    POST /cart/remove -> Remove card from shopping cart
+    GET  /cart       -> Current cart contents as JSON
+    GET  /cart/clear -> Clear the entire shopping cart
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
     GET  /condition/camera -> Live camera overlay UI for condition capture
@@ -57,6 +61,10 @@ PENDING_DIR.mkdir(parents=True, exist_ok=True)
 CARD_IMAGES_DIR = Path("data/card_images")
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+# In-memory shopping cart: card_id -> {quantity, card_name, set_name, market_price,
+#                                       condition_prices, image_url, tcgplayer_url}
+CART = {}
 
 # Duplicate detection: max Hamming distance to consider a duplicate
 _DEDUP_HASH_THRESHOLD = 3
@@ -111,6 +119,65 @@ def _find_duplicate_scan(phash_hex):
         except Exception:
             continue
     return None
+
+
+
+# ---------------------------------------------------------------------------
+# Shared price-lookup SQL + condition-price builder
+# ---------------------------------------------------------------------------
+# Prefers Normal subtype, falls back to Holofoil, then any subtype.
+# This ensures holo-only cards (e.g. Absol) still get a price.
+_PRICE_LOOKUP_SQL = """
+    SELECT c.name, s.name as set_name, c.image_small,
+           c.tcg_product_id, p.market_price
+    FROM dim_cards c
+    JOIN dim_sets s ON s.set_id = c.set_id
+    LEFT JOIN LATERAL (
+        SELECT market_price FROM fact_market_prices
+        WHERE card_id = c.card_id
+        ORDER BY
+            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            price_date DESC
+        LIMIT 1
+    ) p ON true
+    WHERE c.card_id = :cid
+"""
+
+_PRICE_LOOKUP_BULK_SQL = """
+    SELECT c.card_id, c.name, p.market_price
+    FROM dim_cards c
+    LEFT JOIN LATERAL (
+        SELECT market_price FROM fact_market_prices
+        WHERE card_id = c.card_id
+        ORDER BY
+            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            price_date DESC
+        LIMIT 1
+    ) p ON true
+    WHERE c.card_id = ANY(:ids)
+"""
+
+
+def _build_condition_prices(nm_price):
+    """Build condition_prices dict for all 5 raw conditions from a NM price.
+
+    Returns dict with keys NM/LP/MP/HP/DMG, each having price/multiplier/range_low/range_high.
+    Returns None if nm_price is falsy.
+    """
+    if not nm_price:
+        return None
+    from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
+    nm = float(nm_price)
+    cond_prices = {}
+    for cond in ("NM", "LP", "MP", "HP", "DMG"):
+        mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
+        cond_prices[cond] = {
+            "price": round(nm * mult, 2),
+            "multiplier": mult,
+            "range_low": round(nm * ci_lo, 2),
+            "range_high": round(nm * ci_hi, 2),
+        }
+    return cond_prices
 
 
 def _get_lan_ip():
@@ -172,11 +239,25 @@ input[type=file] { display: none; }
 .result { background: #16213e; padding: 15px; border-radius: 8px; margin: 15px 0; display: none; }
 .result.show { display: block; }
 .result h3 { color: #e94560; margin: 0 0 10px; }
-.price { font-size: 24px; color: #4ecca3; }
+.price { font-size: 24px; color: #4ecca3; font-weight: bold; }
+.cond-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; font-size: 12px; font-weight: 600; }
+.cond-pill { padding: 2px 7px; border-radius: 10px; background: #1a1a2e; }
+.variant-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; background: #f0c040; color: #1a1a2e; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-left: 8px; }
+.btn-row { display: flex; gap: 8px; justify-content: center; margin: 12px 0 4px; }
+.btn-row button { flex: 1; max-width: 180px; padding: 10px 16px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+.btn-inv { background: #4ecca3; color: #1a1a2e; }
+.btn-cart { background: #e94560; color: #fff; }
+.btn-row button:disabled { opacity: 0.5; }
 .confidence { color: #888; }
 #preview { max-width: 100%; border-radius: 8px; margin: 10px 0; display: none; }
-.spinner { display: none; text-align: center; padding: 20px; }
-.spinner.show { display: block; }
+.spinner { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; gap: 12px; }
+.spinner.show { display: flex; }
+.spinner .scan-spinner-wrap { position: relative; width: 96px; height: 96px; }
+.spinner .scan-spinner-ring { width: 96px; height: 96px; border: 4px solid #333; border-top-color: #e94560; border-radius: 50%; animation: spinAnim 0.8s linear infinite; }
+.spinner .scan-timer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
+.spinner .scan-label .dots::after { content: ''; animation: dotAnim 1.5s steps(4, end) infinite; }
+@keyframes spinAnim { to { transform: rotate(360deg); } }
+@keyframes dotAnim { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } 100% { content: ''; } }
 .qr-section { text-align: center; background: #16213e; border-radius: 12px; padding: 15px; margin: 0 0 15px; }
 .qr-section p { margin: 5px 0 10px; color: #888; font-size: 14px; }
 .qr-section .url { font-family: monospace; color: #4ecca3; font-size: 13px; word-break: break-all; }
@@ -191,46 +272,94 @@ input[type=file] { display: none; }
     <br>
     <span class="url" id="serverUrl"></span>
 </div>
+<div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;">
+<h3 style="color:#e94560;margin:0 0 10px;">Single Card</h3>
 <form id="scanForm">
-    <label class="upload-btn" for="camera">Take Photo</label>
+    <div style="display:flex;gap:8px;">
+        <label class="upload-btn" for="camera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;">Take Photo</label>
+        <label class="upload-btn" for="gallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #e94560;">Gallery</label>
+    </div>
     <input type="file" id="camera" accept="image/*" capture="environment">
-    <label class="upload-btn" for="gallery" style="background:#16213e;border:2px solid #e94560;">Choose from Gallery</label>
     <input type="file" id="gallery" accept="image/*">
 </form>
-<div class="toggle-row">
-    <label for="continuousScan">Continuous scan mode</label>
-    <div class="toggle-switch">
-        <input type="checkbox" id="continuousScan">
-        <span class="toggle-slider"></span>
-    </div>
-</div>
+<hr style="border:none;border-top:1px solid #333;margin:12px 0;">
+<h3 style="color:#4ecca3;margin:0 0 10px;">Binder Page</h3>
 <form id="pageForm">
-    <label class="upload-btn" for="pageCamera" style="background:#4ecca3;color:#1a1a2e;margin-top:20px;">Scan Binder Page</label>
+    <div style="display:flex;gap:8px;">
+        <label class="upload-btn" for="pageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#4ecca3;color:#1a1a2e;">Scan Page</label>
+        <label class="upload-btn" for="pageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #4ecca3;color:#4ecca3;">Page Gallery</label>
+    </div>
     <input type="file" id="pageCamera" accept="image/*" capture="environment">
-    <label class="upload-btn" for="pageGallery" style="background:#16213e;border:2px solid #4ecca3;color:#4ecca3;">Page from Gallery</label>
     <input type="file" id="pageGallery" accept="image/*">
 </form>
-<a href="/inventory/view" class="upload-btn" style="display:block;background:#4ecca3;color:#1a1a2e;margin-top:20px;text-decoration:none;text-align:center;font-weight:700;">View Inventory</a>
-<a href="/condition/camera" class="upload-btn" style="display:block;background:#e94560;color:#fff;margin-top:8px;text-decoration:none;text-align:center;">Grade Card Condition</a>
-<a href="/condition" class="upload-btn" style="display:block;background:#555;color:#fff;margin-top:8px;text-decoration:none;text-align:center;font-size:13px;">Upload Photos Instead</a>
+<div style="display:flex;gap:8px;margin:10px 0 0;">
+    <div class="toggle-row" style="flex:1;margin:0;background:#0f3460;padding:8px 10px;">
+        <label for="continuousScanInventory" style="font-size:12px;">Continuous (card)</label>
+        <div class="toggle-switch">
+            <input type="checkbox" id="continuousScanInventory" onchange="toggleContinuous('inventory')">
+            <span class="toggle-slider"></span>
+        </div>
+    </div>
+    <div class="toggle-row" style="flex:1;margin:0;background:#0f3460;padding:8px 10px;">
+        <label for="continuousScanCart" style="font-size:12px;">Continuous (page)</label>
+        <div class="toggle-switch">
+            <input type="checkbox" id="continuousScanCart" onchange="toggleContinuous('cart')">
+            <span class="toggle-slider"></span>
+        </div>
+    </div>
+</div>
+<div id="continuousInfoInventory" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="continuousCountInventory">0</strong> cards</span>
+        <button onclick="stopContinuous('inventory')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop Scanning</button>
+    </div>
+</div>
+<div id="continuousInfoCart" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="continuousCountCart">0</strong> pages</span>
+        <button onclick="stopContinuous('cart')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop Scanning</button>
+    </div>
+</div>
+<div style="text-align:center;margin:12px 0 0;">
+    <a href="/inventory/view" style="color:#4ecca3;font-size:13px;margin-right:16px;text-decoration:none;">Browse Inventory</a>
+    <a href="/cart/view" style="color:#e94560;font-size:13px;text-decoration:none;">View Cart</a>
+</div>
+</div>
 <img id="preview">
-<div class="spinner" id="spinner">Scanning...</div>
+<div class="spinner" id="spinner">
+    <div class="scan-spinner-wrap">
+        <div class="scan-spinner-ring"></div>
+        <div class="scan-timer" id="scanTimer">0s</div>
+    </div>
+    <span class="scan-label">Scanning<span class="dots"></span></span>
+</div>
 <div class="result" id="result">
     <h3 id="cardName"></h3>
+    <span id="variantBadge" class="variant-badge" style="display:none;"></span>
     <div class="price" id="cardPrice"></div>
-    <div id="conditionPrices" style="display:none;margin:8px auto;max-width:280px;"></div>
+    <div id="conditionPrices" class="cond-row" style="display:none;"></div>
     <div class="confidence" id="cardConf"></div>
-    <div id="cardMeta"></div>
+    <div id="cardMeta" style="font-size:12px;color:#666;margin:2px 0;"></div>
     <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
     <canvas id="sparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
     <div id="sparkLabel" style="display:none;font-size:11px;color:#888;"></div>
-    <button id="addInventoryBtn" style="display:none;margin:12px auto;padding:10px 24px;background:#4ecca3;color:#1a1a2e;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;" onclick="addToInventory()">Add to Inventory</button>
-    <div id="inventoryMsg" style="display:none;font-size:13px;margin-top:6px;"></div>
+    <div class="btn-row">
+        <button id="addInventoryBtn" class="btn-inv" style="display:none;" onclick="addToInventory()">Add to Inventory</button>
+        <button id="addCartBtn" class="btn-cart" style="display:none;" onclick="addToCart()">Add to Cart</button>
+    </div>
+    <div id="inventoryMsg" style="display:none;font-size:13px;margin-top:6px;text-align:center;"></div>
+    <div id="cartMsg" style="display:none;font-size:13px;margin-top:4px;text-align:center;"></div>
 </div>
 <div class="result" id="pageResult">
     <h3 style="color:#4ecca3;">Binder Page Results</h3>
     <div id="pageTotal" class="price"></div>
     <div id="pageCards"></div>
+</div>
+<div id="cardDetailOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none';">
+    <div style="background:#16213e;border-radius:12px;padding:20px;max-width:360px;width:100%;max-height:90vh;overflow-y:auto;position:relative;text-align:center;">
+        <button onclick="document.getElementById('cardDetailOverlay').style.display='none';" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#888;font-size:24px;cursor:pointer;line-height:1;">&times;</button>
+        <div id="cardDetailBody"></div>
+    </div>
 </div>
 <script>
 // Minimal QR Code generator in JS — zero external dependencies.
@@ -333,6 +462,21 @@ function drawQR(canvasId,text,cellSize){
 })();
 </script>
 <script>
+var scanTimerInterval = null;
+function startScanTimer() {
+    var start = Date.now();
+    var timerEl = document.getElementById('scanTimer');
+    timerEl.textContent = '0.0s';
+    scanTimerInterval = setInterval(function() {
+        timerEl.textContent = ((Date.now() - start) / 1000).toFixed(1) + 's';
+    }, 100);
+}
+function stopScanTimer() {
+    if (scanTimerInterval) {
+        clearInterval(scanTimerInterval);
+        scanTimerInterval = null;
+    }
+}
 function handleFile(file) {
     if (!file) return;
     var preview = document.getElementById('preview');
@@ -341,12 +485,14 @@ function handleFile(file) {
     var spinner = document.getElementById('spinner');
     var result = document.getElementById('result');
     spinner.classList.add('show');
+    startScanTimer();
     result.classList.remove('show');
     var fd = new FormData();
     fd.append('image', file);
     fetch('/scan', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            stopScanTimer();
             spinner.classList.remove('show');
             result.classList.add('show');
             if (data.status === 'pending') {
@@ -360,35 +506,48 @@ function handleFile(file) {
             }
         })
         .catch(function(e) {
+            stopScanTimer();
             spinner.classList.remove('show');
             result.classList.add('show');
             document.getElementById('cardName').textContent = 'Error: ' + e;
         });
 }
 function showResult(data) {
-    document.getElementById('cardName').textContent = data.card_name || 'Unknown Card';
-    document.getElementById('cardPrice').textContent = data.market_price ? '$' + parseFloat(data.market_price).toFixed(2) : 'No price data';
-    // Condition price breakdown
+    // Card name with TCGPlayer link if available
+    var nameEl = document.getElementById('cardName');
+    var cardName = data.card_name || 'Unknown Card';
+    if (data.tcgplayer_url) {
+        nameEl.innerHTML = '<a href="' + data.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e94560;text-decoration:underline;">' + cardName + '</a>';
+    } else {
+        nameEl.textContent = cardName;
+    }
+    // Variant badge
+    var badge = document.getElementById('variantBadge');
+    if (data.detected_variant && data.detected_variant !== 'normal') {
+        badge.textContent = data.detected_variant.replace(/_/g, ' ');
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+    // Main price (NM, big green bold)
+    var displayPrice = data.variant_price || data.market_price;
+    document.getElementById('cardPrice').textContent = displayPrice ? '$' + parseFloat(displayPrice).toFixed(2) : 'No price data';
+    // Condition prices — compact row: NM LP MP HP DMG
     var cpDiv = document.getElementById('conditionPrices');
+    var conditions = ['NM','LP','MP','HP','DMG'];
+    var colors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
     if (data.condition_prices) {
         var cp = data.condition_prices;
-        var tbl = '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-        tbl += '<tr style="border-bottom:1px solid #333;"><th style="text-align:left;padding:4px 8px;color:#888;">Condition</th><th style="text-align:right;padding:4px 8px;color:#888;">Price</th><th style="text-align:right;padding:4px 8px;color:#888;">Range</th></tr>';
-        var conditions = ['NM','LP','MP','HP','DMG'];
-        var colors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
+        var html = '';
         for (var ci = 0; ci < conditions.length; ci++) {
             var cond = conditions[ci];
             var info = cp[cond];
             if (!info) continue;
-            tbl += '<tr style="border-bottom:1px solid #222;">';
-            tbl += '<td style="padding:4px 8px;color:' + colors[cond] + ';font-weight:bold;">' + cond + '</td>';
-            tbl += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">$' + info.price.toFixed(2) + '</td>';
-            tbl += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">$' + info.range_low.toFixed(2) + ' – $' + info.range_high.toFixed(2) + '</td>';
-            tbl += '</tr>';
+            var clr = colors[cond];
+            html += '<span class="cond-pill" style="color:' + clr + ';">' + cond + ' $' + info.price.toFixed(2) + '</span>';
         }
-        tbl += '</table>';
-        cpDiv.innerHTML = tbl;
-        cpDiv.style.display = 'block';
+        cpDiv.innerHTML = html;
+        cpDiv.style.display = 'flex';
     } else {
         cpDiv.style.display = 'none';
     }
@@ -413,7 +572,6 @@ function showResult(data) {
             .then(function(r) { return r.json(); })
             .then(function(pts) {
                 if (!pts || pts.length < 2) return;
-                // pts are newest-first from API; reverse to chronological order
                 pts = pts.slice().reverse();
                 var prices = pts.map(function(p) { return p.price; });
                 var minP = Math.min.apply(null, prices);
@@ -437,21 +595,30 @@ function showResult(data) {
                 sparkLabel.style.display = 'block';
                 var diff = prices[prices.length - 1] - prices[0];
                 var sign = diff >= 0 ? '+' : '';
-                sparkLabel.textContent = '30d: ' + sign + diff.toFixed(2) + ' (' + pts[0].date + ' \u2192 ' + pts[pts.length - 1].date + ')';
+                sparkLabel.textContent = '30d: ' + sign + diff.toFixed(2) + ' (' + pts[0].date + ' \u2192 ' + pts[pts.length-1].date + ')';
                 sparkLabel.style.color = up ? '#4ecca3' : '#e94560';
             })
             .catch(function() {});
     }
-    // Show/hide Add to Inventory button
+    // Show/hide action buttons
     var addBtn = document.getElementById('addInventoryBtn');
+    var cartBtn = document.getElementById('addCartBtn');
     var invMsg = document.getElementById('inventoryMsg');
+    var cartMsg = document.getElementById('cartMsg');
     invMsg.style.display = 'none';
     invMsg.textContent = '';
+    cartMsg.style.display = 'none';
+    cartMsg.textContent = '';
     if (data.card_id) {
         addBtn.style.display = 'block';
         addBtn.dataset.cardId = data.card_id;
+        cartBtn.style.display = 'block';
+        cartBtn.dataset.cardId = data.card_id;
+        cartBtn.dataset.cardName = cardName;
+        cartBtn.dataset.price = displayPrice || '';
     } else {
         addBtn.style.display = 'none';
+        cartBtn.style.display = 'none';
     }
     reopenCamera();
 }
@@ -483,6 +650,41 @@ function addToInventory() {
     .catch(function(e) {
         btn.disabled = false;
         btn.textContent = 'Add to Inventory';
+        msg.style.display = 'block';
+        msg.style.color = '#e94560';
+        msg.textContent = 'Error: ' + e;
+    });
+}
+function addToCart() {
+    var btn = document.getElementById('addCartBtn');
+    var msg = document.getElementById('cartMsg');
+    var cardId = btn.dataset.cardId;
+    var cardName = btn.dataset.cardName || cardId;
+    var price = parseFloat(btn.dataset.price) || 0;
+    if (!cardId) return;
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+    fetch('/cart/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({card_id: cardId, card_name: cardName, market_price: price, quantity: 1})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = 'Add to Cart';
+        msg.style.display = 'block';
+        if (data.error) {
+            msg.style.color = '#e94560';
+            msg.textContent = data.error;
+        } else {
+            msg.style.color = '#e94560';
+            msg.textContent = 'In cart! Qty: ' + data.quantity + ' | Cart total: $' + (data.cart_total || 0).toFixed(2);
+        }
+    })
+    .catch(function(e) {
+        btn.disabled = false;
+        btn.textContent = 'Add to Cart';
         msg.style.display = 'block';
         msg.style.color = '#e94560';
         msg.textContent = 'Error: ' + e;
@@ -521,12 +723,108 @@ function _pollFallback(scanId) {
             });
     }, 3000);
 }
+var continuousState = {inventory: {active: false, count: 0}, cart: {active: false, count: 0}};
+function toggleContinuous(section) {
+    var other = section === 'inventory' ? 'cart' : 'inventory';
+    var checkbox = document.getElementById(section === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart');
+    var otherCheckbox = document.getElementById(other === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart');
+    if (checkbox.checked) {
+        // Disable the other section's continuous mode
+        otherCheckbox.checked = false;
+        continuousState[other].active = false;
+        document.getElementById('continuousInfo' + other.charAt(0).toUpperCase() + other.slice(1)).style.display = 'none';
+        // Enable this section
+        continuousState[section].active = true;
+        continuousState[section].count = 0;
+        var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
+        document.getElementById(infoId).style.display = 'block';
+        updateContinuousCount(section);
+    } else {
+        continuousState[section].active = false;
+        var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
+        document.getElementById(infoId).style.display = 'none';
+    }
+}
+function stopContinuous(section) {
+    var checkboxId = section === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart';
+    document.getElementById(checkboxId).checked = false;
+    continuousState[section].active = false;
+    var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
+    document.getElementById(infoId).style.display = 'none';
+}
+function updateContinuousCount(section) {
+    var countId = 'continuousCount' + section.charAt(0).toUpperCase() + section.slice(1);
+    document.getElementById(countId).textContent = continuousState[section].count;
+}
 document.getElementById('camera').onchange = function() { handleFile(this.files[0]); this.value=''; };
 document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); this.value=''; };
 function reopenCamera() {
-    if (document.getElementById('continuousScan').checked) {
+    if (continuousState.inventory.active) {
+        continuousState.inventory.count++;
+        updateContinuousCount('inventory');
         setTimeout(function() { document.getElementById('camera').click(); }, 1200);
     }
+}
+function reopenPageCamera() {
+    if (continuousState.cart.active) {
+        continuousState.cart.count++;
+        updateContinuousCount('cart');
+        setTimeout(function() { document.getElementById('pageCamera').click(); }, 1200);
+    }
+}
+var _pageCardsData = [];
+function _showCardDetail(idx) {
+    var c = _pageCardsData[idx];
+    if (!c) return;
+    var overlay = document.getElementById('cardDetailOverlay');
+    var body = document.getElementById('cardDetailBody');
+    var displayPrice = c.variant_price || c.market_price;
+    var h = '';
+    var imgSrc = c.local_image_url || c.image_url || '';
+    if (imgSrc) {
+        h += '<img src="' + imgSrc + '" style="width:100%;max-width:280px;display:block;margin:0 auto 12px;border-radius:8px;" />';
+    }
+    var nameText = c.card_name || 'Unknown';
+    if (c.tcgplayer_url) {
+        h += '<div style="font-size:18px;font-weight:bold;margin-bottom:4px;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:#4ecca3;">' + nameText + '</a></div>';
+    } else {
+        h += '<div style="font-size:18px;font-weight:bold;color:#e0e0e0;margin-bottom:4px;">' + nameText + '</div>';
+    }
+    if (c.set_name) h += '<div style="font-size:13px;color:#888;margin-bottom:8px;">' + c.set_name + '</div>';
+    if (c.detected_variant && c.detected_variant !== 'normal') {
+        h += '<span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px;margin-bottom:8px;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span>';
+    }
+    if (displayPrice) {
+        h += '<div style="font-size:24px;font-weight:bold;color:#4ecca3;margin:8px 0;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+    } else {
+        h += '<div style="font-size:16px;color:#666;margin:8px 0;">No price data</div>';
+    }
+    if (c.condition_prices) {
+        var cp = c.condition_prices;
+        var conds = ['NM','LP','MP','HP','DMG'];
+        var clrs = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
+        h += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0;">';
+        h += '<tr style="border-bottom:1px solid #333;"><th style="text-align:left;padding:4px 8px;color:#888;">Cond</th><th style="text-align:right;padding:4px 8px;color:#888;">Price</th><th style="text-align:right;padding:4px 8px;color:#888;">Range</th></tr>';
+        for (var ci = 0; ci < conds.length; ci++) {
+            var cond = conds[ci];
+            var info = cp[cond];
+            if (!info) continue;
+            h += '<tr style="border-bottom:1px solid #222;">';
+            h += '<td style="padding:4px 8px;color:' + clrs[cond] + ';font-weight:bold;">' + cond + '</td>';
+            h += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">$' + info.price.toFixed(2) + '</td>';
+            h += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">$' + info.range_low.toFixed(2) + ' - $' + info.range_high.toFixed(2) + '</td>';
+            h += '</tr>';
+        }
+        h += '</table>';
+    }
+    if (c.confidence) {
+        h += '<div style="font-size:12px;color:#888;margin-top:6px;">' + (c.confidence * 100).toFixed(0) + '% confidence' + (c.method ? ' via ' + c.method : '') + '</div>';
+    }
+    if (c.card_id) {
+        h += '<div style="font-size:11px;color:#555;margin-top:4px;">' + c.card_id + '</div>';
+    }
+    body.innerHTML = h;
+    overlay.style.display = 'flex';
 }
 function handlePageFile(file) {
     if (!file) return;
@@ -537,6 +835,7 @@ function handlePageFile(file) {
     var pageResult = document.getElementById('pageResult');
     var result = document.getElementById('result');
     spinner.classList.add('show');
+    startScanTimer();
     pageResult.classList.remove('show');
     result.classList.remove('show');
     var fd = new FormData();
@@ -544,6 +843,7 @@ function handlePageFile(file) {
     fetch('/scan-page', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            stopScanTimer();
             spinner.classList.remove('show');
             pageResult.classList.add('show');
             if (data.error) {
@@ -552,15 +852,17 @@ function handlePageFile(file) {
                 return;
             }
             var cards = data.cards || [];
+            _pageCardsData = cards;
             var total = 0;
             if (data.status === 'pending') {
                 document.getElementById('pageTotal').textContent = 'Page queued for processing (' + (data.scan_id || '') + ')';
                 document.getElementById('pageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
                 return;
             }
+            var condColors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f1c40f','HP':'#e67e22','DMG':'#e74c3c'};
+            var condKeys = ['NM','LP','MP','HP','DMG'];
             // Build grid of reference images
             var numCols = 3;
-            var numRows = Math.ceil(cards.length / numCols);
             var html = '<div style="display:grid;grid-template-columns:repeat(' + numCols + ',1fr);gap:8px;max-width:600px;margin:12px auto;">';
             for (var i = 0; i < cards.length; i++) {
                 var c = cards[i];
@@ -568,48 +870,75 @@ function handlePageFile(file) {
                 var price = displayPrice ? parseFloat(displayPrice) : 0;
                 total += price;
                 var imgSrc = c.local_image_url || c.image_url || '';
-                html += '<div style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;">';
+                html += '<div onclick="_showCardDetail(' + i + ')" style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(78,204,163,0.2);">';
                 if (imgSrc) {
                     html += '<img src="' + imgSrc + '" style="width:100%;display:block;border-radius:8px 8px 0 0;" />';
                 } else {
                     html += '<div style="width:100%;aspect-ratio:5/7;background:#16213e;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px;border-radius:8px 8px 0 0;">No image</div>';
                 }
                 html += '<div style="padding:6px 4px;">';
-                html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.card_name || 'Unknown') + '</div>';
+                // Card name with TCGPlayer link
+                var nameText = c.card_name || 'Unknown';
+                if (c.tcgplayer_url) {
+                    html += '<div style="font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:#4ecca355;">' + nameText + '</a></div>';
+                } else {
+                    html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nameText + '</div>';
+                }
+                // Variant badge
+                if (c.detected_variant && c.detected_variant !== 'normal') {
+                    html += '<div style="margin:2px 0;"><span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:6px;line-height:1.3;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span></div>';
+                }
+                // Main price
                 if (displayPrice) {
                     html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
-                    if (c.variant_price && c.detected_variant && c.detected_variant !== 'normal') {
-                        html += '<div style="font-size:10px;color:#f0c040;">' + c.detected_variant.replace(/_/g, ' ') + '</div>';
-                    }
-                    if (c.condition_prices) {
-                        var lp = c.condition_prices.LP;
-                        if (lp) html += '<div style="font-size:10px;color:#a8d8a8;">LP $' + lp.price.toFixed(2) + '</div>';
-                    }
                 } else {
                     html += '<div style="font-size:13px;color:#666;">No price</div>';
                 }
+                // Condition prices (compact flex row)
+                if (c.condition_prices || c.market_price) {
+                    html += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;">';
+                    for (var cci = 0; cci < condKeys.length; cci++) {
+                        var ccond = condKeys[cci];
+                        var cinfo = c.condition_prices && c.condition_prices[ccond];
+                        var cclr = cinfo && cinfo.price != null ? condColors[ccond] : '#555';
+                        var cval = cinfo && cinfo.price != null ? '$' + cinfo.price.toFixed(cinfo.price >= 10 ? 0 : 2) : '\u2014';
+                        html += '<div style="flex:1;text-align:center;color:' + cclr + ';"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
+                    }
+                    html += '</div>';
+                }
+                // Set name
                 html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
                 html += '</div></div>';
             }
             html += '</div>';
-            var lpTotal = 0;
+            // Totals
+            var condTotals = {};
+            for (var ci = 0; ci < condKeys.length; ci++) condTotals[condKeys[ci]] = 0;
             for (var ti = 0; ti < cards.length; ti++) {
-                if (cards[ti].condition_prices && cards[ti].condition_prices.LP) lpTotal += cards[ti].condition_prices.LP.price;
+                if (cards[ti].condition_prices) {
+                    for (var ci = 0; ci < condKeys.length; ci++) {
+                        var ck = condKeys[ci];
+                        if (cards[ti].condition_prices[ck]) condTotals[ck] += cards[ti].condition_prices[ck].price;
+                    }
+                }
             }
-            var totalText = cards.length + ' cards — NM: $' + total.toFixed(2);
-            if (lpTotal > 0) totalText += ' · LP: $' + lpTotal.toFixed(2);
+            var totalText = cards.length + ' cards \u2014 NM: $' + total.toFixed(2);
+            if (condTotals.LP > 0) totalText += ' \u00b7 LP: $' + condTotals.LP.toFixed(2);
             document.getElementById('pageTotal').textContent = totalText;
             document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
+            reopenPageCamera();
         })
         .catch(function(e) {
+            stopScanTimer();
             spinner.classList.remove('show');
             pageResult.classList.add('show');
             document.getElementById('pageTotal').textContent = 'Error';
             document.getElementById('pageCards').textContent = '' + e;
+            reopenPageCamera();
         });
 }
-document.getElementById('pageCamera').onchange = function() { handlePageFile(this.files[0]); };
-document.getElementById('pageGallery').onchange = function() { handlePageFile(this.files[0]); };
+document.getElementById('pageCamera').onchange = function() { handlePageFile(this.files[0]); this.value=''; };
+document.getElementById('pageGallery').onchange = function() { handlePageFile(this.files[0]); this.value=''; };
 </script>
 </body>
 </html>
@@ -745,6 +1074,13 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/inventory/view":
             from cardprice.inventory_ui import INVENTORY_HTML
             self._send_html(INVENTORY_HTML)
+        elif self.path == "/cart/view":
+            from cardprice.cart_ui import CART_HTML
+            self._send_html(CART_HTML)
+        elif self.path == "/cart":
+            self._send_cart()
+        elif self.path == "/cart/clear":
+            self._handle_cart_clear()
         elif self.path == "/inventory":
             self._send_inventory()
         elif self.path == "/export":
@@ -822,6 +1158,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_resolve()
         elif self.path == "/resolve-batch":
             self._handle_resolve_batch()
+        elif self.path == "/cart/add":
+            self._handle_cart_add()
+        elif self.path == "/cart/remove":
+            self._handle_cart_remove()
         elif self.path == "/inventory/add":
             self._handle_inventory_add()
         elif self.path == "/inventory/remove":
@@ -949,31 +1289,34 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 result = identify_card(str(save_path), session=session)
 
+                detected_variant = result.get("detected_variant", "normal")
+                _VARIANT_TO_SUBTYPE_S = {
+                    "stamped": "Reverse Holofoil",
+                    "reverse_holo": "Reverse Holofoil",
+                    "holofoil": "Holofoil",
+                    "1st_edition": "1st Edition Holofoil",
+                    "normal": "Normal",
+                }
+
                 response = {
                     "card_id": result["card_id"],
                     "confidence": result["confidence"],
                     "method": result["method"],
                     "card_name": None,
                     "market_price": None,
+                    "variant_price": None,
                     "set_name": None,
                     "image_url": None,
                     "local_image_url": _local_image_url(result["card_id"]),
                     "phash": phash_hex,
+                    "detected_variant": detected_variant,
+                    "variant_confidence": result.get("variant_confidence"),
+                    "tcgplayer_url": None,
                 }
 
                 if result["card_id"]:
                     row = session.execute(
-                        sql_text("""
-                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
-                            FROM dim_cards c
-                            JOIN dim_sets s ON s.set_id = c.set_id
-                            LEFT JOIN LATERAL (
-                                SELECT market_price FROM fact_market_prices
-                                WHERE card_id = c.card_id
-                                ORDER BY price_date DESC LIMIT 1
-                            ) p ON true
-                            WHERE c.card_id = :cid
-                        """),
+                        sql_text(_PRICE_LOOKUP_SQL),
                         {"cid": result["card_id"]},
                     ).fetchone()
                     if row:
@@ -983,22 +1326,29 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(row.market_price) if row.market_price else None
                         )
                         response["image_url"] = row.image_small
+                        if row.tcg_product_id:
+                            response["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
+
+                        # Look up variant-specific price if variant is not normal
+                        if detected_variant != "normal":
+                            subtype = _VARIANT_TO_SUBTYPE_S.get(detected_variant)
+                            if subtype:
+                                vrow = session.execute(
+                                    sql_text("""
+                                        SELECT market_price FROM fact_market_prices
+                                        WHERE card_id = :cid
+                                          AND subtype_name = :subtype
+                                        ORDER BY price_date DESC LIMIT 1
+                                    """),
+                                    {"cid": result["card_id"], "subtype": subtype},
+                                ).fetchone()
+                                if vrow and vrow.market_price:
+                                    response["variant_price"] = float(vrow.market_price)
 
                         # Condition-adjusted prices for all raw conditions
-                        if row.market_price:
-                            from cardprice.models.condition_pricing import (
-                                CONDITION_MULTIPLIERS_WITH_CI,
-                            )
-                            nm = float(row.market_price)
-                            cond_prices = {}
-                            for cond in ("NM", "LP", "MP", "HP", "DMG"):
-                                mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
-                                cond_prices[cond] = {
-                                    "price": round(nm * mult, 2),
-                                    "multiplier": mult,
-                                    "range_low": round(nm * ci_lo, 2),
-                                    "range_high": round(nm * ci_hi, 2),
-                                }
+                        price_for_conditions = response.get("variant_price") or response.get("market_price")
+                        cond_prices = _build_condition_prices(price_for_conditions)
+                        if cond_prices:
                             response["condition_prices"] = cond_prices
                 else:
                     # No confident ML match — queue for Claude Code identification
@@ -1084,23 +1434,14 @@ class ScanHandler(BaseHTTPRequestHandler):
         set_name = None
         market_price = None
         image_url = None
+        condition_prices = None
         try:
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
                 row = session.execute(
-                    sql_text("""
-                        SELECT c.name, s.name as set_name, c.image_small, p.market_price
-                        FROM dim_cards c
-                        JOIN dim_sets s ON s.set_id = c.set_id
-                        LEFT JOIN LATERAL (
-                            SELECT market_price FROM fact_market_prices
-                            WHERE card_id = c.card_id
-                            ORDER BY price_date DESC LIMIT 1
-                        ) p ON true
-                        WHERE c.card_id = :cid
-                    """),
+                    sql_text(_PRICE_LOOKUP_SQL),
                     {"cid": card_id},
                 ).fetchone()
                 if row:
@@ -1108,6 +1449,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     set_name = row.set_name
                     market_price = float(row.market_price) if row.market_price else None
                     image_url = row.image_small
+                    condition_prices = _build_condition_prices(row.market_price)
         except Exception as e:
             logger.warning("DB lookup failed during resolve for %s: %s", card_id, e)
 
@@ -1122,7 +1464,7 @@ class ScanHandler(BaseHTTPRequestHandler):
         scan_data["image_url"] = image_url
         pending_file.write_text(json.dumps(scan_data))
 
-        return {
+        result = {
             "scan_id": scan_id,
             "status": "resolved",
             "card_id": card_id,
@@ -1134,6 +1476,9 @@ class ScanHandler(BaseHTTPRequestHandler):
             "image_url": image_url,
             "local_image_url": _local_image_url(card_id),
         }
+        if condition_prices:
+            result["condition_prices"] = condition_prices
+        return result
 
     def _handle_resolve(self):
         """Resolve a single pending/unknown scan by providing the correct card_id.
@@ -1316,17 +1661,7 @@ class ScanHandler(BaseHTTPRequestHandler):
 
                 if result["card_id"]:
                     row = session.execute(
-                        sql_text("""
-                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
-                            FROM dim_cards c
-                            JOIN dim_sets s ON s.set_id = c.set_id
-                            LEFT JOIN LATERAL (
-                                SELECT market_price FROM fact_market_prices
-                                WHERE card_id = c.card_id
-                                ORDER BY price_date DESC LIMIT 1
-                            ) p ON true
-                            WHERE c.card_id = :cid
-                        """),
+                        sql_text(_PRICE_LOOKUP_SQL),
                         {"cid": result["card_id"]},
                     ).fetchone()
                     if row:
@@ -1338,20 +1673,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         response["image_url"] = row.image_small
 
                         # Condition-adjusted prices for all raw conditions
-                        if row.market_price:
-                            from cardprice.models.condition_pricing import (
-                                CONDITION_MULTIPLIERS_WITH_CI,
-                            )
-                            nm = float(row.market_price)
-                            cond_prices = {}
-                            for cond in ("NM", "LP", "MP", "HP", "DMG"):
-                                mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
-                                cond_prices[cond] = {
-                                    "price": round(nm * mult, 2),
-                                    "multiplier": mult,
-                                    "range_low": round(nm * ci_lo, 2),
-                                    "range_high": round(nm * ci_hi, 2),
-                                }
+                        cond_prices = _build_condition_prices(row.market_price)
+                        if cond_prices:
                             response["condition_prices"] = cond_prices
                 else:
                     # No confident ML match — queue for Claude Code identification
@@ -1508,21 +1831,7 @@ class ScanHandler(BaseHTTPRequestHandler):
 
                     if result["card_id"]:
                         row = session.execute(
-                            sql_text("""
-                                SELECT c.name, s.name as set_name, c.image_small,
-                                       c.tcg_product_id, p.market_price
-                                FROM dim_cards c
-                                JOIN dim_sets s ON s.set_id = c.set_id
-                                LEFT JOIN LATERAL (
-                                    SELECT market_price FROM fact_market_prices
-                                    WHERE card_id = c.card_id
-                                    ORDER BY
-                                        CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
-                                        price_date DESC
-                                    LIMIT 1
-                                ) p ON true
-                                WHERE c.card_id = :cid
-                            """),
+                            sql_text(_PRICE_LOOKUP_SQL),
                             {"cid": result["card_id"]},
                         ).fetchone()
                         if row:
@@ -1554,17 +1863,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                             # Use variant_price for condition pricing if available, else market_price
                             price_for_conditions = card_data["variant_price"] or card_data["market_price"]
                             if price_for_conditions:
-                                from cardprice.models.condition_pricing import (
-                                    CONDITION_MULTIPLIERS_WITH_CI,
-                                )
-                                nm = price_for_conditions
-                                cond_prices = {}
-                                for cond in ("NM", "LP", "MP", "HP", "DMG"):
-                                    mult, _, _ = CONDITION_MULTIPLIERS_WITH_CI[cond]
-                                    cond_prices[cond] = {
-                                        "price": round(nm * mult, 2),
-                                    }
-                                card_data["condition_prices"] = cond_prices
+                                card_data["condition_prices"] = _build_condition_prices(price_for_conditions)
 
                     cards.append(card_data)
 
@@ -1592,15 +1891,29 @@ class ScanHandler(BaseHTTPRequestHandler):
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
+                # Pick best available subtype: Normal > Holofoil > any
+                best_sub_row = session.execute(
+                    sql_text("""
+                        SELECT subtype_name FROM fact_market_prices
+                        WHERE card_id = :cid
+                        ORDER BY
+                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            price_date DESC
+                        LIMIT 1
+                    """),
+                    {"cid": card_id},
+                ).fetchone()
+                best_subtype = best_sub_row.subtype_name if best_sub_row else 'Normal'
+
                 rows = session.execute(
                     sql_text("""
                         SELECT price_date, market_price
                         FROM fact_market_prices
-                        WHERE card_id = :cid
+                        WHERE card_id = :cid AND subtype_name = :subtype
                         ORDER BY price_date DESC
                         LIMIT 30
                     """),
-                    {"cid": card_id},
+                    {"cid": card_id, "subtype": best_subtype},
                 ).fetchall()
                 result = [
                     {
@@ -1613,6 +1926,140 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Price history error: %s", e)
             self._send_json([])
+
+    # ---- Shopping Cart endpoints ----
+
+    def _handle_cart_add(self):
+        """Add a card to the in-memory shopping cart (upsert).
+
+        Accepts JSON: {"card_id": "ex13-18/normal", "card_name": "Absol",
+                        "market_price": 4.79, "set_name": "...", ...}
+        Increments quantity if already in cart, otherwise adds with quantity 1.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        card_id = data.get("card_id")
+        if not card_id:
+            self._send_json({"error": "Missing required field: card_id"}, status=400)
+            return
+
+        quantity = data.get("quantity", 1)
+        try:
+            quantity = int(quantity)
+        except (ValueError, TypeError):
+            self._send_json({"error": "quantity must be an integer"}, status=400)
+            return
+        if quantity < 1:
+            self._send_json({"error": "quantity must be >= 1"}, status=400)
+            return
+
+        if card_id in CART:
+            CART[card_id]["quantity"] += quantity
+        else:
+            CART[card_id] = {
+                "quantity": quantity,
+                "card_name": data.get("card_name"),
+                "set_name": data.get("set_name"),
+                "market_price": data.get("market_price"),
+                "condition_prices": data.get("condition_prices"),
+                "image_url": data.get("image_url"),
+                "tcgplayer_url": data.get("tcgplayer_url"),
+            }
+
+        cart_total = sum(
+            (item.get("market_price") or 0) * item.get("quantity", 1)
+            for item in CART.values()
+        )
+        self._send_json({
+            "card_id": card_id,
+            "quantity": CART[card_id]["quantity"],
+            "action": "added",
+            "cart_size": len(CART),
+            "cart_total": round(cart_total, 2),
+        })
+
+    def _handle_cart_remove(self):
+        """Remove a card from the shopping cart (decrement or delete).
+
+        Accepts JSON: {"card_id": "ex13-18/normal", "quantity": 1}
+        Decrements quantity; removes entry if result <= 0.
+        """
+        data = self._read_json_body()
+        if data is None:
+            return
+
+        card_id = data.get("card_id")
+        if not card_id:
+            self._send_json({"error": "Missing required field: card_id"}, status=400)
+            return
+
+        quantity = data.get("quantity", 1)
+        try:
+            quantity = int(quantity)
+        except (ValueError, TypeError):
+            self._send_json({"error": "quantity must be an integer"}, status=400)
+            return
+        if quantity < 1:
+            self._send_json({"error": "quantity must be >= 1"}, status=400)
+            return
+
+        if card_id not in CART:
+            self._send_json({"error": f"Card not in cart: {card_id}"}, status=404)
+            return
+
+        new_qty = CART[card_id]["quantity"] - quantity
+        if new_qty <= 0:
+            del CART[card_id]
+            new_qty = 0
+        else:
+            CART[card_id]["quantity"] = new_qty
+
+        self._send_json({
+            "card_id": card_id,
+            "quantity": new_qty,
+            "action": "removed",
+            "cart_size": len(CART),
+        })
+
+    def _send_cart(self):
+        """Return current cart contents as JSON."""
+        items = []
+        total_value = 0.0
+        for card_id, entry in CART.items():
+            price = entry.get("market_price")
+            qty = entry.get("quantity", 1)
+            line_total = float(price) * qty if price is not None else None
+            if line_total is not None:
+                total_value += line_total
+            items.append({
+                "card_id": card_id,
+                "card_name": entry.get("card_name"),
+                "set_name": entry.get("set_name"),
+                "quantity": qty,
+                "market_price": price,
+                "condition_prices": entry.get("condition_prices"),
+                "image_url": entry.get("image_url"),
+                "tcgplayer_url": entry.get("tcgplayer_url"),
+                "line_total": line_total,
+            })
+        self._send_json({
+            "items": items,
+            "count": len(items),
+            "total_value": round(total_value, 2),
+        })
+
+    def _handle_cart_clear(self):
+        """Clear all items from the shopping cart."""
+        count = len(CART)
+        CART.clear()
+        self._send_json({
+            "action": "cleared",
+            "items_removed": count,
+        })
+
+    # ---- Inventory endpoints ----
 
     def _handle_inventory_add(self):
         """Add a card to user inventory (upsert).
@@ -2775,15 +3222,18 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 rows = session.execute(sql_text("""
                     SELECT ui.card_id, dc.name, dc.set_id, ds.name as set_name,
-                           dc.tcg_product_id, ui.quantity,
-                           ui.condition, lp.market_price
+                           dc.tcg_product_id, dc.image_small,
+                           ui.quantity, ui.condition, lp.market_price
                     FROM user_inventory ui
                     JOIN dim_cards dc ON dc.card_id = ui.card_id
                     JOIN dim_sets ds ON ds.set_id = dc.set_id
                     LEFT JOIN LATERAL (
                         SELECT market_price FROM fact_market_prices
                         WHERE card_id = ui.card_id
-                        ORDER BY price_date DESC LIMIT 1
+                        ORDER BY
+                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            price_date DESC
+                        LIMIT 1
                     ) lp ON true
                     ORDER BY dc.name
                 """)).fetchall()
@@ -2801,8 +3251,16 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(r.market_price) if r.market_price else None
                         ),
                     }
+                    cond_prices = _build_condition_prices(r.market_price)
+                    if cond_prices:
+                        item["condition_prices"] = cond_prices
                     if r.tcg_product_id:
                         item["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{r.tcg_product_id}"
+                    local_url = _local_image_url(r.card_id)
+                    if local_url:
+                        item["image_url"] = local_url
+                    elif r.image_small:
+                        item["image_url"] = r.image_small
                     items.append(item)
                 self._send_json({"items": items, "count": len(items)})
         except Exception as e:
@@ -2825,7 +3283,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                     LEFT JOIN LATERAL (
                         SELECT market_price FROM fact_market_prices
                         WHERE card_id = ui.card_id
-                        ORDER BY price_date DESC LIMIT 1
+                        ORDER BY
+                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            price_date DESC
+                        LIMIT 1
                     ) lp ON true
                     ORDER BY ds.name, dc.name
                 """)).fetchall()
@@ -2942,16 +3403,7 @@ class ScanHandler(BaseHTTPRequestHandler):
 
                 with SessionLocal() as session:
                     rows = session.execute(
-                        sql_text("""
-                            SELECT c.card_id, c.name, p.market_price
-                            FROM dim_cards c
-                            LEFT JOIN LATERAL (
-                                SELECT market_price FROM fact_market_prices
-                                WHERE card_id = c.card_id
-                                ORDER BY price_date DESC LIMIT 1
-                            ) p ON true
-                            WHERE c.card_id = ANY(:ids)
-                        """),
+                        sql_text(_PRICE_LOOKUP_BULK_SQL),
                         {"ids": resolved_ids},
                     ).fetchall()
                     db_lookup = {
@@ -3059,17 +3511,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                 from sqlalchemy import text as sql_text
                 with SessionLocal() as session:
                     row = session.execute(
-                        sql_text("""
-                            SELECT c.name, s.name as set_name, c.image_small, p.market_price
-                            FROM dim_cards c
-                            JOIN dim_sets s ON s.set_id = c.set_id
-                            LEFT JOIN LATERAL (
-                                SELECT market_price FROM fact_market_prices
-                                WHERE card_id = c.card_id
-                                ORDER BY price_date DESC LIMIT 1
-                            ) p ON true
-                            WHERE c.card_id = :cid
-                        """),
+                        sql_text(_PRICE_LOOKUP_SQL),
                         {"cid": data["card_id"]},
                     ).fetchone()
                     if row:
@@ -3078,6 +3520,9 @@ class ScanHandler(BaseHTTPRequestHandler):
                         data["market_price"] = float(row.market_price) if row.market_price else None
                         data["image_url"] = row.image_small
                         data["local_image_url"] = _local_image_url(data["card_id"])
+                        cond_prices = _build_condition_prices(row.market_price)
+                        if cond_prices:
+                            data["condition_prices"] = cond_prices
             except Exception as e:
                 logger.error("Result lookup error: %s", e)
         self._send_json(data)
@@ -3117,17 +3562,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                             from sqlalchemy import text as sql_text
                             with SessionLocal() as session:
                                 row = session.execute(
-                                    sql_text("""
-                                        SELECT c.name, s.name as set_name, c.image_small, p.market_price
-                                        FROM dim_cards c
-                                        JOIN dim_sets s ON s.set_id = c.set_id
-                                        LEFT JOIN LATERAL (
-                                            SELECT market_price FROM fact_market_prices
-                                            WHERE card_id = c.card_id
-                                            ORDER BY price_date DESC LIMIT 1
-                                        ) p ON true
-                                        WHERE c.card_id = :cid
-                                    """),
+                                    sql_text(_PRICE_LOOKUP_SQL),
                                     {"cid": data["card_id"]},
                                 ).fetchone()
                                 if row:
@@ -3135,6 +3570,9 @@ class ScanHandler(BaseHTTPRequestHandler):
                                     data["set_name"] = row.set_name
                                     data["market_price"] = float(row.market_price) if row.market_price else None
                                     data["image_url"] = row.image_small
+                                    cond_prices = _build_condition_prices(row.market_price)
+                                    if cond_prices:
+                                        data["condition_prices"] = cond_prices
                                     data["local_image_url"] = _local_image_url(data["card_id"])
                         except Exception as e:
                             logger.debug("SSE DB enrichment error: %s", e)

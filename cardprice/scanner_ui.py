@@ -80,18 +80,18 @@ body {
     display: flex;
     background: var(--bg-card);
     border-radius: var(--radius);
-    padding: 4px;
-    margin-bottom: 16px;
-    gap: 4px;
+    padding: 3px;
+    margin-bottom: 12px;
+    gap: 3px;
 }
 .mode-btn {
     flex: 1;
-    padding: 12px 8px;
+    padding: 10px 8px;
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-dim);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -102,19 +102,31 @@ body {
 }
 
 /* Upload Buttons */
-.upload-area {
+.btn-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 }
-.upload-btn {
+.btn-row .upload-btn {
     flex: 1;
+    margin: 0;
+}
+.scan-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+.scan-row .upload-btn { flex: 1; }
+.scan-row .toggle-switch { flex-shrink: 0; }
+.upload-area { margin-bottom: 12px; }
+.upload-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 16px 12px;
-    font-size: 15px;
+    padding: 14px 10px;
+    font-size: 14px;
     font-weight: 600;
     border: none;
     border-radius: var(--radius);
@@ -133,6 +145,52 @@ body {
 }
 .upload-btn.secondary:active { background: var(--bg-card-hover); }
 input[type=file] { display: none; }
+
+/* Continuous scan toggle */
+.continuous-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.continuous-toggle .toggle-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    line-height: 1.1;
+}
+.toggle-switch {
+    position: relative;
+    width: 38px;
+    height: 22px;
+    background: var(--bg-card);
+    border-radius: 11px;
+    border: 2px solid var(--text-faint);
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+.toggle-switch.active {
+    background: var(--green);
+    border-color: var(--green);
+}
+.toggle-switch.active::after {
+    left: 18px;
+    background: #fff;
+}
 
 /* Preview */
 #preview {
@@ -223,11 +281,11 @@ input[type=file] { display: none; }
 .scanning-indicator.show { display: flex; }
 .scanning-indicator .scan-spinner-wrap {
     position: relative;
-    width: 64px; height: 64px;
+    width: 96px; height: 96px;
 }
 .scanning-indicator .scan-spinner-ring {
-    width: 64px; height: 64px;
-    border: 3px solid var(--text-faint);
+    width: 96px; height: 96px;
+    border: 4px solid var(--text-faint);
     border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -236,9 +294,9 @@ input[type=file] { display: none; }
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 16px;
+    font-size: 24px;
     font-weight: 700;
-    color: var(--text);
+    color: #fff;
     font-variant-numeric: tabular-nums;
 }
 .scanning-indicator .scan-label .dots::after {
@@ -427,6 +485,64 @@ input[type=file] { display: none; }
 .cond-prices .cp.dmg { color: #e74c3c; }
 .cond-prices .cp.blank { color: var(--text-faint); }
 
+/* Action Buttons (Add to Inventory / Cart) */
+.action-btns {
+    display: flex;
+    gap: 4px;
+    padding: 4px 12px 8px;
+}
+.action-btn {
+    flex: 1;
+    padding: 6px;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.action-btn:active { opacity: 0.7; }
+.action-btn.inv { background: var(--green); color: #1a1a2e; }
+.action-btn.cart { background: #3498db; color: #fff; }
+.action-btn.done { opacity: 0.5; pointer-events: none; }
+.add-all-btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--green);
+    color: #1a1a2e;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+.add-all-btn:active { opacity: 0.7; }
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #333;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 2000;
+    max-width: 90vw;
+    text-align: center;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 /* Card name as TCGPlayer link */
 .binder-card-info .info-name a {
     color: inherit;
@@ -610,6 +726,72 @@ input[type=file] { display: none; }
     cursor: pointer;
 }
 .modal-close:active { background: var(--accent-dark); }
+
+/* Modal action buttons */
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 0;
+}
+.modal-actions .action-btn {
+    flex: 1;
+    padding: 12px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.modal-actions .action-btn:active { opacity: 0.7; }
+.modal-actions .btn-inventory {
+    background: var(--green);
+    color: #1a1a2e;
+}
+.modal-actions .btn-cart {
+    background: #3498db;
+    color: #fff;
+}
+.modal-actions .action-msg {
+    font-size: 11px;
+    text-align: center;
+    padding-top: 4px;
+    min-height: 18px;
+}
+
+/* TCGPlayer external link */
+.modal-tcg-link {
+    display: block;
+    text-align: center;
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+}
+.modal-tcg-link:hover { color: var(--text); }
+.modal-tcg-link svg {
+    width: 12px;
+    height: 12px;
+    vertical-align: -1px;
+    margin-left: 4px;
+    fill: currentColor;
+}
+
+/* Modal variant badge (reuse card list badge styles) */
+.modal-variant-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-top: 6px;
+}
+.modal-variant-badge.stamped { background: #9b59b6; color: #fff; }
+.modal-variant-badge.first-edition { background: #f1c40f; color: #333; }
+.modal-variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
+.modal-variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
 </style>
 </head>
 <body>
@@ -633,18 +815,40 @@ input[type=file] { display: none; }
         <button class="mode-btn" data-mode="binder" onclick="setMode('binder')">Binder Page</button>
     </div>
 
-    <!-- Upload Buttons -->
-    <div class="upload-area">
-        <label class="upload-btn primary" for="camera">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            Take Photo
-        </label>
-        <input type="file" id="camera" accept="image/*" capture="environment">
-        <label class="upload-btn secondary" for="gallery">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            Gallery
-        </label>
-        <input type="file" id="gallery" accept="image/*">
+    <!-- Single Card Buttons -->
+    <div class="upload-area" id="singleButtons">
+        <div class="btn-row">
+            <label class="upload-btn primary" for="camera">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                Take Photo
+            </label>
+            <input type="file" id="camera" accept="image/*" capture="environment">
+            <label class="upload-btn secondary" for="gallery">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Gallery
+            </label>
+            <input type="file" id="gallery" accept="image/*">
+        </div>
+    </div>
+
+    <!-- Binder Page Buttons -->
+    <div class="upload-area" id="binderButtons" style="display:none">
+        <div class="scan-row">
+            <label class="upload-btn primary" for="binderCamera">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                Scan Binder Page
+            </label>
+            <input type="file" id="binderCamera" accept="image/*" capture="environment">
+            <label class="upload-btn secondary" for="binderGallery">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Page from Gallery
+            </label>
+            <input type="file" id="binderGallery" accept="image/*">
+            <div class="continuous-toggle" onclick="toggleContinuous()" title="Auto-open camera after each scan">
+                <div class="toggle-switch" id="continuousToggle"></div>
+                <span class="toggle-label">Auto</span>
+            </div>
+        </div>
     </div>
 
     <!-- Image Preview -->
@@ -674,11 +878,17 @@ input[type=file] { display: none; }
             <div class="summary-label" id="summaryLabel">Page Total</div>
             <div class="summary-value" id="summaryTotal">$0.00</div>
         </div>
-        <div style="text-align:right">
-            <div class="summary-count" id="summaryCount">0 cards</div>
-            <div class="summary-label" id="summaryStatus"></div>
+        <div style="text-align:right; display:flex; align-items:center; gap:10px;">
+            <button class="add-all-btn" id="addAllInvBtn" onclick="addAllToInventory()" style="display:none">Add All to Inventory</button>
+            <div>
+                <div class="summary-count" id="summaryCount">0 cards</div>
+                <div class="summary-label" id="summaryStatus"></div>
+            </div>
         </div>
     </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
     <!-- Session Action Buttons (shown after binder scan completes) -->
     <div class="session-actions" id="sessionActions">
@@ -697,7 +907,15 @@ input[type=file] { display: none; }
         <div class="modal-images" id="modalImages"></div>
         <div class="modal-name" id="modalName"></div>
         <div class="modal-set" id="modalSet"></div>
+        <div id="modalVariantBadge" style="text-align:center"></div>
         <div class="modal-price" id="modalPrice"></div>
+        <div class="cond-prices" id="modalCondPrices" style="justify-content:center;padding:0 20px 12px;"></div>
+        <a id="modalTcgLink" class="modal-tcg-link" href="#" target="_blank" rel="noopener" style="display:none">View on TCGPlayer <svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42L17.59 5H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z"/></svg></a>
+        <div class="modal-actions">
+            <button class="action-btn btn-inventory" id="modalAddInventory">Add to Inventory</button>
+            <button class="action-btn btn-cart" id="modalAddCart">Add to Cart</button>
+        </div>
+        <div class="action-msg" id="modalActionMsg"></div>
         <div id="modalMeta">
             <div class="modal-meta-row">
                 <span class="label">Position</span>
@@ -833,6 +1051,7 @@ function drawQR(canvasId,text,cellSize){
     var activePolls = {};         // scan_id -> intervalId
     var pageCount = 0;            // Number of binder pages scanned in this session
     var pageBoundaries = [];      // Array of {startIdx, endIdx, pageNum} for page dividers
+    var continuousScan = false;   // Auto-reopen camera after binder scan
 
     // ---- Mode Toggle ----
     window.setMode = function(mode) {
@@ -841,6 +1060,9 @@ function drawQR(canvasId,text,cellSize){
         for (var i = 0; i < btns.length; i++) {
             btns[i].classList.toggle('active', btns[i].getAttribute('data-mode') === mode);
         }
+        // Show/hide correct button area
+        document.getElementById('singleButtons').style.display = (mode === 'single') ? '' : 'none';
+        document.getElementById('binderButtons').style.display = (mode === 'binder') ? '' : 'none';
         // Reset display
         document.getElementById('singleResult').classList.remove('show');
         document.getElementById('summaryBar').classList.remove('show');
@@ -852,6 +1074,11 @@ function drawQR(canvasId,text,cellSize){
         pageCount = 0;
         pageBoundaries = [];
         clearAllPolls();
+    };
+
+    window.toggleContinuous = function() {
+        continuousScan = !continuousScan;
+        document.getElementById('continuousToggle').classList.toggle('active', continuousScan);
     };
 
     function clearAllPolls() {
@@ -883,6 +1110,7 @@ function drawQR(canvasId,text,cellSize){
         var binder = document.getElementById('binderResults');
 
         indicator.classList.add('show');
+        startScanTimer();
         result.classList.remove('show');
         summary.classList.remove('show');
         binder.innerHTML = '';
@@ -893,6 +1121,7 @@ function drawQR(canvasId,text,cellSize){
         fetch('/scan', { method: 'POST', body: fd })
             .then(function(r) { return r.json(); })
             .then(function(data) {
+                stopScanTimer();
                 indicator.classList.remove('show');
                 if (data.status === 'pending') {
                     showSinglePending(data.scan_id);
@@ -903,6 +1132,7 @@ function drawQR(canvasId,text,cellSize){
                 }
             })
             .catch(function(e) {
+                stopScanTimer();
                 indicator.classList.remove('show');
                 showSingleError(String(e));
             });
@@ -1037,6 +1267,9 @@ function drawQR(canvasId,text,cellSize){
                 renderBinderResults();
                 updateSummary();
                 document.getElementById('sessionActions').classList.add('show');
+                if (continuousScan) {
+                    setTimeout(function() { document.getElementById('binderCamera').click(); }, 500);
+                }
             })
             .catch(function(e) {
                 stopScanTimer();
@@ -1194,23 +1427,18 @@ function drawQR(canvasId,text,cellSize){
         for (var i = 0; i < cards.length; i++) {
             // Insert page divider at start of each page
             var page = getPageForIndex(i);
-            if (page && i === page.startIdx && pageBoundaries.length > 0) {
+            if (page && i === page.startIdx && pageCount > 1) {
                 var divider = document.createElement('div');
                 divider.className = 'page-divider';
                 var line1 = document.createElement('span');
                 line1.className = 'divider-line';
                 var label = document.createElement('span');
-                label.textContent = 'Page ' + page.pageNum;
-                var subtotal = document.createElement('span');
-                subtotal.className = 'page-subtotal';
-                subtotal.id = 'pageSubtotal_' + page.pageNum;
                 var st = calcPageSubtotal(page);
-                subtotal.textContent = '$' + st.toFixed(2);
+                label.textContent = 'Page ' + page.pageNum + ' \u00b7 $' + st.toFixed(2);
                 var line2 = document.createElement('span');
                 line2.className = 'divider-line';
                 divider.appendChild(line1);
                 divider.appendChild(label);
-                divider.appendChild(subtotal);
                 divider.appendChild(line2);
                 container.appendChild(divider);
             }
@@ -1388,6 +1616,36 @@ function drawQR(canvasId,text,cellSize){
                 row.appendChild(cpRow);
             }
 
+            // Action buttons (Add to Inventory / Add to Cart)
+            if (card.status === 'resolved' && card.card_id) {
+                var btnRow = document.createElement('div');
+                btnRow.className = 'action-btns';
+
+                var invBtn = document.createElement('button');
+                invBtn.className = 'action-btn inv';
+                invBtn.textContent = 'Add to Inventory';
+                (function(c, btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        addCardTo('/inventory/add', c, btn, 'Inventory');
+                    });
+                })(card, invBtn);
+                btnRow.appendChild(invBtn);
+
+                var cartBtn = document.createElement('button');
+                cartBtn.className = 'action-btn cart';
+                cartBtn.textContent = 'Add to Cart';
+                (function(c, btn) {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        addCardTo('/cart/add', c, btn, 'Cart');
+                    });
+                })(card, cartBtn);
+                btnRow.appendChild(cartBtn);
+
+                row.appendChild(btnRow);
+            }
+
             // Tap handler for detail modal (resolved/error cards)
             if (card.status === 'resolved' || card.status === 'error') {
                 (function(c) {
@@ -1437,7 +1695,102 @@ function drawQR(canvasId,text,cellSize){
         } else {
             statusEl.textContent = resolved + ' identified';
         }
+
+        // Show "Add All to Inventory" when there are resolved cards
+        var addAllBtn = document.getElementById('addAllInvBtn');
+        if (addAllBtn) {
+            addAllBtn.style.display = resolved > 0 ? 'inline-block' : 'none';
+        }
     }
+
+    // ---- Toast ----
+    var toastTimer = null;
+    function showToast(msg) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2000);
+    }
+
+    // ---- Add Card to Inventory/Cart ----
+    function addCardTo(endpoint, card, btn, label) {
+        var payload = { card_id: card.card_id, quantity: 1 };
+        btn.disabled = true;
+        btn.textContent = '...';
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.error) {
+                showToast('Error: ' + data.error);
+                btn.disabled = false;
+                btn.textContent = label === 'Inventory' ? 'Add to Inventory' : 'Add to Cart';
+            } else {
+                btn.textContent = 'Added!';
+                btn.classList.add('done');
+                var name = card.card_name || card.card_id;
+                showToast(name + ' added to ' + label.toLowerCase());
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.classList.remove('done');
+                    btn.textContent = label === 'Inventory' ? 'Add to Inventory' : 'Add to Cart';
+                }, 1500);
+            }
+        }).catch(function(err) {
+            showToast('Failed: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = label === 'Inventory' ? 'Add to Inventory' : 'Add to Cart';
+        });
+    }
+
+    // ---- Add All to Inventory ----
+    window.addAllToInventory = function() {
+        var resolved = [];
+        for (var i = 0; i < cards.length; i++) {
+            if (cards[i].status === 'resolved' && cards[i].card_id) {
+                resolved.push(cards[i]);
+            }
+        }
+        if (resolved.length === 0) return;
+
+        var btn = document.getElementById('addAllInvBtn');
+        btn.disabled = true;
+        btn.textContent = 'Adding...';
+
+        var done = 0;
+        var errors = 0;
+        for (var j = 0; j < resolved.length; j++) {
+            (function(card) {
+                fetch('/inventory/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ card_id: card.card_id, quantity: 1 })
+                }).then(function(r) { return r.json(); }).then(function(data) {
+                    if (data.error) errors++;
+                    done++;
+                    checkDone();
+                }).catch(function() {
+                    errors++;
+                    done++;
+                    checkDone();
+                });
+            })(resolved[j]);
+        }
+
+        function checkDone() {
+            if (done < resolved.length) return;
+            btn.disabled = false;
+            if (errors === 0) {
+                btn.textContent = 'Added All!';
+                showToast(resolved.length + ' card' + (resolved.length !== 1 ? 's' : '') + ' added to inventory');
+            } else {
+                showToast((done - errors) + ' added, ' + errors + ' failed');
+            }
+            setTimeout(function() { btn.textContent = 'Add All to Inventory'; }, 2000);
+        }
+    };
 
     // ---- Session Controls ----
     window.scanNextPage = function() {
@@ -1505,7 +1858,93 @@ function drawQR(canvasId,text,cellSize){
             modalNameEl.textContent = card.card_name || 'Unknown Card';
         }
         document.getElementById('modalSet').textContent = card.set_name || '';
+
+        // Variant badge (visual, below set name)
+        var badgeDiv = document.getElementById('modalVariantBadge');
+        badgeDiv.innerHTML = '';
+        if (card.variant && card.variant !== 'normal') {
+            var badge = document.createElement('span');
+            var vClass = card.variant.replace(/[\s_]/g, '-').toLowerCase();
+            badge.className = 'modal-variant-badge ' + vClass;
+            badge.textContent = card.variant;
+            badgeDiv.appendChild(badge);
+        }
+
         document.getElementById('modalPrice').textContent = card.market_price ? '$' + Number(card.market_price).toFixed(2) : 'No price data';
+
+        // TCGPlayer external link
+        var tcgLink = document.getElementById('modalTcgLink');
+        if (card.tcgplayer_url) {
+            tcgLink.href = card.tcgplayer_url;
+            tcgLink.style.display = '';
+        } else {
+            tcgLink.style.display = 'none';
+        }
+
+        // Action buttons
+        var actionMsg = document.getElementById('modalActionMsg');
+        actionMsg.textContent = '';
+        var invBtn = document.getElementById('modalAddInventory');
+        var cartBtn = document.getElementById('modalAddCart');
+
+        // Clone buttons to remove old listeners
+        var newInvBtn = invBtn.cloneNode(true);
+        invBtn.parentNode.replaceChild(newInvBtn, invBtn);
+        var newCartBtn = cartBtn.cloneNode(true);
+        cartBtn.parentNode.replaceChild(newCartBtn, cartBtn);
+
+        if (card.card_id) {
+            newInvBtn.style.display = '';
+            newCartBtn.style.display = '';
+            newInvBtn.onclick = function() {
+                newInvBtn.disabled = true;
+                newInvBtn.textContent = 'Adding...';
+                fetch('/inventory/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({card_id: card.card_id, quantity: 1})
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    newInvBtn.disabled = false;
+                    newInvBtn.textContent = 'Add to Inventory';
+                    actionMsg.textContent = d.error ? d.error : 'Added to inventory';
+                    actionMsg.style.color = d.error ? '#e74c3c' : 'var(--green)';
+                }).catch(function() {
+                    newInvBtn.disabled = false;
+                    newInvBtn.textContent = 'Add to Inventory';
+                    actionMsg.textContent = 'Network error';
+                    actionMsg.style.color = '#e74c3c';
+                });
+            };
+            newCartBtn.onclick = function() {
+                newCartBtn.disabled = true;
+                newCartBtn.textContent = 'Adding...';
+                fetch('/cart/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        card_id: card.card_id,
+                        card_name: card.card_name || '',
+                        set_name: card.set_name || '',
+                        market_price: card.market_price || 0,
+                        image_url: card.image_url || '',
+                        tcgplayer_url: card.tcgplayer_url || ''
+                    })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    newCartBtn.disabled = false;
+                    newCartBtn.textContent = 'Add to Cart';
+                    actionMsg.textContent = d.error ? d.error : 'Added to cart';
+                    actionMsg.style.color = d.error ? '#e74c3c' : '#3498db';
+                }).catch(function() {
+                    newCartBtn.disabled = false;
+                    newCartBtn.textContent = 'Add to Cart';
+                    actionMsg.textContent = 'Network error';
+                    actionMsg.style.color = '#e74c3c';
+                });
+            };
+        } else {
+            newInvBtn.style.display = 'none';
+            newCartBtn.style.display = 'none';
+        }
 
         // Position
         var posText = '--';
@@ -1516,6 +1955,26 @@ function drawQR(canvasId,text,cellSize){
         document.getElementById('modalCardId').textContent = card.card_id || '--';
         document.getElementById('modalMethod').textContent = card.method || '--';
         document.getElementById('modalConfidence').textContent = card.confidence ? (Math.round(card.confidence * 100) + '%') : '--';
+
+        // Condition prices in modal
+        var mcpDiv = document.getElementById('modalCondPrices');
+        mcpDiv.innerHTML = '';
+        if (card.condition_prices || card.market_price) {
+            var conds = ['NM', 'LP', 'MP', 'HP', 'DMG'];
+            var condClasses = ['nm', 'lp', 'mp', 'hp', 'dmg'];
+            for (var ci = 0; ci < conds.length; ci++) {
+                var cpEl = document.createElement('div');
+                var cp = card.condition_prices && card.condition_prices[conds[ci]];
+                if (cp && cp.price != null) {
+                    cpEl.className = 'cp ' + condClasses[ci];
+                    cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
+                } else {
+                    cpEl.className = 'cp blank';
+                    cpEl.innerHTML = '<span class="cl">' + conds[ci] + '</span>\u2014';
+                }
+                mcpDiv.appendChild(cpEl);
+            }
+        }
 
         // Variant
         var variantRow = document.getElementById('modalVariantRow');
@@ -1554,6 +2013,8 @@ function drawQR(canvasId,text,cellSize){
     // ---- Wire up file inputs ----
     document.getElementById('camera').onchange = function() { handleFile(this.files[0]); this.value = ''; };
     document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); this.value = ''; };
+    document.getElementById('binderCamera').onchange = function() { handleFile(this.files[0]); this.value = ''; };
+    document.getElementById('binderGallery').onchange = function() { handleFile(this.files[0]); this.value = ''; };
 
 })();
 </script>
