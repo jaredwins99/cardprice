@@ -1,735 +1,462 @@
 #!/usr/bin/env python3
-"""Master evaluation script for variant (stamp) detection.
+"""Comprehensive variant detection evaluation on all ground truth cards.
 
-Runs ALL available stamp classifiers on ALL labeled data (binder scans + reference
-photos) and picks the winner.
+Runs both detect_variant() (from variant_detector.py) and detect_stamps()
+(from stamp_detection.py) on every card with known variant labels, drawn from:
+  1. data/ground_truth.json  (12 pages, ~96 unique cards)
+  2. data/condition_training/stamps_real/binder_ground_truth.jsonl  (16 entries)
 
-Data sources:
-  - Binder scans: data/condition_training/stamps_real/binder_ground_truth.jsonl
-  - Reference photos: data/condition_training/stamps_real/sources.jsonl (aka labels.jsonl)
-
-Classifiers tested:
-  1. stamp_classifier.pkl  (whole-card DINOv2 features, LogReg)
-  2. stamp_crop_classifier.pkl  (cropped stamp region DINOv2, LogReg)
-  3. stamp_combined_classifier.pkl  (pixel + DINOv2 combined, if exists)
-
-Usage:
-    python scripts/eval_variant_detection.py
-    python scripts/eval_variant_detection.py --verbose
-    python scripts/eval_variant_detection.py --binder-only
-    python scripts/eval_variant_detection.py --reference-only
+Reports per-variant-type accuracy:
+  - True positives (correctly detected)
+  - False positives (incorrectly detected on cards without that variant)
+  - False negatives (missed on cards that have the variant)
+  - False positive rate
 """
 
+from __future__ import annotations
+
 import json
-import logging
-import os
-import pickle
 import sys
-import time
 from collections import defaultdict
 from pathlib import Path
-
-import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
-logger = logging.getLogger(__name__)
+INBOX = PROJECT_ROOT / "data" / "inbox"
 
-# Paths
-BINDER_GT_PATH = PROJECT_ROOT / "data" / "condition_training" / "stamps_real" / "binder_ground_truth.jsonl"
-SOURCES_PATH = PROJECT_ROOT / "data" / "condition_training" / "stamps_real" / "sources.jsonl"
-BINDER_IMG_DIR = PROJECT_ROOT / "data" / "inbox"
-REFERENCE_IMG_DIR = PROJECT_ROOT / "data" / "condition_training" / "stamps_real"
-
-CLASSIFIER_PATHS = {
-    "whole_card": PROJECT_ROOT / "data" / "stamp_classifier.pkl",
-    "crop": PROJECT_ROOT / "data" / "stamp_crop_classifier.pkl",
-    "combined": PROJECT_ROOT / "data" / "stamp_combined_classifier.pkl",
-}
-
-
-# ============================================================
-# Data loading
-# ============================================================
-
-def load_jsonl(path: Path) -> list[dict]:
-    """Load a JSONL file, skipping blank/comment lines."""
-    entries = []
-    with open(path) as f:
-        for lineno, line in enumerate(f, 1):
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError as e:
-                print(f"WARNING: Skipping {path.name}:{lineno}: {e}")
-                continue
-            entries.append(obj)
-    return entries
+# ── Variant categories we track ──────────────────────────────────────────
+VARIANT_TYPES = [
+    "1st_edition",
+    "holofoil",
+    "reverse_holofoil",  # includes EX-era stamped (same pricing bucket)
+    "ex_set_stamp",      # EX-era stamp specifically
+    "prerelease",
+    "promo",
+    "full_art",
+    "gold",
+    "rainbow_rare",
+    "shadowless",
+    "illustration_rare",
+]
 
 
-def load_binder_data() -> list[dict]:
-    """Load binder ground truth with resolved image paths.
+# ── Build ground truth ───────────────────────────────────────────────────
 
-    Deduplicates by image path (last entry wins), matching the convention
-    used in training scripts.
-    """
-    entries = load_jsonl(BINDER_GT_PATH)
-    seen = {}  # image_name -> dict
-    for e in entries:
-        img_path = BINDER_IMG_DIR / e["image"]
-        if not img_path.exists():
-            logger.warning("Binder image not found: %s", img_path)
+def _build_ground_truth() -> list[dict]:
+    """Return list of dicts with image_path, card_id, name, gt_variants (set)."""
+    cards = []
+
+    # --- Source 1: ground_truth.json ---
+    gt_path = PROJECT_ROOT / "data" / "ground_truth.json"
+    with open(gt_path) as f:
+        gt = json.load(f)
+
+    # Skip duplicate scans -- use first scan only
+    dup_info = gt.get("summary", {}).get("duplicate_scans", {})
+    skip_pages = set()
+    for group_pages in dup_info.values():
+        for p in group_pages[1:]:
+            skip_pages.add(p)
+
+    for page_dir, page_data in gt["pages"].items():
+        if page_dir in skip_pages:
             continue
-        seen[e["image"]] = {
-            "image_path": str(img_path),
-            "image_name": e["image"],
-            "card_name": e.get("card_name", ""),
-            "set_id": e.get("set_id", ""),
-            "gt_stamped": bool(e["stamped"]),
-            "gt_variant": e.get("variant", "stamped" if e["stamped"] else "normal"),
-            "source": "binder",
-            "note": e.get("note", ""),
-        }
-    return list(seen.values())
+
+        for slot_key in sorted(k for k in page_data if k.startswith("card_")):
+            card = page_data[slot_key]
+            if card.get("empty_slot"):
+                continue
+
+            card_id = card.get("card_id")
+            name = card.get("name", "")
+            if not card_id and not name:
+                continue
+
+            img_path = INBOX / page_dir / f"{slot_key}.png"
+            if not img_path.exists():
+                continue
+
+            gt_variants = set()
+            notable = (card.get("notable") or "").lower()
+            card_id_str = card_id or ""
+
+            # Holofoil from "notable" field
+            if "holo" in notable and "reverse" not in notable:
+                gt_variants.add("holofoil")
+
+            # 1st Edition
+            if "1st edition" in notable:
+                gt_variants.add("1st_edition")
+
+            # Prerelease
+            if "prerelease" in notable:
+                gt_variants.add("prerelease")
+
+            # Promo (black star promo sets)
+            set_id = card_id_str.split("/")[0].rsplit("-", 1)[0] if card_id_str else ""
+            if set_id in ("basep", "np"):
+                gt_variants.add("promo")
+
+            # Gold card
+            if card.get("gold_card"):
+                gt_variants.add("gold")
+
+            # Illustration rare
+            if card.get("illustration_rare"):
+                gt_variants.add("illustration_rare")
+
+            # Full art
+            if card.get("full_art"):
+                gt_variants.add("full_art")
+
+            cards.append({
+                "image_path": str(img_path),
+                "card_id": card_id,
+                "name": name,
+                "page": page_dir,
+                "slot": slot_key,
+                "gt_variants": gt_variants,
+                "source": "ground_truth.json",
+            })
+
+    # --- Source 2: binder_ground_truth.jsonl ---
+    jsonl_path = (PROJECT_ROOT / "data" / "condition_training"
+                  / "stamps_real" / "binder_ground_truth.jsonl")
+    if jsonl_path.exists():
+        existing_by_path = {c["image_path"]: c for c in cards}
+
+        with open(jsonl_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = json.loads(line)
+                img_rel = entry["image"]
+                img_path = str(INBOX / img_rel)
+
+                variant = entry.get("variant", "normal")
+                set_id = entry.get("set_id", "")
+
+                new_labels = set()
+                if variant == "stamped" and set_id.startswith("ex"):
+                    new_labels.add("ex_set_stamp")
+                    new_labels.add("reverse_holofoil")
+                if variant == "prerelease":
+                    new_labels.add("prerelease")
+                if variant == "holofoil":
+                    new_labels.add("holofoil")
+                if "promo" in variant:
+                    new_labels.add("promo")
+
+                if img_path in existing_by_path:
+                    existing_by_path[img_path]["gt_variants"] |= new_labels
+                else:
+                    # Card not in ground_truth.json -- add it
+                    card_name = entry.get("card_name", "")
+                    # Try to infer card_id from set_id
+                    inferred_id = None
+                    for c in cards:
+                        if c["image_path"] == img_path:
+                            inferred_id = c.get("card_id")
+                            break
+                    cards.append({
+                        "image_path": img_path,
+                        "card_id": inferred_id,
+                        "name": card_name,
+                        "page": img_rel.split("/")[0],
+                        "slot": Path(img_rel).stem,
+                        "gt_variants": new_labels,
+                        "source": "binder_ground_truth.jsonl",
+                        "set_id_override": set_id,
+                    })
+
+    return cards
 
 
-def load_reference_data() -> list[dict]:
-    """Load reference photo data with resolved image paths."""
-    entries = load_jsonl(SOURCES_PATH)
-    result = []
-    for e in entries:
-        img_path = REFERENCE_IMG_DIR / e["image"]
-        if not img_path.exists():
-            logger.warning("Reference image not found: %s", img_path)
-            continue
-        result.append({
-            "image_path": str(img_path),
-            "image_name": e["image"],
-            "card_name": e.get("card_name", ""),
-            "set_id": e.get("set_id", ""),
-            "gt_stamped": bool(e["stamped"]),
-            "gt_variant": "stamped" if e["stamped"] else "normal",
-            "source": "reference",
-            "note": "",
-        })
-    return result
+# ── Run detectors ────────────────────────────────────────────────────────
 
+def _run_detectors(cards: list[dict]) -> list[dict]:
+    """Run variant_detector and stamp_detection on each card."""
+    from cardprice.ml.variant_detector import detect_variant, detect_variant_detailed
+    from cardprice.ml.stamp_detection import detect_stamps
+    from cardprice.ml.era_detector import get_card_era
 
-# ============================================================
-# Classifier wrappers
-# ============================================================
-
-# Lazy-loaded DINOv2 model
-_dino_model = None
-_dino_device = None
-
-
-def _get_dino():
-    global _dino_model, _dino_device
-    if _dino_model is None:
-        import torch
-        _dino_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Loading DINOv2 on {_dino_device}...")
-        _dino_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
-        _dino_model.to(_dino_device)
-        _dino_model.eval()
-        print("DINOv2 loaded.")
-    return _dino_model, _dino_device
-
-
-def run_whole_card_classifier(image_path: str, clf_data: dict) -> dict:
-    """Run the whole-card stamp classifier (stamp_classifier.pkl)."""
-    from cardprice.ml.stamp_classifier import (
-        _extract_features, _build_feature_vector,
-    )
-    cls_token, patch_tokens = _extract_features(image_path)
-    feature_type = clf_data["feature_type"]
-    X = _build_feature_vector(cls_token, patch_tokens, feature_type, clf_data)
-
-    clf = clf_data["model"]
-    model_type = clf_data.get("model_type", "lr")
-
-    if model_type == "lr":
-        pred = clf.predict(X)[0]
-        proba = clf.predict_proba(X)[0]
-        stamp_prob = float(proba[1])
-        is_stamped = bool(pred == 1)
-        confidence = float(max(proba))
-    elif model_type == "mlp":
-        import torch
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        clf.to(device)
-        clf.eval()
-        with torch.no_grad():
-            logit = clf(torch.tensor(X, dtype=torch.float32).to(device)).squeeze()
-            stamp_prob = float(torch.sigmoid(logit).cpu())
-        is_stamped = stamp_prob > 0.5
-        confidence = stamp_prob if is_stamped else 1.0 - stamp_prob
-    else:
-        raise ValueError(f"Unknown model_type: {model_type}")
-
-    return {"stamped": is_stamped, "confidence": confidence, "stamp_probability": stamp_prob}
-
-
-def run_crop_classifier(image_path: str, clf_data: dict) -> dict:
-    """Run the crop-based stamp classifier (stamp_crop_classifier.pkl)."""
-    import torch
-    from PIL import Image
-    from torchvision import transforms
-
-    _IMAGENET_MEAN = [0.485, 0.456, 0.406]
-    _IMAGENET_STD = [0.229, 0.224, 0.225]
-    _transform_crop_224 = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
-    ])
-
-    model, device = _get_dino()
-
-    img = Image.open(image_path).convert("RGB")
-    # Crop stamp region: x=[50%,95%], y=[40%,72%]
-    w, h = img.size
-    crop = img.crop((int(w * 0.50), int(h * 0.40), int(w * 0.95), int(h * 0.72)))
-    tensor = _transform_crop_224(crop).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        cls_out = model(tensor)
-
-    cls_np = cls_out.cpu().numpy().astype(np.float32).squeeze()
-    norm = np.linalg.norm(cls_np)
-    if norm > 0:
-        cls_np /= norm
-
-    X = cls_np.reshape(1, -1)
-
-    # Apply scaler if present
-    scaler = clf_data.get("scaler")
-    if scaler is not None:
-        X = scaler.transform(X)
-
-    clf = clf_data["model"]
-    pred = clf.predict(X)[0]
-    proba = clf.predict_proba(X)[0]
-    stamp_prob = float(proba[1])
-    is_stamped = bool(pred == 1)
-    confidence = float(max(proba))
-
-    return {"stamped": is_stamped, "confidence": confidence, "stamp_probability": stamp_prob}
-
-
-def run_combined_classifier(image_path: str, clf_data: dict) -> dict:
-    """Run the combined stamp classifier.
-
-    Supports multiple model_types saved by train_combined_stamp.py:
-      - lr_combined: single LR on DINOv2 CLS (optionally PCA-reduced)
-      - ensemble_prob_avg: separate pixel LR + DINOv2 LR, average probs
-    """
-    import cv2
-    import torch
-    from PIL import Image
-    from torchvision import transforms
-
-    _IMAGENET_MEAN = [0.485, 0.456, 0.406]
-    _IMAGENET_STD = [0.229, 0.224, 0.225]
-    _transform_crop_224 = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
-    ])
-
-    model_type = clf_data.get("model_type", "lr_combined")
-
-    # Extract DINOv2 CLS from stamp crop region
-    model, device = _get_dino()
-    img_pil = Image.open(image_path).convert("RGB")
-    pw, ph = img_pil.size
-    # Crop region: x=[55%,90%], y=[45%,70%] (matching train_combined_stamp.py)
-    crop = img_pil.crop((int(pw * 0.55), int(ph * 0.45), int(pw * 0.90), int(ph * 0.70)))
-    tensor = _transform_crop_224(crop).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        cls_out = model(tensor)
-
-    cls_np = cls_out.cpu().numpy().astype(np.float32).squeeze()
-    norm = np.linalg.norm(cls_np)
-    if norm > 0:
-        cls_np /= norm
-
-    dino_feat = cls_np.reshape(1, -1)  # (1, 768)
-
-    # Apply PCA if present
-    pca = clf_data.get("pca")
-    if pca is not None:
-        dino_feat = pca.transform(dino_feat)
-
-    if model_type == "lr_combined":
-        # Single LR on (optionally PCA-reduced) DINOv2 features
-        X = dino_feat
-        scaler = clf_data.get("scaler")
-        if scaler is not None:
-            X = scaler.transform(X)
-
-        clf = clf_data["model"]
-        pred = clf.predict(X)[0]
-        proba = clf.predict_proba(X)[0]
-        stamp_prob = float(proba[1])
-        is_stamped = bool(pred == 1)
-        confidence = float(max(proba))
-
-    elif model_type == "ensemble_prob_avg":
-        # Pixel features
-        img_bgr = cv2.imread(image_path)
-        h, w = img_bgr.shape[:2]
-        stamp_crop_cv = img_bgr[int(h * 0.45):int(h * 0.70), int(w * 0.55):int(w * 0.90)]
-        control_crop_cv = img_bgr[int(h * 0.45):int(h * 0.70), int(w * 0.10):int(w * 0.45)]
-
-        def edge_density(gray):
-            edges = cv2.Canny(gray, 50, 150)
-            return float(np.mean(edges > 0))
-
-        def laplacian_var(gray):
-            return float(np.var(cv2.Laplacian(gray, cv2.CV_64F)))
-
-        stamp_gray = cv2.cvtColor(stamp_crop_cv, cv2.COLOR_BGR2GRAY)
-        control_gray = cv2.cvtColor(control_crop_cv, cv2.COLOR_BGR2GRAY)
-
-        stamp_hsv = cv2.cvtColor(stamp_crop_cv, cv2.COLOR_BGR2HSV)
-        control_hsv = cv2.cvtColor(control_crop_cv, cv2.COLOR_BGR2HSV)
-
-        s_ed = edge_density(stamp_gray)
-        c_ed = edge_density(control_gray)
-        pixel_feats = np.array([
-            s_ed,
-            c_ed,
-            s_ed / max(c_ed, 1e-6),
-            laplacian_var(stamp_gray),
-            laplacian_var(control_gray),
-            laplacian_var(stamp_gray) / max(laplacian_var(control_gray), 1e-6),
-            float(np.std(stamp_gray)),
-            float(np.std(control_gray)),
-            float(np.std(stamp_hsv[:, :, 0])),
-            float(np.std(control_hsv[:, :, 0])),
-            float(np.std(stamp_hsv[:, :, 1])),
-        ], dtype=np.float32).reshape(1, -1)
-
-        # Pixel prob
-        X_pixel = pixel_feats
-        sp = clf_data.get("scaler_pixel")
-        if sp is not None:
-            X_pixel = sp.transform(X_pixel)
-        prob_pixel = clf_data["clf_pixel"].predict_proba(X_pixel)[0, 1]
-
-        # DINOv2 prob
-        X_dino = dino_feat
-        sd = clf_data.get("scaler_dino")
-        if sd is not None:
-            X_dino = sd.transform(X_dino)
-        prob_dino = clf_data["clf_dino"].predict_proba(X_dino)[0, 1]
-
-        weight = clf_data.get("weight_pixel", 0.5)
-        stamp_prob = float(weight * prob_pixel + (1 - weight) * prob_dino)
-        is_stamped = stamp_prob > 0.5
-        confidence = stamp_prob if is_stamped else 1.0 - stamp_prob
-    else:
-        raise ValueError(f"Unknown model_type for combined: {model_type}")
-
-    return {"stamped": is_stamped, "confidence": confidence, "stamp_probability": stamp_prob}
-
-
-# Map classifier name -> runner function
-CLASSIFIER_RUNNERS = {
-    "whole_card": run_whole_card_classifier,
-    "crop": run_crop_classifier,
-    "combined": run_combined_classifier,
-}
-
-
-# ============================================================
-# Metrics
-# ============================================================
-
-def compute_metrics(results: list[dict]) -> dict:
-    """Compute accuracy, precision, recall, F1 from result dicts."""
-    if not results:
-        return {"n": 0}
-
-    n = len(results)
-    correct = sum(1 for r in results if r["correct"])
-
-    tp = sum(1 for r in results if r["gt_stamped"] and r["pred_stamped"])
-    fp = sum(1 for r in results if not r["gt_stamped"] and r["pred_stamped"])
-    fn = sum(1 for r in results if r["gt_stamped"] and not r["pred_stamped"])
-    tn = sum(1 for r in results if not r["gt_stamped"] and not r["pred_stamped"])
-
-    accuracy = correct / n
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
-
-    return {
-        "n": n, "correct": correct, "accuracy": accuracy,
-        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
-        "precision": precision, "recall": recall, "f1": f1,
-    }
-
-
-# ============================================================
-# Main evaluation
-# ============================================================
-
-def evaluate_classifier(clf_name: str, clf_data: dict, data: list[dict],
-                        verbose: bool = False) -> list[dict]:
-    """Run a classifier on all data entries, return per-card results."""
-    runner = CLASSIFIER_RUNNERS[clf_name]
     results = []
+    total = len(cards)
 
-    for entry in data:
-        t0 = time.time()
+    for i, card in enumerate(cards):
+        img_path = card["image_path"]
+        card_id = card.get("card_id") or ""
+        name = card.get("name", "")
+
+        era = 0
+        if card_id:
+            try:
+                era = get_card_era(card_id)
+            except Exception:
+                pass
+
+        print(f"  [{i+1:3d}/{total}] {name:30s} ({card_id or 'no-id':30s}) ...",
+              end="", flush=True)
+
+        # Run variant_detector
         try:
-            pred = runner(entry["image_path"], clf_data)
+            variant_result = detect_variant(img_path, era=era,
+                                            card_id=card_id or None)
         except Exception as e:
-            logger.error("Error on %s: %s", entry["image_name"], e)
-            pred = {"stamped": False, "confidence": 0.0, "stamp_probability": 0.0}
-        elapsed_ms = (time.time() - t0) * 1000
+            variant_result = f"ERROR:{e}"
 
-        correct = pred["stamped"] == entry["gt_stamped"]
-        result = {
-            "image_name": entry["image_name"],
-            "card_name": entry["card_name"],
-            "set_id": entry["set_id"],
-            "source": entry["source"],
-            "gt_stamped": entry["gt_stamped"],
-            "pred_stamped": pred["stamped"],
-            "stamp_probability": pred["stamp_probability"],
-            "confidence": pred["confidence"],
-            "correct": correct,
-            "time_ms": elapsed_ms,
-            "note": entry.get("note", ""),
-        }
-        results.append(result)
+        # Run detailed variant analysis
+        try:
+            detail = detect_variant_detailed(img_path, era=era,
+                                             card_id=card_id or None)
+        except Exception as e:
+            detail = {"variant": f"ERROR:{e}"}
 
-        if verbose:
-            status = "OK" if correct else "WRONG"
-            gt_label = "stamped" if entry["gt_stamped"] else "clean"
-            pred_label = "stamped" if pred["stamped"] else "clean"
-            print(f"  [{status:5s}] {entry['image_name']:55s} "
-                  f"gt={gt_label:7s} pred={pred_label:7s} "
-                  f"prob={pred['stamp_probability']:.3f} "
-                  f"conf={pred['confidence']:.3f} "
-                  f"{elapsed_ms:.0f}ms")
+        # Run stamp_detection
+        stamp_result = {"stamps_detected": [], "stamp_details": {},
+                        "stamps_checked": []}
+        if card_id:
+            try:
+                stamp_result = detect_stamps(img_path, card_id)
+            except Exception as e:
+                stamp_result["error"] = str(e)
+
+        # Aggregate all detected variant labels
+        detected = set()
+
+        vr = variant_result if isinstance(variant_result, str) else ""
+        if vr == "1st_edition":
+            detected.add("1st_edition")
+        elif vr == "holofoil":
+            detected.add("holofoil")
+        elif vr == "reverse_holofoil":
+            detected.add("reverse_holofoil")
+        elif vr == "promo":
+            detected.add("promo")
+        elif vr == "full_art":
+            detected.add("full_art")
+        elif vr == "gold":
+            detected.add("gold")
+        elif vr == "rainbow_rare":
+            detected.add("rainbow_rare")
+        elif vr == "shadowless":
+            detected.add("shadowless")
+
+        # From stamp_detection
+        for stamp in stamp_result.get("stamps_detected", []):
+            if stamp == "1st_edition":
+                detected.add("1st_edition")
+            elif stamp == "ex_set_stamp":
+                detected.add("ex_set_stamp")
+                detected.add("reverse_holofoil")
+            elif stamp in ("black_star_promo", "modern_promo", "promo_stamp"):
+                detected.add("promo")
+
+        # Detailed analysis extras
+        if isinstance(detail, dict):
+            if detail.get("has_1st_edition_stamp"):
+                detected.add("1st_edition")
+            if detail.get("is_full_art"):
+                detected.add("full_art")
+            gr = detail.get("gold_rare_result")
+            if gr == "gold":
+                detected.add("gold")
+            elif gr == "rainbow_rare":
+                detected.add("rainbow_rare")
+
+        # variant_detector returns reverse_holofoil for EX stamped cards
+        set_prefix = ""
+        if card_id and "-" in card_id:
+            set_prefix = card_id.split("/")[0].rsplit("-", 1)[0]
+        if vr == "reverse_holofoil" and set_prefix.startswith("ex"):
+            detected.add("ex_set_stamp")
+
+        print(f" detected={detected or '{normal}'}")
+
+        results.append({
+            **card,
+            "era": era,
+            "variant_detector_result": variant_result,
+            "variant_detail": detail,
+            "stamp_result": stamp_result,
+            "detected_variants": detected,
+        })
 
     return results
 
 
-def print_confusion_matrix(metrics: dict, label: str = ""):
-    """Print a 2x2 confusion matrix."""
-    if label:
-        print(f"\n  Confusion Matrix ({label}):")
-    else:
-        print(f"\n  Confusion Matrix:")
-    print(f"                      Predicted")
-    print(f"                      Clean    Stamped")
-    print(f"    Actual Clean    {metrics['tn']:5d}    {metrics['fp']:5d}")
-    print(f"    Actual Stamped  {metrics['fn']:5d}    {metrics['tp']:5d}")
+# ── Compute metrics ──────────────────────────────────────────────────────
 
+def _compute_metrics(results: list[dict]) -> dict:
+    """Compute TP, FP, FN, TN per variant type."""
+    metrics = {}
+    for vtype in VARIANT_TYPES:
+        tp, fp, fn, tn = 0, 0, 0, 0
+        tp_cards, fp_cards, fn_cards = [], [], []
 
-def print_errors(results: list[dict], label: str = ""):
-    """Print false positives and false negatives."""
-    fps = [r for r in results if not r["gt_stamped"] and r["pred_stamped"]]
-    fns = [r for r in results if r["gt_stamped"] and not r["pred_stamped"]]
-
-    if fps:
-        print(f"\n  False Positives (clean -> stamped): {len(fps)}")
-        for r in fps:
-            print(f"    - {r['image_name']:55s} prob={r['stamp_probability']:.3f}  "
-                  f"{r['card_name']}")
-    if fns:
-        print(f"\n  False Negatives (stamped -> clean): {len(fns)}")
-        for r in fns:
-            note = f"  [{r['note']}]" if r['note'] else ""
-            print(f"    - {r['image_name']:55s} prob={r['stamp_probability']:.3f}  "
-                  f"{r['card_name']}{note}")
-
-
-def find_hard_cards(all_clf_results: dict[str, list[dict]]) -> list[dict]:
-    """Find cards that are wrong across ALL classifiers."""
-    # Build image_name -> {clf_name: correct}
-    card_map = defaultdict(dict)
-    card_info = {}
-    for clf_name, results in all_clf_results.items():
         for r in results:
-            key = r["image_name"]
-            card_map[key][clf_name] = r["correct"]
-            card_info[key] = {
-                "card_name": r["card_name"],
-                "gt_stamped": r["gt_stamped"],
-                "source": r["source"],
-                "note": r.get("note", ""),
-            }
+            has_label = vtype in r["gt_variants"]
+            is_detected = vtype in r["detected_variants"]
 
-    hard = []
-    for img_name, clf_correct in card_map.items():
-        n_correct = sum(1 for v in clf_correct.values() if v)
-        n_total = len(clf_correct)
-        if n_correct < n_total:  # wrong in at least one classifier
-            info = card_info[img_name]
-            hard.append({
-                "image_name": img_name,
-                "card_name": info["card_name"],
-                "gt_stamped": info["gt_stamped"],
-                "source": info["source"],
-                "note": info.get("note", ""),
-                "correct_count": n_correct,
-                "total_classifiers": n_total,
-                "per_clf": clf_correct,
-            })
+            if has_label and is_detected:
+                tp += 1; tp_cards.append(r)
+            elif not has_label and is_detected:
+                fp += 1; fp_cards.append(r)
+            elif has_label and not is_detected:
+                fn += 1; fn_cards.append(r)
+            else:
+                tn += 1
 
-    hard.sort(key=lambda x: x["correct_count"])
-    return hard
+        total_pos = tp + fn
+        total_neg = fp + tn
+        metrics[vtype] = {
+            "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+            "total_positive": total_pos, "total_negative": total_neg,
+            "tpr": tp / total_pos if total_pos > 0 else 0.0,
+            "fpr": fp / total_neg if total_neg > 0 else 0.0,
+            "tp_cards": tp_cards, "fp_cards": fp_cards, "fn_cards": fn_cards,
+        }
+    return metrics
+
+
+# ── Print report ─────────────────────────────────────────────────────────
+
+def _print_report(results: list[dict], metrics: dict):
+    total = len(results)
+
+    print("\n" + "=" * 100)
+    print("VARIANT DETECTION EVALUATION REPORT")
+    print(f"Total cards evaluated: {total}")
+    print("=" * 100)
+
+    # Ground truth distribution
+    print("\nGround truth label distribution:")
+    for vtype in VARIANT_TYPES:
+        count = sum(1 for r in results if vtype in r["gt_variants"])
+        if count > 0:
+            names = [r["name"] for r in results if vtype in r["gt_variants"]]
+            print(f"  {vtype:22s}: {count:2d} cards  ({', '.join(names)})")
+    normal_count = sum(1 for r in results if not r["gt_variants"])
+    print(f"  {'normal (no labels)':22s}: {normal_count:2d} cards")
+
+    # Per-variant accuracy table
+    print("\n" + "-" * 100)
+    print(f"{'Variant Type':22s} {'TP':>6s} {'FN':>6s} {'FP':>6s}"
+          f" {'TPR':>12s} {'FPR':>14s}")
+    print("-" * 100)
+
+    for vtype in VARIANT_TYPES:
+        m = metrics[vtype]
+        tp, fn, fp = m["tp"], m["fn"], m["fp"]
+        total_pos = m["total_positive"]
+        total_neg = m["total_negative"]
+
+        if total_pos == 0 and fp == 0:
+            tpr_s = "n/a"
+            fpr_s = f"0/{total_neg}"
+        elif total_pos == 0:
+            tpr_s = "n/a"
+            fpr_s = f"{fp}/{total_neg} ({m['fpr']:.0%})"
+        else:
+            tpr_s = f"{tp}/{total_pos} ({m['tpr']:.0%})"
+            fpr_s = f"{fp}/{total_neg} ({m['fpr']:.0%})"
+
+        print(f"{vtype:22s} {tp:6d} {fn:6d} {fp:6d}"
+              f" {tpr_s:>12s} {fpr_s:>14s}")
+
+    # Detailed per-variant results
+    print("\n" + "=" * 100)
+    print("DETAILED RESULTS BY VARIANT TYPE")
+    print("=" * 100)
+
+    for vtype in VARIANT_TYPES:
+        m = metrics[vtype]
+        if m["total_positive"] == 0 and m["fp"] == 0:
+            continue
+
+        print(f"\n--- {vtype} ---")
+
+        if m["tp_cards"]:
+            print(f"  TRUE POSITIVES ({m['tp']}):")
+            for r in m["tp_cards"]:
+                sd = r.get("stamp_result", {}).get("stamp_details", {})
+                extra = ""
+                for sk, sv in sd.items():
+                    extra += f" stamp:{sk}(conf={sv.get('confidence',0):.2f})"
+                print(f"    [OK]   {r['name']:28s} ({r.get('card_id','?'):24s})"
+                      f" {r['page']}/{r['slot']}{extra}")
+
+        if m["fn_cards"]:
+            print(f"  FALSE NEGATIVES ({m['fn']}) -- MISSED:")
+            for r in m["fn_cards"]:
+                vr = r.get("variant_detector_result", "?")
+                stamps = r.get("stamp_result", {}).get("stamps_detected", [])
+                print(f"    [MISS] {r['name']:28s} ({r.get('card_id','?'):24s})"
+                      f" {r['page']}/{r['slot']}"
+                      f" variant_det={vr} stamps={stamps}")
+
+        if m["fp_cards"]:
+            print(f"  FALSE POSITIVES ({m['fp']}):")
+            for r in m["fp_cards"]:
+                vr = r.get("variant_detector_result", "?")
+                stamps = r.get("stamp_result", {}).get("stamps_detected", [])
+                sd = r.get("stamp_result", {}).get("stamp_details", {})
+                extra = ""
+                for sk, sv in sd.items():
+                    extra += f" stamp:{sk}(conf={sv.get('confidence',0):.2f})"
+                print(f"    [FP]   {r['name']:28s} ({r.get('card_id','?'):24s})"
+                      f" gt={r['gt_variants'] or 'normal'}"
+                      f" variant_det={vr} stamps={stamps}{extra}")
+
+    # Overall single-label accuracy
+    print("\n" + "=" * 100)
+    print("VARIANT DETECTOR SINGLE-LABEL ACCURACY")
+    print("(Does variant_detector's primary return value match ground truth?)")
+    print("=" * 100)
+
+    correct = 0
+    wrong = []
+    for r in results:
+        vr = r.get("variant_detector_result", "normal")
+        gt = r["gt_variants"]
+
+        if not gt and vr == "normal":
+            correct += 1
+        elif vr in gt:
+            correct += 1
+        elif vr == "reverse_holofoil" and ("ex_set_stamp" in gt
+                                           or "reverse_holofoil" in gt):
+            correct += 1
+        else:
+            wrong.append(r)
+
+    print(f"\nCorrect: {correct}/{total} ({100*correct/total:.1f}%)")
+    if wrong:
+        print(f"\nIncorrect ({len(wrong)}):")
+        for r in wrong:
+            vr = r.get("variant_detector_result", "normal")
+            print(f"  {r['name']:28s} ({r.get('card_id','?'):24s})"
+                  f" gt={r['gt_variants'] or 'normal'} detected={vr}")
 
 
 def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Master variant detection evaluation")
-    parser.add_argument("--verbose", "-v", action="store_true")
-    parser.add_argument("--binder-only", action="store_true", help="Only evaluate binder scans")
-    parser.add_argument("--reference-only", action="store_true", help="Only evaluate reference photos")
-    args = parser.parse_args()
+    print("Building ground truth...")
+    cards = _build_ground_truth()
+    print(f"Found {len(cards)} card entries\n")
 
-    # Load data
-    print("Loading ground truth data...")
-    binder_data = load_binder_data()
-    reference_data = load_reference_data()
-    print(f"  Binder scans:     {len(binder_data)} images")
-    print(f"  Reference photos: {len(reference_data)} images")
+    # Filter to only cards with existing images
+    cards = [c for c in cards if Path(c["image_path"]).exists()]
+    print(f"Cards with existing images: {len(cards)}\n")
 
-    if args.binder_only:
-        all_data = binder_data
-        data_label = "binder only"
-    elif args.reference_only:
-        all_data = reference_data
-        data_label = "reference only"
-    else:
-        all_data = binder_data + reference_data
-        data_label = "all"
+    print("Running detectors on all cards...")
+    results = _run_detectors(cards)
 
-    n_stamped = sum(1 for d in all_data if d["gt_stamped"])
-    n_clean = len(all_data) - n_stamped
-    print(f"  Evaluating:       {len(all_data)} images ({data_label})")
-    print(f"  Distribution:     {n_stamped} stamped, {n_clean} clean")
+    print("\nComputing metrics...")
+    metrics = _compute_metrics(results)
 
-    # Load classifiers
-    classifiers = {}
-    for name, path in CLASSIFIER_PATHS.items():
-        if path.exists():
-            print(f"  Loading classifier: {name} ({path.name})")
-            with open(path, "rb") as f:
-                classifiers[name] = pickle.load(f)
-            ft = classifiers[name].get("feature_type", "?")
-            mt = classifiers[name].get("model_type", "?")
-            print(f"    feature_type={ft}, model_type={mt}")
-        else:
-            print(f"  Classifier not found: {name} ({path.name}) -- skipping")
-
-    if not classifiers:
-        print("ERROR: No classifiers found. Nothing to evaluate.")
-        sys.exit(1)
-
-    # Run evaluation for each classifier
-    all_clf_results = {}
-    all_clf_metrics = {}
-
-    for clf_name, clf_data in classifiers.items():
-        print(f"\n{'='*80}")
-        print(f"EVALUATING: {clf_name} ({clf_data.get('feature_type', '?')})")
-        print(f"{'='*80}")
-
-        results = evaluate_classifier(clf_name, clf_data, all_data, verbose=args.verbose)
-        all_clf_results[clf_name] = results
-
-        # Overall metrics
-        metrics = compute_metrics(results)
-        all_clf_metrics[clf_name] = {"overall": metrics}
-        print(f"\n  Overall: {metrics['correct']}/{metrics['n']} "
-              f"({metrics['accuracy']:.1%})  "
-              f"P={metrics['precision']:.3f}  R={metrics['recall']:.3f}  "
-              f"F1={metrics['f1']:.3f}")
-        print_confusion_matrix(metrics)
-        print_errors(results)
-
-        # Per-source breakdown
-        for source_label in ["binder", "reference"]:
-            source_results = [r for r in results if r["source"] == source_label]
-            if not source_results:
-                continue
-            m = compute_metrics(source_results)
-            all_clf_metrics[clf_name][source_label] = m
-            print(f"\n  {source_label.title()}: {m['correct']}/{m['n']} "
-                  f"({m['accuracy']:.1%})  "
-                  f"P={m['precision']:.3f}  R={m['recall']:.3f}  "
-                  f"F1={m['f1']:.3f}")
-            print_confusion_matrix(m, source_label)
-            print_errors(source_results, source_label)
-
-        # Per-set breakdown
-        set_results = defaultdict(list)
-        for r in results:
-            set_results[r["set_id"]].append(r)
-
-        if len(set_results) > 1:
-            print(f"\n  Per-set breakdown:")
-            print(f"  {'Set':<10s} {'N':>4s} {'Correct':>8s} {'Acc':>7s} {'P':>6s} {'R':>6s} {'F1':>6s}")
-            print(f"  {'-'*50}")
-            for set_id in sorted(set_results.keys()):
-                sr = set_results[set_id]
-                m = compute_metrics(sr)
-                print(f"  {set_id or '(none)':<10s} {m['n']:4d} "
-                      f"{m['correct']:4d}/{m['n']:<3d} "
-                      f"{m['accuracy']:6.1%} "
-                      f"{m['precision']:5.3f} {m['recall']:5.3f} {m['f1']:5.3f}")
-
-    # ============================================================
-    # Per-card results table (all classifiers side by side)
-    # ============================================================
-    print(f"\n{'='*120}")
-    print("PER-CARD RESULTS TABLE")
-    print(f"{'='*120}")
-
-    clf_names = sorted(classifiers.keys())
-    header_parts = [f"{'Image':<55s}", f"{'Card':<25s}", "GT    ", "Src   "]
-    for cn in clf_names:
-        header_parts.append(f"{cn:>12s}")
-    print("  ".join(header_parts))
-    print("-" * 120)
-
-    # Index results by image_name per classifier
-    clf_by_image = {cn: {} for cn in clf_names}
-    for cn in clf_names:
-        for r in all_clf_results[cn]:
-            clf_by_image[cn][r["image_name"]] = r
-
-    all_image_names = []
-    seen = set()
-    for d in all_data:
-        if d["image_name"] not in seen:
-            all_image_names.append(d["image_name"])
-            seen.add(d["image_name"])
-
-    for img_name in all_image_names:
-        # Get ground truth from first classifier's results
-        info = None
-        for cn in clf_names:
-            if img_name in clf_by_image[cn]:
-                info = clf_by_image[cn][img_name]
-                break
-        if info is None:
-            continue
-
-        gt_label = "stamp" if info["gt_stamped"] else "clean"
-        row_parts = [
-            f"{img_name:<55s}",
-            f"{info['card_name'][:24]:<25s}",
-            f"{gt_label:<6s}",
-            f"{info['source'][:5]:<6s}",
-        ]
-        any_wrong = False
-        for cn in clf_names:
-            r = clf_by_image[cn].get(img_name)
-            if r is None:
-                row_parts.append(f"{'N/A':>12s}")
-            else:
-                pred_label = "stamp" if r["pred_stamped"] else "clean"
-                correct_mark = "" if r["correct"] else " X"
-                if not r["correct"]:
-                    any_wrong = True
-                row_parts.append(f"{pred_label} {r['stamp_probability']:.2f}{correct_mark:>3s}")
-
-        line = "  ".join(row_parts)
-        if any_wrong:
-            line += "  <-- WRONG"
-        print(line)
-
-    # ============================================================
-    # Hard cards analysis
-    # ============================================================
-    hard_cards = find_hard_cards(all_clf_results)
-    if hard_cards:
-        print(f"\n{'='*80}")
-        print(f"HARD CARDS (wrong in at least one classifier)")
-        print(f"{'='*80}")
-
-        # Cards wrong in ALL classifiers first
-        always_wrong = [h for h in hard_cards if h["correct_count"] == 0]
-        sometimes_wrong = [h for h in hard_cards if h["correct_count"] > 0]
-
-        if always_wrong:
-            print(f"\n  Always wrong ({len(always_wrong)} cards):")
-            for h in always_wrong:
-                gt_label = "stamped" if h["gt_stamped"] else "clean"
-                note = f"  [{h['note']}]" if h['note'] else ""
-                print(f"    {h['image_name']:55s} {h['card_name']:25s} gt={gt_label}{note}")
-                for cn, correct in h["per_clf"].items():
-                    print(f"      {cn}: {'CORRECT' if correct else 'WRONG'}")
-
-        if sometimes_wrong:
-            print(f"\n  Sometimes wrong ({len(sometimes_wrong)} cards):")
-            for h in sometimes_wrong:
-                gt_label = "stamped" if h["gt_stamped"] else "clean"
-                n_right = h["correct_count"]
-                n_total = h["total_classifiers"]
-                note = f"  [{h['note']}]" if h['note'] else ""
-                print(f"    {h['image_name']:55s} {h['card_name']:25s} "
-                      f"gt={gt_label} {n_right}/{n_total} correct{note}")
-                for cn, correct in h["per_clf"].items():
-                    print(f"      {cn}: {'CORRECT' if correct else 'WRONG'}")
-
-    # ============================================================
-    # Summary: pick winner
-    # ============================================================
-    print(f"\n{'='*80}")
-    print("SUMMARY -- CLASSIFIER COMPARISON")
-    print(f"{'='*80}")
-
-    print(f"\n  {'Classifier':<20s} {'Overall':>10s} {'Binder':>10s} {'Reference':>10s} "
-          f"{'F1':>8s} {'Prec':>8s} {'Rec':>8s}")
-    print(f"  {'-'*75}")
-
-    best_clf = None
-    best_binder_acc = -1.0
-
-    for cn in clf_names:
-        m = all_clf_metrics[cn]
-        overall = m["overall"]
-        binder = m.get("binder", {"n": 0, "accuracy": 0, "correct": 0})
-        ref = m.get("reference", {"n": 0, "accuracy": 0, "correct": 0})
-
-        overall_str = f"{overall['correct']}/{overall['n']} {overall['accuracy']:.1%}"
-        binder_str = f"{binder.get('correct',0)}/{binder.get('n',0)} {binder.get('accuracy',0):.1%}" if binder.get("n", 0) > 0 else "N/A"
-        ref_str = f"{ref.get('correct',0)}/{ref.get('n',0)} {ref.get('accuracy',0):.1%}" if ref.get("n", 0) > 0 else "N/A"
-
-        print(f"  {cn:<20s} {overall_str:>10s} {binder_str:>10s} {ref_str:>10s} "
-              f"{overall['f1']:>7.3f} {overall['precision']:>7.3f} {overall['recall']:>7.3f}")
-
-        # Winner = best binder accuracy (our real use case), tie-break on overall
-        b_acc = binder.get("accuracy", 0) if binder.get("n", 0) > 0 else 0
-        if b_acc > best_binder_acc or (b_acc == best_binder_acc and overall["accuracy"] > all_clf_metrics.get(best_clf, {}).get("overall", {}).get("accuracy", 0)):
-            best_binder_acc = b_acc
-            best_clf = cn
-
-    if best_clf:
-        bm = all_clf_metrics[best_clf]
-        overall = bm["overall"]
-        binder = bm.get("binder", {})
-        binder_acc = binder.get("accuracy", 0) if binder.get("n", 0) > 0 else overall["accuracy"]
-        print(f"\n  ** Best approach: {best_clf} at {binder_acc:.1%} binder accuracy "
-              f"({overall['accuracy']:.1%} overall) **")
-
-    print()
+    _print_report(results, metrics)
 
 
 if __name__ == "__main__":
