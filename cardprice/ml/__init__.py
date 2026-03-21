@@ -2918,14 +2918,52 @@ def _paddle_ocr_name_and_hp(image_path: str):
     # often have the owner ("Lillie's") on a separate line from the
     # Pokemon name ("Clefairy"). Combine possessive fragments with
     # name-like fragments to form the full card name.
+    #
+    # OCR may read the possessive prefix in several garbled forms:
+    #   "TEAMAQUA'S" — correct but uppercase/no-space
+    #   "TEHAQUA'S"  — missing letters
+    #   "TEAMAQUA"   — apostrophe-s dropped entirely
+    #   "Misty"      — owner name without 's
     # ------------------------------------------------------------------
+    # Build set of known owner prefixes (without "'s") for fallback matching
+    _owner_prefixes_lower = set()
+    for _kn in _known_names:
+        _poss_m = re.match(r"^(.+?)[''\u2019]s\s", _kn)
+        if _poss_m:
+            _owner_prefixes_lower.add(_poss_m.group(1).lower())
+            # Also add no-space version: "team aqua" -> "teamaqua"
+            _owner_prefixes_lower.add(_poss_m.group(1).lower().replace(" ", ""))
+
     possessive_frags = []
     non_possessive = []
     for cleaned, conf, method, size_ratio in name_candidates:
-        # Match "X's" pattern (owner name) — allow OCR typos
-        # Case-insensitive: OCR may return "TEAM AQUA'S" in all-caps
-        if re.search(r"'s$|'s$|s'$", cleaned.strip(), re.IGNORECASE):
-            possessive_frags.append((cleaned.strip(), conf, method, size_ratio))
+        txt = cleaned.strip()
+        is_possessive = False
+        # Match "X's" or "X'S" pattern (case-insensitive), including
+        # curly apostrophes and OCR-swapped s' ordering
+        if re.search(r"[''\u2019][sS]$", txt):
+            is_possessive = True
+        else:
+            # Fallback: check if the fragment matches a known owner prefix
+            # without the apostrophe-s (OCR dropped it entirely).
+            # e.g., "TEAMAQUA" or "Misty" -> known owner prefix
+            txt_lower = txt.lower().replace("'", "").replace("\u2019", "")
+            txt_nospace = txt_lower.replace(" ", "")
+            if txt_lower in _owner_prefixes_lower or txt_nospace in _owner_prefixes_lower:
+                is_possessive = True
+                # Restore the possessive suffix for combining
+                txt = txt + "'s"
+            elif len(txt) >= 5:
+                # Fuzzy match against known owners for heavily garbled OCR
+                # e.g., "TEAAQUA" (missing M) -> "teamaqua"
+                for _ow in _owner_prefixes_lower:
+                    if len(_ow) >= 5 and fuzz.ratio(txt_nospace, _ow) >= 78.0:
+                        is_possessive = True
+                        txt = txt + "'s"
+                        break
+
+        if is_possessive:
+            possessive_frags.append((txt, conf, method, size_ratio))
         else:
             non_possessive.append((cleaned, conf, method, size_ratio))
     if possessive_frags and non_possessive:
@@ -2933,6 +2971,9 @@ def _paddle_ocr_name_and_hp(image_path: str):
             for nptext, npconf, npmethod, npsize in non_possessive:
                 # Skip combining with non-name words
                 if nptext.lower() in _NON_NAME_WORDS:
+                    continue
+                # Skip combining with text that already contains a possessive
+                if re.search(r"[''\u2019][sS]\s", nptext):
                     continue
                 combined_name = f"{poss} {nptext}"
                 combined_conf = min(pconf, npconf)
@@ -4679,17 +4720,22 @@ def identify_page_v2(card_image_paths, session=None):
         v2_signals = raw.get("v2_signals", {})
 
         # Check if the current best is already from the page's set.
-        # If confidence is high enough, just boost and skip. Otherwise,
-        # still try the broad search — the current card might be from
-        # the right era but wrong set (e.g. "Mightyena" from ex8 when
-        # the correct answer is "Team Aqua's Mightyena" from ex4).
+        # Even when the current set matches, still try the broad search
+        # in case a "Team X's Pokemon" variant scores higher on DINOv2.
+        # Only skip broad search for very high confidence (>= 0.80).
         current_set = _extract_set_from_card_id(result.get("card_id"))
-        if current_set in loo_sets and result["confidence"] >= 0.70:
+        skip_broad_search = False
+        if current_set in loo_sets and result["confidence"] >= 0.80:
             result["confidence"] = min(result["confidence"] + 0.05, 1.0)
             result["explanation"] = (
                 (result.get("explanation") or "") + " (page context confirms set)"
             )
             continue
+        if current_set in loo_sets:
+            # Current set matches page context but confidence is moderate.
+            # Still try broad search, but require a higher DINOv2 margin
+            # to overturn (the card might already be correct).
+            skip_broad_search = False  # explicit for clarity
 
         # Collect best candidate from combined_results that's in a page set
         best_combined_cid = None
