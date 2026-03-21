@@ -15,6 +15,7 @@ import hashlib
 import logging
 import os
 import pickle
+import sys
 import tempfile
 import threading
 from collections import OrderedDict
@@ -27,7 +28,6 @@ logger = logging.getLogger(__name__)
 # Thread lock for OCR engines (PaddleOCR/EasyOCR are not thread-safe)
 _ocr_lock = threading.Lock()
 _jp_easyocr_reader = None  # Cached Japanese EasyOCR reader (slow to init)
-_paddle_ja = None  # Cached PaddleOCR Japanese engine (lazy-loaded)
 
 # Thread lock for GPU operations (DINOv2/CLIP forward passes)
 
@@ -3281,18 +3281,6 @@ def _run_name_ocr(image_path: str) -> tuple:
     return None, 0.0, None
 
 
-def _get_paddle_ja():
-    """Lazy-load PaddleOCR Japanese engine (singleton)."""
-    global _paddle_ja
-    if _paddle_ja is not None:
-        return _paddle_ja
-    import os as _os
-    _os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
-    from paddleocr import PaddleOCR
-    _paddle_ja = PaddleOCR(lang='japan', use_textline_orientation=True)
-    return _paddle_ja
-
-
 # Cached reverse index: {japanese_lower: english_name} built from translation names
 _ja_reverse_index: dict[str, str] | None = None
 
@@ -3335,110 +3323,168 @@ def _get_ja_reverse_index() -> dict[str, str]:
     return result
 
 
+def _paddle_ja_ocr_subprocess(image_path: str) -> list[tuple[str, float]]:
+    """Run PaddleOCR Japanese in a subprocess to avoid OOM.
+
+    PaddleOCR loads ~300MB of models.  When the main process already has
+    RapidOCR + FSRCNN + FAISS loaded, adding PaddleOCR can exceed available
+    memory.  Running in a subprocess isolates the memory usage.
+
+    Returns list of (text, confidence) pairs from the OCR result.
+    """
+    import subprocess
+    import json
+
+    # Prepare crops in the main process (cheap), pass image path to subprocess
+    script = r'''
+import sys, json, os, cv2
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+
+image_path = sys.argv[1]
+img = cv2.imread(image_path)
+if img is None:
+    print(json.dumps([]))
+    sys.exit(0)
+
+h, w = img.shape[:2]
+
+from paddleocr import PaddleOCR
+ocr = PaddleOCR(
+    lang='japan',
+    use_doc_orientation_classify=False,
+    use_doc_unwarping=False,
+    use_textline_orientation=False,
+)
+
+all_texts = []
+import tempfile
+
+crop_specs = [
+    (0.00, 0.25, "top25"),
+    (0.00, 0.15, "top15"),
+    (0.02, 0.20, "skip2"),
+]
+
+for top_frac, bot_frac, label in crop_specs:
+    crop = img[int(h * top_frac):int(h * bot_frac), :]
+    pad = 20
+    crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+    crop = cv2.resize(crop, None, fx=3, fy=3)
+
+    tmp = tempfile.mktemp(suffix='.png')
+    try:
+        cv2.imwrite(tmp, crop)
+        results = ocr.predict(tmp)
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+    if not results:
+        continue
+    for r in results:
+        texts = r.get('rec_texts', [])
+        scores = r.get('rec_scores', [])
+        for t, s in zip(texts, scores):
+            if s > 0.5 and len(t.strip()) >= 2:
+                all_texts.append([t, float(s), label])
+
+    # Early exit if we got good text from broadest crop
+    if all_texts:
+        break
+
+print(json.dumps(all_texts, ensure_ascii=False))
+'''
+    try:
+        # Strip CLAUDE* env vars (they break subprocess Claude calls)
+        env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE")}
+        env["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+
+        proc = subprocess.run(
+            [sys.executable, "-c", script, str(image_path)],
+            capture_output=True, text=True, timeout=120, env=env,
+        )
+        if proc.returncode != 0:
+            logger.warning("PaddleOCR Japanese subprocess failed: %s", proc.stderr[-500:] if proc.stderr else "")
+            return []
+
+        # Parse JSON output (last line of stdout)
+        output_lines = proc.stdout.strip().splitlines()
+        if not output_lines:
+            return []
+        data = json.loads(output_lines[-1])
+        return [(t, s) for t, s, _label in data]
+
+    except subprocess.TimeoutExpired:
+        logger.warning("PaddleOCR Japanese subprocess timed out")
+        return []
+    except Exception as e:
+        logger.warning("PaddleOCR Japanese subprocess error: %s", e)
+        return []
+
+
 def _try_japanese_ocr(image_path: str) -> str | None:
     """Try PaddleOCR Japanese on the name region, return English name if found.
 
-    Uses PaddleOCR (lang='japan') on multiple crops of the top portion of the
-    card.  Extracted Japanese text is fuzzy-matched against the reverse index
-    of Japanese -> English card names (species names + compound names like
-    わるいマルマイン -> Dark Electrode).
+    Uses PaddleOCR (lang='japan') via subprocess on multiple crops of the top
+    portion of the card.  Extracted Japanese text is fuzzy-matched against the
+    reverse index of Japanese -> English card names (species names + compound
+    names like わるいマルマイン -> Dark Electrode).
 
     Only called when primary (RapidOCR) returns nothing, so no performance
     impact on English cards.
     """
     import re
-    import cv2
     from rapidfuzz import fuzz, process
 
     JP_CHAR_RE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+')
-
-    img = cv2.imread(str(image_path))
-    if img is None:
-        return None
-    h, w = img.shape[:2]
 
     ja_index = _get_ja_reverse_index()
     if not ja_index:
         return None
 
-    # Build choices list for fuzzy matching
     ja_names = list(ja_index.keys())
 
-    ocr = _get_paddle_ja()
-
-    # Try multiple crops to maximize chance of reading the full name
-    crop_specs = [
-        (0.00, 0.25, "top25"),   # broadest — may include HP etc.
-        (0.00, 0.15, "top15"),   # tighter — name only
-        (0.02, 0.20, "skip2"),   # skip edge bleed
-    ]
+    # Run PaddleOCR in subprocess to avoid OOM when other models are loaded
+    ocr_results = _paddle_ja_ocr_subprocess(image_path)
+    if not ocr_results:
+        return None
 
     best_en_name = None
     best_score = 0.0
     best_ja_text = ""
 
-    for top_frac, bot_frac, label in crop_specs:
-        crop = img[int(h * top_frac):int(h * bot_frac), :]
-        # Pad edges so text isn't at the very border
-        pad = 20
-        crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
-        # Upscale 3x for better OCR
-        crop = cv2.resize(crop, None, fx=3, fy=3)
+    for text, conf in ocr_results:
+        # Extract Japanese character runs
+        jp_matches = JP_CHAR_RE.findall(text)
+        for jp_text in jp_matches:
+            # Clean common OCR artifacts
+            jp_clean = jp_text.rstrip('・。、')
+            if len(jp_clean) < 2:
+                continue
 
-        # Write to temp file for PaddleOCR
-        tmp_path = tempfile.mktemp(suffix='.png')
-        try:
-            cv2.imwrite(tmp_path, crop)
-            results = ocr.predict(tmp_path)
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+            jp_lower = jp_clean.lower()
 
-        if not results:
-            continue
+            # Exact match first
+            if jp_lower in ja_index:
+                en_name = ja_index[jp_lower]
+                logger.info("Japanese PaddleOCR exact: '%s' -> '%s' (conf=%.3f)",
+                            jp_clean, en_name, conf)
+                return en_name
 
-        for r in results:
-            texts = r.get('rec_texts', [])
-            scores = r.get('rec_scores', [])
-            for text, conf in zip(texts, scores):
-                if conf < 0.5:
-                    continue
-                # Extract Japanese character runs
-                jp_matches = JP_CHAR_RE.findall(text)
-                for jp_text in jp_matches:
-                    # Clean common OCR artifacts
-                    jp_clean = jp_text.rstrip('・。、')
-                    if len(jp_clean) < 2:
-                        continue
-
-                    jp_lower = jp_clean.lower()
-
-                    # Exact match first
-                    if jp_lower in ja_index:
-                        en_name = ja_index[jp_lower]
-                        logger.info("Japanese PaddleOCR exact: '%s' -> '%s' (conf=%.3f, crop=%s)",
-                                    jp_clean, en_name, conf, label)
-                        return en_name
-
-                    # Fuzzy match — handles partial reads like るいマルマイン
-                    match = process.extractOne(
-                        jp_lower, ja_names,
-                        scorer=fuzz.ratio,
-                        score_cutoff=70,
-                    )
-                    if match and match[1] > best_score:
-                        best_score = match[1]
-                        best_en_name = ja_index[match[0]]
-                        best_ja_text = jp_clean
-                        logger.debug("Japanese PaddleOCR fuzzy candidate: '%s' ~ '%s' -> '%s' (score=%.1f, conf=%.3f, crop=%s)",
-                                     jp_clean, match[0], best_en_name, match[1], conf, label)
-
-        # If we found an exact match already (returned above), great.
-        # If we have a strong fuzzy match, don't try more crops.
-        if best_score >= 85:
-            break
+            # Fuzzy match — handles partial reads like るいマルマイン
+            match = process.extractOne(
+                jp_lower, ja_names,
+                scorer=fuzz.ratio,
+                score_cutoff=70,
+            )
+            if match and match[1] > best_score:
+                best_score = match[1]
+                best_en_name = ja_index[match[0]]
+                best_ja_text = jp_clean
+                logger.debug("Japanese PaddleOCR fuzzy candidate: '%s' ~ '%s' -> '%s' (score=%.1f, conf=%.3f)",
+                             jp_clean, match[0], best_en_name, match[1], conf)
 
     if best_en_name and best_score >= 70:
         logger.info("Japanese PaddleOCR fuzzy: '%s' -> '%s' (score=%.1f)",
@@ -4367,14 +4413,14 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     # -----------------------------------------------------------------------
     ocr_card_num = None
     ocr_set_total = None
-    if not _precomputed_ocr:
+    if _precomputed_ocr and "ocr_card_num" in _precomputed_ocr:
+        ocr_card_num = _precomputed_ocr.get("ocr_card_num")
+        ocr_set_total = _precomputed_ocr.get("ocr_set_total")
+    else:
         try:
             ocr_card_num, ocr_set_total = _ocr_card_number(image_path)
         except Exception as e:
             logger.warning("v2 step1c: card_number OCR error: %s", e)
-    else:
-        ocr_card_num = _precomputed_ocr.get("ocr_card_num")
-        ocr_set_total = _precomputed_ocr.get("ocr_set_total")
 
     logger.info(
         "v2 step1: name=%r (conf=%.2f), hp=%s, color=%s (conf=%.2f), card_num=%s/%s",
@@ -4452,35 +4498,63 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         except Exception as e:
             logger.warning("v2 step2b: card_number DB lookup failed: %s", e)
 
-    # If card number uniquely identified the card, return immediately
+    # If card number uniquely identified the card, verify with DINOv2 sanity
+    # check.  Card number OCR can misread (e.g. "4/102" -> "15/102") so
+    # we confirm the visual match is reasonable before trusting it.
     if card_num_match:
-        dino_check = _dino_dot_product_against_refs(
-            image_path, [card_num_match],
+        # DINOv2 against the card_num match AND all other candidates
+        all_check_ids = [card_num_match] + [c for c in candidates if c != card_num_match]
+        dino_all = _dino_dot_product_against_refs(
+            image_path, all_check_ids,
             query_embedding=_precomputed_dino_embedding,
         )
-        dino_score = dino_check[0][1] if dino_check else 0.0
-        explanation = (
-            f"v2: card_number OCR={ocr_card_num}/{ocr_set_total} -> "
-            f"{card_num_match} (name={ocr_name!r}, hp={hp_value}, "
-            f"dino={dino_score:.3f})"
+        dino_score = 0.0
+        best_other_score = 0.0
+        for cid, score in dino_all:
+            if cid == card_num_match:
+                dino_score = score
+            elif score > best_other_score:
+                best_other_score = score
+
+        # Accept card number match if DINOv2 confirms the visual match:
+        # - Score is reasonable (>= 0.40), AND
+        # - No other candidate scores much higher (within 0.15 of top).
+        # When another candidate has a much better DINOv2 match, the OCR
+        # likely misread the number (e.g. "35/102" -> "15/102").
+        trust_card_num = (
+            dino_score >= 0.40
+            and (best_other_score - dino_score) < 0.15
         )
-        result = {
-            "card_id": card_num_match,
-            "confidence": max(ocr_conf, 0.85),
-            "method": "v2_card_number",
-            "explanation": explanation,
-            "raw_response": {
-                "ocr_name": ocr_name, "ocr_confidence": ocr_conf,
-                "hp": hp_value, "color_type": color_type,
-                "color_confidence": color_conf,
-                "card_number": ocr_card_num, "set_total": ocr_set_total,
-                "n_candidates_before": len(candidates),
-                "dino_sanity": dino_score,
-            },
-        }
-        _apply_variant_detection(result, image_path, detect_variants=detect_variants)
-        _cache_store(cache_key, result)
-        return result
+        if trust_card_num:
+            explanation = (
+                f"v2: card_number OCR={ocr_card_num}/{ocr_set_total} -> "
+                f"{card_num_match} (name={ocr_name!r}, hp={hp_value}, "
+                f"dino={dino_score:.3f})"
+            )
+            result = {
+                "card_id": card_num_match,
+                "confidence": max(ocr_conf, 0.85),
+                "method": "v2_card_number",
+                "explanation": explanation,
+                "raw_response": {
+                    "ocr_name": ocr_name, "ocr_confidence": ocr_conf,
+                    "hp": hp_value, "color_type": color_type,
+                    "color_confidence": color_conf,
+                    "card_number": ocr_card_num, "set_total": ocr_set_total,
+                    "n_candidates_before": len(candidates),
+                    "dino_sanity": dino_score,
+                },
+            }
+            _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+            _cache_store(cache_key, result)
+            return result
+        else:
+            logger.info(
+                "v2 step2b: card_number match %s rejected — dino=%.3f, "
+                "best_other=%.3f (likely OCR misread)",
+                card_num_match, dino_score, best_other_score,
+            )
+            card_num_match = None
 
     # -----------------------------------------------------------------------
     # Step 3/4: Combined DINOv2 + attack scoring for candidate disambiguation

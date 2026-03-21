@@ -18,7 +18,7 @@ import urllib.error
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 OUTPUT_PATH = os.path.join(DATA_DIR, "card_translations.json")
-LANGUAGES = ["ja", "fr", "es", "de", "zh-tw", "ko", "it", "pt"]
+LANGUAGES = ["ja", "fr", "es", "de", "zh-tw", "ko", "it", "pt", "id", "th"]
 API_BASE = "https://api.tcgdex.net/v2"
 DELAY = 0.5  # seconds between requests
 
@@ -75,13 +75,27 @@ def fetch_cards(lang: str) -> dict[str, str]:
     return mapping
 
 
+def _strip_leading_zeros(card_num: str) -> str:
+    """Strip leading zeros from card number while preserving non-numeric prefixes.
+
+    Examples:
+        001 → 1, 014 → 14, GG01 → GG01, TG01 → TG01, a → a
+    """
+    m = re.match(r"^([A-Za-z]*)0*(\d+)$", card_num)
+    if m:
+        prefix, num = m.groups()
+        return f"{prefix}{num}" if prefix else num
+    return card_num
+
+
 def remap_card_id(tcgdex_id: str) -> str:
     """Convert a TCGdex card ID to our DB card ID (without /normal suffix).
 
     Examples:
         sv01-123 → sv1-123
-        me02.5-45 → me2pt5-45
+        me02.5-045 → me2pt5-45
         swsh12.5-GG01 → swsh12pt5-GG01
+        neo1-001 → neo1-1
     """
     # Split into set and card number
     parts = tcgdex_id.split("-", 1)
@@ -93,6 +107,9 @@ def remap_card_id(tcgdex_id: str) -> str:
     # Apply known set mapping
     if set_id in TCGDEX_TO_OUR_SET:
         set_id = TCGDEX_TO_OUR_SET[set_id]
+
+    # Strip leading zeros from card number (our DB uses "1" not "001")
+    card_num = _strip_leading_zeros(card_num)
 
     return f"{set_id}-{card_num}"
 
