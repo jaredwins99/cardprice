@@ -5,6 +5,7 @@ Variant types:
   - holofoil:        Holographic pattern on the artwork area only
   - reverse_holofoil: Holographic pattern on everything EXCEPT the artwork
   - 1st_edition:     Has a "1st Edition" stamp (left side, below artwork)
+  - promo:           Black Star Promo -- star symbol replaces set symbol
   - full_art:        Artwork extends to card edges, no visible border
   - gold:            Gold/secret rare -- entire card dominated by gold hue
   - rainbow_rare:    Rainbow rare -- high saturation across multiple hue peaks
@@ -36,12 +37,21 @@ Detection approach (pure OpenCV, no ML models):
    but never triggers alone (requires OCR confirmation to avoid false
    positives from card artwork shadows).
 
-4. **Gold / secret rare detection** -- Gold cards have a distinctive gold
+4. **Promo stamp detection** -- Promo cards have a distinctive black star
+   symbol that replaces the normal set symbol.  The star shape has low
+   "solidity" (contour area / convex hull area ~0.25-0.40) because the
+   star points create concavities.  Position varies by era: WotC promos
+   have the star in the mid-right area, EX-XY promos in the bottom-right,
+   SM-SV promos in the bottom-left.  WotC promos also have "PROMO" text
+   detected via OCR as backup.  Set-gated: only checked on known promo
+   sets (basep, np, dpp, hsp, bwp, xyp, smp, swshp, svp).
+
+5. **Gold / secret rare detection** -- Gold cards have a distinctive gold
    (HSV hue ~15-45) color scheme dominating >40% of the card surface including
    the borders.  Rainbow rares have high saturation spread across 4+ of 6 hue
    segments.  Both are era-gated to era >= 7 (Sun & Moon, 2017+).
 
-5. **Full art detection** -- Full art / alt art cards have artwork extending
+6. **Full art detection** -- Full art / alt art cards have artwork extending
    to the card edges with NO visible border.  Normal cards have a uniform
    yellow/silver/white border (low saturation, low hue variance) in the
    outer ~5% strip.  Full art cards show complex, colorful artwork in that
@@ -1976,8 +1986,11 @@ _PROMO_STAR_MAX_AREA = 500
 # Upscale factor for promo stamp region analysis.
 _PROMO_UPSCALE = 3
 
-# Darkness threshold for binarization when looking for the black star.
-_PROMO_DARK_THRESHOLD = 100
+# Darkness thresholds for binarization.  We try multiple thresholds
+# because the star visibility varies with card background brightness.
+# Lower thresholds (80) give fewer false positives but miss dark-background
+# promos; higher thresholds (100) catch more but need tighter solidity.
+_PROMO_DARK_THRESHOLDS = [80, 100]
 
 
 def _has_promo_star(region_bgr: np.ndarray) -> tuple[bool, float, dict]:
@@ -1986,6 +1999,9 @@ def _has_promo_star(region_bgr: np.ndarray) -> tuple[bool, float, dict]:
     The promo star has a distinctive shape with low solidity (~0.25-0.40)
     because the concavities between star points reduce the area relative
     to the convex hull.  Normal set symbols have solidity > 0.55.
+
+    Uses a multi-threshold approach: tries threshold 80 first (most
+    reliable), then 100 with tighter solidity requirements.
 
     Args:
         region_bgr: BGR image of the region to check.
@@ -2004,46 +2020,55 @@ def _has_promo_star(region_bgr: np.ndarray) -> tuple[bool, float, dict]:
                            fx=_PROMO_UPSCALE, fy=_PROMO_UPSCALE,
                            interpolation=cv2.INTER_CUBIC)
     gray = cv2.cvtColor(region_up, cv2.COLOR_BGR2GRAY)
-    _, dark_mask = cv2.threshold(gray, _PROMO_DARK_THRESHOLD, 255,
-                                 cv2.THRESH_BINARY_INV)
-
-    contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)
 
     best_match: tuple[float, float, float, float] | None = None
 
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area < _PROMO_STAR_MIN_AREA or area > _PROMO_STAR_MAX_AREA:
-            continue
+    for dark_thresh in _PROMO_DARK_THRESHOLDS:
+        _, dark_mask = cv2.threshold(gray, dark_thresh, 255,
+                                     cv2.THRESH_BINARY_INV)
 
-        perimeter = cv2.arcLength(cnt, True)
-        if perimeter == 0:
-            continue
+        contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
 
-        hull = cv2.convexHull(cnt)
-        hull_area = cv2.contourArea(hull)
-        if hull_area == 0:
-            continue
+        # Higher thresholds need tighter solidity to avoid false positives
+        max_sol = _PROMO_STAR_MAX_SOLIDITY if dark_thresh <= 80 else 0.42
 
-        solidity = area / hull_area
-        circularity = 4 * np.pi * area / (perimeter ** 2)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < _PROMO_STAR_MIN_AREA or area > _PROMO_STAR_MAX_AREA:
+                continue
 
-        if solidity >= _PROMO_STAR_MAX_SOLIDITY:
-            continue  # Too solid -- not a star shape
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter == 0:
+                continue
 
-        # Confidence based on how star-like the shape is:
-        # - Very low solidity (0.25-0.35) = high confidence
-        # - Moderate solidity (0.35-0.45) = lower confidence
-        if solidity < 0.35:
-            conf = 0.90
-        elif solidity < 0.40:
-            conf = 0.80
-        else:
-            conf = 0.65
+            hull = cv2.convexHull(cnt)
+            hull_area = cv2.contourArea(hull)
+            if hull_area == 0:
+                continue
 
-        if best_match is None or conf > best_match[3]:
-            best_match = (solidity, circularity, area, conf)
+            solidity = area / hull_area
+            circularity = 4 * np.pi * area / (perimeter ** 2)
+
+            if solidity >= max_sol:
+                continue  # Too solid -- not a star shape
+
+            # Confidence based on how star-like the shape is:
+            # - Very low solidity (0.25-0.35) = high confidence
+            # - Moderate solidity (0.35-0.42) = lower confidence
+            if solidity < 0.35:
+                conf = 0.90
+            elif solidity < 0.40:
+                conf = 0.80
+            else:
+                conf = 0.65
+
+            if best_match is None or conf > best_match[3]:
+                best_match = (solidity, circularity, area, conf)
+
+        # If we found a good match at the lower threshold, no need to try higher
+        if best_match is not None and best_match[3] >= 0.80:
+            break
 
     if best_match is not None:
         sol, circ, area, conf = best_match
@@ -2063,9 +2088,11 @@ def _check_promo_stamp(img_bgr: np.ndarray,
                        set_id: str = "") -> tuple[bool, float, str | None]:
     """Check if a card image has a promo stamp (black star symbol).
 
-    Checks the appropriate region based on era.  When era is unknown (0),
-    checks all possible regions.  For WotC-era promos, also attempts OCR
-    for "PROMO" text as a backup signal.
+    Detection strategy:
+    1. Check the expected region(s) for a low-solidity dark blob (star shape).
+    2. For WotC-era promos, try OCR for "PROMO" text as backup.
+    3. If the set is a known promo set and visual detection was close but
+       inconclusive, boost confidence based on set context.
 
     Args:
         img_bgr: Card image in BGR format.
@@ -2079,10 +2106,12 @@ def _check_promo_stamp(img_bgr: np.ndarray,
           - stamp_position: "left", "right", or "wotc" indicating where the
             stamp was found.  None if not detected.
     """
+    is_known_promo_set = set_id in PROMO_SETS
+
     # Determine which regions to check
     if era > 0 and era in _ERA_PROMO_REGION:
         regions_to_check = _ERA_PROMO_REGION[era]
-    elif set_id in PROMO_SETS:
+    elif is_known_promo_set:
         # Infer era from promo set prefix
         _set_era_map = {
             "basep": 1, "np": 2, "dpp": 3, "hsp": 4,
@@ -2111,6 +2140,23 @@ def _check_promo_stamp(img_bgr: np.ndarray,
         if "promo" in ocr_text:
             logger.debug("WotC promo detected via OCR: %r", ocr_text)
             best_result = (True, 0.85, "wotc")
+
+    # Known promo set boost: if the card is from a known promo set and
+    # visual detection did not trigger, report with moderate confidence
+    # based on set context alone.  The set prefix (svp, smp, etc.) is
+    # a strong signal -- all cards in these sets are promos by definition.
+    if not best_result[0] and is_known_promo_set:
+        # Infer the expected stamp position
+        _set_era_map = {
+            "basep": 1, "np": 2, "dpp": 3, "hsp": 4,
+            "bwp": 5, "xyp": 6, "smp": 7, "swshp": 8, "svp": 9,
+        }
+        inferred_era = _set_era_map.get(set_id, 0)
+        expected_pos_list = _ERA_PROMO_REGION.get(inferred_era, ["left"])
+        expected_pos = expected_pos_list[0] if expected_pos_list else "left"
+        logger.debug("Promo set %s: visual detection missed, using set context "
+                     "(conf=0.70, pos=%s)", set_id, expected_pos)
+        best_result = (True, 0.70, expected_pos)
 
     return best_result
 
@@ -2147,6 +2193,12 @@ def detect_promo_stamp(image_path: str | Path,
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
     effective_set = set_id or ""
+
+    # If set_id is provided and is NOT a known promo set, skip detection.
+    # The card cannot be a promo if it's from a regular set.
+    if effective_set and effective_set not in PROMO_SETS:
+        return {"is_promo": False, "confidence": 0.0, "stamp_position": None}
+
     is_promo, conf, position = _check_promo_stamp(img, era=era, set_id=effective_set)
 
     if is_promo:
