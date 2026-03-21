@@ -2280,6 +2280,262 @@ def _check_no_symbol_error_as_stamp(img_bgr: np.ndarray, set_id: str,
         }
     return {"detected": False, "confidence": 0.0, "position": "bottom_right"}
 
+
+# ---------------------------------------------------------------------------
+# Crosshatch holo pattern detection (league/tournament rewards)
+# ---------------------------------------------------------------------------
+# Play! Pokemon league promos and tournament reward cards use crosshatch
+# (grid-like) holographic pattern instead of standard cosmos/galaxy holo.
+# Era 3+ (DP onward, ~2007+).  The crosshatch pattern has perpendicular
+# line grid visible in the foil.
+
+_LEAGUE_PROMO_SETS = frozenset({
+    "dpp",    # DP-era league promos
+    "hsp",    # HGSS-era league promos
+    "bwp",    # BW-era league/tournament promos
+    "xyp",    # XY-era league/tournament promos
+    "smp",    # SM-era league/tournament promos
+    "swshp",  # SWSH-era league/tournament promos
+    "svp",    # SV-era league/tournament promos
+})
+
+_CROSSHATCH_REGIONS = {
+    "artwork": (0.06, 0.10, 0.94, 0.58),
+    "border_top": (0.04, 0.02, 0.96, 0.10),
+    "border_bottom": (0.04, 0.90, 0.96, 0.98),
+}
+
+
+def _check_crosshatch_holo(img_bgr: np.ndarray, set_id: str,
+                            era: int) -> dict:
+    """Detect crosshatch holo pattern (league/tournament exclusive).
+
+    Crosshatch holo has a visible grid of perpendicular lines baked into
+    the foil, distinguishing it from standard cosmos/galaxy holo.  The grid
+    is regular (consistent spacing) and has strong energy at 0 and 90 degrees.
+
+    Detection approach:
+        1. Extract artwork + border regions.
+        2. High-pass filter to isolate the foil texture from the printed image.
+        3. Hough line detection on the high-pass result.
+        4. Classify lines into horizontal (~0/180 deg) and vertical (~90 deg).
+        5. Count perpendicular line pairs.  Crosshatch requires strong
+           presence of BOTH orientations with roughly regular spacing.
+        6. Verify grid regularity by checking line spacing consistency.
+
+    Feasibility note -- binder sleeves:
+        Crosshatch pattern is a physical texture in the foil that catches
+        light even through sleeves, BUT detection depends heavily on the
+        photo angle and lighting.  Under flat/even lighting the grid may
+        be invisible.  Under angled light with glare, the grid lines
+        become visible as bright streaks.  Expect moderate recall (~40-60%)
+        on binder page photos.  False positive rate should be low because
+        regular perpendicular grids rarely occur in printed card artwork.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g. "bwp").
+        era: Era number (1-9, 0 if unknown).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {
+        "detected": False, "confidence": 0.0,
+        "position": "artwork", "evidence": "",
+    }
+
+    is_league_set = set_id in _LEAGUE_PROMO_SETS
+
+    if era != 0 and era < 3:
+        return result_base
+
+    h, w = img_bgr.shape[:2]
+    if h < 50 or w < 50:
+        return result_base
+
+    ax0, ay0, ax1, ay1 = _CROSSHATCH_REGIONS["artwork"]
+    artwork = img_bgr[int(ay0 * h):int(ay1 * h), int(ax0 * w):int(ax1 * w)]
+
+    if artwork.size == 0:
+        return result_base
+
+    h_lines, v_lines, h_spacings, v_spacings = _detect_grid_lines(artwork)
+
+    border_h, border_v = 0, 0
+    for region_name in ("border_top", "border_bottom"):
+        bx0, by0, bx1, by1 = _CROSSHATCH_REGIONS[region_name]
+        border_crop = img_bgr[int(by0 * h):int(by1 * h),
+                              int(bx0 * w):int(bx1 * w)]
+        if border_crop.size > 0:
+            bh, bv, _, _ = _detect_grid_lines(border_crop)
+            border_h += bh
+            border_v += bv
+
+    total_h = h_lines + border_h
+    total_v = v_lines + border_v
+
+    min_lines_per_dir = 3
+    has_both_dirs = (total_h >= min_lines_per_dir
+                     and total_v >= min_lines_per_dir)
+
+    if not has_both_dirs:
+        logger.debug("Crosshatch: insufficient lines h=%d v=%d (need %d each)",
+                     total_h, total_v, min_lines_per_dir)
+        return result_base
+
+    h_regular = (_check_spacing_regularity(h_spacings)
+                 if len(h_spacings) >= 2 else False)
+    v_regular = (_check_spacing_regularity(v_spacings)
+                 if len(v_spacings) >= 2 else False)
+
+    confidence = 0.0
+    pair_count = min(total_h, total_v)
+    if pair_count >= 8:
+        confidence = 0.70
+    elif pair_count >= 5:
+        confidence = 0.55
+    elif pair_count >= 3:
+        confidence = 0.40
+
+    if h_regular or v_regular:
+        confidence += 0.15
+    if h_regular and v_regular:
+        confidence += 0.10
+    if is_league_set:
+        confidence += 0.10
+
+    confidence = max(0.0, min(1.0, confidence))
+    detected = confidence >= 0.45
+
+    evidence_parts = [f"h={total_h}", f"v={total_v}"]
+    if h_regular:
+        evidence_parts.append("h_regular")
+    if v_regular:
+        evidence_parts.append("v_regular")
+    if is_league_set:
+        evidence_parts.append("league_set")
+    evidence_str = ",".join(evidence_parts)
+
+    if detected:
+        logger.info("Crosshatch holo detected: conf=%.2f, h_lines=%d, "
+                    "v_lines=%d, h_regular=%s, v_regular=%s, "
+                    "league_set=%s, set=%s",
+                    confidence, total_h, total_v,
+                    h_regular, v_regular, is_league_set, set_id)
+        return {
+            "detected": True, "confidence": round(confidence, 2),
+            "position": "artwork", "evidence": evidence_str,
+        }
+
+    logger.debug("Crosshatch holo not detected: conf=%.2f, h=%d, v=%d",
+                 confidence, total_h, total_v)
+    return result_base
+
+
+def _detect_grid_lines(
+    region_bgr: np.ndarray,
+) -> tuple[int, int, list[float], list[float]]:
+    """Detect horizontal and vertical lines via Hough transform.
+
+    High-pass filters to separate foil texture from artwork, then runs
+    probabilistic Hough line detection and classifies by angle.
+
+    Returns:
+        (h_count, v_count, h_positions, v_positions)
+    """
+    gray = cv2.cvtColor(region_bgr, cv2.COLOR_BGR2GRAY)
+    rh, rw = gray.shape
+
+    if rh < 10 or rw < 10:
+        return 0, 0, [], []
+
+    blur_ksize = max(3, (min(rh, rw) // 6) | 1)
+    blurred = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
+    highpass = cv2.subtract(gray, blurred)
+    highpass = cv2.normalize(highpass, None, 0, 255, cv2.NORM_MINMAX)
+
+    _, binary = cv2.threshold(highpass, 0, 255,
+                              cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+
+    edges = cv2.Canny(binary, 50, 150, apertureSize=3)
+
+    min_line_length = max(10, int(min(rh, rw) * 0.15))
+    max_line_gap = max(3, int(min(rh, rw) * 0.05))
+    lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi / 180,
+                            threshold=max(20, int(min(rh, rw) * 0.08)),
+                            minLineLength=min_line_length,
+                            maxLineGap=max_line_gap)
+
+    if lines is None:
+        return 0, 0, [], []
+
+    h_positions: list[float] = []
+    v_positions: list[float] = []
+    angle_tolerance = 15
+
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        dx = x2 - x1
+        dy = y2 - y1
+        length = np.sqrt(dx * dx + dy * dy)
+        if length < 1:
+            continue
+
+        angle = abs(np.degrees(np.arctan2(dy, dx)))
+
+        if angle < angle_tolerance or angle > (180 - angle_tolerance):
+            h_positions.append((y1 + y2) / 2.0)
+        elif abs(angle - 90) < angle_tolerance:
+            v_positions.append((x1 + x2) / 2.0)
+
+    h_positions = _deduplicate_positions(sorted(h_positions), min_gap=3)
+    v_positions = _deduplicate_positions(sorted(v_positions), min_gap=3)
+
+    return len(h_positions), len(v_positions), h_positions, v_positions
+
+
+def _deduplicate_positions(positions: list[float],
+                           min_gap: float = 3.0) -> list[float]:
+    """Merge positions closer than min_gap pixels."""
+    if not positions:
+        return []
+
+    groups: list[list[float]] = [[positions[0]]]
+    for pos in positions[1:]:
+        if pos - groups[-1][-1] < min_gap:
+            groups[-1].append(pos)
+        else:
+            groups.append([pos])
+
+    return [sum(g) / len(g) for g in groups]
+
+
+def _check_spacing_regularity(positions: list[float],
+                               max_cv: float = 0.35) -> bool:
+    """Check if line spacings are roughly regular (consistent intervals).
+
+    Computes coefficient of variation (std/mean) of inter-line spacings.
+    A regular grid has low CV; random lines have high CV.
+    """
+    if len(positions) < 3:
+        return False
+
+    spacings = np.diff(positions)
+    if len(spacings) < 2:
+        return False
+
+    mean_spacing = float(np.mean(spacings))
+    if mean_spacing < 1:
+        return False
+
+    cv = float(np.std(spacings)) / mean_spacing
+    return cv < max_cv
+
+
 # ---------------------------------------------------------------------------
 # Determine which stamps to check for a given card_id
 # ---------------------------------------------------------------------------
@@ -2945,6 +3201,14 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         if "holo" in variant.lower():
             checks.append("no_symbol_error")
 
+    # DP+ eras (3-9): crosshatch holo (league/tournament promos)
+    if era == 0 or era >= 3:
+        checks.append("crosshatch_holo")
+
+    # McDonald's sets: confetti holo detection
+    if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
+        checks.append("mcdonalds_holo")
+
     # Deduplicate while preserving priority order
     seen = set()
     deduped = []
@@ -2952,10 +3216,6 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         if c not in seen:
             seen.add(c)
             deduped.append(c)
-
-    # McDonald's sets: confetti holo detection
-    if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
-        checks.append("mcdonalds_holo")
 
     return deduped
 
