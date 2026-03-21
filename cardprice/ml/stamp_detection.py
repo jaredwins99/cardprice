@@ -2262,6 +2262,225 @@ def _check_holo_finish(
     return "non_holo", round(conf, 2)
 
 
+
+# ---------------------------------------------------------------------------
+# Cracked ice holo pattern detection
+# ---------------------------------------------------------------------------
+
+# Artwork region for holo pattern analysis (fractional coordinates).
+_CRACKED_ICE_ART_REGION = (0.10, 0.12, 0.90, 0.56)  # x0, y0, x1, y1
+
+# Eras where cracked ice holo exists (Platinum onward = era 4+).
+# Platinum is HGSS-adjacent (era 4), then BW(5), XY(6), SM(7), SWSH(8), SV(9).
+_CRACKED_ICE_MIN_ERA = 4
+
+
+def _check_cracked_ice_holo(
+    img_bgr: np.ndarray,
+    set_id: str,
+    era: int,
+) -> tuple[bool, float]:
+    """Detect cracked ice holo pattern (theme deck/product exclusive).
+
+    Cracked ice (aka shattered glass) holo has a distinctive geometric
+    fractured pattern on the artwork area -- irregular polygonal regions
+    separated by sharp straight-line boundaries at many different angles.
+    This contrasts with:
+      - Cosmos holo: small circular dots / swirl patterns (no straight lines)
+      - Standard holo: smooth, broad rainbow shimmer (few edges)
+      - Reverse holo: foil on body, not artwork
+
+    Detection approach:
+      1. Extract artwork region (x:10-90%, y:12-56%).
+      2. Convert to grayscale, apply CLAHE for contrast normalization.
+      3. Canny edge detection to find all edges.
+      4. Probabilistic Hough line transform to find straight line segments.
+      5. Compute angular diversity -- cracked ice has lines at many different
+         angles (high entropy in angle histogram), while normal artwork has
+         edges concentrated along a few directions (card borders, character
+         outlines).
+      6. Combine line density and angular diversity into a confidence score.
+
+    Limitations:
+      - BINDER SLEEVE EFFECTS: Sleeves add glare and reduce contrast of the
+        fractured pattern.  Through-sleeve detection is unreliable.
+      - LIGHTING DEPENDENCY: The cracked ice pattern is most visible when
+        light catches the facets at an angle.  Even lighting suppresses it.
+      - SINGLE-PHOTO: Some angles may not reveal the pattern at all.
+      - COLORFUL/BUSY ARTWORK: Cards with many drawn edges (e.g., battle
+        scenes) may produce false positives on line density.  Angular
+        diversity helps distinguish but does not eliminate this risk.
+      - RESOLUTION: At binder-page resolution (~300px per card), the fine
+        fracture lines may be below the Nyquist limit.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier string.
+        era: Era number (1-9, 0 if unknown).
+
+    Returns:
+        (is_cracked_ice, confidence) where confidence is in [0.0, 1.0].
+        Returns (False, 0.0) for cards from pre-Platinum eras.
+    """
+    # Era gate: cracked ice does not exist before Platinum (era 4).
+    if era != 0 and era < _CRACKED_ICE_MIN_ERA:
+        return False, 0.0
+
+    h, w = img_bgr.shape[:2]
+    if h < 80 or w < 60:
+        logger.debug("Image too small for cracked ice detection: %dx%d", w, h)
+        return False, 0.0
+
+    # --- Step 1: Extract artwork region ---
+    x0, y0, x1, y1 = _CRACKED_ICE_ART_REGION
+    art = img_bgr[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+    if art.size == 0:
+        return False, 0.0
+
+    art_h, art_w = art.shape[:2]
+    if art_h < 40 or art_w < 40:
+        return False, 0.0
+
+    # --- Step 2: Grayscale + CLAHE contrast normalization ---
+    gray = cv2.cvtColor(art, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray_eq = clahe.apply(gray)
+
+    # Light blur to suppress JPEG noise but preserve fracture lines.
+    gray_eq = cv2.GaussianBlur(gray_eq, (3, 3), 0)
+
+    # --- Step 3: Canny edge detection ---
+    # Use moderate thresholds -- fracture lines are medium-contrast edges.
+    edges = cv2.Canny(gray_eq, 50, 150)
+
+    # Edge density: fraction of pixels that are edges.
+    edge_density = float(np.count_nonzero(edges)) / (art_h * art_w)
+
+    # --- Step 4: Probabilistic Hough line transform ---
+    # minLineLength: fracture segments are short (10-50px at card resolution).
+    # maxLineGap: allow small gaps in detected lines.
+    min_line_len = max(8, int(art_w * 0.04))
+    max_line_gap = max(3, int(art_w * 0.02))
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1,
+        theta=np.pi / 180,
+        threshold=20,
+        minLineLength=min_line_len,
+        maxLineGap=max_line_gap,
+    )
+
+    if lines is None or len(lines) == 0:
+        logger.debug("Cracked ice: no Hough lines detected")
+        return False, 0.0
+
+    num_lines = len(lines)
+    # Normalize line count by region area (lines per 1000 px^2).
+    area_k = (art_h * art_w) / 1000.0
+    line_density = num_lines / area_k
+
+    # --- Step 5: Angular diversity ---
+    # Compute angle of each line segment, quantize into 18 bins (10 deg each).
+    angles = []
+    for line in lines:
+        x1_l, y1_l, x2_l, y2_l = line[0]
+        angle = np.degrees(np.arctan2(y2_l - y1_l, x2_l - x1_l)) % 180
+        angles.append(angle)
+
+    angles = np.array(angles)
+    num_bins = 18
+    hist, _ = np.histogram(angles, bins=num_bins, range=(0, 180))
+
+    # Occupied bins: how many angle bins have at least some lines.
+    min_count = max(1, num_lines * 0.02)  # 2% threshold per bin
+    occupied_bins = int(np.sum(hist >= min_count))
+
+    # Entropy of angle distribution (higher = more uniform = more cracked-ice-like).
+    hist_norm = hist.astype(np.float64)
+    hist_norm = hist_norm / hist_norm.sum()
+    hist_norm = hist_norm[hist_norm > 0]  # drop zeros for log
+    angle_entropy = float(-np.sum(hist_norm * np.log2(hist_norm)))
+    # Max entropy for 18 bins is log2(18) = ~4.17.
+    max_entropy = np.log2(num_bins)
+    entropy_ratio = angle_entropy / max_entropy  # 0..1
+
+    logger.debug(
+        "Cracked ice metrics: lines=%d, line_density=%.2f/kpx, "
+        "edge_density=%.3f, occupied_bins=%d/%d, entropy_ratio=%.2f",
+        num_lines, line_density, edge_density, occupied_bins, num_bins,
+        entropy_ratio,
+    )
+
+    # --- Step 6: Classification ---
+    # Cracked ice signature: high line density + high angular diversity.
+    # Normal artwork: may have high line density (busy art) but angles
+    #   cluster around a few directions (horizontal/vertical character edges).
+    # Cosmos holo: low line density (dot pattern, not straight lines).
+    # Standard holo: low line density (smooth shimmer).
+
+    # Thresholds calibrated conservatively -- prefer false negatives over
+    # false positives.  These are educated guesses since we lack ground truth
+    # cracked ice images through binder sleeves.
+
+    # Minimum requirements for a positive detection:
+    MIN_LINE_DENSITY = 0.8       # lines per 1000 px^2
+    MIN_OCCUPIED_BINS = 10       # out of 18 angle bins
+    MIN_ENTROPY_RATIO = 0.70     # angle uniformity (0..1)
+    MIN_EDGE_DENSITY = 0.03      # fraction of edge pixels
+
+    # Strong detection thresholds:
+    STRONG_LINE_DENSITY = 1.5
+    STRONG_OCCUPIED_BINS = 14
+    STRONG_ENTROPY_RATIO = 0.85
+
+    if line_density < MIN_LINE_DENSITY:
+        logger.debug("Cracked ice: line density %.2f below minimum %.2f",
+                      line_density, MIN_LINE_DENSITY)
+        return False, 0.0
+
+    if occupied_bins < MIN_OCCUPIED_BINS:
+        logger.debug("Cracked ice: occupied bins %d below minimum %d",
+                      occupied_bins, MIN_OCCUPIED_BINS)
+        return False, 0.0
+
+    if entropy_ratio < MIN_ENTROPY_RATIO:
+        logger.debug("Cracked ice: entropy ratio %.2f below minimum %.2f",
+                      entropy_ratio, MIN_ENTROPY_RATIO)
+        return False, 0.0
+
+    if edge_density < MIN_EDGE_DENSITY:
+        logger.debug("Cracked ice: edge density %.3f below minimum %.3f",
+                      edge_density, MIN_EDGE_DENSITY)
+        return False, 0.0
+
+    # Passed all minimums -- compute confidence.
+    # Score each dimension 0..1 based on where it falls between min and strong.
+    def _score(val: float, lo: float, hi: float) -> float:
+        return min(1.0, max(0.0, (val - lo) / (hi - lo)))
+
+    s_density = _score(line_density, MIN_LINE_DENSITY, STRONG_LINE_DENSITY)
+    s_bins = _score(occupied_bins, MIN_OCCUPIED_BINS, STRONG_OCCUPIED_BINS)
+    s_entropy = _score(entropy_ratio, MIN_ENTROPY_RATIO, STRONG_ENTROPY_RATIO)
+
+    # Weighted average -- angular diversity matters most.
+    raw_conf = 0.30 * s_density + 0.35 * s_bins + 0.35 * s_entropy
+
+    # Map to output confidence range [0.40, 0.85].
+    # Capped at 0.85 because single-photo detection through binder sleeves
+    # cannot be fully reliable for any holo pattern.
+    confidence = 0.40 + raw_conf * 0.45
+    confidence = round(min(0.85, confidence), 2)
+
+    logger.info(
+        "Cracked ice detected: conf=%.2f (density=%.2f[%.2f], "
+        "bins=%d[%.2f], entropy=%.2f[%.2f])",
+        confidence, line_density, s_density, occupied_bins, s_bins,
+        entropy_ratio, s_entropy,
+    )
+
+    return True, confidence
+
+
 def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     """Return list of stamp types to check based on era and set.
 
@@ -2275,6 +2494,7 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         checks.append("1st_edition")
     if set_id == "base1":
         checks.append("copyright_year")
+        checks.append("shadowless")
     if set_id in _BLACK_STAR_PROMO_SETS:
         checks.append("black_star_promo")
 
@@ -2300,8 +2520,153 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     if set_id == "svp":
         checks.append("pokemon_center")
 
+
+    # Jungle no-symbol error: base2 holos only
+    # Extract variant/rarity from card_id (e.g. "base2-4/holofoil" -> "holofoil")
+    if set_id == "base2":
+        variant = card_id.split("/", 1)[1] if "/" in card_id else ""
+        if "holo" in variant.lower():
+            checks.append("no_symbol_error")
     return checks
 
+
+
+
+# ---------------------------------------------------------------------------
+# Reverse holo detection
+# ---------------------------------------------------------------------------
+
+# Reverse holos exist from Legendary Collection (2002, era 2) onward.
+# Earlier sets (WotC era 1) never had reverse holos.
+_REVERSE_HOLO_MIN_ERA = 2
+
+
+def _check_reverse_holo(img_bgr: np.ndarray, set_id: str, era: int
+                        ) -> tuple[str, float]:
+    """Detect reverse holo (holo on borders, matte on artwork).
+
+    Reverse holo cards have holographic foil on the card body (borders, text
+    box, name bar) but NOT on the artwork.  Regular holos are the opposite:
+    foil on the artwork only.
+
+    Detection approach:
+      1. Measure saturation std in border strips (left/right 8%, top/bottom 10%)
+      2. Measure saturation std in artwork center (x:20-80%, y:20-50%)
+      3. Measure cross-channel color variance (rainbow shimmer detector)
+      4. Compare: reverse holo has high border variance, low art variance.
+
+    Era gating: reverse holos only exist from Legendary Collection (2002, era 2)
+    onward.  WotC-era cards (era 1) are always 'normal' or 'holo' (never reverse).
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g. 'ex15').
+        era: Card era number (1-9, 0 if unknown).
+
+    Returns:
+        (label, confidence) where label is one of:
+          'reverse_holo' - foil on borders, matte artwork
+          'holo'         - foil on artwork, matte borders
+          'normal'       - no foil anywhere
+          'unknown'      - ambiguous signal (both regions shiny or noisy)
+    """
+    # Era gating: no reverse holos before Legendary Collection
+    if era < _REVERSE_HOLO_MIN_ERA and era != 0:
+        return ("normal", 0.90)
+
+    h, w = img_bgr.shape[:2]
+    if h < 50 or w < 50:
+        return ("unknown", 0.0)
+
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    sat = hsv[:, :, 1].astype(np.float32)
+
+    # --- Border strips (avoiding binder sleeve at extreme edges) ---
+    # Left 5-13%, right 87-95%, top 3-13%, bottom 87-97%
+    border_left = sat[int(h * 0.15):int(h * 0.85),
+                      int(w * 0.05):int(w * 0.13)]
+    border_right = sat[int(h * 0.15):int(h * 0.85),
+                       int(w * 0.87):int(w * 0.95)]
+    border_top = sat[int(h * 0.03):int(h * 0.13),
+                     int(w * 0.13):int(w * 0.87)]
+    border_bottom = sat[int(h * 0.87):int(h * 0.97),
+                        int(w * 0.13):int(w * 0.87)]
+    border_pixels = np.concatenate([
+        border_left.flatten(), border_right.flatten(),
+        border_top.flatten(), border_bottom.flatten(),
+    ])
+
+    # --- Artwork center (well inside the art box) ---
+    art_center = sat[int(h * 0.20):int(h * 0.50),
+                     int(w * 0.20):int(w * 0.80)]
+
+    if border_pixels.size == 0 or art_center.size == 0:
+        return ("unknown", 0.0)
+
+    border_sat_std = float(border_pixels.std())
+    art_sat_std = float(art_center.flatten().std())
+
+    # --- Cross-channel color variance (rainbow shimmer detector) ---
+    # Foil creates rapid color shifts: high per-pixel variance across B,G,R.
+    def _channel_variance(region_bgr: np.ndarray) -> float:
+        """Mean per-pixel std across B, G, R channels."""
+        if region_bgr.size == 0:
+            return 0.0
+        f = region_bgr.astype(np.float32)
+        return float(f.std(axis=2).mean())
+
+    border_left_bgr = img_bgr[int(h * 0.15):int(h * 0.85),
+                               int(w * 0.05):int(w * 0.13)]
+    border_right_bgr = img_bgr[int(h * 0.15):int(h * 0.85),
+                                int(w * 0.87):int(w * 0.95)]
+    art_center_bgr = img_bgr[int(h * 0.20):int(h * 0.50),
+                              int(w * 0.20):int(w * 0.80)]
+
+    border_cvar = (_channel_variance(border_left_bgr)
+                   + _channel_variance(border_right_bgr)) / 2.0
+    art_cvar = _channel_variance(art_center_bgr)
+
+    logger.debug(
+        "Reverse holo check: border_sat_std=%.1f art_sat_std=%.1f "
+        "border_cvar=%.1f art_cvar=%.1f (set=%s era=%d)",
+        border_sat_std, art_sat_std, border_cvar, art_cvar, set_id, era,
+    )
+
+    # --- Decision logic ---
+    # Primary signal: border_sat_std vs art_sat_std (spec thresholds)
+    # Secondary signal: border_cvar vs art_cvar (cross-channel shimmer)
+
+    # Reverse holo: shiny borders, matte artwork
+    if border_sat_std > 25 and art_sat_std < 20:
+        conf = min(0.95, 0.70 + (border_sat_std - 25) / 100)
+        return ("reverse_holo", conf)
+
+    # Also catch reverse holos via cross-channel variance when sat_std
+    # is ambiguous (artwork has some natural color variation)
+    if border_cvar > 30 and art_cvar < 15:
+        conf = min(0.90, 0.65 + (border_cvar - 30) / 100)
+        return ("reverse_holo", conf)
+
+    # Combined: both metrics lean reverse-holo but neither decisive alone
+    if border_sat_std > 25 and border_cvar > 25 and art_cvar < 20:
+        conf = min(0.85, 0.60 + (border_sat_std - 25) / 150)
+        return ("reverse_holo", conf)
+
+    # Regular holo: matte borders, shiny artwork
+    if border_sat_std < 15 and art_sat_std > 25:
+        conf = min(0.90, 0.65 + (art_sat_std - 25) / 100)
+        return ("holo", conf)
+
+    if border_cvar < 15 and art_cvar > 25:
+        conf = min(0.85, 0.60 + (art_cvar - 25) / 100)
+        return ("holo", conf)
+
+    # Both low: normal (no foil)
+    if border_sat_std < 20 and art_sat_std < 20 and border_cvar < 20:
+        return ("normal", 0.80)
+
+    # Both high or ambiguous: unknown
+    return ("unknown", 0.40)
 
 # ---------------------------------------------------------------------------
 # Main public API
@@ -2366,6 +2731,10 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         "retailer_stamp": lambda img_bgr: _check_retailer_stamp(img_bgr, set_id, era),
         "prerelease": lambda img_bgr: _check_prerelease(img_bgr, set_id, era),
         "staff_stamp": lambda img_bgr: _check_staff_stamp(img_bgr, set_id, era),
+        "no_symbol_error": lambda img_bgr: _check_no_symbol_error_as_stamp(
+            img_bgr, set_id,
+            card_id.split("/", 1)[1] if "/" in card_id else "",
+        ),
     }
 
     for stamp_type in stamps_to_check:
@@ -2389,6 +2758,12 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
                 # Include retailer name for retailer_stamp detection
                 if "retailer" in detail and detail["retailer"]:
                     stamp_info["retailer"] = detail["retailer"]
+                # Include thick/thin sub-variant for 1st_edition stamps
+                if "stamp_thickness" in detail:
+                    stamp_info["stamp_thickness"] = detail["stamp_thickness"]
+                    stamp_info["thickness_confidence"] = detail.get(
+                        "thickness_confidence", 0.0,
+                    )
                 result["stamp_details"][stamp_type] = stamp_info
                 logger.info("Stamp detected: %s on %s (conf=%.2f, evidence=%s%s)",
                             stamp_type, card_id, detail["confidence"],
@@ -2448,3 +2823,284 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
                            card_id, e)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Cosmos holo vs standard holo detection
+# ---------------------------------------------------------------------------
+
+# Artwork region for holo texture analysis (x0, y0, x1, y1 as fractions).
+_ARTWORK_REGION = (0.10, 0.12, 0.90, 0.56)
+
+
+def _radial_fft_profile(gray: np.ndarray) -> np.ndarray:
+    """Compute radial average of FFT magnitude spectrum.
+
+    Returns array of mean magnitude at each radius from DC component.
+    """
+    f = np.fft.fft2(gray.astype(np.float32))
+    fshift = np.fft.fftshift(f)
+    mag = np.abs(fshift)
+
+    cy, cx = mag.shape[0] // 2, mag.shape[1] // 2
+    max_r = min(cx, cy)
+
+    Y, X = np.ogrid[:mag.shape[0], :mag.shape[1]]
+    r = np.sqrt((X - cx) ** 2 + (Y - cy) ** 2).astype(int)
+
+    radial = np.zeros(max_r, dtype=np.float64)
+    for ri in range(max_r):
+        mask = r == ri
+        if mask.any():
+            radial[ri] = np.mean(mag[mask])
+
+    return radial
+
+
+def _check_cosmos_holo(
+    img_bgr: np.ndarray,
+    set_id: str,
+    era: int,
+) -> tuple[str, float, dict]:
+    """Distinguish cosmos holo (product exclusive) from standard holo.
+
+    Cosmos holo has a scattered circular-dot overlay pattern visible across
+    the entire card surface.  Standard holo patterns vary by era: galaxy
+    stars (WotC), horizontal lines, type symbols, etc.
+
+    Detection uses five complementary texture features on the artwork area:
+
+    1. **FFT high-frequency ratio** -- cosmos dots inject energy at mid/high
+       spatial frequencies.  Standard holo tends toward smoother gradients.
+    2. **Laplacian variance** -- captures overall texture sharpness.  Cosmos
+       dots create consistent micro-contrast.
+    3. **Blob count** -- SimpleBlobDetector tuned for small circular features.
+       Cosmos should yield many small, roughly circular blobs.
+    4. **Gabor anisotropy** -- cosmos dots are isotropic (orientation-
+       invariant); standard holo patterns (lines, stars) are directional.
+    5. **Local contrast uniformity** -- cosmos creates spatially uniform
+       micro-contrast; standard holo has localized bright patches.
+
+    Args:
+        img_bgr: Full card image in BGR format.
+        set_id: Set identifier (e.g. "base1").
+        era: Era number (1-9).
+
+    Returns:
+        (label, confidence, details) where label is 'cosmos', 'standard',
+        or 'unknown' and details is a dict of computed features.
+    """
+    h, w = img_bgr.shape[:2]
+    x0, y0, x1, y1 = _ARTWORK_REGION
+    art = img_bgr[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+
+    if art.size == 0 or art.shape[0] < 30 or art.shape[1] < 30:
+        return ("unknown", 0.0, {"error": "artwork_region_too_small"})
+
+    gray = cv2.cvtColor(art, cv2.COLOR_BGR2GRAY)
+    gray_f = gray.astype(np.float64)
+    art_h, art_w = gray.shape
+
+    # ---------------------------------------------------------------
+    # Feature 1: FFT high-frequency energy ratio
+    # ---------------------------------------------------------------
+    radial = _radial_fft_profile(gray)
+    total_energy = radial.sum()
+    if total_energy == 0:
+        return ("unknown", 0.0, {"error": "zero_fft_energy"})
+
+    # Split into low / mid / high thirds
+    third = len(radial) // 3
+    high_energy = radial[2 * third:].sum()
+    mid_energy = radial[third:2 * third].sum()
+
+    hf_ratio = high_energy / total_energy
+    mf_ratio = mid_energy / total_energy
+
+    # Look for spectral peaks in mid-frequency band (cosmos dot spacing).
+    # Normalize by subtracting a smooth baseline.
+    if len(radial) > 20:
+        baseline = np.convolve(radial, np.ones(15) / 15, mode="same")
+        residual = radial - baseline
+        mid_residual = residual[third:2 * third]
+        peak_strength = float(
+            np.max(mid_residual) / (np.mean(radial[:third]) + 1e-6)
+        )
+    else:
+        peak_strength = 0.0
+
+    # ---------------------------------------------------------------
+    # Feature 2: Laplacian variance (texture energy)
+    # ---------------------------------------------------------------
+    lap = cv2.Laplacian(gray, cv2.CV_32F)
+    lap_var = float(np.var(lap))
+    lap_mean_abs = float(np.mean(np.abs(lap)))
+
+    # ---------------------------------------------------------------
+    # Feature 3: Blob detection (small circular features)
+    # ---------------------------------------------------------------
+    params = cv2.SimpleBlobDetector_Params()
+    params.filterByArea = True
+    params.minArea = 4
+    params.maxArea = 400
+    params.filterByCircularity = True
+    params.minCircularity = 0.4
+    params.filterByConvexity = False
+    params.filterByInertia = False
+    params.filterByColor = False
+
+    detector = cv2.SimpleBlobDetector_create(params)
+    keypoints = detector.detect(gray)
+    blob_count = len(keypoints)
+
+    # Normalize blob count by area (blobs per 1000 px^2)
+    art_area = art_h * art_w
+    blob_density = blob_count / (art_area / 1000.0) if art_area > 0 else 0.0
+
+    # Size uniformity of blobs (cosmos dots are roughly same size)
+    if len(keypoints) >= 5:
+        sizes = np.array([kp.size for kp in keypoints])
+        blob_size_cv = float(np.std(sizes) / (np.mean(sizes) + 1e-6))
+    else:
+        blob_size_cv = 1.0  # high CV = non-uniform = not cosmos
+
+    # ---------------------------------------------------------------
+    # Feature 4: Gabor anisotropy
+    # ---------------------------------------------------------------
+    # Test multiple orientations.  Cosmos is isotropic (low anisotropy),
+    # standard patterns with lines/stars are directional (high anisotropy).
+    n_orientations = 8
+    gabor_responses = np.zeros(n_orientations)
+    for i, theta in enumerate(
+        np.linspace(0, np.pi, n_orientations, endpoint=False)
+    ):
+        kern = cv2.getGaborKernel(
+            (21, 21), sigma=3.0, theta=theta, lambd=10.0, gamma=0.5,
+        )
+        filt = cv2.filter2D(gray, cv2.CV_32F, kern)
+        gabor_responses[i] = float(np.mean(np.abs(filt)))
+
+    gabor_mean = float(gabor_responses.mean())
+    gabor_aniso = float(gabor_responses.std() / (gabor_mean + 1e-6))
+
+    # ---------------------------------------------------------------
+    # Feature 5: Local contrast uniformity
+    # ---------------------------------------------------------------
+    # Cosmos dots create spatially uniform micro-contrast.
+    # Standard holo has localized bright patches.
+    block = 16
+    local_vars: list[float] = []
+    for by in range(0, art_h - block, block):
+        for bx in range(0, art_w - block, block):
+            patch = gray_f[by:by + block, bx:bx + block]
+            local_vars.append(float(np.var(patch)))
+
+    if local_vars:
+        local_var_arr = np.array(local_vars)
+        local_var_mean = float(local_var_arr.mean())
+        # CV of local variances: cosmos = uniform texture = low CV
+        local_var_cv = float(
+            local_var_arr.std() / (local_var_arr.mean() + 1e-6)
+        )
+    else:
+        local_var_mean = 0.0
+        local_var_cv = 1.0
+
+    # ---------------------------------------------------------------
+    # Scoring: weighted heuristic
+    # ---------------------------------------------------------------
+    # Each feature contributes a score toward cosmos (positive) or
+    # standard (negative).  Thresholds are empirically estimated --
+    # these WILL need calibration against real cosmos/standard samples.
+
+    score = 0.0
+    evidence_parts: list[str] = []
+
+    # High blob density favors cosmos
+    if blob_density > 0.15:
+        score += 0.20
+        evidence_parts.append(f"high_blob_density({blob_density:.3f})")
+    elif blob_density < 0.05:
+        score -= 0.15
+        evidence_parts.append(f"low_blob_density({blob_density:.3f})")
+
+    # Uniform blob sizes favor cosmos
+    if blob_size_cv < 0.5 and blob_count >= 10:
+        score += 0.15
+        evidence_parts.append(f"uniform_blobs(cv={blob_size_cv:.2f})")
+    elif blob_size_cv > 1.0:
+        score -= 0.10
+        evidence_parts.append(f"varied_blobs(cv={blob_size_cv:.2f})")
+
+    # Low gabor anisotropy favors cosmos (isotropic texture)
+    if gabor_aniso < 0.05:
+        score += 0.15
+        evidence_parts.append(f"isotropic({gabor_aniso:.4f})")
+    elif gabor_aniso > 0.15:
+        score -= 0.15
+        evidence_parts.append(f"directional({gabor_aniso:.4f})")
+
+    # FFT spectral peak in mid-frequency favors cosmos
+    if peak_strength > 0.3:
+        score += 0.20
+        evidence_parts.append(f"spectral_peak({peak_strength:.3f})")
+
+    # Higher HF ratio favors cosmos (dots = more high freq content)
+    if hf_ratio > 0.005:
+        score += 0.10
+        evidence_parts.append(f"high_hf({hf_ratio:.4f})")
+    elif hf_ratio < 0.002:
+        score -= 0.10
+        evidence_parts.append(f"low_hf({hf_ratio:.4f})")
+
+    # Spatially uniform local contrast favors cosmos
+    if local_var_cv < 0.8:
+        score += 0.10
+        evidence_parts.append(f"uniform_contrast(cv={local_var_cv:.2f})")
+    elif local_var_cv > 1.5:
+        score -= 0.10
+        evidence_parts.append(f"patchy_contrast(cv={local_var_cv:.2f})")
+
+    # ---------------------------------------------------------------
+    # Decision
+    # ---------------------------------------------------------------
+    details = {
+        "hf_ratio": round(hf_ratio, 5),
+        "mf_ratio": round(mf_ratio, 5),
+        "peak_strength": round(peak_strength, 4),
+        "lap_var": round(lap_var, 2),
+        "lap_mean_abs": round(lap_mean_abs, 3),
+        "blob_count": blob_count,
+        "blob_density": round(blob_density, 4),
+        "blob_size_cv": round(blob_size_cv, 3),
+        "gabor_aniso": round(gabor_aniso, 4),
+        "gabor_mean": round(gabor_mean, 3),
+        "local_var_mean": round(local_var_mean, 2),
+        "local_var_cv": round(local_var_cv, 3),
+        "raw_score": round(score, 3),
+        "evidence": evidence_parts,
+    }
+
+    # Conservative thresholds -- err toward "unknown" rather than
+    # false positives.  Through binder sleeves, cosmos dots may be
+    # too blurred to reliably detect.
+    if score >= 0.40:
+        label = "cosmos"
+        confidence = min(0.85, 0.50 + score)
+    elif score <= -0.25:
+        label = "standard"
+        confidence = min(0.80, 0.50 + abs(score))
+    else:
+        label = "unknown"
+        confidence = 0.30 + abs(score)
+
+    details["label"] = label
+    details["confidence"] = round(confidence, 3)
+
+    logger.info(
+        "Cosmos holo check for set=%s era=%d: label=%s conf=%.2f "
+        "score=%.3f [%s]",
+        set_id, era, label, confidence, score, ", ".join(evidence_parts),
+    )
+
+    return (label, confidence, details)
