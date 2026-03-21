@@ -881,24 +881,24 @@ function handlePageFile(file, sec) {
                 } else {
                     html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nameText + '</div>';
                 }
-                if (c.detected_variant && c.detected_variant !== 'normal') {
-                    html += '<div style="margin:2px 0;"><span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:6px;line-height:1.3;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span></div>';
-                }
                 if (displayPrice) {
                     html += '<div style="font-size:16px;font-weight:bold;color:' + accentColor + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
                 } else {
                     html += '<div style="font-size:13px;color:#666;">No price</div>';
                 }
                 if (c.condition_prices || c.market_price) {
-                    html += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;">';
-                    for (var cci = 0; cci < condKeys.length; cci++) {
-                        var ccond = condKeys[cci];
+                    var cpRows = [['LP','MP'],['HP','DMG']];
+                    for (var cri = 0; cri < cpRows.length; cri++) {
+                    html += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:' + (cri === 0 ? '2' : '1') + 'px;">';
+                    for (var cci = 0; cci < cpRows[cri].length; cci++) {
+                        var ccond = cpRows[cri][cci];
                         var cinfo = c.condition_prices && c.condition_prices[ccond];
                         var cclr = cinfo && cinfo.price != null ? condColors[ccond] : '#555';
                         var cval = cinfo && cinfo.price != null ? '$' + cinfo.price.toFixed(cinfo.price >= 10 ? 0 : 2) : '\u2014';
-                        html += '<div style="flex:1;text-align:center;color:' + cclr + ';"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
+                        html += '<div style="flex:1;text-align:center;color:' + cclr + ';background:rgba(255,255,255,0.04);border-radius:3px;padding:2px 0;"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
                     }
                     html += '</div>';
+                    }
                 }
                 html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
                 html += '</div></div>';
@@ -1310,7 +1310,9 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 result = identify_card(str(save_path), session=session)
 
-                detected_variant = result.get("detected_variant", "normal")
+                _raw_variant = result.get("detected_variant", "normal")
+                # Only surface physical variants not represented by card_id
+                detected_variant = _raw_variant if _raw_variant in ("stamped", "1st_edition") else "normal"
                 _VARIANT_TO_SUBTYPE_S = {
                     "stamped": "Reverse Holofoil",
                     "reverse_holo": "Reverse Holofoil",
@@ -1829,7 +1831,9 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "1st_edition": "1st Edition Holofoil",
                         "normal": "Normal",
                     }
-                    detected_variant = result.get("detected_variant", "normal")
+                    _raw_variant = result.get("detected_variant", "normal")
+                    # Only surface physical variants not represented by card_id
+                    detected_variant = _raw_variant if _raw_variant in ("stamped", "1st_edition") else "normal"
 
                     card_data = {
                         "position": idx,

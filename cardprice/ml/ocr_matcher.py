@@ -1753,10 +1753,11 @@ def detect_pokemon_name(
         cleaned = _clean_name_ocr(text)
         if not cleaned or len(cleaned) < 3:
             continue
-        # Check alphabetic ratio
+        # Check alphabetic ratio — but allow possessive fragments like "N's"
         alpha_count = sum(1 for c in cleaned if c.isalpha())
         if alpha_count / len(cleaned) < 0.7:
-            continue
+            if not re.search(r"[''\u2019][sS]$", cleaned):
+                continue
         name_candidates.append((cleaned, conf, method))
 
     if debug:

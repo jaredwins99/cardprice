@@ -474,6 +474,46 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         result["variant_checks_run"] = checks_run
         if stamp_result is not None:
             result["stamp_result"] = stamp_result
+
+        # --- Era-gated stamp detection pipeline ---
+        # After identification, check for physical stamps based on the card's
+        # era and set.  Each stamp type is checked in its fixed region.
+        try:
+            from cardprice.ml.stamp_detection import detect_stamps
+            stamp_pipeline_result = detect_stamps(image_path, card_id)
+            if stamp_pipeline_result["stamps_detected"]:
+                result["stamps_detected"] = stamp_pipeline_result["stamps_detected"]
+                result["stamp_details"] = stamp_pipeline_result["stamp_details"]
+                checks_run.append("stamp_detection_pipeline")
+
+                # If 1st Edition stamp detected and variant wasn't already
+                # set to 1st_edition, update it (stamp pipeline is authoritative)
+                if "1st_edition" in stamp_pipeline_result["stamps_detected"]:
+                    first_ed_conf = stamp_pipeline_result["stamp_details"]["1st_edition"]["confidence"]
+                    if variant != "1st_edition" and first_ed_conf >= 0.70:
+                        logger.info(
+                            "stamp pipeline: overriding variant %s -> 1st_edition "
+                            "(conf=%.2f) for %s",
+                            variant, first_ed_conf, card_id,
+                        )
+                        result["detected_variant"] = "1st_edition"
+                        result["variant_confidence"] = first_ed_conf
+
+                # If EX set stamp detected, ensure variant is reverse_holofoil
+                if "ex_set_stamp" in stamp_pipeline_result["stamps_detected"]:
+                    ex_conf = stamp_pipeline_result["stamp_details"]["ex_set_stamp"]["confidence"]
+                    if variant != "reverse_holofoil" and ex_conf >= 0.75:
+                        logger.info(
+                            "stamp pipeline: overriding variant %s -> "
+                            "reverse_holofoil (EX stamp, conf=%.2f) for %s",
+                            variant, ex_conf, card_id,
+                        )
+                        result["detected_variant"] = "reverse_holofoil"
+                        result["variant_confidence"] = ex_conf
+
+            result["stamps_checked"] = stamp_pipeline_result["stamps_checked"]
+        except Exception as e:
+            logger.debug("stamp detection pipeline failed: %s", e)
     except Exception as e:
         logger.debug("variant detection failed: %s", e)
 
@@ -3027,7 +3067,10 @@ def _paddle_ocr_name_and_hp(image_path: str):
         if not cleaned or len(cleaned) < 3:
             continue
         alpha_count = sum(1 for c in cleaned if c.isalpha())
-        if alpha_count / len(cleaned) < 0.7:
+        # Allow possessive fragments like "N's" through even if alpha ratio
+        # is low — the apostrophe is a legitimate part of the owner name.
+        is_possessive_frag = bool(re.search(r"[''\u2019][sS]$", cleaned))
+        if alpha_count / len(cleaned) < 0.7 and not is_possessive_frag:
             continue
         # Skip non-name words
         if cleaned.lower() in _NON_NAME_WORDS:

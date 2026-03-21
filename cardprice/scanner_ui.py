@@ -1558,10 +1558,12 @@ function drawQR(canvasId,text,cellSize){
             } else {
                 nameDiv.textContent = card.card_name || 'Unknown';
             }
-            if (card.variant && card.variant !== 'normal') {
+            // Only show badges for physical variants not represented by different card_ids
+            // (stamped, 1st edition). Full art/holo/reverse holo are separate DB entries.
+            if (card.variant && (card.variant === 'stamped' || card.variant === '1st_edition')) {
                 var badge = document.createElement('span');
-                badge.className = 'variant-badge ' + card.variant.toLowerCase().replace(/\s+/g, '-').replace(/1st-edition/, 'first-edition');
-                badge.textContent = card.variant;
+                badge.className = 'variant-badge ' + card.variant.toLowerCase().replace(/\s+/g, '-').replace(/1st.edition/, 'first-edition');
+                badge.textContent = card.variant.replace(/_/g, ' ');
                 nameDiv.appendChild(badge);
             }
             infoLeft.appendChild(nameDiv);
