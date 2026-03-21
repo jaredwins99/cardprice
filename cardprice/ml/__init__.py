@@ -4665,7 +4665,15 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     # EXCEPTION: if OCR confidence is very high (>0.90), trust the
                     # name path. The attack path can pick the wrong card when multiple
                     # cards share the same attack (e.g., "Psychic Pulse" on 4 cards).
-                    if best_detail['dino_score'] < 0.60 and ocr_conf < 0.90:
+                    # Japanese OCR: accept low DINOv2 scores since domain gap is expected
+                    _ja_ocr = ocr_raw and isinstance(ocr_raw, str) and ocr_raw.startswith("[JP]")
+                    if _ja_ocr and len(candidates) <= 3:
+                        logger.info("v2: Japanese OCR with %d candidates, accepting dino=%.3f",
+                                    len(candidates), best_detail['dino_score'])
+                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants)
+                        _cache_store(cache_key, ref_match_result)
+                        return ref_match_result
+                    elif best_detail['dino_score'] < 0.60 and ocr_conf < 0.90:
                         logger.info("v2: ref_match dino=%.3f < 0.60 and ocr_conf=%.2f < 0.90, "
                                     "will also try attack path",
                                     best_detail['dino_score'], ocr_conf)
@@ -4861,8 +4869,26 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     # Reject low-confidence fallback results to avoid false positives.
     # Ensemble fallback is the least reliable path — wrong guesses typically
     # land in the 0.39-0.69 range while correct ones are >= 0.70.
+    # Exception: Japanese OCR results have lower DINOv2 scores due to domain gap
+    # between Japanese card photos and English reference images.
+    min_accept = _V2_FALLBACK_MIN_ACCEPT
+    # Japanese OCR results have lower DINOv2 scores due to domain gap
+    # between Japanese card photos and English reference images.
+    # Check multiple signals for Japanese identification.
+    _is_ja = False
+    if ocr_raw and isinstance(ocr_raw, str) and "[JP]" in ocr_raw:
+        _is_ja = True
+    if ocr_name and isinstance(ocr_name, str) and ocr_name.startswith("[JP]"):
+        _is_ja = True
+    # Also check the fallback raw_response for Japanese OCR markers
+    _fb_raw = fallback.get("raw_response", {})
+    if isinstance(_fb_raw, dict) and _fb_raw.get("ocr_raw", "").startswith("[JP]"):
+        _is_ja = True
+    if _is_ja:
+        min_accept = 0.35
+        logger.info("v2: Japanese OCR detected, lowering acceptance threshold to 0.35")
     # Preserve the rejected card_id so page_context can restore it if era matches.
-    if fallback_conf < _V2_FALLBACK_MIN_ACCEPT:
+    if fallback_conf < min_accept:
         logger.info(
             "v2: rejecting fallback result %s (confidence=%.3f < %.2f threshold)",
             fallback.get("card_id"), fallback_conf, _V2_FALLBACK_MIN_ACCEPT,
