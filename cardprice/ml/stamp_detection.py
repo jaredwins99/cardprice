@@ -451,6 +451,231 @@ def _has_dark_circle_hough(region_bgr: np.ndarray) -> bool:
     return False
 
 
+
+# ---------------------------------------------------------------------------
+# 1st Edition thick vs thin stamp sub-variant
+# ---------------------------------------------------------------------------
+# Base Set holos exist with two stamp variants:
+#   - "thick": bolder "1" numeral, ~60% of print run
+#   - "thin":  thinner "1" numeral, ~40% of print run
+# CGC and PSA note this distinction on slabs.
+#
+# Detection approach:
+#   1. Crop the tight stamp region and convert to grayscale
+#   2. Binarize with adaptive threshold (handles uneven lighting)
+#   3. Find the largest dark contour that looks like the "1" numeral
+#      (tall, narrow bounding box with aspect ratio > 1.5)
+#   4. Measure stroke width as contour_area / contour_perimeter
+#      (thicker strokes have higher area:perimeter ratio)
+#   5. Compare against empirical threshold
+#
+# Feasibility caveat: binder scans typically yield stamp crops of ~30-60px
+# wide.  At that resolution the "1" numeral is only 5-15px wide, making
+# reliable thick/thin separation marginal.  The function reports "unknown"
+# when the crop is too small or the measurement is ambiguous.
+
+# Empirical stroke-width ratio threshold separating thick from thin.
+# After adaptive threshold + morphological close + upscaling, the "1"
+# contour area/perimeter ratio is typically:
+#   - Thick stamps: 4.0-8.0 (wider stroke, serif, more area per perimeter)
+#   - Thin stamps:  1.5-3.5 (narrower stroke, less area per perimeter)
+# The threshold of 3.5 sits in the gap between these distributions.
+# On low-res binder scans, morphological close inflates thin strokes,
+# compressing the range -- so some "unknown" results are expected.
+_THICK_THIN_STROKE_THRESHOLD = 3.5
+
+# Minimum stamp crop dimensions (pixels) for reliable measurement.
+# Below this, the "1" numeral is too small to measure stroke width.
+_MIN_STAMP_CROP_PX = 25
+
+# Confidence zones: how far from threshold counts as confident.
+_STROKE_CONFIDENCE_MARGIN = 0.6
+
+
+def _check_stamp_thickness(
+    img_bgr: np.ndarray, stamp_region_crop: np.ndarray,
+) -> tuple[str, float]:
+    """After 1st edition detected, classify stamp as thick vs thin.
+
+    Examines the "1" numeral in the 1st Edition stamp circle to determine
+    whether it is the "thick" (bolder) or "thin" (lighter) print variant.
+    This sub-variant distinction is noted by CGC/PSA for Base Set holos.
+
+    Args:
+        img_bgr: Full card image in BGR format (unused currently, reserved
+            for future multi-region analysis).
+        stamp_region_crop: Tight crop of the 1st Edition stamp area in BGR.
+            Expected to contain the circular stamp with "1" and "EDITION".
+
+    Returns:
+        (classification, confidence) where classification is one of
+        "thick", "thin", or "unknown", and confidence is 0.0-1.0.
+    """
+    if stamp_region_crop is None or stamp_region_crop.size == 0:
+        return ("unknown", 0.0)
+
+    h, w = stamp_region_crop.shape[:2]
+    if h < _MIN_STAMP_CROP_PX or w < _MIN_STAMP_CROP_PX:
+        logger.debug(
+            "Stamp crop too small for thickness (%dx%d < %dpx)",
+            w, h, _MIN_STAMP_CROP_PX,
+        )
+        return ("unknown", 0.0)
+
+    try:
+        # --- Step 1: Convert to grayscale ---
+        gray = cv2.cvtColor(stamp_region_crop, cv2.COLOR_BGR2GRAY)
+
+        # Upscale small crops for better contour detection.
+        # Target at least 80px on the short side.
+        scale = max(1, 80 // min(h, w))
+        if scale > 1:
+            gray = cv2.resize(
+                gray, None, fx=scale, fy=scale,
+                interpolation=cv2.INTER_CUBIC,
+            )
+
+        # --- Step 2: Adaptive threshold (handles uneven binder lighting) ---
+        # The stamp is dark ink on a lighter card surface, so THRESH_BINARY_INV
+        # makes the stamp pixels white (255) and background black (0).
+        block_size = max(11, (min(gray.shape) // 4) | 1)  # must be odd
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV, block_size, 5,
+        )
+
+        # Mild morphological close to connect broken strokes from low-res scans
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+        # --- Step 3: Find contours and identify the "1" numeral ---
+        contours, _ = cv2.findContours(
+            binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+        )
+
+        if not contours:
+            logger.debug("No contours found in stamp crop")
+            return ("unknown", 0.0)
+
+        bh, bw = binary.shape[:2]
+        total_area = bh * bw
+
+        # Filter for contours that could be the "1" numeral:
+        # - Tall and narrow (aspect ratio height/width > 1.5)
+        # - Not too large (< 40% of crop) or too small (< 1% of crop)
+        # - Located in the central area of the stamp
+        numeral_candidates = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < total_area * 0.01 or area > total_area * 0.40:
+                continue
+
+            x, y, cw, ch = cv2.boundingRect(cnt)
+            if ch == 0 or cw == 0:
+                continue
+
+            aspect = ch / cw
+            if aspect < 1.5:
+                # "1" is tall and narrow; skip wide/squat shapes
+                continue
+
+            # The "1" should be roughly in the center-left of the stamp circle
+            cx = x + cw / 2
+            cy = y + ch / 2
+            if cx < bw * 0.15 or cx > bw * 0.70:
+                continue
+            if cy < bh * 0.10 or cy > bh * 0.75:
+                continue
+
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter < 1.0:
+                continue
+
+            stroke_ratio = area / perimeter
+            numeral_candidates.append({
+                "contour": cnt,
+                "area": area,
+                "perimeter": perimeter,
+                "stroke_ratio": stroke_ratio,
+                "aspect": aspect,
+                "bbox": (x, y, cw, ch),
+            })
+
+        if not numeral_candidates:
+            # Fallback: try the largest tall contour anywhere in the crop
+            for cnt in sorted(contours, key=cv2.contourArea, reverse=True):
+                area = cv2.contourArea(cnt)
+                if area < total_area * 0.005:
+                    break
+                x, y, cw, ch = cv2.boundingRect(cnt)
+                if ch == 0 or cw == 0:
+                    continue
+                aspect = ch / cw
+                if aspect < 1.3:
+                    continue
+                perimeter = cv2.arcLength(cnt, True)
+                if perimeter < 1.0:
+                    continue
+                stroke_ratio = area / perimeter
+                numeral_candidates.append({
+                    "contour": cnt,
+                    "area": area,
+                    "perimeter": perimeter,
+                    "stroke_ratio": stroke_ratio,
+                    "aspect": aspect,
+                    "bbox": (x, y, cw, ch),
+                })
+                break  # take just the largest fallback
+
+        if not numeral_candidates:
+            logger.debug("No '1' numeral candidate found in stamp crop")
+            return ("unknown", 0.0)
+
+        # Pick the best candidate: tallest aspect ratio among the larger ones
+        # (prefer the one that looks most like a "1")
+        best = max(
+            numeral_candidates,
+            key=lambda c: c["aspect"] * (c["area"] / total_area),
+        )
+
+        stroke_ratio = best["stroke_ratio"]
+        logger.debug(
+            "Stamp '1' numeral: stroke_ratio=%.3f, area=%d, perimeter=%.1f, "
+            "aspect=%.2f, bbox=%s",
+            stroke_ratio, best["area"], best["perimeter"],
+            best["aspect"], best["bbox"],
+        )
+
+        # --- Step 4: Classify based on stroke width ratio ---
+        delta = stroke_ratio - _THICK_THIN_STROKE_THRESHOLD
+
+        if abs(delta) < _STROKE_CONFIDENCE_MARGIN * 0.3:
+            # Too close to threshold -- ambiguous
+            confidence = 0.3
+            classification = "thick" if delta >= 0 else "thin"
+            logger.debug(
+                "Stamp thickness ambiguous (delta=%.3f): %s @ %.2f",
+                delta, classification, confidence,
+            )
+        else:
+            # Confidence scales with distance from threshold, capped at 0.85
+            # (never 1.0 because binder scans are inherently noisy)
+            confidence = min(
+                0.85,
+                0.5 + abs(delta) / (_STROKE_CONFIDENCE_MARGIN * 2),
+            )
+            classification = "thick" if delta >= 0 else "thin"
+            logger.debug(
+                "Stamp thickness: %s (ratio=%.3f, delta=%.3f, conf=%.2f)",
+                classification, stroke_ratio, delta, confidence,
+            )
+
+        return (classification, confidence)
+
+    except Exception as e:
+        logger.debug("Stamp thickness detection failed: %s", e)
+        return ("unknown", 0.0)
+
 # ---------------------------------------------------------------------------
 # Individual stamp detection functions
 # ---------------------------------------------------------------------------
@@ -459,6 +684,8 @@ def _check_1st_edition(img_bgr: np.ndarray) -> dict:
     """Check for 1st Edition stamp.
 
     Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    When detected, also includes 'stamp_thickness' and
+    'thickness_confidence' from thick/thin sub-variant analysis.
     """
     regions = STAMP_REGIONS["1st_edition"]
 
@@ -471,38 +698,48 @@ def _check_1st_edition(img_bgr: np.ndarray) -> dict:
     has_1st = "1st" in ocr_text
     has_edition = "edition" in ocr_text
 
+    # Extract tight crop early (used for OCR fallback and thickness analysis)
+    tight = _extract_region(img_bgr, *regions["tight"])
+
+    def _add_thickness(result: dict) -> dict:
+        """Append stamp thickness sub-variant to a detected result."""
+        crop = tight if tight.size > 0 else wide
+        thickness, thick_conf = _check_stamp_thickness(img_bgr, crop)
+        result["stamp_thickness"] = thickness
+        result["thickness_confidence"] = thick_conf
+        return result
+
     if has_1st and has_edition:
-        return {
+        return _add_thickness({
             "detected": True, "confidence": 0.95,
             "position": "left", "evidence": "ocr_both_tokens",
             "ocr_text": ocr_text,
-        }
+        })
     if has_1st or has_edition:
-        return {
+        return _add_thickness({
             "detected": True, "confidence": 0.85,
             "position": "left", "evidence": "ocr_one_token",
             "ocr_text": ocr_text,
-        }
+        })
 
     # Tight region OCR
-    tight = _extract_region(img_bgr, *regions["tight"])
     if tight.size > 0:
         ocr_tight = _ocr_region(tight)
         has_1st_t = "1st" in ocr_tight
         has_edition_t = "edition" in ocr_tight
 
         if has_1st_t and has_edition_t:
-            return {
+            return _add_thickness({
                 "detected": True, "confidence": 0.95,
                 "position": "left", "evidence": "tight_ocr_both",
                 "ocr_text": ocr_tight,
-            }
+            })
         if has_1st_t or has_edition_t:
-            return {
+            return _add_thickness({
                 "detected": True, "confidence": 0.85,
                 "position": "left", "evidence": "tight_ocr_one",
                 "ocr_text": ocr_tight,
-            }
+            })
         combined_ocr = ocr_text + " " + ocr_tight
     else:
         combined_ocr = ocr_text
@@ -514,11 +751,11 @@ def _check_1st_edition(img_bgr: np.ndarray) -> dict:
 
     if has_circle and "1" in combined_ocr:
         method = "blob" if has_blob else "hough"
-        return {
+        return _add_thickness({
             "detected": True, "confidence": 0.70,
             "position": "left", "evidence": f"circle_{method}_plus_digit",
             "ocr_text": combined_ocr,
-        }
+        })
 
     return {"detected": False, "confidence": 0.0, "position": "left"}
 
@@ -1301,8 +1538,729 @@ def _check_pokemon_center_stamp(img_bgr: np.ndarray, set_id: str,
 
 
 # ---------------------------------------------------------------------------
+# Prerelease and Staff stamp detection
+# ---------------------------------------------------------------------------
+
+# Known OCR misreadings of "PRERELEASE" -- fuzzy match handles most, but
+# these exact substitutions catch the worst garbles.
+_PRERELEASE_VARIANTS = frozenset({
+    "prerelease", "pre-release",
+    "prenelemee", "prereleas", "prereiease", "prerlease",
+})
+
+
+def _fuzzy_match_prerelease(text: str) -> tuple[bool, float]:
+    """Check if text fuzzy-matches 'PRERELEASE'.
+
+    Returns (is_match, score).  Uses the same logic as the standalone
+    detect_prerelease.py script: length guard + fuzzy ratio >= 70.
+    """
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        return False, 0.0
+
+    clean = text.strip().lower().replace(" ", "").replace("-", "")
+
+    # Exact match on known variants
+    if clean in _PRERELEASE_VARIANTS or text.strip().lower() in _PRERELEASE_VARIANTS:
+        return True, 1.0
+
+    # Length guard: "PRERELEASE" is 10 chars; partial reads need >= 6
+    if len(clean) < 6 or len(clean) > 18:
+        return False, 0.0
+
+    score = fuzz.ratio(clean, "prerelease") / 100.0
+    if score >= 0.70:
+        return True, score
+
+    return False, score
+
+
+def _check_prerelease(img_bgr: np.ndarray, set_id: str = "",
+                      era: int = 0) -> dict:
+    """Check for PRERELEASE stamp on card artwork (era-gated dispatcher).
+
+    Delegates to the era-appropriate detection method:
+    - WotC/EX/DP (era 1-3): Multi-preprocessing OCR for gold foil
+      "PRERELEASE" text on artwork. 6 preprocessing strategies (raw,
+      unsharp, CLAHE, adaptive threshold, inverted, Otsu) with fuzzy
+      matching including garbled OCR variants.
+    - HGSS+ (era 4-9): Multi-preprocessing OCR for set logo stamp.
+      Looks for both "PRERELEASE" text and set name words.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    if set_id in _PRERELEASE_LOGO_SETS:
+        return _check_prerelease_logo(img_bgr, set_id)
+    else:
+        return _check_prerelease_text(img_bgr)
+
+
+def _check_staff_stamp(img_bgr: np.ndarray, set_id: str, era: int) -> dict:
+    """Detect STAFF stamp on prerelease cards.
+
+    Gold "STAFF" text appears near/below the prerelease stamp in the
+    upper-right area of the card artwork.  These cards were given to
+    tournament staff at prerelease events and are significantly rarer
+    and more valuable than standard prerelease cards.
+
+    Era: DP onward (2007-present, with gaps).
+    Detection region: x:55-95%, y:20-45% (per stamp_positions.json).
+
+    Strategy:
+    1. Crop the staff stamp region and upscale 3x (handled by _ocr_region).
+    2. Run RapidOCR on the crop.
+    3. Fuzzy-match each OCR token against "STAFF".
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier string.
+        era: Era number (1-9, 0 if unknown).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {"detected": False, "confidence": 0.0,
+                   "position": "artwork_upper_right"}
+
+    regions = STAMP_REGIONS["staff_stamp"]
+    crop = _extract_region(img_bgr, *regions["wide"])
+    if crop.size == 0:
+        return result_base
+
+    ocr_text = _ocr_region(crop)
+    if not ocr_text:
+        return result_base
+
+    logger.debug("Staff stamp OCR: %r (set=%s, era=%d)", ocr_text, set_id, era)
+
+    # Check each OCR token for a fuzzy match to "STAFF"
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        return result_base
+
+    # Known OCR misreadings of "STAFF"
+    staff_variants = {"staff", "staf", "staef", "stalf", "stalff", "siaff",
+                      "staiff", "stafe", "staft", "stoff"}
+
+    for token in ocr_text.split():
+        clean = token.strip().lower()
+
+        # Skip very short or very long tokens
+        if len(clean) < 3 or len(clean) > 8:
+            continue
+
+        # Exact match on known variants
+        if clean in staff_variants:
+            return {
+                "detected": True, "confidence": 0.95,
+                "position": "artwork_upper_right",
+                "evidence": f"ocr_exact_variant_{clean}",
+                "ocr_text": ocr_text,
+            }
+
+        # Fuzzy match against "staff"
+        score = fuzz.ratio(clean, "staff") / 100.0
+        if score >= 0.75:
+            return {
+                "detected": True, "confidence": 0.90 if score >= 0.85 else 0.80,
+                "position": "artwork_upper_right",
+                "evidence": f"ocr_fuzzy_{score:.2f}",
+                "ocr_text": ocr_text,
+            }
+
+    return result_base
+
+
+# ---------------------------------------------------------------------------
+# Prerelease stamp detection (multi-preprocessing OCR)
+# ---------------------------------------------------------------------------
+
+def _ocr_region_multi(region_bgr: np.ndarray, scale: int = 3) -> list[tuple[str, float, str]]:
+    """Run OCR with 6 preprocessing strategies on a region.
+
+    Embossed/foil prerelease stamps are hard to read with a single
+    preprocessing approach. Different strategies catch different stamp
+    types (gold foil on dark art, silver foil on light art, etc.).
+
+    Returns list of (text, ocr_confidence, strategy_name).
+    """
+    try:
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        engine = get_rapid_engine()
+    except Exception as e:
+        logger.debug("Failed to get OCR engine for multi-preprocess: %s", e)
+        return []
+
+    h, w = region_bgr.shape[:2]
+    if h < 10 or w < 10:
+        return []
+
+    upscaled = cv2.resize(region_bgr, (w * scale, h * scale),
+                          interpolation=cv2.INTER_CUBIC)
+    # Pad so text is not at the edge
+    upscaled = cv2.copyMakeBorder(upscaled, 20, 20, 20, 20,
+                                  cv2.BORDER_REPLICATE)
+
+    results: list[tuple[str, float, str]] = []
+
+    def _collect(ocr_result, strategy: str) -> None:
+        if not ocr_result:
+            return
+        for line in ocr_result:
+            text = line[1]
+            conf = float(line[2])
+            if text and conf > 0.2:
+                results.append((text.strip(), conf, strategy))
+
+    # Strategy 1: Raw color
+    res, _ = engine(upscaled)
+    _collect(res, "raw")
+
+    gray = cv2.cvtColor(upscaled, cv2.COLOR_BGR2GRAY)
+
+    # Strategy 2: Unsharp mask
+    blurred = cv2.GaussianBlur(gray, (0, 0), 3)
+    sharp = cv2.addWeighted(gray, 2.0, blurred, -1.0, 0)
+    res, _ = engine(sharp)
+    _collect(res, "sharp")
+
+    # Strategy 3: CLAHE (good for embossed/low-contrast text)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    res, _ = engine(enhanced)
+    _collect(res, "clahe")
+
+    # Strategy 4: Adaptive threshold
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY, 21, 5)
+    res, _ = engine(thresh)
+    _collect(res, "thresh")
+
+    # Strategy 5: Inverted threshold
+    thresh_inv = cv2.bitwise_not(thresh)
+    res, _ = engine(thresh_inv)
+    _collect(res, "thresh_inv")
+
+    # Strategy 6: Otsu threshold
+    _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    res, _ = engine(otsu)
+    _collect(res, "otsu")
+
+    return results
+
+
+def _is_prerelease_text(text: str) -> tuple[bool, float, str]:
+    """Check if OCR text matches "PRERELEASE" using fuzzy matching.
+
+    Uses strict length and character-composition guards to avoid false
+    positives from random card text (e.g. "PowereEvolutlenary").
+
+    Returns (is_match, score, method).
+    """
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        logger.debug("rapidfuzz not available for prerelease matching")
+        return (False, 0.0, "no_rapidfuzz")
+
+    clean = text.strip().upper().replace(" ", "")
+
+    # Too short to be "PRERELEASE" (10 chars)
+    if len(clean) < 6:
+        return (False, 0.0, "too_short")
+
+    ratio = fuzz.ratio(clean, "PRERELEASE")
+
+    # Character composition check: PRERELEASE letters are P, R, E, L, A, S
+    prerelease_chars = set("PRERELASE")
+    if len(clean) > 0:
+        char_overlap = sum(1 for c in clean if c in prerelease_chars) / len(clean)
+    else:
+        char_overlap = 0.0
+
+    # Substring checks for garbled OCR (PRENELEMEE, PRERELEAS, etc.)
+    has_pre = "PRE" in clean or "PBE" in clean or "PIE" in clean
+    has_rele = ("RELE" in clean or "RELF" in clean or "NELE" in clean
+                or "RELI" in clean)
+
+    # High confidence: fuzzy ratio >= 75, text is short (just the stamp)
+    if ratio >= 75 and 7 <= len(clean) <= 15:
+        return (True, ratio, "fuzzy_short")
+
+    # Medium confidence: fuzzy ratio >= 70 with high character overlap
+    if ratio >= 70 and char_overlap >= 0.7 and len(clean) >= 7:
+        return (True, ratio, "fuzzy_overlap")
+
+    # Substring match: contains both PRE and RELE-like substrings
+    if has_pre and has_rele and 8 <= len(clean) <= 16:
+        return (True, ratio, "substring")
+
+    # Partial ratio: high partial match with good character overlap
+    partial = fuzz.partial_ratio(clean, "PRERELEASE")
+    if partial >= 90 and 8 <= len(clean) <= 20 and char_overlap >= 0.6:
+        return (True, partial, "partial")
+
+    return (False, max(ratio, partial), "none")
+
+
+def _check_prerelease_text(img_bgr: np.ndarray) -> dict:
+    """Check for WotC/EX/DP era PRERELEASE text stamp on artwork.
+
+    Uses multi-preprocessing OCR across two artwork regions (right half
+    and full artwork) with fuzzy matching against "PRERELEASE".
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    regions = STAMP_REGIONS["prerelease"]
+    result_base = {"detected": False, "confidence": 0.0,
+                   "position": "artwork_bottom_right"}
+
+    # Check two regions: tight (right side of artwork) and wide (full)
+    best_match = False
+    best_score = 0.0
+    best_text = ""
+    best_strategy = ""
+    best_method = ""
+
+    for region_name, coords in [("tight", regions["tight"]),
+                                ("wide", regions["wide"])]:
+        crop = _extract_region(img_bgr, *coords)
+        if crop.size == 0:
+            continue
+
+        ocr_results = _ocr_region_multi(crop, scale=3)
+        for text, conf, strategy in ocr_results:
+            is_match, score, method = _is_prerelease_text(text)
+            tag = f"{region_name}/{strategy}"
+
+            if is_match and score > best_score:
+                best_match = True
+                best_score = score
+                best_text = text
+                best_strategy = tag
+                best_method = method
+            elif not best_match and score > best_score:
+                best_score = score
+                best_text = text
+                best_strategy = tag
+                best_method = method
+
+    if best_match:
+        confidence = min(0.95, 0.70 + (best_score - 70) / 100)
+        logger.debug("Prerelease text detected: %r score=%.1f via=%s method=%s",
+                     best_text, best_score, best_strategy, best_method)
+        return {
+            "detected": True, "confidence": round(confidence, 2),
+            "position": "artwork_bottom_right",
+            "evidence": f"ocr_{best_method}",
+            "ocr_text": best_text, "ocr_score": best_score,
+            "ocr_strategy": best_strategy,
+        }
+
+    logger.debug("Prerelease text not found (best score=%.1f, text=%r)",
+                 best_score, best_text)
+    return result_base
+
+
+def _check_prerelease_logo(img_bgr: np.ndarray, set_id: str) -> dict:
+    """Check for HGSS+ era prerelease set logo stamp on artwork.
+
+    Modern prerelease cards (HGSS onward) have the expansion set logo
+    stamped on the artwork instead of "PRERELEASE" text. We look for
+    the set name in OCR output from the stamp region.
+
+    Also checks for "PRERELEASE" text since some modern prerelease cards
+    still include it alongside the set logo.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    regions = STAMP_REGIONS["prerelease"]
+    result_base = {"detected": False, "confidence": 0.0,
+                   "position": "artwork_bottom_right"}
+
+    # Get expected set name words
+    expected_words = _PRERELEASE_LOGO_SET_TEXT.get(set_id, [])
+
+    best_result = result_base
+    best_conf = 0.0
+
+    for region_name, coords in [("tight", regions["tight"]),
+                                ("wide", regions["wide"])]:
+        crop = _extract_region(img_bgr, *coords)
+        if crop.size == 0:
+            continue
+
+        ocr_results = _ocr_region_multi(crop, scale=3)
+        all_text_lower = " ".join(t.lower() for t, c, s in ocr_results if c > 0.3)
+
+        # Check 1: "PRERELEASE" text (some modern cards have both)
+        for text, conf, strategy in ocr_results:
+            is_match, score, method = _is_prerelease_text(text)
+            if is_match:
+                tag = f"{region_name}/{strategy}"
+                confidence = min(0.95, 0.70 + (score - 70) / 100)
+                if confidence > best_conf:
+                    best_conf = confidence
+                    best_result = {
+                        "detected": True, "confidence": round(confidence, 2),
+                        "position": "artwork_bottom_right",
+                        "evidence": f"ocr_prerelease_{method}",
+                        "ocr_text": text, "ocr_score": score,
+                        "ocr_strategy": tag,
+                    }
+
+        # Check 2: Set name words in OCR output
+        if expected_words and all_text_lower:
+            matches = sum(1 for w in expected_words if w in all_text_lower)
+            if matches >= 1:
+                total = len(expected_words)
+                if total == 1:
+                    conf = 0.85 if matches == 1 else 0.70
+                else:
+                    conf = 0.90 if matches >= 2 else 0.75
+                if conf > best_conf:
+                    best_conf = conf
+                    best_result = {
+                        "detected": True, "confidence": conf,
+                        "position": "artwork_bottom_right",
+                        "evidence": f"set_logo_{matches}_of_{total}_words",
+                        "ocr_text": all_text_lower,
+                        "matched_words": [w for w in expected_words
+                                          if w in all_text_lower],
+                    }
+
+    if best_result.get("detected"):
+        logger.debug("Prerelease logo detected for %s: evidence=%s",
+                     set_id, best_result.get("evidence"))
+    else:
+        logger.debug("Prerelease logo not found for %s", set_id)
+
+    return best_result
+
+
+
+
+# ---------------------------------------------------------------------------
+# Jungle no-symbol error detection
+# ---------------------------------------------------------------------------
+
+# The first Unlimited print run of Jungle holos (cards 1-16) is missing the
+# Jungle flower set symbol in the bottom-right info bar.  This is a known
+# error variant with collectible value.
+#
+# Detection: crop the set symbol region and measure whether it contains a
+# distinct small shape (the flower).  If the region is featureless, it is
+# likely the no-symbol error print.
+#
+# Feasibility caveat: the set symbol is tiny at binder-scan resolution
+# (~10-15px), so detection confidence is inherently limited.
+
+_JUNGLE_HOLO_NUMBERS = frozenset(range(1, 17))
+
+
+def _check_no_symbol_error(img_bgr: np.ndarray, set_id: str,
+                           card_rarity: str) -> tuple[bool, float]:
+    """Check if a Jungle holo is missing its set symbol (error print).
+
+    The first Unlimited print of Jungle (base2) holos omitted the flower
+    set symbol from the bottom-right info bar.  This function crops that
+    region and checks whether a distinct shape is present.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (only 'base2' is relevant).
+        card_rarity: Rarity string -- must contain 'holo' (case-insensitive)
+                     to be eligible.  Examples: "holofoil", "Rare Holo",
+                     "1st_edition_holofoil", "unlimited_holofoil".
+
+    Returns:
+        (is_no_symbol, confidence) tuple.
+        is_no_symbol=True means the set symbol appears to be MISSING (error).
+        confidence is 0.0-1.0, reflecting detection certainty.
+    """
+    # Gate: only Jungle (base2) holo rares
+    if set_id != "base2":
+        return False, 0.0
+    if not card_rarity or "holo" not in card_rarity.lower():
+        return False, 0.0
+
+    h, w = img_bgr.shape[:2]
+
+    # Crop the set symbol region: x 80-95%, y 50-65%
+    # This is where the Jungle flower should appear on the card.
+    x0, x1 = int(0.80 * w), int(0.95 * w)
+    y0, y1 = int(0.50 * h), int(0.65 * h)
+    crop = img_bgr[y0:y1, x0:x1]
+
+    if crop.size == 0 or crop.shape[0] < 4 or crop.shape[1] < 4:
+        return False, 0.0
+
+    crop_h, crop_w = crop.shape[:2]
+    crop_area = crop_h * crop_w
+
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+
+    # --- Signal 1: Edge density (Laplacian variance) ---
+    # A region with a symbol has more edges than a blank region.
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    edge_var = float(laplacian.var())
+
+    # --- Signal 2: Contour analysis ---
+    # Look for a small, compact shape (the flower symbol).
+    # Adaptive threshold handles varying card backgrounds.
+    thresh = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV, 11, 4,
+    )
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+
+    # Filter for symbol-sized contours (1-20% of crop area)
+    symbol_contours = [
+        cnt for cnt in contours
+        if 0.01 * crop_area < cv2.contourArea(cnt) < 0.20 * crop_area
+    ]
+
+    # --- Signal 3: Canny edge pixel ratio ---
+    edges = cv2.Canny(gray, 50, 150)
+    edge_ratio = float(np.count_nonzero(edges)) / crop_area
+
+    # --- Decision logic ---
+    has_symbol_contour = len(symbol_contours) > 0
+    has_strong_edges = edge_var > 200.0
+    has_edge_content = edge_ratio > 0.05
+
+    logger.debug(
+        "Jungle no-symbol check: edge_var=%.1f, contours=%d, "
+        "symbol_contours=%d, edge_ratio=%.3f",
+        edge_var, len(contours), len(symbol_contours), edge_ratio,
+    )
+
+    # Symbol present: distinct shape found
+    if has_symbol_contour and has_strong_edges:
+        logger.debug("Jungle symbol PRESENT (contour + edges)")
+        return False, 0.0
+
+    # No symbol: region is featureless
+    if not has_symbol_contour and not has_strong_edges and not has_edge_content:
+        # High confidence: all three signals agree the region is blank
+        logger.debug("Jungle symbol MISSING (no contours, no edges)")
+        return True, 0.80
+
+    if not has_symbol_contour and not has_edge_content:
+        # Moderate confidence: no shape, low edge content
+        logger.debug("Jungle symbol likely MISSING (no contours, low edges)")
+        return True, 0.65
+
+    if not has_symbol_contour:
+        # Low confidence: no shape but some edge activity (could be noise)
+        logger.debug("Jungle symbol possibly MISSING (no contours, some edges)")
+        return True, 0.50
+
+    # Ambiguous: shape found but edges are weak (could be noise artifact)
+    logger.debug("Jungle symbol check ambiguous")
+    return False, 0.0
+
+
+def _check_no_symbol_error_as_stamp(img_bgr: np.ndarray, set_id: str,
+                                    card_rarity: str) -> dict:
+    """Wrapper around _check_no_symbol_error returning stamp-checker dict."""
+    is_missing, confidence = _check_no_symbol_error(img_bgr, set_id,
+                                                    card_rarity)
+    if is_missing:
+        return {
+            "detected": True,
+            "confidence": confidence,
+            "position": "bottom_right",
+            "evidence": "no_jungle_flower_symbol",
+        }
+    return {"detected": False, "confidence": 0.0, "position": "bottom_right"}
+
+# ---------------------------------------------------------------------------
 # Determine which stamps to check for a given card_id
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Holo finish detection (artwork region analysis)
+# ---------------------------------------------------------------------------
+
+# Artwork region: center of card illustration area.
+# Same coordinates as holo_detector.py -- excludes name bar and border.
+_HOLO_ART_Y0, _HOLO_ART_Y1 = 0.12, 0.56
+_HOLO_ART_X0, _HOLO_ART_X1 = 0.10, 0.90
+
+# Minimum saturation/value to consider a pixel "colorful" for hue analysis.
+_HOLO_MIN_SAT = 40
+_HOLO_MIN_VAL = 40
+
+# Saturation std thresholds for artwork region.
+# Through binder sleeves, holo shimmer is suppressed: sat_std ~33+ for holo,
+# ~15-30 for clean non-holo artwork.
+_HOLO_SAT_STD_THRESHOLD = 33.0
+
+# Hue spatial noise via Laplacian (non-edge, colorful pixels only).
+# Holo surfaces produce rapid color speckle even in "flat" areas.
+# Non-holo: ~5-30.  Holo through sleeve: ~50-150+.
+_HOLO_HUE_LAP_THRESHOLD = 35.0
+
+
+def _check_holo_finish(
+    img_bgr: np.ndarray,
+    set_id: str,
+    era: int,
+) -> tuple[str, float]:
+    """Detect if a card has holographic artwork finish.
+
+    Analyzes the artwork region (x:10-90%, y:12-56%) for holographic
+    signal using two complementary features:
+
+    1. **Saturation variance** -- Holographic foil creates rainbow shimmer
+       with high saturation spread.  Non-holo artwork has moderate sat_std
+       (~15-30); holo artwork pushes sat_std >= 33 even through sleeves.
+
+    2. **Hue spatial noise** -- Laplacian of hue channel in non-edge,
+       colorful regions.  Holographic surfaces produce rapid, noisy hue
+       changes between adjacent pixels (prismatic micro-reflections).
+       Non-holo: ~5-30.  Holo: ~50-150+.
+
+    Parameters
+    ----------
+    img_bgr : np.ndarray
+        BGR card image (from cv2.imread or segmenter output).
+    set_id : str
+        Set identifier (e.g., "ex15", "base1").
+    era : int
+        Card era number (1-9).
+
+    Returns
+    -------
+    (finish, confidence) where finish is one of:
+        "holofoil"  -- artwork area shows holographic signal
+        "non_holo"  -- no holographic signal in artwork
+        "unknown"   -- insufficient data or ambiguous
+
+    Notes
+    -----
+    Through binder sleeves, holo shimmer is significantly suppressed.
+    A "non_holo" result at high confidence is more reliable than
+    "holofoil", because absence of signal is easier to confirm.
+
+    This function analyzes ARTWORK holo only (standard holo rares).
+    For reverse holo detection (body/border holo), use
+    ``holo_detector.detect_holo_type_from_array``.
+    """
+    h, w = img_bgr.shape[:2]
+    if h < 50 or w < 50:
+        logger.debug("Image too small for holo finish check: %dx%d", w, h)
+        return "unknown", 0.0
+
+    # Extract artwork region
+    art = img_bgr[
+        int(_HOLO_ART_Y0 * h):int(_HOLO_ART_Y1 * h),
+        int(_HOLO_ART_X0 * w):int(_HOLO_ART_X1 * w),
+    ]
+    if art.size == 0:
+        return "unknown", 0.0
+
+    hsv = cv2.cvtColor(art, cv2.COLOR_BGR2HSV)
+    h_chan = hsv[:, :, 0].astype(np.float32)
+    s_chan = hsv[:, :, 1].astype(np.float32)
+    v_chan = hsv[:, :, 2].astype(np.float32)
+
+    # --- Feature 1: Saturation standard deviation ---
+    sat_std = float(np.std(s_chan))
+    sat_mean = float(np.mean(s_chan))
+
+    # --- Feature 2: Hue spatial noise (Laplacian in flat colorful areas) ---
+    # Mask: only colorful pixels (reliable hue) in non-edge areas
+    colorful_mask = (s_chan >= _HOLO_MIN_SAT) & (v_chan >= _HOLO_MIN_VAL)
+
+    gray = cv2.cvtColor(art, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150)
+    edge_dilated = cv2.dilate(edges, np.ones((5, 5), np.uint8), iterations=1)
+    non_edge = edge_dilated == 0
+
+    combined_mask = colorful_mask & non_edge
+
+    hue_lap = cv2.Laplacian(h_chan, cv2.CV_32F, ksize=3)
+    abs_hue_lap = np.abs(hue_lap)
+
+    flat_lap = abs_hue_lap[combined_mask]
+    if len(flat_lap) < 30:
+        hue_noise = 0.0
+    else:
+        hue_noise = float(np.mean(flat_lap))
+
+    # --- Feature 3: Hue spread in colorful pixels ---
+    # Count distinct hue bins with significant presence.
+    # Holo foil disperses light across many hues; printed art concentrates.
+    colorful_hues = h_chan[colorful_mask]
+    if len(colorful_hues) >= 50:
+        hist, _ = np.histogram(colorful_hues, bins=36, range=(0, 180))
+        threshold = len(colorful_hues) * 0.01
+        hue_spread = float(np.sum(hist > threshold))
+    else:
+        hue_spread = 0.0
+
+    # --- Classification ---
+    # Both signals must agree for a confident holo call.
+    sat_elevated = sat_std >= _HOLO_SAT_STD_THRESHOLD
+    noise_elevated = hue_noise >= _HOLO_HUE_LAP_THRESHOLD
+
+    logger.debug(
+        "Holo finish check (set=%s, era=%d): "
+        "sat_std=%.1f (>%.0f? %s), hue_noise=%.1f (>%.0f? %s), "
+        "hue_spread=%.0f, sat_mean=%.1f",
+        set_id, era,
+        sat_std, _HOLO_SAT_STD_THRESHOLD, sat_elevated,
+        hue_noise, _HOLO_HUE_LAP_THRESHOLD, noise_elevated,
+        hue_spread, sat_mean,
+    )
+
+    if sat_elevated and noise_elevated:
+        # Both signals confirm holo.
+        # Confidence scales with how far above thresholds.
+        sat_ratio = sat_std / _HOLO_SAT_STD_THRESHOLD
+        noise_ratio = hue_noise / _HOLO_HUE_LAP_THRESHOLD
+        conf = min(0.95, 0.55 + 0.15 * min(sat_ratio - 1.0, 1.0)
+                   + 0.15 * min(noise_ratio - 1.0, 1.0))
+        return "holofoil", round(conf, 2)
+
+    if sat_elevated and not noise_elevated:
+        # Sat is high but noise is low -- could be colorful non-holo artwork
+        # or holo suppressed by sleeve.  Low confidence holo only if sat
+        # is well above threshold AND hue spread is high.
+        if sat_std >= _HOLO_SAT_STD_THRESHOLD * 1.3 and hue_spread >= 12:
+            return "holofoil", 0.45
+        # Borderline -- report unknown.
+        return "unknown", 0.35
+
+    if noise_elevated and not sat_elevated:
+        # Noise is high but sat is low -- unusual, could be colorful artwork
+        # with many small details.  Low confidence.
+        if hue_noise >= _HOLO_HUE_LAP_THRESHOLD * 1.5:
+            return "holofoil", 0.40
+        return "unknown", 0.30
+
+    # Neither signal elevated -- confidently non-holo.
+    # Confidence is high because absence of signal is reliable.
+    max_metric = max(
+        sat_std / _HOLO_SAT_STD_THRESHOLD,
+        hue_noise / _HOLO_HUE_LAP_THRESHOLD,
+    )
+    if max_metric < 0.5:
+        conf = 0.90
+    elif max_metric < 0.75:
+        conf = 0.80
+    else:
+        conf = 0.65  # Close to threshold, less confident
+
+    return "non_holo", round(conf, 2)
+
 
 def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     """Return list of stamp types to check based on era and set.
@@ -1317,7 +2275,6 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
         checks.append("1st_edition")
     if set_id == "base1":
         checks.append("copyright_year")
-        checks.append("shadowless")
     if set_id in _BLACK_STAR_PROMO_SETS:
         checks.append("black_star_promo")
 
@@ -1335,9 +2292,13 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     if set_id in _MODERN_PROMO_SETS:
         checks.append("modern_promo")
 
-    # BW/XY/SM eras (5-7): retailer-exclusive stamps (Toys R Us, Build-A-Bear)
-    if era in _RETAILER_STAMP_ERAS:
-        checks.append("retailer_stamp")
+    # Prerelease stamps: era-gated (text-based for WotC/EX/DP, logo for HGSS+)
+    if set_id in _PRERELEASE_TEXT_SETS or set_id in _PRERELEASE_LOGO_SETS:
+        checks.append("prerelease")
+
+    # Pokemon Center exclusive stamp (SVP promos, SWSH/SV era)
+    if set_id == "svp":
+        checks.append("pokemon_center")
 
     return checks
 
@@ -1403,6 +2364,8 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         "shadowless": lambda img_bgr: _check_shadowless(img_bgr, set_id),
         "pokemon_center": lambda img_bgr: _check_pokemon_center_stamp(img_bgr, set_id, era),
         "retailer_stamp": lambda img_bgr: _check_retailer_stamp(img_bgr, set_id, era),
+        "prerelease": lambda img_bgr: _check_prerelease(img_bgr, set_id, era),
+        "staff_stamp": lambda img_bgr: _check_staff_stamp(img_bgr, set_id, era),
     }
 
     for stamp_type in stamps_to_check:
@@ -1437,6 +2400,27 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         except Exception as e:
             logger.warning("Stamp check %s failed for %s: %s",
                            stamp_type, card_id, e)
+
+    # --- Staff stamp conditional check ---
+    # Only check for STAFF stamp if prerelease was detected or card is from
+    # a promo set.  Staff stamps only exist on prerelease event cards.
+    if ("prerelease" in result["stamps_detected"]
+            or set_id in _PROMO_SETS | _MODERN_PROMO_SETS):
+        if "staff_stamp" not in [s for s in stamps_to_check]:
+            try:
+                detail = _check_staff_stamp(img, set_id, era)
+                if detail.get("detected"):
+                    result["stamps_detected"].append("staff_stamp")
+                    result["stamp_details"]["staff_stamp"] = {
+                        "confidence": detail["confidence"],
+                        "position": detail.get("position", "artwork_upper_right"),
+                        "evidence": detail.get("evidence", ""),
+                    }
+                    logger.info("Staff stamp detected on %s (conf=%.2f, evidence=%s)",
+                                card_id, detail["confidence"],
+                                detail.get("evidence", ""))
+            except Exception as e:
+                logger.warning("Staff stamp check failed for %s: %s", card_id, e)
 
     # --- Grey stamp sub-variant detection ---
     # Only runs when 1st_edition was detected.  Crops the tight stamp region
