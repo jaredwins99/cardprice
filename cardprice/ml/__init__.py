@@ -376,7 +376,7 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         )
 
         # --- Base variant detection (OpenCV heuristics) ---
-        variant = detect_variant(image_path, era=era, card_id=card_id)
+        variant = detect_variant(image_path, era=era, card_id=card_id, fast=True)
         confidence = 1.0  # placeholder; detect_variant doesn't return confidence
         checks_run.append("variant_detector")
 
@@ -480,7 +480,7 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         # era and set.  Each stamp type is checked in its fixed region.
         try:
             from cardprice.ml.stamp_detection import detect_stamps
-            stamp_pipeline_result = detect_stamps(image_path, card_id)
+            stamp_pipeline_result = detect_stamps(image_path, card_id, fast=True)
             if stamp_pipeline_result["stamps_detected"]:
                 result["stamps_detected"] = stamp_pipeline_result["stamps_detected"]
                 result["stamp_details"] = stamp_pipeline_result["stamp_details"]
@@ -2776,20 +2776,24 @@ def _run_color_detect(image_path: str) -> tuple:
     return None, 0.0
 
 
-def _run_name_and_hp(image_path: str) -> tuple:
-    """Run a SINGLE PaddleOCR pass to extract both name and HP from a card.
+def _run_name_and_hp(image_path: str, _hold_lock: bool = True) -> tuple:
+    """Run a SINGLE RapidOCR pass to extract both name and HP from a card.
 
     Crops the top 25% of the card, upscales 3x with unsharp mask, and runs
-    PaddleOCR detection + recognition once.  Then splits the detected text
-    regions into name candidates (left/large) and HP candidates (right side,
-    numeric pattern).
+    RapidOCR (ONNX Runtime) detection + recognition once.  Then splits the
+    detected text regions into name candidates (left/large) and HP candidates
+    (right side, numeric pattern).
 
     Returns (cleaned_name, name_conf, raw_text, hp_value) or
             (None, 0.0, None, None).
 
-    Uses thread lock since PaddleOCR models are not thread-safe.
+    Args:
+        _hold_lock: If True (default), acquire _ocr_lock for thread safety.
+            Set to False when the caller has already ensured singletons are
+            initialized and ONNX Runtime is handling concurrency (e.g. the
+            batched OCR path in identify_page_v2).
     """
-    with _ocr_lock:
+    def _inner():
         try:
             name, conf, raw, hp = _paddle_ocr_name_and_hp(image_path)
             if name and len(name) >= 2:
@@ -2816,7 +2820,13 @@ def _run_name_and_hp(image_path: str) -> tuple:
         except Exception as e:
             logger.debug("v2 japanese_ocr failed: %s", e)
 
-    return None, 0.0, None, None
+        return None, 0.0, None, None
+
+    if _hold_lock:
+        with _ocr_lock:
+            return _inner()
+    else:
+        return _inner()
 
 
 def _ocr_card_number(image_path: str) -> tuple:
@@ -3525,6 +3535,29 @@ def _try_japanese_ocr(image_path: str) -> str | None:
 
     JP_CHAR_RE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+')
 
+    # Quick check: does the image contain CJK-looking text?
+    # Skip the expensive PaddleOCR subprocess (~50s first time) if the
+    # card image has no Japanese characters visible.  Check by running
+    # RapidOCR on the name region — if it returns ANY text at all,
+    # the card likely has Latin text (not Japanese), so skip.
+    # Only proceed if RapidOCR returned literally nothing.
+    import cv2 as _cv2
+    _img_check = _cv2.imread(str(image_path))
+    if _img_check is None:
+        return None
+    _h, _w = _img_check.shape[:2]
+    # Check if the top portion has any high-saturation colorful content
+    # (Japanese cards tend to have colorful artwork filling the name area)
+    # This is a heuristic — not perfect but avoids 50s subprocess on blanks
+    _top_crop = _img_check[:int(_h * 0.25), :]
+    _hsv = _cv2.cvtColor(_top_crop, _cv2.COLOR_BGR2HSV)
+    _mean_sat = float(_hsv[:, :, 1].mean())
+    _mean_val = float(_hsv[:, :, 2].mean())
+    # Very dark or very low saturation = likely card back or empty slot
+    if _mean_val < 40 or (_mean_sat < 20 and _mean_val < 100):
+        logger.debug("Japanese OCR skip: dark/low-sat top region (sat=%.0f val=%.0f)", _mean_sat, _mean_val)
+        return None
+
     ja_index = _get_ja_reverse_index()
     if not ja_index:
         return None
@@ -3597,11 +3630,12 @@ def _run_attack_ocr(image_path: str) -> list:
     """Run OCR to extract attack/move names from a card image.
 
     Returns list of attack name strings, or empty list on failure.
+    Uses RapidOCR (not EasyOCR) to avoid loading ~500MB of EasyOCR models.
     """
     try:
-        from cardprice.ml.attack_ocr import extract_attack_names
-        candidates = extract_attack_names(image_path)
-        # extract_attack_names returns [(text, confidence), ...]
+        from cardprice.ml.attack_ocr import extract_attack_names_paddle
+        candidates = extract_attack_names_paddle(image_path)
+        # extract_attack_names_paddle returns [(text, confidence), ...]
         # Return just the text strings
         return [text for text, _conf in candidates if text]
     except Exception as e:
@@ -4021,21 +4055,22 @@ def _score_candidates_combined(
     When attack OCR finds nothing, falls back to pure DINOv2.
     Full-text matching uses structured attack/ability data against the scanned card's OCR text.
     """
-    from cardprice.ml.attack_ocr import extract_attack_names, _load_attack_index, _load_attack_db
+    from cardprice.ml.attack_ocr import extract_attack_names_paddle, _load_attack_index, _load_attack_db
 
     dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids, query_embedding=query_embedding)
     if not dino_results:
         return []
     dino_scores = {cid: score for cid, score in dino_results}
 
-    # Attack OCR — use pre-computed if available, else run under lock
+    # Attack OCR — use pre-computed if available, else run RapidOCR (not EasyOCR,
+    # which loads ~500MB of models and pushes RSS over 4GB)
     if precomputed_attacks is not None:
         ocr_candidates = precomputed_attacks
     else:
         ocr_candidates = []
         try:
             with _ocr_lock:
-                ocr_candidates = extract_attack_names(image_path)
+                ocr_candidates = extract_attack_names_paddle(image_path)
         except Exception as e:
             logger.warning("v2 combined: attack OCR failed: %s", e)
 
@@ -4680,7 +4715,14 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
         # Multiple candidates: combined DINOv2 + attack scoring
         elif len(candidates) >= 2:
-            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
+            # When OCR confidence is high, skip inline attack OCR to save
+            # time.  Pass empty list (not None) so _score_candidates_combined
+            # uses pure DINOv2 instead of running attack OCR from scratch.
+            effective_attacks = _precomputed_attacks
+            if effective_attacks is None and ocr_conf >= 0.90:
+                effective_attacks = []
+                logger.info("v2: skipping inline attack OCR (ocr_conf=%.2f >= 0.90)", ocr_conf)
+            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=effective_attacks, type_detected=use_type, type_confidence=color_conf)
             if combined_results:
                 best_cid, best_score, best_detail = combined_results[0]
                 alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
@@ -5061,6 +5103,7 @@ def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None)
 
 
 def identify_page_v2(card_image_paths, session=None,
+                     detect_variants=False,
                      use_claude_vision_fallback=False):
     """V2 page identification: runs identify_card_v2 on each card, then
     applies page context reranking for low-confidence results.
@@ -5076,6 +5119,9 @@ def identify_page_v2(card_image_paths, session=None,
     Args:
         card_image_paths: List of paths to individual card segment images.
         session: Optional SQLAlchemy DB session.
+        detect_variants: Whether to run variant detection (holo, reverse holo,
+            stamp checks) after identification. Default False for speed —
+            variant detection can be triggered separately on-demand.
         use_claude_vision_fallback: If True, send unidentified cards to Claude
             vision API for identification. Costs API credits. Default False.
 
@@ -5105,11 +5151,15 @@ def identify_page_v2(card_image_paths, session=None,
     # -----------------------------------------------------------------------
     # Pass 1a: Batch pre-compute ALL expensive operations in parallel.
     #
-    # Two concurrent threads:
-    #   Thread 1: RapidOCR name + HP + color + attack OCR (sequential per card)
-    #   Thread 2: DINOv2   — batch GPU embedding for all cards (single pass)
+    # Four concurrent threads, each on non-competing resources:
+    #   Thread 1: PaddleOCR name + HP  (sequential per card, _ocr_lock)
+    #   Thread 2: DINOv2 batch embed   (GPU, single forward pass)
+    #   Thread 3: Color detection      (CPU, no lock, pure OpenCV)
+    #   Thread 4+: Attack OCR          (CPU, no lock, dispatched as needed)
     #
-    # RapidOCR (ONNX Runtime) is thread-safe and fast (~0.4s/card).
+    # Name OCR is serialised by _ocr_lock (PaddleOCR not thread-safe).
+    # Color detection and attack OCR use independent engines and can run
+    # fully in parallel with each other and with name OCR.
     # -----------------------------------------------------------------------
     import time as _time
 
@@ -5126,17 +5176,46 @@ def identify_page_v2(card_image_paths, session=None,
     dino_embeddings = [None] * n_cards
     clip_embeddings = [None] * n_cards
 
-    def _batch_ocr_all():
-        """Thread 1: PaddleOCR name + HP + color, RapidOCR attack OCR for all cards.
+    # Shared pool for attack OCR — tasks are submitted by the name OCR
+    # thread as soon as each card's name confidence is known.
+    _attack_pool = ThreadPoolExecutor(max_workers=4)
+    _attack_futures = []
 
-        Name OCR uses PaddleOCR (initialized inside _run_name_and_hp).
-        Attack OCR uses RapidOCR (lazy singleton inside attack_ocr module).
+    def _submit_attack_ocr(card_idx, path):
+        """Submit attack OCR for a single card to the shared pool."""
+        def _run():
+            try:
+                attack_results[card_idx] = _extract_attacks_paddle(str(path))
+            except Exception as e:
+                logger.warning("identify_page_v2: attack OCR card %d failed: %s",
+                               card_idx, e)
+        fut = _attack_pool.submit(_run)
+        _attack_futures.append(fut)
+
+    def _batch_name_ocr():
+        """Thread 1: PaddleOCR name + HP for all cards (sequential — _ocr_lock).
+
+        After each card's name OCR completes, immediately dispatches attack
+        OCR to the shared pool if needed (low confidence or no name).  This
+        overlaps attack OCR with subsequent name OCR calls for other cards.
         """
         t0 = _time.time()
-
         for i, path in enumerate(card_image_paths):
-            # --- Name + HP + color (PaddleOCR) ---
-            ocr_data = {}
+            ocr_data = precomputed[i] or {}
+
+            # Skip OCR for card backs — saves ~10-50s per card back
+            # (avoids triggering Japanese PaddleOCR subprocess fallback)
+            if _is_card_back(str(path)):
+                ocr_data["ocr_name"] = None
+                ocr_data["ocr_conf"] = 0.0
+                ocr_data["ocr_raw"] = None
+                ocr_data["hp_value"] = None
+                ocr_data["is_card_back"] = True
+                precomputed[i] = ocr_data
+                attack_results[i] = []  # no attacks on card backs
+                logger.info("identify_page_v2: skipping OCR for card %d (card back)", i)
+                continue
+
             try:
                 name, conf, raw, hp = _run_name_and_hp(str(path))
                 ocr_data["ocr_name"] = name
@@ -5145,39 +5224,66 @@ def identify_page_v2(card_image_paths, session=None,
                 ocr_data["hp_value"] = hp
             except Exception as e:
                 logger.warning("identify_page_v2: OCR card %d failed: %s", i, e)
-            try:
-                ctype, cconf = _run_color_detect(str(path))
-                ocr_data["color_type"] = ctype
-                ocr_data["color_conf"] = cconf
-            except Exception as e:
-                logger.warning("identify_page_v2: color card %d failed: %s", i, e)
             precomputed[i] = ocr_data
 
-            # --- Attack OCR (RapidOCR) ---
-            # Only pre-compute attacks when name OCR failed or has low
-            # confidence. High-confidence name matches (>= 0.90) are
-            # resolved by DINOv2 alone, saving ~7-9s per card.
+            # Dispatch attack OCR immediately if needed — runs in parallel
+            # with subsequent name OCR calls for other cards.
             ocr_name = ocr_data.get("ocr_name")
             ocr_conf = ocr_data.get("ocr_conf", 0)
-            need_attacks = not ocr_name or ocr_conf < 0.90
+            # Skip attack OCR when name is reasonably confident.
+            # Attack OCR is VERY expensive (~10-15s/card) and rarely
+            # changes the result when name OCR is decent (>= 0.70).
+            # The v2 pipeline has attack fallback paths that can run
+            # lazily if needed during identification.
+            need_attacks = not ocr_name or ocr_conf < 0.70
             if need_attacks:
-                try:
-                    attack_results[i] = _extract_attacks_paddle(
-                        str(path),
-                    )
-                except Exception as e:
-                    logger.warning("identify_page_v2: attack OCR card %d failed: %s", i, e)
+                _submit_attack_ocr(i, path)
             else:
+                # Set to empty list (not None) so downstream knows attack OCR
+                # was intentionally skipped.  None means "not precomputed" and
+                # would cause _score_candidates_combined to re-run attack OCR
+                # inline (defeating the lazy skip).
+                attack_results[i] = []
                 logger.info("identify_page_v2: skipping attack OCR for card %d "
                             "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
 
-        logger.info(
-            "identify_page_v2: OCR thread (name+attack) done in %.1fs",
-            _time.time() - t0,
-        )
+        logger.info("identify_page_v2: name OCR thread done in %.1fs",
+                     _time.time() - t0)
+
+    def _batch_color_detect():
+        """Thread 3: Color/type detection for all cards (no lock, pure OpenCV).
+
+        Runs all cards in parallel using a small thread pool.  Results are
+        merged into the precomputed dicts after completion.
+        """
+        t0 = _time.time()
+
+        def _color_one(idx, path):
+            try:
+                ctype, cconf = _run_color_detect(str(path))
+                return idx, ctype, cconf
+            except Exception as e:
+                logger.warning("identify_page_v2: color card %d failed: %s", idx, e)
+                return idx, None, 0.0
+
+        # Color detection is fast (~20ms/card) — 4 threads is plenty
+        with ThreadPoolExecutor(max_workers=4) as color_pool:
+            futures = [
+                color_pool.submit(_color_one, i, p)
+                for i, p in enumerate(card_image_paths)
+            ]
+            for fut in as_completed(futures):
+                idx, ctype, cconf = fut.result()
+                if precomputed[idx] is None:
+                    precomputed[idx] = {}
+                precomputed[idx]["color_type"] = ctype
+                precomputed[idx]["color_conf"] = cconf
+
+        logger.info("identify_page_v2: color detect thread done in %.1fs",
+                     _time.time() - t0)
 
     def _batch_embeddings():
-        """Thread 2: DINOv2 + CLIP batch embeddings."""
+        """Thread 2: DINOv2 batch embeddings (GPU, single forward pass)."""
         t0 = _time.time()
         preproc_paths = []
         preproc_temps = []
@@ -5207,13 +5313,24 @@ def identify_page_v2(card_image_paths, session=None,
                     pass
         logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
 
-    # Run both in parallel (collapsed from 3 threads to 2)
-    with ThreadPoolExecutor(max_workers=2) as precomp_pool:
-        f_ocr = precomp_pool.submit(_batch_ocr_all)
+    # Run three main threads in parallel:
+    #   - Name OCR (CPU, sequential per card due to _ocr_lock)
+    #   - DINOv2 batch (GPU, single forward pass)
+    #   - Color detection (CPU, parallel across cards, no lock)
+    # Attack OCR tasks are dispatched by the name OCR thread into _attack_pool
+    # and run concurrently with subsequent name OCR calls.
+    with ThreadPoolExecutor(max_workers=3) as precomp_pool:
+        f_name = precomp_pool.submit(_batch_name_ocr)
         f_dino = precomp_pool.submit(_batch_embeddings)
-        # Wait for both to complete
-        for f in [f_ocr, f_dino]:
+        f_color = precomp_pool.submit(_batch_color_detect)
+        # Wait for the three main threads
+        for f in [f_name, f_dino, f_color]:
             f.result()
+
+    # Wait for any outstanding attack OCR tasks dispatched by name OCR thread
+    for fut in _attack_futures:
+        fut.result()
+    _attack_pool.shutdown(wait=False)
 
     t_precomp_total = _time.time() - t_precomp_start
     logger.info("identify_page_v2: all pre-computation done in %.1fs", t_precomp_total)
@@ -5235,6 +5352,7 @@ def identify_page_v2(card_image_paths, session=None,
                 _precomputed_dino_embedding=dino_embeddings[i],
                 _precomputed_attacks=attack_results[i],
                 _precomputed_clip_embedding=clip_embeddings[i],
+                detect_variants=detect_variants,
             )
         except Exception as e:
             logger.warning("identify_page_v2: card %d failed: %s", i, e)
@@ -5434,6 +5552,7 @@ def identify_page_v2(card_image_paths, session=None,
                 _precomputed_dino_embedding=dino_embeddings[i],
                 _precomputed_attacks=attack_results[i],
                 _precomputed_clip_embedding=clip_embeddings[i],
+                detect_variants=detect_variants,
             )
 
             # Accept re-run if: (a) confidence improved, OR (b) the re-run
@@ -5527,6 +5646,19 @@ def identify_page_v2(card_image_paths, session=None,
         "identify_page_v2: %d/%d v2-matched, avg confidence=%.3f",
         v2_count, n_cards, avg_conf,
     )
+
+    # Reclaim memory after processing all cards.  Page scans allocate many
+    # large temporary arrays (upscaled OCR crops, DINOv2 tensors, etc.)
+    # that accumulate across 9 cards.  gc.collect() ensures they're freed
+    # before control returns to the server, preventing OOM kills.
+    import gc
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
 
     return results
 
