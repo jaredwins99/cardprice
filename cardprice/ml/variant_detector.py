@@ -321,7 +321,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
 
     # WotC Black Star Promos (basep): promos, no reverse holo or 1st ed.
     "basep": {
-        "valid": {"normal", "holofoil"},
+        "valid": {"normal", "holofoil", "promo"},
         "notes": "Wizard's Black Star Promos. Some are holo, most are normal.",
     },
 
@@ -339,7 +339,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
 
     # --- Era 2 EX-era special sets ---
     "np": {
-        "valid": {"normal", "holofoil"},
+        "valid": {"normal", "holofoil", "promo"},
         "notes": "Nintendo Black Star Promos.",
     },
 
@@ -361,8 +361,8 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     "tk2b": {"valid": {"normal"}},
 
     # --- Era 3-4 promo/special sets ---
-    "dpp": {"valid": {"normal", "holofoil"}},
-    "hsp": {"valid": {"normal", "holofoil"}},
+    "dpp": {"valid": {"normal", "holofoil", "promo"}},
+    "hsp": {"valid": {"normal", "holofoil", "promo"}},
     "ru1": {
         "valid": {"normal"},
         "notes": "Pokemon Rumble promos. All normal with Rumble stamp.",
@@ -372,7 +372,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     },
 
     # --- Era 5 BW special sets ---
-    "bwp": {"valid": {"normal", "holofoil"}},
+    "bwp": {"valid": {"normal", "holofoil", "promo"}},
     "dv1": {
         "valid": {"normal", "holofoil"},
         "notes": "Dragon Vault. All cards are holofoil.",
@@ -383,7 +383,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     },
 
     # --- Era 6 XY promo/special sets ---
-    "xyp": {"valid": {"normal", "holofoil"}},
+    "xyp": {"valid": {"normal", "holofoil", "promo"}},
     "xy0": {"valid": {"normal"}},
     "g1": {
         "valid": {"normal", "holofoil", "reverse_holofoil"},
@@ -391,7 +391,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     },
 
     # --- Era 7 SM special sets ---
-    "smp": {"valid": {"normal", "holofoil"}},
+    "smp": {"valid": {"normal", "holofoil", "promo"}},
     "sma": {
         "valid": {"normal", "holofoil"},
         "notes": "Hidden Fates Shiny Vault. All shiny/holo.",
@@ -404,7 +404,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     "mcd19": {"valid": {"normal", "holofoil"}},
 
     # --- Era 8 SWSH special sets ---
-    "swshp": {"valid": {"normal", "holofoil"}},
+    "swshp": {"valid": {"normal", "holofoil", "promo"}},
     "swsh35": {
         "valid": {"normal", "holofoil"},
         "notes": "Champion's Path. No reverse holofoil.",
@@ -441,7 +441,7 @@ SET_SPECIAL_VARIANTS: dict[str, dict] = {
     "swsh12pt5gg": {"valid": {"normal", "holofoil"}},
 
     # --- Era 9 SV special sets ---
-    "svp": {"valid": {"normal", "holofoil"}},
+    "svp": {"valid": {"normal", "holofoil", "promo"}},
     "sve": {
         "valid": {"normal"},
         "notes": "SV basic Energy cards.",
@@ -523,6 +523,7 @@ ALL_VARIANTS = {
     "full_art",
     "gold",
     "rainbow_rare",
+    "promo",
 }
 
 
@@ -826,6 +827,35 @@ def _holo_score(region_bgr: np.ndarray) -> tuple[float, int, float]:
     return combined, spread, noise
 
 
+def _normalize_stamp_ocr(text: str) -> str:
+    """Apply OCR confusion substitutions for 1st Edition stamp text.
+
+    The stamp contains "1st" and "EDITION" in small, often low-contrast text.
+    Common OCR misreads:
+      - "1" read as "l" or "i" or "|"
+      - "E" read as "F" or "C"
+      - "D" read as "O" or "0"
+      - "I" read as "l" or "1" or "|"
+      - "N" read as "H" or "M"
+
+    Returns the text with substitutions applied for matching.
+    """
+    # Work on lowercase
+    t = text.lower()
+
+    # Apply substitutions that help match "1st" and "edition"
+    # For "1st": l->1, i->1, |->1
+    # For "edition": common garbles
+    subs = {
+        "l": "1",  # lowercase L -> digit 1
+        "|": "1",
+    }
+    normalized = ""
+    for ch in t:
+        normalized += subs.get(ch, ch)
+    return normalized
+
+
 def _ocr_stamp_region(stamp_bgr: np.ndarray) -> str:
     """Run PaddleOCR on the stamp region and return concatenated lowercase text.
 
@@ -866,6 +896,54 @@ def _ocr_stamp_region(stamp_bgr: np.ndarray) -> str:
         return " ".join(texts).lower()
     except Exception as e:
         logger.debug("RapidOCR stamp check failed: %s", e)
+        return ""
+
+
+def _ocr_stamp_region_binarized(stamp_bgr: np.ndarray) -> str:
+    """Run OCR on a binarized (thresholded) version of the stamp region.
+
+    The 1st Edition stamp is dark text/circle on the card background.
+    Binarizing helps OCR read the stamp text more reliably, especially
+    when the background is noisy or low-contrast.
+    """
+    try:
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        engine = get_rapid_engine()
+
+        gray = cv2.cvtColor(stamp_bgr, cv2.COLOR_BGR2GRAY)
+
+        # Adaptive threshold to handle varying background brightness
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 31, 10
+        )
+
+        # Convert back to BGR for OCR engine
+        binary_bgr = cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
+
+        h, w = binary_bgr.shape[:2]
+        scale = max(1, 150 // max(h, 1))
+        if scale > 1:
+            binary_bgr = cv2.resize(binary_bgr, None, fx=scale, fy=scale,
+                                    interpolation=cv2.INTER_CUBIC)
+
+        binary_bgr = cv2.copyMakeBorder(binary_bgr, 20, 20, 20, 20,
+                                        cv2.BORDER_REPLICATE)
+        binary_bgr = cv2.resize(binary_bgr, None, fx=3, fy=3,
+                                interpolation=cv2.INTER_CUBIC)
+
+        result, _ = engine(binary_bgr)
+        if not result:
+            return ""
+
+        texts = []
+        for box, text, conf in result:
+            if text and float(conf) > 0.3:
+                texts.append(text.strip())
+
+        return " ".join(texts).lower()
+    except Exception as e:
+        logger.debug("RapidOCR binarized stamp check failed: %s", e)
         return ""
 
 
@@ -1365,6 +1443,84 @@ def _check_shadowless(img_bgr: np.ndarray) -> tuple[bool | None, float]:
         return True, shadow_conf   # no shadow = Shadowless
 
 
+def _has_1st_edition_text(ocr_text: str) -> tuple[bool, bool]:
+    """Check if OCR text contains "1st" and/or "edition" tokens.
+
+    Applies OCR confusion normalization: "l" -> "1", "|" -> "1".
+    Also checks for fuzzy variants of "edition" that OCR commonly produces:
+      - "eomon", "edmon", "edtion", "editon", "ediion", "ed1t1on", etc.
+
+    Returns:
+        (has_1st, has_edition) booleans.
+    """
+    raw = ocr_text.lower()
+    normalized = _normalize_stamp_ocr(raw)
+
+    # Check for "1st" in both raw and normalized text
+    has_1st = "1st" in raw or "1st" in normalized
+
+    # Check for "edition" - exact match first, then fuzzy variants
+    has_edition = "edition" in raw or "edition" in normalized
+
+    if not has_edition:
+        # Common OCR garbles of "EDITION" (7 chars):
+        # The stamp text is small and often noisy, producing garbled output.
+        # Use Levenshtein-like matching: any 5+ char substring within
+        # edit distance 2 of "edition".
+        import re
+        # Look for words that are close to "edition" (at least 4 chars matching)
+        words = re.findall(r'[a-z0-9]{4,}', normalized)
+        for word in words:
+            if _fuzzy_edition_match(word):
+                has_edition = True
+                break
+
+    return has_1st, has_edition
+
+
+def _fuzzy_edition_match(word: str) -> bool:
+    """Check if a word is a fuzzy match for 'edition'.
+
+    Uses edit distance with OCR confusion awareness.  Common OCR misreads
+    of "EDITION": "eomoh", "eomon", "edmon", "editon", "edtion".
+
+    The approach:
+    1. Check against known garbled patterns (empirically observed).
+    2. Use Levenshtein edit distance <= 3 as the threshold.
+    """
+    target = "edition"
+    if len(word) < 4 or len(word) > 10:
+        return False
+
+    # Known OCR garbles of "EDITION" (empirically observed from stamp OCR)
+    _EDITION_GARBLES = {
+        "eomon", "eomoh", "edmon", "editon", "edtion", "ediion",
+        "ed1t1on", "editi0n", "editio", "editan", "editin",
+        "edltion", "ed1tion", "edrtion", "ednion",
+    }
+    if word in _EDITION_GARBLES:
+        return True
+
+    # Levenshtein edit distance
+    m, n = len(word), len(target)
+    if abs(m - n) > 3:
+        return False
+
+    dp = list(range(n + 1))
+    for i in range(1, m + 1):
+        prev = dp[0]
+        dp[0] = i
+        for j in range(1, n + 1):
+            temp = dp[j]
+            if word[i - 1] == target[j - 1]:
+                dp[j] = prev
+            else:
+                dp[j] = 1 + min(prev, dp[j], dp[j - 1])
+            prev = temp
+
+    return dp[n] <= 3
+
+
 def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
     """Check for 1st Edition stamp using OCR, contour, and HoughCircles.
 
@@ -1372,12 +1528,13 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
     with "EDITION" text below, located on the left side just below artwork.
 
     Detection strategy (multi-signal):
-    1. OCR the wide stamp region with PaddleOCR -- if "1st" or "edition"
-       is found, return True immediately (high confidence).
+    1. OCR the wide stamp region with PaddleOCR -- check for "1st" or
+       "edition" with OCR confusion normalization (l->1, fuzzy "edition").
     2. OCR the tight stamp region (more focused) as a second pass.
-    3. Look for a dark circular blob (contour-based) AND/OR dark circle
+    3. Binarized OCR as a third pass (helps with low-contrast stamps).
+    4. Look for a dark circular blob (contour-based) AND/OR dark circle
        (HoughCircles) plus partial OCR evidence ("1" in text).
-    4. A circle alone (no OCR evidence at all) is NOT sufficient -- too
+    5. A circle alone (no OCR evidence at all) is NOT sufficient -- too
        many false positives from card artwork and shadows.
 
     Returns:
@@ -1385,6 +1542,7 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
         confidence reflects evidence strength:
           - 0.95 if both "1st" AND "edition" found in OCR text
           - 0.85 if only "1st" OR "edition" found
+          - 0.75 if circle + normalized "1st" or "edition" found
           - 0.70 if circle (contour or Hough) + partial "1" digit found
           - 0.0 if not detected
     """
@@ -1394,10 +1552,9 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
     if stamp_region.size == 0:
         return False, 0.0
 
-    # Strategy 1: OCR the wide stamp region
+    # Strategy 1: OCR the wide stamp region (raw + normalized)
     ocr_text = _ocr_stamp_region(stamp_region)
-    has_1st = "1st" in ocr_text
-    has_edition = "edition" in ocr_text
+    has_1st, has_edition = _has_1st_edition_text(ocr_text)
 
     if has_1st and has_edition:
         logger.debug("1st Edition detected via OCR (both tokens): %r", ocr_text)
@@ -1411,8 +1568,7 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
                                   STAMP_TIGHT_X1, STAMP_TIGHT_Y1)
     if stamp_tight.size > 0:
         ocr_tight = _ocr_stamp_region(stamp_tight)
-        has_1st_t = "1st" in ocr_tight
-        has_edition_t = "edition" in ocr_tight
+        has_1st_t, has_edition_t = _has_1st_edition_text(ocr_tight)
 
         if has_1st_t and has_edition_t:
             logger.debug("1st Edition detected via tight OCR (both): %r",
@@ -1428,17 +1584,45 @@ def _check_1st_edition(img_bgr: np.ndarray) -> tuple[bool, float]:
     else:
         combined_ocr = ocr_text
 
-    # Strategy 2: Circle detection + partial OCR evidence ("1" in text)
+    # Strategy 2: Binarized OCR (helps with low-contrast stamps on noisy bg)
+    ocr_bin = _ocr_stamp_region_binarized(stamp_tight if stamp_tight.size > 0
+                                          else stamp_region)
+    if ocr_bin:
+        has_1st_b, has_edition_b = _has_1st_edition_text(ocr_bin)
+        if has_1st_b and has_edition_b:
+            logger.debug("1st Edition detected via binarized OCR (both): %r",
+                         ocr_bin)
+            return True, 0.90
+        if has_1st_b or has_edition_b:
+            logger.debug("1st Edition detected via binarized OCR (one): %r",
+                         ocr_bin)
+            return True, 0.80
+        combined_ocr = combined_ocr + " " + ocr_bin
+
+    # Strategy 3: Circle detection + partial OCR evidence
     has_blob = _has_dark_circular_blob(stamp_region)
     has_hough = _has_dark_circle_hough(stamp_tight if stamp_tight.size > 0
                                        else stamp_region)
     has_circle = has_blob or has_hough
 
-    if has_circle and "1" in combined_ocr:
-        method = "blob" if has_blob else "hough"
-        logger.debug("1st Edition detected via %s + '1' in OCR: %r",
-                     method, combined_ocr)
-        return True, 0.70
+    if has_circle:
+        # Check normalized combined OCR for "1st" or "edition"
+        has_1st_c, has_edition_c = _has_1st_edition_text(combined_ocr)
+
+        if has_1st_c or has_edition_c:
+            method = "blob" if has_blob else "hough"
+            logger.debug("1st Edition detected via %s + normalized OCR: %r",
+                         method, combined_ocr)
+            return True, 0.75
+
+        # Fallback: circle + raw "1" digit in raw OCR text (NOT normalized,
+        # because l->1 normalization creates too many false "1" matches
+        # from random card text like "atrocla" -> "atroc1a").
+        if "1" in combined_ocr:
+            method = "blob" if has_blob else "hough"
+            logger.debug("1st Edition detected via %s + '1' in raw OCR: %r",
+                         method, combined_ocr)
+            return True, 0.70
 
     return False, 0.0
 
@@ -1455,10 +1639,13 @@ def detect_first_edition(image_path: str) -> tuple[bool, float]:
     text box, roughly at x: 5-12%, y: 55-65% of card dimensions.  The stamp
     is approximately 30-40px diameter on a 1008x1530 segment.
 
-    Detection uses three complementary signals:
-      1. PaddleOCR on the stamp region -- looks for "1st" and/or "edition"
-      2. Contour-based dark circular blob detection (circularity >= 0.65)
-      3. HoughCircles dark circle detection (more robust to noise)
+    Detection uses multiple complementary signals with OCR confusion
+    normalization (l->1 substitution, fuzzy "edition" matching):
+      1. PaddleOCR on wide stamp region + confusion normalization
+      2. PaddleOCR on tight stamp region + confusion normalization
+      3. Binarized (thresholded) OCR for low-contrast stamps
+      4. Contour-based dark circular blob + partial OCR evidence
+      5. HoughCircles dark circle + partial OCR evidence
 
     A circle detection alone is NOT sufficient (too many false positives
     from card artwork and shadows).  OCR evidence is always required,
@@ -1472,8 +1659,11 @@ def detect_first_edition(image_path: str) -> tuple[bool, float]:
           - is_first_edition: True if a 1st Edition stamp was detected.
           - confidence: Detection confidence (0.0 to 0.95):
               0.95 -- both "1st" AND "edition" found in OCR
-              0.85 -- only "1st" OR "edition" found in OCR
-              0.70 -- circle detected + partial "1" digit in OCR
+              0.85 -- only "1st" OR "edition" found
+              0.90 -- both found via binarized OCR
+              0.80 -- one found via binarized OCR
+              0.75 -- circle + normalized "1st"/"edition"
+              0.70 -- circle + partial "1" digit in OCR
               0.0  -- not detected
     """
     img = cv2.imread(str(image_path))
@@ -1481,6 +1671,109 @@ def detect_first_edition(image_path: str) -> tuple[bool, float]:
         raise FileNotFoundError(f"Could not read image: {image_path}")
 
     return _check_1st_edition(img)
+
+
+def _stamp_region_is_blank(img_bgr: np.ndarray) -> tuple[bool, float]:
+    """Check if the 1st Edition stamp region is blank (no stamp present).
+
+    Unlimited WotC-era cards have NO stamp in the region where 1st Edition
+    cards have the "1" circle + "EDITION" text.  This function checks if
+    the tight stamp region is relatively uniform (no dark circular features,
+    low contrast, no significant dark blobs).
+
+    Returns:
+        (is_blank, confidence) -- is_blank True means no stamp detected
+        (consistent with Unlimited).  confidence 0.0-0.95.
+    """
+    stamp_tight = _extract_region(img_bgr, STAMP_TIGHT_X0, STAMP_TIGHT_Y0,
+                                  STAMP_TIGHT_X1, STAMP_TIGHT_Y1)
+    if stamp_tight.size == 0:
+        return False, 0.0
+
+    gray = cv2.cvtColor(stamp_tight, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape[:2]
+
+    # Check for dark circular features (which would indicate a stamp)
+    _, dark_mask = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+    dark_ratio = np.count_nonzero(dark_mask) / (h * w)
+
+    # Check contrast (standard deviation of intensity)
+    std_val = gray.std()
+
+    # A blank stamp region has:
+    # - Very few dark pixels (< 5% of area)
+    # - Low contrast (std < 30)
+    # A region with a stamp has:
+    # - Significant dark area (the circle is ~10-20% of tight region)
+    # - Higher contrast (dark circle on lighter background)
+
+    if dark_ratio < 0.05 and std_val < 30:
+        conf = min(0.90, 0.60 + (1.0 - dark_ratio) * 0.20 + (30 - std_val) / 30 * 0.10)
+        logger.debug("Stamp region blank: dark_ratio=%.3f, std=%.1f -> Unlimited (conf=%.2f)",
+                     dark_ratio, std_val, conf)
+        return True, conf
+
+    # Moderate evidence: low dark ratio OR low contrast
+    if dark_ratio < 0.10 and std_val < 40:
+        conf = 0.55
+        logger.debug("Stamp region likely blank: dark_ratio=%.3f, std=%.1f (conf=%.2f)",
+                     dark_ratio, std_val, conf)
+        return True, conf
+
+    logger.debug("Stamp region NOT blank: dark_ratio=%.3f, std=%.1f",
+                 dark_ratio, std_val)
+    return False, 0.0
+
+
+def detect_edition_status(image_path: str) -> dict:
+    """Detect whether a WotC-era card is 1st Edition or Unlimited.
+
+    Combines 1st Edition stamp detection with blank-region detection
+    to provide a definitive edition classification.
+
+    Args:
+        image_path: Path to the card image.
+
+    Returns:
+        Dict with:
+          - "edition": "1st_edition", "unlimited", or "unknown"
+          - "confidence": float 0.0-0.95
+          - "has_stamp": bool -- True if 1st Edition stamp detected
+          - "stamp_blank": bool -- True if stamp region appears blank
+          - "details": str -- human-readable explanation
+    """
+    img = cv2.imread(str(image_path))
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    is_1st, stamp_conf = _check_1st_edition(img)
+    is_blank, blank_conf = _stamp_region_is_blank(img)
+
+    if is_1st:
+        return {
+            "edition": "1st_edition",
+            "confidence": stamp_conf,
+            "has_stamp": True,
+            "stamp_blank": False,
+            "details": f"1st Edition stamp detected (conf={stamp_conf:.2f})",
+        }
+
+    if is_blank:
+        return {
+            "edition": "unlimited",
+            "confidence": blank_conf,
+            "has_stamp": False,
+            "stamp_blank": True,
+            "details": f"No stamp in expected region (conf={blank_conf:.2f})",
+        }
+
+    return {
+        "edition": "unknown",
+        "confidence": 0.0,
+        "has_stamp": False,
+        "stamp_blank": False,
+        "details": "Could not determine edition status",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1617,6 +1910,254 @@ def detect_stamped(image_path: str | Path,
         return False, 0.0
 
     return _check_stamped(img, set_id=set_id)
+
+
+# ---------------------------------------------------------------------------
+# Promo stamp detection
+# ---------------------------------------------------------------------------
+# Promo cards across all eras have a distinctive black star symbol that
+# replaces the normal set symbol.  The star shape has very low "solidity"
+# (ratio of contour area to convex hull area) because the points of the
+# star create concavities.  This is the primary discriminator:
+#
+#   Promo star: solidity ~0.25-0.40, circularity ~0.07-0.18
+#   Normal set symbols: solidity ~0.55-0.99, circularity ~0.10-0.73
+#
+# Position varies by era:
+#   WotC (era 1):        right side, near set symbol area (x:76-98%, y:44-60%)
+#   EX-XY (eras 2-6):   bottom-right corner (x:82-99%, y:91-99%)
+#   SM-SV (eras 7-9):   bottom-left corner (x:2-22%, y:88-97%)
+#
+# For WotC promos, we also look for "PROMO" text via OCR as backup.
+# ---------------------------------------------------------------------------
+
+# Promo card set prefixes across all eras.
+PROMO_SETS = frozenset({
+    "basep",   # WotC Black Star Promos
+    "np",      # Nintendo (EX-era) Black Star Promos
+    "dpp",     # Diamond & Pearl Promos
+    "hsp",     # HGSS Promos
+    "bwp",     # Black & White Promos
+    "xyp",     # XY Promos
+    "smp",     # Sun & Moon Promos
+    "swshp",   # Sword & Shield Promos
+    "svp",     # Scarlet & Violet Promos
+})
+
+# Regions to check for the promo star by position group.
+# Format: (x0, y0, x1, y1) as fractions of card dimensions.
+_PROMO_REGIONS: dict[str, tuple[float, float, float, float]] = {
+    "left":  (0.02, 0.88, 0.22, 0.97),   # SM/SWSH/SV promos
+    "right": (0.82, 0.91, 0.99, 0.99),   # EX/DP/HGSS/BW/XY promos
+    "wotc":  (0.76, 0.44, 0.98, 0.60),   # WotC promos (near set symbol area)
+}
+
+# Era -> which region(s) to check for the promo star.
+_ERA_PROMO_REGION: dict[int, list[str]] = {
+    1: ["wotc"],       # WotC era
+    2: ["right"],      # EX era
+    3: ["right"],      # DP era
+    4: ["right"],      # HGSS era
+    5: ["right"],      # BW era
+    6: ["right"],      # XY era
+    7: ["left"],       # SM era
+    8: ["left"],       # SWSH era
+    9: ["left"],       # SV era
+}
+
+# Solidity threshold: promo stars have very low solidity due to concavities
+# between the star points.  Normal set symbols are much more solid.
+_PROMO_STAR_MAX_SOLIDITY = 0.45
+
+# Area bounds (at 3x upscale) for a promo star contour.
+_PROMO_STAR_MIN_AREA = 80
+_PROMO_STAR_MAX_AREA = 500
+
+# Upscale factor for promo stamp region analysis.
+_PROMO_UPSCALE = 3
+
+# Darkness threshold for binarization when looking for the black star.
+_PROMO_DARK_THRESHOLD = 100
+
+
+def _has_promo_star(region_bgr: np.ndarray) -> tuple[bool, float, dict]:
+    """Check if a region contains a black star shape (promo stamp).
+
+    The promo star has a distinctive shape with low solidity (~0.25-0.40)
+    because the concavities between star points reduce the area relative
+    to the convex hull.  Normal set symbols have solidity > 0.55.
+
+    Args:
+        region_bgr: BGR image of the region to check.
+
+    Returns:
+        (found, confidence, details) where:
+          - found: True if a promo-star-shaped dark blob was detected.
+          - confidence: 0.0-0.95 based on how well the shape matches.
+          - details: dict with "area", "solidity", "circularity" of best match.
+    """
+    if region_bgr.size == 0:
+        return False, 0.0, {}
+
+    # Upscale for better contour detection on small reference images
+    region_up = cv2.resize(region_bgr, None,
+                           fx=_PROMO_UPSCALE, fy=_PROMO_UPSCALE,
+                           interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(region_up, cv2.COLOR_BGR2GRAY)
+    _, dark_mask = cv2.threshold(gray, _PROMO_DARK_THRESHOLD, 255,
+                                 cv2.THRESH_BINARY_INV)
+
+    contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+
+    best_match: tuple[float, float, float, float] | None = None
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area < _PROMO_STAR_MIN_AREA or area > _PROMO_STAR_MAX_AREA:
+            continue
+
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter == 0:
+            continue
+
+        hull = cv2.convexHull(cnt)
+        hull_area = cv2.contourArea(hull)
+        if hull_area == 0:
+            continue
+
+        solidity = area / hull_area
+        circularity = 4 * np.pi * area / (perimeter ** 2)
+
+        if solidity >= _PROMO_STAR_MAX_SOLIDITY:
+            continue  # Too solid -- not a star shape
+
+        # Confidence based on how star-like the shape is:
+        # - Very low solidity (0.25-0.35) = high confidence
+        # - Moderate solidity (0.35-0.45) = lower confidence
+        if solidity < 0.35:
+            conf = 0.90
+        elif solidity < 0.40:
+            conf = 0.80
+        else:
+            conf = 0.65
+
+        if best_match is None or conf > best_match[3]:
+            best_match = (solidity, circularity, area, conf)
+
+    if best_match is not None:
+        sol, circ, area, conf = best_match
+        logger.debug("Promo star detected: solidity=%.3f, circularity=%.3f, "
+                     "area=%.0f, confidence=%.2f", sol, circ, area, conf)
+        return True, conf, {
+            "solidity": round(sol, 3),
+            "circularity": round(circ, 3),
+            "area": round(area, 0),
+        }
+
+    return False, 0.0, {}
+
+
+def _check_promo_stamp(img_bgr: np.ndarray,
+                       era: int = 0,
+                       set_id: str = "") -> tuple[bool, float, str | None]:
+    """Check if a card image has a promo stamp (black star symbol).
+
+    Checks the appropriate region based on era.  When era is unknown (0),
+    checks all possible regions.  For WotC-era promos, also attempts OCR
+    for "PROMO" text as a backup signal.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        era: Era number (1-9).  0 = unknown.
+        set_id: Set prefix (e.g. "svp", "basep").
+
+    Returns:
+        (is_promo, confidence, stamp_position) where:
+          - is_promo: True if promo stamp detected.
+          - confidence: 0.0-0.95.
+          - stamp_position: "left", "right", or "wotc" indicating where the
+            stamp was found.  None if not detected.
+    """
+    # Determine which regions to check
+    if era > 0 and era in _ERA_PROMO_REGION:
+        regions_to_check = _ERA_PROMO_REGION[era]
+    elif set_id in PROMO_SETS:
+        # Infer era from promo set prefix
+        _set_era_map = {
+            "basep": 1, "np": 2, "dpp": 3, "hsp": 4,
+            "bwp": 5, "xyp": 6, "smp": 7, "swshp": 8, "svp": 9,
+        }
+        inferred_era = _set_era_map.get(set_id, 0)
+        regions_to_check = _ERA_PROMO_REGION.get(inferred_era, ["left", "right"])
+    else:
+        # Unknown era/set: check all regions
+        regions_to_check = ["left", "right", "wotc"]
+
+    best_result: tuple[bool, float, str | None] = (False, 0.0, None)
+
+    for region_key in regions_to_check:
+        x0, y0, x1, y1 = _PROMO_REGIONS[region_key]
+        region = _extract_region(img_bgr, x0, y0, x1, y1)
+
+        found, conf, _details = _has_promo_star(region)
+        if found and conf > best_result[1]:
+            best_result = (True, conf, region_key)
+
+    # WotC backup: try OCR for "PROMO" text in the bottom-right area
+    if not best_result[0] and (era == 1 or set_id == "basep" or era == 0):
+        wotc_region = _extract_region(img_bgr, 0.60, 0.82, 0.99, 0.98)
+        ocr_text = _ocr_stamp_region(wotc_region)
+        if "promo" in ocr_text:
+            logger.debug("WotC promo detected via OCR: %r", ocr_text)
+            best_result = (True, 0.85, "wotc")
+
+    return best_result
+
+
+def detect_promo_stamp(image_path: str | Path,
+                       set_id: str | None = None,
+                       era: int = 0) -> dict:
+    """Detect if a card has a promo stamp (black star promo symbol).
+
+    Modern promo cards have a distinctive black star symbol that replaces
+    the normal set symbol.  This function checks for that star shape using
+    contour analysis of dark blobs in the expected stamp region.
+
+    The stamp position varies by era:
+      - WotC (era 1): Mid-right, near set symbol area + "PROMO" text
+      - EX through XY (eras 2-6): Bottom-right corner
+      - SM through SV (eras 7-9): Bottom-left corner
+
+    Args:
+        image_path: Path to the card image.
+        set_id: Optional set prefix (e.g. "svp", "basep").  Helps determine
+            which region to check.
+        era: Era number (1-9).  0 = unknown (checks all regions).
+
+    Returns:
+        Dict with keys:
+          - "is_promo": bool -- True if promo stamp detected.
+          - "confidence": float -- 0.0-0.95.
+          - "stamp_position": "left" | "right" | "wotc" | None -- where the
+            stamp was found relative to the card.
+    """
+    img = cv2.imread(str(image_path))
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {image_path}")
+
+    effective_set = set_id or ""
+    is_promo, conf, position = _check_promo_stamp(img, era=era, set_id=effective_set)
+
+    if is_promo:
+        logger.info("Detected promo stamp for %s (conf=%.2f, position=%s)",
+                    image_path, conf, position)
+
+    return {
+        "is_promo": is_promo,
+        "confidence": round(conf, 2),
+        "stamp_position": position,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1807,11 +2348,12 @@ def detect_variant(image_path: str | Path, era: int = 0,
 
     Returns:
         One of: "normal", "holofoil", "reverse_holofoil", "1st_edition",
-        "full_art", "shadowless", "gold", "rainbow_rare".
+        "promo", "full_art", "shadowless", "gold", "rainbow_rare".
 
     Detection priority:
       1. 1st Edition stamp (highest priority -- overrides all others).
       1b. EX-era stamped reverse holo (ex7-ex16, returns "reverse_holofoil").
+      1c. Promo stamp (black star symbol on promo set cards).
       2. Gold / rainbow rare (era >= 7 only, checked early since gold
          cards also trigger holo/full-art detectors).
       3. Shadowless (base1 only -- right/bottom edge gradient analysis).
@@ -1865,6 +2407,26 @@ def detect_variant(image_path: str | Path, era: int = 0,
                         image_path, stamped_conf)
             # Stamped reverse holos are priced as reverse_holofoil
             return "reverse_holofoil"
+
+    # --- Promo stamp check (all eras) ---
+    # Promo cards have a black star symbol replacing the normal set symbol.
+    # Only check when the card is from a known promo set, or when the set
+    # is unknown (era=0).
+    if set_prefix in PROMO_SETS:
+        promo_detected, promo_conf, promo_pos = _check_promo_stamp(
+            img, era=era, set_id=set_prefix)
+        if promo_detected:
+            logger.info("Detected variant: promo for %s (conf=%.2f, pos=%s)",
+                        image_path, promo_conf, promo_pos)
+            return "promo"
+    elif not set_prefix and era == 0:
+        # Unknown card: check all regions but require high confidence
+        promo_detected, promo_conf, promo_pos = _check_promo_stamp(
+            img, era=0, set_id="")
+        if promo_detected and promo_conf >= 0.85:
+            logger.info("Detected variant: promo for %s (conf=%.2f, pos=%s, "
+                        "unknown card)", image_path, promo_conf, promo_pos)
+            return "promo"
 
     # --- Gold / Rainbow Rare check (era >= 7 only) ---
     # When era is unknown (0), skip gold/rainbow detection entirely.
@@ -2007,6 +2569,18 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     else:
         has_ex_stamp, ex_stamp_conf = False, 0.0
 
+    # Promo stamp check
+    if set_prefix in PROMO_SETS:
+        is_promo, promo_conf, promo_position = _check_promo_stamp(
+            img, era=era, set_id=set_prefix)
+    elif not set_prefix and era == 0:
+        is_promo, promo_conf, promo_position = _check_promo_stamp(
+            img, era=0, set_id="")
+        if is_promo and promo_conf < 0.85:
+            is_promo = False
+    else:
+        is_promo, promo_conf, promo_position = False, 0.0, None
+
     # Gold/rainbow: only when era is known and >= 7
     if era >= GOLD_RAINBOW_MIN_ERA:
         gold_rare_result, gold_conf = _check_gold_rare(img, era)
@@ -2060,11 +2634,13 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     border_sat = _saturation_std(border_region)
 
     # Determine variant using same logic as detect_variant
-    # Priority: 1st Ed > Stamped > Gold/Rainbow > Shadowless > Full Art > Reverse Holo > Holo
+    # Priority: 1st Ed > Stamped > Promo > Gold/Rainbow > Shadowless > Full Art > Reverse Holo > Holo
     if has_stamp:
         variant = "1st_edition"
     elif has_ex_stamp:
         variant = "reverse_holofoil"  # stamped is a sub-type of reverse_holofoil for pricing
+    elif is_promo:
+        variant = "promo"
     elif gold_rare_result is not None:
         variant = gold_rare_result
     elif is_shadowless is True:
@@ -2096,6 +2672,9 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
         "stamp_confidence": round(stamp_conf, 2),
         "has_ex_era_stamp": has_ex_stamp,
         "ex_stamp_confidence": round(ex_stamp_conf, 2),
+        "is_promo": is_promo,
+        "promo_confidence": round(promo_conf, 2),
+        "promo_position": promo_position,
         "is_full_art": is_full_art,
         "is_reverse_holo": is_reverse_holo,
         "gold_rare_result": gold_rare_result,
