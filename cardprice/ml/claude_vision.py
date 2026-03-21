@@ -726,3 +726,164 @@ def match_multi_step_to_db(
 
     # Fall back to name+number matching
     return match_vision_to_db(vision_result, session=session)
+
+
+# ---------------------------------------------------------------------------
+# Claude vision fallback for unidentified cards
+# ---------------------------------------------------------------------------
+
+_FALLBACK_PROMPT = (
+    "What Pokemon card is this? Look carefully at all text on the card.\n"
+    "If the text is in Japanese, Korean, Chinese, French, German, or any "
+    "other language, translate the Pokemon name to English.\n"
+    "Return ONLY valid JSON (no markdown fences, no extra text):\n"
+    '{{"pokemon_name": "English name of the Pokemon", '
+    '"card_name": "full card name including suffixes like ex, V, Dark, etc.", '
+    '"set_name": "set name if identifiable", '
+    '"card_number": "collector number like 41/115 from bottom of card", '
+    '"language": "language of the card text", '
+    '"hp": null, '
+    '"confidence": 0.0}}'
+)
+
+
+def identify_card_vision_fallback(
+    image_path: str | Path,
+    session=None,
+    model: str = "claude-haiku-4-5",
+    timeout_s: int = 30,
+) -> dict:
+    """Last-resort identification: send card image to Claude API for visual ID.
+
+    Unlike identify_card_vision() which uses the Claude CLI, this uses the
+    Anthropic Python SDK directly (like claude_scanner.py) for speed and
+    reliability.  It's designed as a fallback for cards that the ML pipeline
+    couldn't identify (e.g. Japanese text that RapidOCR can't read).
+
+    Args:
+        image_path: Path to the card segment image.
+        session: Optional SQLAlchemy session for DB matching.
+        model: Anthropic model (default haiku for cost).
+        timeout_s: API timeout in seconds.
+
+    Returns:
+        Dict with keys: card_id, confidence, method, explanation, raw_response.
+        Same format as identify_card_v2() results.
+    """
+    image_path = Path(image_path).resolve()
+    result_template = {
+        "card_id": None,
+        "confidence": 0.0,
+        "method": "unidentified",
+        "explanation": "Claude vision fallback: failed",
+        "raw_response": {},
+    }
+
+    if not image_path.exists():
+        logger.error("Vision fallback: image not found: %s", image_path)
+        return result_template
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        logger.warning("Vision fallback: ANTHROPIC_API_KEY not set, skipping")
+        result_template["explanation"] = "Claude vision fallback: no API key"
+        return result_template
+
+    # Load and encode image
+    try:
+        import mimetypes
+        media_type, _ = mimetypes.guess_type(str(image_path))
+        if media_type is None:
+            media_type = "image/jpeg"
+        import base64
+        image_b64 = base64.standard_b64encode(image_path.read_bytes()).decode("ascii")
+    except Exception as e:
+        logger.error("Vision fallback: failed to load image %s: %s", image_path, e)
+        return result_template
+
+    # Call Claude API
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        t0 = time.time()
+        message = client.messages.create(
+            model=model,
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": image_b64,
+                        },
+                    },
+                    {"type": "text", "text": _FALLBACK_PROMPT},
+                ],
+            }],
+        )
+        elapsed = time.time() - t0
+        response_text = message.content[0].text
+        logger.info("Vision fallback: API response in %.1fs for %s",
+                     elapsed, image_path.name)
+    except Exception as e:
+        logger.error("Vision fallback: API call failed for %s: %s",
+                     image_path.name, e)
+        result_template["explanation"] = f"Claude vision fallback: API error: {e}"
+        return result_template
+
+    # Parse response
+    vision_result = _parse_claude_json(response_text)
+    if not vision_result:
+        logger.warning("Vision fallback: unparseable response for %s: %s",
+                       image_path.name, response_text[:200])
+        result_template["explanation"] = "Claude vision fallback: unparseable response"
+        result_template["raw_response"] = {"raw_text": response_text[:500]}
+        return result_template
+
+    pokemon_name = vision_result.get("pokemon_name")
+    if not pokemon_name or len(pokemon_name) < 2:
+        logger.warning("Vision fallback: no pokemon_name in response for %s",
+                       image_path.name)
+        result_template["explanation"] = "Claude vision fallback: no name in response"
+        result_template["raw_response"] = vision_result
+        return result_template
+
+    # Match to database
+    card_id, match_conf = match_vision_to_db(vision_result, session=session)
+
+    if card_id:
+        logger.info(
+            "Vision fallback: matched %s -> %s (conf=%.2f) for %s",
+            pokemon_name, card_id, match_conf, image_path.name,
+        )
+        return {
+            "card_id": card_id,
+            "confidence": match_conf,
+            "method": "claude_vision_fallback",
+            "explanation": (
+                f"Claude vision fallback: identified as {pokemon_name!r} "
+                f"(lang={vision_result.get('language', '?')}), "
+                f"matched to {card_id} with confidence {match_conf:.2f}"
+            ),
+            "raw_response": vision_result,
+        }
+
+    # Vision identified the card but DB match failed
+    logger.warning(
+        "Vision fallback: identified %s but no DB match for %s",
+        pokemon_name, image_path.name,
+    )
+    return {
+        "card_id": None,
+        "confidence": 0.0,
+        "method": "claude_vision_fallback_no_match",
+        "explanation": (
+            f"Claude vision fallback: identified as {pokemon_name!r} "
+            f"(number={vision_result.get('card_number')}, "
+            f"set={vision_result.get('set_name')}) but no DB match"
+        ),
+        "raw_response": vision_result,
+    }

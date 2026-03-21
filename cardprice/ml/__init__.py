@@ -2631,6 +2631,49 @@ def _run_name_and_hp(image_path: str) -> tuple:
     return None, 0.0, None, None
 
 
+def _ocr_card_number(image_path: str) -> tuple:
+    """Read the card number from the bottom of a card image.
+
+    Pokemon cards print their collector number (e.g. "205/165") in small
+    text at the bottom-left.  We crop the bottom 15%, upscale 3x, and
+    run RapidOCR to find a "N/M" pattern.
+
+    Returns:
+        (card_number, set_total) — e.g. ("205", "165"), or (None, None).
+    """
+    import cv2
+    import re
+
+    try:
+        img = cv2.imread(str(image_path))
+        if img is None:
+            return None, None
+
+        h, w = img.shape[:2]
+        bottom = img[int(h * 0.85):, :]
+        up = cv2.resize(bottom, None, fx=3, fy=3)
+
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        rapid_engine = get_rapid_engine()
+        result, _ = rapid_engine(up)
+        if not result:
+            return None, None
+
+        for box, text, conf in result:
+            m = re.search(r'(\d{1,4})\s*/\s*(\d{1,4})', text)
+            if m:
+                card_num = m.group(1).lstrip('0') or '0'
+                set_total = m.group(2).lstrip('0') or '0'
+                logger.info("card_number OCR: found %s/%s (raw=%r, conf=%.2f)",
+                            card_num, set_total, text, conf)
+                return card_num, set_total
+
+    except Exception as e:
+        logger.warning("card_number OCR failed: %s", e)
+
+    return None, None
+
+
 def _paddle_ocr_name_and_hp(image_path: str):
     """Single PaddleOCR pass on top 25% of card to extract name + HP.
 
@@ -3893,7 +3936,7 @@ def _is_card_back(image_path: str) -> bool:
 def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=None,
                      _precomputed_dino_embedding=None, _precomputed_attacks=None,
                      _precomputed_clip_embedding=None, _precomputed_easyocr_name=None,
-                     detect_variants=True):
+                     detect_variants=True, use_claude_vision_fallback=False):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -3908,6 +3951,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         4. If candidates > 3: also run attack_ocr, filter by attack match,
            then DINOv2
         5. If no candidates (OCR failed): fall back to ensemble method
+        6. If still unidentified and use_claude_vision_fallback=True,
+           send the card image to Claude vision API
 
     Args:
         image_path: Path to the card image.
@@ -3923,6 +3968,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             When provided, skips EasyOCR attack extraction.
         detect_variants: Whether to run variant detection after identification
             (default True).  Set False to skip variant classification entirely.
+        use_claude_vision_fallback: If True and the card remains unidentified
+            after all ML steps, send the image to Claude vision API as a last
+            resort. Costs API credits. Default False.
 
     Returns:
         Dict with keys: card_id, confidence, method, explanation, raw_response.
@@ -4095,9 +4143,24 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 if best_rot_path and os.path.exists(best_rot_path):
                     os.unlink(best_rot_path)
 
+    # -----------------------------------------------------------------------
+    # Step 1c: Card number OCR — read collector number from bottom of card
+    # -----------------------------------------------------------------------
+    ocr_card_num = None
+    ocr_set_total = None
+    if not _precomputed_ocr:
+        try:
+            ocr_card_num, ocr_set_total = _ocr_card_number(image_path)
+        except Exception as e:
+            logger.warning("v2 step1c: card_number OCR error: %s", e)
+    else:
+        ocr_card_num = _precomputed_ocr.get("ocr_card_num")
+        ocr_set_total = _precomputed_ocr.get("ocr_set_total")
+
     logger.info(
-        "v2 step1: name=%r (conf=%.2f), hp=%s, color=%s (conf=%.2f)",
+        "v2 step1: name=%r (conf=%.2f), hp=%s, color=%s (conf=%.2f), card_num=%s/%s",
         ocr_name, ocr_conf, hp_value, color_type, color_conf,
+        ocr_card_num, ocr_set_total,
     )
 
     # -----------------------------------------------------------------------
@@ -4121,6 +4184,84 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             "v2 step2: %d candidates for name=%r, hp=%s (type=%s for scoring only)",
             len(candidates), ocr_name, hp_value, use_type,
         )
+
+    # -----------------------------------------------------------------------
+    # Step 2b: Card number disambiguation — if we read a collector number,
+    # filter candidates to those matching the card_number in the DB.
+    # This directly resolves variant confusion (e.g., Mew ex 205/165 vs
+    # 151/165 vs 193/165).
+    # -----------------------------------------------------------------------
+    card_num_match = None
+    if ocr_card_num and candidates and len(candidates) >= 2:
+        try:
+            from sqlalchemy import text as sa_text
+            from cardprice.ml.ref_matcher import _get_session
+            _sess = session or _get_session()
+            rows = _sess.execute(
+                sa_text(
+                    "SELECT card_id FROM dim_cards "
+                    "WHERE LTRIM(card_number, '0') = :num"
+                ),
+                {"num": ocr_card_num},
+            ).fetchall()
+            num_card_ids = {r[0] for r in rows}
+            if not session:
+                _sess.close()
+
+            # Intersect with current candidates
+            num_matched = [c for c in candidates if c in num_card_ids]
+            if len(num_matched) == 1:
+                # Unique match — card number + name uniquely identifies
+                card_num_match = num_matched[0]
+                logger.info(
+                    "v2 step2b: card_number %s uniquely matches %s among %d candidates",
+                    ocr_card_num, card_num_match, len(candidates),
+                )
+            elif len(num_matched) >= 2:
+                # Multiple matches (rare) — narrow candidates
+                logger.info(
+                    "v2 step2b: card_number %s matches %d candidates: %s",
+                    ocr_card_num, len(num_matched), num_matched,
+                )
+                candidates = num_matched
+            else:
+                logger.info(
+                    "v2 step2b: card_number %s matched no current candidates "
+                    "(DB has %d cards with that number)",
+                    ocr_card_num, len(num_card_ids),
+                )
+        except Exception as e:
+            logger.warning("v2 step2b: card_number DB lookup failed: %s", e)
+
+    # If card number uniquely identified the card, return immediately
+    if card_num_match:
+        dino_check = _dino_dot_product_against_refs(
+            image_path, [card_num_match],
+            query_embedding=_precomputed_dino_embedding,
+        )
+        dino_score = dino_check[0][1] if dino_check else 0.0
+        explanation = (
+            f"v2: card_number OCR={ocr_card_num}/{ocr_set_total} -> "
+            f"{card_num_match} (name={ocr_name!r}, hp={hp_value}, "
+            f"dino={dino_score:.3f})"
+        )
+        result = {
+            "card_id": card_num_match,
+            "confidence": max(ocr_conf, 0.85),
+            "method": "v2_card_number",
+            "explanation": explanation,
+            "raw_response": {
+                "ocr_name": ocr_name, "ocr_confidence": ocr_conf,
+                "hp": hp_value, "color_type": color_type,
+                "color_confidence": color_conf,
+                "card_number": ocr_card_num, "set_total": ocr_set_total,
+                "n_candidates_before": len(candidates),
+                "dino_sanity": dino_score,
+            },
+        }
+        _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+        _cache_store(cache_key, result)
+        return result
 
     # -----------------------------------------------------------------------
     # Step 3/4: Combined DINOv2 + attack scoring for candidate disambiguation
@@ -4459,6 +4600,34 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     fallback["raw_response"] = raw
 
     _apply_variant_detection(fallback, image_path, detect_variants=detect_variants)
+
+    # -----------------------------------------------------------------------
+    # Step 7: Claude vision fallback (optional, last resort)
+    # -----------------------------------------------------------------------
+    if (use_claude_vision_fallback
+            and fallback.get("method") == "unidentified"):
+        logger.info("v2 step7: trying Claude vision fallback for %s", image_path)
+        try:
+            from cardprice.ml.claude_vision import identify_card_vision_fallback
+            vision_result = identify_card_vision_fallback(
+                image_path, session=session,
+            )
+            if vision_result.get("card_id"):
+                logger.info(
+                    "v2 step7: Claude vision identified %s -> %s (conf=%.2f)",
+                    image_path, vision_result["card_id"],
+                    vision_result["confidence"],
+                )
+                _apply_variant_detection(
+                    vision_result, image_path,
+                    detect_variants=detect_variants,
+                )
+                _cache_store(cache_key, vision_result)
+                return vision_result
+            logger.info("v2 step7: Claude vision did not identify %s", image_path)
+        except Exception as e:
+            logger.error("v2 step7: Claude vision fallback failed: %s", e)
+
     _cache_store(cache_key, fallback)
     return fallback
 
@@ -4487,7 +4656,8 @@ def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None)
         }
 
 
-def identify_page_v2(card_image_paths, session=None):
+def identify_page_v2(card_image_paths, session=None,
+                     use_claude_vision_fallback=False):
     """V2 page identification: runs identify_card_v2 on each card, then
     applies page context reranking for low-confidence results.
 
@@ -4496,10 +4666,14 @@ def identify_page_v2(card_image_paths, session=None):
         2. Build page context from high-confidence results (set/era inference).
         3. For low-confidence cards, re-run with page context boosting
            candidates from the inferred set.
+        4. (Optional) For still-unidentified cards, use Claude vision API
+           as a last resort (e.g. for Japanese cards that RapidOCR can't read).
 
     Args:
         card_image_paths: List of paths to individual card segment images.
         session: Optional SQLAlchemy DB session.
+        use_claude_vision_fallback: If True, send unidentified cards to Claude
+            vision API for identification. Costs API credits. Default False.
 
     Returns:
         List of result dicts (same format as identify_card_v2), one per card.
@@ -4724,18 +4898,16 @@ def identify_page_v2(card_image_paths, session=None):
         # in case a "Team X's Pokemon" variant scores higher on DINOv2.
         # Only skip broad search for very high confidence (>= 0.80).
         current_set = _extract_set_from_card_id(result.get("card_id"))
-        skip_broad_search = False
         if current_set in loo_sets and result["confidence"] >= 0.80:
             result["confidence"] = min(result["confidence"] + 0.05, 1.0)
             result["explanation"] = (
                 (result.get("explanation") or "") + " (page context confirms set)"
             )
             continue
-        if current_set in loo_sets:
-            # Current set matches page context but confidence is moderate.
-            # Still try broad search, but require a higher DINOv2 margin
-            # to overturn (the card might already be correct).
-            skip_broad_search = False  # explicit for clarity
+        # If current set matches but confidence is moderate (< 0.80),
+        # fall through to broad search. The card might be from the right
+        # era but wrong variant (e.g. "Mightyena" from ex8 when the
+        # correct answer is "Team Aqua's Mightyena" from ex4).
 
         # Collect best candidate from combined_results that's in a page set
         best_combined_cid = None
@@ -4886,6 +5058,60 @@ def identify_page_v2(card_image_paths, session=None):
                     "identify_page_v2 pass3: card %d improved %s -> %s (era=%s)",
                     i, old_cid, rerun.get("card_id"), loo_era,
                 )
+
+    # -----------------------------------------------------------------------
+    # Pass 4: Claude vision fallback for unidentified cards
+    # Only runs when use_claude_vision_fallback=True. Sends card images to
+    # Claude API for visual identification — handles Japanese, foreign text,
+    # and other cases where OCR fails completely.
+    # -----------------------------------------------------------------------
+    # Also check env var so it can be enabled without code changes
+    _vision_fallback_enabled = (
+        use_claude_vision_fallback
+        or os.environ.get("CARDPRICE_CLAUDE_VISION_FALLBACK", "").lower()
+        in ("1", "true", "yes")
+    )
+    if _vision_fallback_enabled:
+        unidentified_indices = [
+            i for i, r in enumerate(results)
+            if r and r.get("method") == "unidentified"
+        ]
+        if unidentified_indices:
+            logger.info(
+                "identify_page_v2 pass4: running Claude vision fallback for "
+                "%d unidentified card(s): %s",
+                len(unidentified_indices), unidentified_indices,
+            )
+            from cardprice.ml.claude_vision import identify_card_vision_fallback
+
+            for i in unidentified_indices:
+                try:
+                    vision_result = identify_card_vision_fallback(
+                        str(card_image_paths[i]),
+                        session=session,
+                    )
+                    if vision_result.get("card_id"):
+                        old_method = results[i].get("method")
+                        old_conf = results[i].get("confidence", 0)
+                        results[i] = vision_result
+                        logger.info(
+                            "identify_page_v2 pass4: card %d identified via "
+                            "Claude vision: %s (conf=%.2f, was %s/%.2f)",
+                            i, vision_result["card_id"],
+                            vision_result["confidence"],
+                            old_method, old_conf,
+                        )
+                    else:
+                        logger.info(
+                            "identify_page_v2 pass4: card %d still unidentified "
+                            "after Claude vision (%s)",
+                            i, vision_result.get("explanation", ""),
+                        )
+                except Exception as e:
+                    logger.error(
+                        "identify_page_v2 pass4: Claude vision failed for "
+                        "card %d: %s", i, e,
+                    )
 
     # Summary logging
     methods = [r.get("method", "?") for r in results if r]
