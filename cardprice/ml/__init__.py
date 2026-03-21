@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Thread lock for OCR engines (PaddleOCR/EasyOCR are not thread-safe)
 _ocr_lock = threading.Lock()
 _jp_easyocr_reader = None  # Cached Japanese EasyOCR reader (slow to init)
+_paddle_ja = None  # Cached PaddleOCR Japanese engine (lazy-loaded)
 
 # Thread lock for GPU operations (DINOv2/CLIP forward passes)
 
@@ -64,45 +65,150 @@ def _load_translation_names() -> dict[str, str]:
 
     Maps translated Pokemon names (French, German, etc.) to their English
     equivalents so OCR-read foreign names can be resolved.
+
+    Sources:
+    1. card_translations.json — per-card translations from TCGdex (works well for
+       European languages; JA/zh-tw have different set IDs so few match).
+    2. pokemon_species_names.json — per-species translations from PokeAPI CSV data.
+       Provides 1025 species names per language. Essential for Japanese/Chinese/Korean.
+    3. Japanese TCG prefix mapping (わるい→Dark, ひかる→Shining, etc.) combined with
+       species names to generate compound card names like "Dark Electrode".
     """
     global _translation_names_cache
     if _translation_names_cache is not None:
         return _translation_names_cache
 
     import json
-    trans_path = Path(__file__).resolve().parent.parent.parent / "data" / "card_translations.json"
-    names_path = Path(__file__).resolve().parent.parent.parent / "data" / "card_names.json"
+    data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    trans_path = data_dir / "card_translations.json"
+    names_path = data_dir / "card_names.json"
+    species_path = data_dir / "pokemon_species_names.json"
 
     result: dict[str, str] = {}
-    if not trans_path.exists():
-        _translation_names_cache = result
-        return result
 
-    # Build card_id -> english_name from card_names.json
-    id_to_eng: dict[str, str] = {}
-    if names_path.exists():
-        with open(names_path) as f:
-            for row in json.load(f):
-                id_to_eng[row[0]] = row[1]
+    # --- Source 1: TCGdex per-card translations ---
+    if trans_path.exists():
+        # Build card_id -> english_name from card_names.json
+        id_to_eng: dict[str, str] = {}
+        if names_path.exists():
+            with open(names_path) as f:
+                for row in json.load(f):
+                    id_to_eng[row[0]] = row[1]
 
-    with open(trans_path) as f:
-        trans_data = json.load(f)
+        with open(trans_path) as f:
+            trans_data = json.load(f)
 
-    for lang, cards in trans_data.items():
-        for cid, tname in cards.items():
-            tname_lower = tname.lower().strip()
-            if tname_lower in result:
-                continue  # already mapped
-            # Find English name for this card ID
-            eng = id_to_eng.get(cid)
-            if not eng:
-                # Try with /normal suffix
-                eng = id_to_eng.get(f"{cid}/normal")
-            if eng:
-                result[tname_lower] = eng
+        for lang, cards in trans_data.items():
+            for cid, tname in cards.items():
+                tname_lower = tname.lower().strip()
+                if tname_lower in result:
+                    continue  # already mapped
+                # Find English name for this card ID
+                eng = id_to_eng.get(cid)
+                if not eng:
+                    # Try with /normal suffix
+                    eng = id_to_eng.get(f"{cid}/normal")
+                if eng:
+                    result[tname_lower] = eng
+
+        logger.info("Loaded %d translation names from TCGdex", len(result))
+
+    # --- Source 2: PokeAPI species names ---
+    if species_path.exists():
+        with open(species_path) as f:
+            species_data = json.load(f)
+
+        species_count = 0
+        for lang, mapping in species_data.items():
+            for foreign_lower, eng_name in mapping.items():
+                if foreign_lower not in result:
+                    result[foreign_lower] = eng_name
+                    species_count += 1
+
+        logger.info("Added %d species translation names from PokeAPI", species_count)
+
+    # --- Source 3: Japanese TCG prefix combinations ---
+    # Japanese TCG cards use prefixes like わるい (Dark), ひかる (Shining) etc.
+    # Combined with species names, these produce card names like わるいマルマイン → Dark Electrode
+    _JA_TCG_PREFIXES = {
+        "わるい": "Dark",          # Team Rocket dark Pokemon
+        "やさしい": "Light",       # Neo Destiny light Pokemon
+        "ひかる": "Shining",       # Neo shining Pokemon
+        "かがやく": "Radiant",     # SWSH/SV radiant Pokemon
+        "かりんの": "Karen's",
+        "マチスの": "Lt. Surge's",
+        "カスミの": "Misty's",
+        "タケシの": "Brock's",
+        "エリカの": "Erika's",
+        "ナツメの": "Sabrina's",
+        "キョウの": "Koga's",
+        "カツラの": "Blaine's",
+        "サカキの": "Giovanni's",
+    }
+    # --- Source 4: Japanese/Korean suffix combinations ---
+    # Modern TCG cards use suffixes: ex, EX, V, VMAX, VSTAR, GX etc.
+    # Japanese cards append these directly: ギャラドスex, ピカチュウV
+    # Korean cards do the same: 갸라도스ex, 피카츄V
+    _TCG_SUFFIXES = {
+        "ex": " ex",           # SV-era lowercase ex
+        "EX": "-EX",           # XY/BW-era uppercase EX
+        "V": " V",             # SWSH-era V
+        "VMAX": " VMAX",       # SWSH-era VMAX
+        "VSTAR": " VSTAR",     # SWSH-era VSTAR
+        "GX": "-GX",           # SM-era GX
+        "δ": " δ",             # EX-era delta species
+    }
+
+    if species_path.exists():
+        ja_species = species_data.get("ja", {})
+        ko_species = species_data.get("ko", {})
+        zhtw_species = species_data.get("zh-tw", {})
+        zhcn_species = species_data.get("zh-cn", {})
+
+        # JA prefix combinations (Dark, Light, Gym Leaders, etc.)
+        prefix_count = 0
+        for ja_prefix, en_prefix in _JA_TCG_PREFIXES.items():
+            for ja_name, en_name in ja_species.items():
+                compound_ja = f"{ja_prefix}{ja_name}"
+                compound_en = f"{en_prefix} {en_name}"
+                if compound_ja not in result:
+                    result[compound_ja] = compound_en
+                    prefix_count += 1
+        logger.info("Added %d JA prefix combinations", prefix_count)
+
+        # JA, KO, and ZH suffix combinations (ex, V, VMAX, VSTAR, GX, EX)
+        suffix_count = 0
+        for lang_code, lang_species in [
+            ("ja", ja_species), ("ko", ko_species),
+            ("zh-tw", zhtw_species), ("zh-cn", zhcn_species),
+        ]:
+            for suffix_foreign, suffix_en in _TCG_SUFFIXES.items():
+                for foreign_name, en_name in lang_species.items():
+                    compound = f"{foreign_name}{suffix_foreign}"
+                    compound_en = f"{en_name}{suffix_en}"
+                    if compound not in result:
+                        result[compound] = compound_en
+                        suffix_count += 1
+        logger.info("Added %d JA/KO/ZH suffix combinations", suffix_count)
+
+        # KO prefix combinations (Korean Gym Leaders, Dark, Light, etc.)
+        _KO_TCG_PREFIXES = {
+            "다크 ": "Dark",           # Dark Pokemon
+            "라이트 ": "Light",        # Light Pokemon
+            "빛나는 ": "Shining",      # Shining Pokemon
+        }
+        ko_prefix_count = 0
+        for ko_prefix, en_prefix in _KO_TCG_PREFIXES.items():
+            for ko_name, en_name in ko_species.items():
+                compound_ko = f"{ko_prefix}{ko_name}"
+                compound_en = f"{en_prefix} {en_name}"
+                if compound_ko not in result:
+                    result[compound_ko] = compound_en
+                    ko_prefix_count += 1
+        logger.info("Added %d KO prefix combinations", ko_prefix_count)
 
     _translation_names_cache = result
-    logger.info("Loaded %d translation names", len(result))
+    logger.info("Total translation names: %d", len(result))
     return result
 
 
@@ -3175,56 +3281,169 @@ def _run_name_ocr(image_path: str) -> tuple:
     return None, 0.0, None
 
 
-def _try_japanese_ocr(image_path: str) -> str | None:
-    """Try Japanese OCR on the name region, return English name if found."""
+def _get_paddle_ja():
+    """Lazy-load PaddleOCR Japanese engine (singleton)."""
+    global _paddle_ja
+    if _paddle_ja is not None:
+        return _paddle_ja
+    import os as _os
+    _os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+    from paddleocr import PaddleOCR
+    _paddle_ja = PaddleOCR(lang='japan', use_textline_orientation=True)
+    return _paddle_ja
+
+
+# Cached reverse index: {japanese_lower: english_name} built from translation names
+_ja_reverse_index: dict[str, str] | None = None
+
+
+def _get_ja_reverse_index() -> dict[str, str]:
+    """Build/return a reverse index mapping Japanese text -> English card name.
+
+    Sources:
+    - _load_translation_names() already contains Japanese compound names
+      (e.g. わるいマルマイン -> Dark Electrode) from the prefix mapping plus
+      species names.  We filter to entries containing Japanese characters.
+    - jp_en_pokemon_names.json for direct species-level mappings.
+    """
+    global _ja_reverse_index
+    if _ja_reverse_index is not None:
+        return _ja_reverse_index
+
     import json
     import re
+    JP_CHAR_RE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]')
+
+    result: dict[str, str] = {}
+
+    # Source 1: translation names (includes わるいマルマイン etc.)
+    for foreign_lower, eng_name in _load_translation_names().items():
+        if JP_CHAR_RE.search(foreign_lower):
+            result[foreign_lower] = eng_name
+
+    # Source 2: jp_en_pokemon_names.json (species-level)
+    jp_map_path = Path(__file__).resolve().parent.parent.parent / "data" / "jp_en_pokemon_names.json"
+    if jp_map_path.exists():
+        with open(jp_map_path) as f:
+            for ja_name, en_name in json.load(f).items():
+                ja_lower = ja_name.lower()
+                if ja_lower not in result:
+                    result[ja_lower] = en_name
+
+    logger.info("Japanese reverse index: %d entries", len(result))
+    _ja_reverse_index = result
+    return result
+
+
+def _try_japanese_ocr(image_path: str) -> str | None:
+    """Try PaddleOCR Japanese on the name region, return English name if found.
+
+    Uses PaddleOCR (lang='japan') on multiple crops of the top portion of the
+    card.  Extracted Japanese text is fuzzy-matched against the reverse index
+    of Japanese -> English card names (species names + compound names like
+    わるいマルマイン -> Dark Electrode).
+
+    Only called when primary (RapidOCR) returns nothing, so no performance
+    impact on English cards.
+    """
+    import re
     import cv2
+    from rapidfuzz import fuzz, process
 
     JP_CHAR_RE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+')
 
-    # Load JP→EN mapping
-    jp_map_path = Path(__file__).resolve().parent.parent.parent / "data" / "jp_en_pokemon_names.json"
-    if not jp_map_path.exists():
-        return None
-    with open(jp_map_path) as f:
-        jp_en_map = json.load(f)
-
-    # Crop name region (top 15% of card)
     img = cv2.imread(str(image_path))
     if img is None:
         return None
     h, w = img.shape[:2]
-    name_crop = img[0:int(h * 0.15), :]
 
-    # Save temp crop for EasyOCR
-    tmp_path = tempfile.mktemp(suffix='.png')
-    try:
-        cv2.imwrite(tmp_path, name_crop)
+    ja_index = _get_ja_reverse_index()
+    if not ja_index:
+        return None
 
-        # Try EasyOCR with Japanese (cached reader to avoid 5-10s init)
-        import easyocr
-        global _jp_easyocr_reader
-        if _jp_easyocr_reader is None:
-            _jp_easyocr_reader = easyocr.Reader(['ja', 'en'], gpu=True, verbose=False)
-        reader = _jp_easyocr_reader
-        results = reader.readtext(tmp_path, detail=1, batch_size=8)
+    # Build choices list for fuzzy matching
+    ja_names = list(ja_index.keys())
 
-        for _bbox, text, conf in results:
-            # Check for Japanese characters
-            jp_matches = JP_CHAR_RE.findall(text)
-            for jp_text in jp_matches:
-                # Clean common OCR artifacts
-                jp_clean = jp_text.rstrip('・。、')
-                if jp_clean in jp_en_map:
-                    en_name = jp_en_map[jp_clean]
-                    logger.info("Japanese OCR: '%s' -> '%s' (conf=%.3f)", jp_clean, en_name, conf)
-                    return en_name
-    finally:
+    ocr = _get_paddle_ja()
+
+    # Try multiple crops to maximize chance of reading the full name
+    crop_specs = [
+        (0.00, 0.25, "top25"),   # broadest — may include HP etc.
+        (0.00, 0.15, "top15"),   # tighter — name only
+        (0.02, 0.20, "skip2"),   # skip edge bleed
+    ]
+
+    best_en_name = None
+    best_score = 0.0
+    best_ja_text = ""
+
+    for top_frac, bot_frac, label in crop_specs:
+        crop = img[int(h * top_frac):int(h * bot_frac), :]
+        # Pad edges so text isn't at the very border
+        pad = 20
+        crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+        # Upscale 3x for better OCR
+        crop = cv2.resize(crop, None, fx=3, fy=3)
+
+        # Write to temp file for PaddleOCR
+        tmp_path = tempfile.mktemp(suffix='.png')
         try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+            cv2.imwrite(tmp_path, crop)
+            results = ocr.predict(tmp_path)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        if not results:
+            continue
+
+        for r in results:
+            texts = r.get('rec_texts', [])
+            scores = r.get('rec_scores', [])
+            for text, conf in zip(texts, scores):
+                if conf < 0.5:
+                    continue
+                # Extract Japanese character runs
+                jp_matches = JP_CHAR_RE.findall(text)
+                for jp_text in jp_matches:
+                    # Clean common OCR artifacts
+                    jp_clean = jp_text.rstrip('・。、')
+                    if len(jp_clean) < 2:
+                        continue
+
+                    jp_lower = jp_clean.lower()
+
+                    # Exact match first
+                    if jp_lower in ja_index:
+                        en_name = ja_index[jp_lower]
+                        logger.info("Japanese PaddleOCR exact: '%s' -> '%s' (conf=%.3f, crop=%s)",
+                                    jp_clean, en_name, conf, label)
+                        return en_name
+
+                    # Fuzzy match — handles partial reads like るいマルマイン
+                    match = process.extractOne(
+                        jp_lower, ja_names,
+                        scorer=fuzz.ratio,
+                        score_cutoff=70,
+                    )
+                    if match and match[1] > best_score:
+                        best_score = match[1]
+                        best_en_name = ja_index[match[0]]
+                        best_ja_text = jp_clean
+                        logger.debug("Japanese PaddleOCR fuzzy candidate: '%s' ~ '%s' -> '%s' (score=%.1f, conf=%.3f, crop=%s)",
+                                     jp_clean, match[0], best_en_name, match[1], conf, label)
+
+        # If we found an exact match already (returned above), great.
+        # If we have a strong fuzzy match, don't try more crops.
+        if best_score >= 85:
+            break
+
+    if best_en_name and best_score >= 70:
+        logger.info("Japanese PaddleOCR fuzzy: '%s' -> '%s' (score=%.1f)",
+                    best_ja_text, best_en_name, best_score)
+        return best_en_name
 
     return None
 
