@@ -418,6 +418,20 @@ input[type=file] { display: none; }
     padding: 8px;
 }
 
+/* Variant colored borders on scanned card images */
+.binder-img-col .img-wrap.variant-1st-edition { border: 3px solid #DAA520; }
+.binder-img-col .img-wrap.variant-shadowless { border: 3px solid #C0C0C0; }
+.binder-img-col .img-wrap.variant-reverse-holo { border: 2px solid #3498db; }
+.binder-img-col .img-wrap.variant-stamped { border: 3px solid #9b59b6; }
+.binder-img-col .img-wrap.variant-promo { border: 3px solid #2c3e50; }
+.binder-img-col .img-wrap.variant-prerelease { border: 2px solid #1abc9c; }
+.binder-img-col .img-wrap.variant-staff { border: 3px solid #DAA520; background: linear-gradient(135deg, #DAA520, #f5d76e, #DAA520); }
+.binder-img-col .img-wrap.variant-pokemon-center { border: 2px solid #e74c3c; }
+.binder-img-col .img-wrap.variant-build-battle { border: 2px dashed #e74c3c; }
+.binder-img-col .img-wrap.variant-grey-stamp { border: 3px solid #808080; }
+.binder-img-col .img-wrap.variant-ex-set-stamp { border: 2px solid #3498db; }
+.binder-img-col .img-wrap.variant-black-star-promo { border: 3px solid #2c3e50; }
+
 /* Card info section */
 .binder-card-info {
     padding: 6px 12px 10px;
@@ -714,6 +728,12 @@ input[type=file] { display: none; }
 .variant-badge.first-edition { background: #f1c40f; color: #333; }
 .variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
 .variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
+.variant-badge.shadowless { background: #bdc3c7; color: #333; }
+.variant-badge.promo { background: #2c3e50; color: #fff; }
+.variant-badge.prerelease { background: #3498db; color: #fff; }
+.variant-badge.staff { background: linear-gradient(135deg, #f1c40f, #3498db); color: #fff; }
+.variant-badge.pc-exclusive { background: #e74c3c; color: #fff; }
+.variant-badge.bb-promo { background: linear-gradient(135deg, #e74c3c, #fff); color: #333; }
 .modal-close {
     display: block;
     width: 100%;
@@ -794,6 +814,12 @@ input[type=file] { display: none; }
 .modal-variant-badge.first-edition { background: #f1c40f; color: #333; }
 .modal-variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
 .modal-variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
+.modal-variant-badge.shadowless { background: #bdc3c7; color: #333; }
+.modal-variant-badge.promo { background: #2c3e50; color: #fff; }
+.modal-variant-badge.prerelease { background: #3498db; color: #fff; }
+.modal-variant-badge.staff { background: linear-gradient(135deg, #f1c40f, #3498db); color: #fff; }
+.modal-variant-badge.pc-exclusive { background: #e74c3c; color: #fff; }
+.modal-variant-badge.bb-promo { background: linear-gradient(135deg, #e74c3c, #fff); color: #333; }
 </style>
 </head>
 <body>
@@ -1313,8 +1339,10 @@ function drawQR(canvasId,text,cellSize){
             method: data.method || null,
             condition_prices: data.condition_prices || null,
             tcgplayer_url: data.tcgplayer_url || null,
-            variant: data.variant || null,
+            variant: data.detected_variant || data.variant || null,
             variant_confidence: data.variant_confidence || null,
+            stamps_detected: data.stamps_detected || [],
+            stamp_details: data.stamp_details || {},
         };
     }
 
@@ -1422,6 +1450,66 @@ function drawQR(canvasId,text,cellSize){
         return total;
     }
 
+    // Map stamp_details keys and variant field to display badges.
+    // Returns array of {label, cssClass, confidence} objects.
+    var _STAMP_BADGE_MAP = {
+        '1st_edition':      {label: '1st Ed',       cssClass: 'first-edition'},
+        'shadowless':       {label: 'Shadowless',    cssClass: 'shadowless'},
+        'reverse_holo':     {label: 'Rev Holo',      cssClass: 'reverse-holo'},
+        'ex_set_stamp':     {label: 'Stamped',       cssClass: 'stamped'},
+        'black_star_promo': {label: 'Promo',         cssClass: 'promo'},
+        'modern_promo':     {label: 'Promo',         cssClass: 'promo'},
+        'promo_stamp':      {label: 'Promo',         cssClass: 'promo'},
+        'prerelease':       {label: 'Prerelease',    cssClass: 'prerelease'},
+        'staff':            {label: 'Staff',          cssClass: 'staff'},
+        'pokemon_center':   {label: 'PC Exclusive',  cssClass: 'pc-exclusive'},
+        'build_battle':     {label: 'B&B Promo',     cssClass: 'bb-promo'},
+        'stamped':          {label: 'Stamped',        cssClass: 'stamped'},
+    };
+
+    function _getVariantBadges(card) {
+        var badges = [];
+        var seen = {};  // avoid duplicate badge labels
+
+        // Primary source: stamp_details (multiple stamps possible)
+        if (card.stamp_details && typeof card.stamp_details === 'object') {
+            var keys = Object.keys(card.stamp_details);
+            for (var i = 0; i < keys.length; i++) {
+                var stampType = keys[i];
+                var info = _STAMP_BADGE_MAP[stampType];
+                if (info && !seen[info.label]) {
+                    seen[info.label] = true;
+                    badges.push({
+                        label: info.label,
+                        cssClass: info.cssClass,
+                        confidence: card.stamp_details[stampType].confidence || null,
+                    });
+                }
+            }
+        }
+
+        // Fallback: variant field (if no stamp_details produced a badge)
+        if (badges.length === 0 && card.variant && card.variant !== 'normal') {
+            var fallback = _STAMP_BADGE_MAP[card.variant];
+            if (fallback) {
+                badges.push({
+                    label: fallback.label,
+                    cssClass: fallback.cssClass,
+                    confidence: card.variant_confidence || null,
+                });
+            } else {
+                // Unknown variant type — show raw name with generic styling
+                badges.push({
+                    label: card.variant.replace(/_/g, ' '),
+                    cssClass: card.variant.replace(/[\s_]/g, '-').toLowerCase(),
+                    confidence: card.variant_confidence || null,
+                });
+            }
+        }
+
+        return badges;
+    }
+
     function renderBinderResults() {
         var container = document.getElementById('binderResults');
         container.innerHTML = '';
@@ -1492,6 +1580,13 @@ function drawQR(canvasId,text,cellSize){
             segCol.appendChild(segLabel);
             var segWrap = document.createElement('div');
             segWrap.className = 'img-wrap';
+            // Apply colored border based on detected variant/stamps
+            if (card.stamps_detected && card.stamps_detected.length > 0) {
+                var primaryStamp = card.stamps_detected[0];
+                segWrap.className += ' variant-' + primaryStamp.replace(/_/g, '-');
+            } else if (card.variant && card.variant !== 'normal') {
+                segWrap.className += ' variant-' + card.variant.replace(/_/g, '-');
+            }
             if (card.segment_image_url) {
                 var segImg = document.createElement('img');
                 segImg.src = card.segment_image_url;
@@ -1517,7 +1612,12 @@ function drawQR(canvasId,text,cellSize){
             var refWrap = document.createElement('div');
             refWrap.className = 'img-wrap';
             // Prefer local_image_url, fall back to image_url (remote)
+            // If card has detected stamps, use variant image endpoint for overlay badges
             var refSrc = card.local_image_url || card.image_url;
+            if (card.stamps_detected && card.stamps_detected.length > 0 && card.card_id) {
+                refSrc = '/card-image-variant/' + encodeURIComponent(card.card_id) +
+                         '?variants=' + card.stamps_detected.join(',');
+            }
             if (refSrc) {
                 var refImg = document.createElement('img');
                 refImg.src = refSrc;
@@ -1558,12 +1658,12 @@ function drawQR(canvasId,text,cellSize){
             } else {
                 nameDiv.textContent = card.card_name || 'Unknown';
             }
-            // Only show badges for physical variants not represented by different card_ids
-            // (stamped, 1st edition). Full art/holo/reverse holo are separate DB entries.
-            if (card.variant && (card.variant === 'stamped' || card.variant === '1st_edition')) {
+            // Show badges for all detected variant stamps
+            var stampBadges = _getVariantBadges(card);
+            for (var bi = 0; bi < stampBadges.length; bi++) {
                 var badge = document.createElement('span');
-                badge.className = 'variant-badge ' + card.variant.toLowerCase().replace(/\s+/g, '-').replace(/1st.edition/, 'first-edition');
-                badge.textContent = card.variant.replace(/_/g, ' ');
+                badge.className = 'variant-badge ' + stampBadges[bi].cssClass;
+                badge.textContent = stampBadges[bi].label;
                 nameDiv.appendChild(badge);
             }
             infoLeft.appendChild(nameDiv);
@@ -1869,14 +1969,15 @@ function drawQR(canvasId,text,cellSize){
         }
         document.getElementById('modalSet').textContent = card.set_name || '';
 
-        // Variant badge (visual, below set name)
+        // Variant badges (visual, below set name)
         var badgeDiv = document.getElementById('modalVariantBadge');
         badgeDiv.innerHTML = '';
-        if (card.variant && card.variant !== 'normal') {
+        var modalBadges = _getVariantBadges(card);
+        for (var mbi = 0; mbi < modalBadges.length; mbi++) {
             var badge = document.createElement('span');
-            var vClass = card.variant.replace(/[\s_]/g, '-').toLowerCase();
-            badge.className = 'modal-variant-badge ' + vClass;
-            badge.textContent = card.variant;
+            badge.className = 'modal-variant-badge ' + modalBadges[mbi].cssClass;
+            badge.textContent = modalBadges[mbi].label;
+            badge.style.marginRight = '4px';
             badgeDiv.appendChild(badge);
         }
 
@@ -1992,13 +2093,19 @@ function drawQR(canvasId,text,cellSize){
             }
         }
 
-        // Variant
+        // Variant — show all detected stamps with confidence
         var variantRow = document.getElementById('modalVariantRow');
-        if (card.variant && card.variant !== 'normal') {
+        var variantBadgeList = _getVariantBadges(card);
+        if (variantBadgeList.length > 0) {
             variantRow.style.display = '';
-            var varText = card.variant;
-            if (card.variant_confidence) varText += ' (' + Math.round(card.variant_confidence * 100) + '%)';
-            document.getElementById('modalVariant').textContent = varText;
+            var parts = [];
+            for (var vi = 0; vi < variantBadgeList.length; vi++) {
+                var vb = variantBadgeList[vi];
+                var vText = vb.label;
+                if (vb.confidence) vText += ' (' + Math.round(vb.confidence * 100) + '%)';
+                parts.push(vText);
+            }
+            document.getElementById('modalVariant').textContent = parts.join(', ');
         } else {
             variantRow.style.display = 'none';
         }
