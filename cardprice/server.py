@@ -249,7 +249,7 @@ input[type=file] { display: none; }
 .btn-cart { background: #e94560; color: #fff; }
 .btn-row button:disabled { opacity: 0.5; }
 .confidence { color: #888; }
-#preview { max-width: 100%; border-radius: 8px; margin: 10px 0; display: none; }
+.section-preview { max-width: 100%; border-radius: 8px; margin: 10px 0; display: none; }
 .spinner { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; gap: 12px; }
 .spinner.show { display: flex; }
 .spinner .scan-spinner-wrap { position: relative; width: 96px; height: 96px; }
@@ -272,88 +272,136 @@ input[type=file] { display: none; }
     <br>
     <span class="url" id="serverUrl"></span>
 </div>
-<div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;">
-<h3 style="color:#e94560;margin:0 0 10px;">Single Card</h3>
-<form id="scanForm">
-    <div style="display:flex;gap:8px;">
-        <label class="upload-btn" for="camera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;">Take Photo</label>
-        <label class="upload-btn" for="gallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #e94560;">Gallery</label>
-    </div>
-    <input type="file" id="camera" accept="image/*" capture="environment">
-    <input type="file" id="gallery" accept="image/*">
-</form>
-<hr style="border:none;border-top:1px solid #333;margin:12px 0;">
-<h3 style="color:#4ecca3;margin:0 0 10px;">Binder Page</h3>
-<form id="pageForm">
-    <div style="display:flex;gap:8px;">
-        <label class="upload-btn" for="pageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#4ecca3;color:#1a1a2e;">Scan Page</label>
-        <label class="upload-btn" for="pageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #4ecca3;color:#4ecca3;">Page Gallery</label>
-    </div>
-    <input type="file" id="pageCamera" accept="image/*" capture="environment">
-    <input type="file" id="pageGallery" accept="image/*">
-</form>
-<div style="display:flex;gap:8px;margin:10px 0 0;">
-    <div class="toggle-row" style="flex:1;margin:0;background:#0f3460;padding:8px 10px;">
-        <label for="continuousScanInventory" style="font-size:12px;">Continuous (card)</label>
-        <div class="toggle-switch">
-            <input type="checkbox" id="continuousScanInventory" onchange="toggleContinuous('inventory')">
-            <span class="toggle-slider"></span>
-        </div>
-    </div>
-    <div class="toggle-row" style="flex:1;margin:0;background:#0f3460;padding:8px 10px;">
-        <label for="continuousScanCart" style="font-size:12px;">Continuous (page)</label>
-        <div class="toggle-switch">
-            <input type="checkbox" id="continuousScanCart" onchange="toggleContinuous('cart')">
-            <span class="toggle-slider"></span>
-        </div>
+
+<!-- ===== SECTION 1: MY INVENTORY (green #4ecca3) ===== -->
+<div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #4ecca3;">
+<h3 style="color:#4ecca3;margin:0 0 10px;font-size:18px;">My Inventory</h3>
+<div style="display:flex;gap:8px;">
+    <label class="upload-btn" for="invCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#4ecca3;color:#1a1a2e;">Take Photo</label>
+    <label class="upload-btn" for="invGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #4ecca3;color:#4ecca3;">Gallery</label>
+</div>
+<input type="file" id="invCamera" accept="image/*" capture="environment">
+<input type="file" id="invGallery" accept="image/*">
+<div style="display:flex;gap:8px;margin:8px 0 0;">
+    <label class="upload-btn" for="invPageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#3a9d7e;color:#fff;">Scan Page</label>
+    <label class="upload-btn" for="invPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3a9d7e;color:#3a9d7e;">Page Gallery</label>
+</div>
+<input type="file" id="invPageCamera" accept="image/*" capture="environment">
+<input type="file" id="invPageGallery" accept="image/*">
+<div class="toggle-row" style="margin:8px 0 0;background:#0f3460;padding:8px 10px;">
+    <label for="invContinuous" style="font-size:12px;">Continuous scan</label>
+    <div class="toggle-switch">
+        <input type="checkbox" id="invContinuous" onchange="toggleContinuous('inv')">
+        <span class="toggle-slider"></span>
     </div>
 </div>
-<div id="continuousInfoInventory" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
+<div id="invContinuousInfo" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
     <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="continuousCountInventory">0</strong> cards</span>
-        <button onclick="stopContinuous('inventory')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop Scanning</button>
+        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="invContinuousCount">0</strong></span>
+        <button onclick="stopContinuous('inv')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop</button>
     </div>
 </div>
-<div id="continuousInfoCart" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="continuousCountCart">0</strong> pages</span>
-        <button onclick="stopContinuous('cart')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop Scanning</button>
-    </div>
-</div>
-<div style="text-align:center;margin:12px 0 0;">
-    <a href="/inventory/view" style="color:#4ecca3;font-size:13px;margin-right:16px;text-decoration:none;">Browse Inventory</a>
-    <a href="/cart/view" style="color:#e94560;font-size:13px;text-decoration:none;">View Cart</a>
-</div>
-</div>
-<img id="preview">
-<div class="spinner" id="spinner">
+<img id="invPreview" class="section-preview">
+<div class="spinner" id="invSpinner">
     <div class="scan-spinner-wrap">
         <div class="scan-spinner-ring"></div>
-        <div class="scan-timer" id="scanTimer">0s</div>
+        <div class="scan-timer" id="invScanTimer">0s</div>
     </div>
     <span class="scan-label">Scanning<span class="dots"></span></span>
 </div>
-<div class="result" id="result">
-    <h3 id="cardName"></h3>
-    <span id="variantBadge" class="variant-badge" style="display:none;"></span>
-    <div class="price" id="cardPrice"></div>
-    <div id="conditionPrices" class="cond-row" style="display:none;"></div>
-    <div class="confidence" id="cardConf"></div>
-    <div id="cardMeta" style="font-size:12px;color:#666;margin:2px 0;"></div>
-    <img id="refImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
-    <canvas id="sparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
-    <div id="sparkLabel" style="display:none;font-size:11px;color:#888;"></div>
+<div class="result" id="invResult">
+    <h3 id="invCardName" style="color:#4ecca3;"></h3>
+    <span id="invVariantBadge" class="variant-badge" style="display:none;"></span>
+    <div class="price" id="invCardPrice"></div>
+    <div id="invConditionPrices" class="cond-row" style="display:none;"></div>
+    <div class="confidence" id="invCardConf"></div>
+    <div id="invCardMeta" style="font-size:12px;color:#666;margin:2px 0;"></div>
+    <img id="invRefImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
+    <canvas id="invSparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
+    <div id="invSparkLabel" style="display:none;font-size:11px;color:#888;"></div>
     <div class="btn-row">
-        <button id="addInventoryBtn" class="btn-inv" style="display:none;" onclick="addToInventory()">Add to Inventory</button>
-        <button id="addCartBtn" class="btn-cart" style="display:none;" onclick="addToCart()">Add to Cart</button>
+        <button id="invAddBtn" class="btn-inv" style="display:none;" onclick="addToSection('inv')">Add to Inventory</button>
     </div>
-    <div id="inventoryMsg" style="display:none;font-size:13px;margin-top:6px;text-align:center;"></div>
-    <div id="cartMsg" style="display:none;font-size:13px;margin-top:4px;text-align:center;"></div>
+    <div id="invMsg" style="display:none;font-size:13px;margin-top:6px;text-align:center;"></div>
 </div>
-<div class="result" id="pageResult">
+<div class="result" id="invPageResult">
     <h3 style="color:#4ecca3;">Binder Page Results</h3>
-    <div id="pageTotal" class="price"></div>
-    <div id="pageCards"></div>
+    <div id="invPageTotal" class="price"></div>
+    <div id="invPageCards"></div>
+    <div class="btn-row" id="invPageBtnRow" style="display:none;">
+        <button class="btn-inv" onclick="addAllPage('inv')">Add All to Inventory</button>
+    </div>
+</div>
+<div style="text-align:center;margin:10px 0 0;">
+    <a href="/inventory/view" style="color:#4ecca3;font-size:13px;text-decoration:none;">Browse Inventory</a>
+</div>
+</div>
+
+<!-- ===== DIVIDER ===== -->
+<hr style="border:none;height:2px;background:linear-gradient(to right,transparent,#333,transparent);margin:20px 0;">
+
+<!-- ===== SECTION 2: SHOPPING CART (blue #3498db) ===== -->
+<div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #3498db;">
+<h3 style="color:#3498db;margin:0 0 10px;font-size:18px;">Shopping Cart</h3>
+<div style="display:flex;gap:8px;">
+    <label class="upload-btn" for="cartCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#3498db;color:#fff;">Take Photo</label>
+    <label class="upload-btn" for="cartGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3498db;color:#3498db;">Gallery</label>
+</div>
+<input type="file" id="cartCamera" accept="image/*" capture="environment">
+<input type="file" id="cartGallery" accept="image/*">
+<div style="display:flex;gap:8px;margin:8px 0 0;">
+    <label class="upload-btn" for="cartPageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#2980b9;color:#fff;">Scan Page</label>
+    <label class="upload-btn" for="cartPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #2980b9;color:#2980b9;">Page Gallery</label>
+</div>
+<input type="file" id="cartPageCamera" accept="image/*" capture="environment">
+<input type="file" id="cartPageGallery" accept="image/*">
+<div class="toggle-row" style="margin:8px 0 0;background:#0f3460;padding:8px 10px;">
+    <label for="cartContinuous" style="font-size:12px;">Continuous scan</label>
+    <div class="toggle-switch">
+        <input type="checkbox" id="cartContinuous" onchange="toggleContinuous('cart')">
+        <span class="toggle-slider"></span>
+    </div>
+</div>
+<div id="cartContinuousInfo" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:#3498db;font-size:14px;">Scanned: <strong id="cartContinuousCount">0</strong></span>
+        <button onclick="stopContinuous('cart')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop</button>
+    </div>
+</div>
+<img id="cartPreview" class="section-preview">
+<div class="spinner" id="cartSpinner">
+    <div class="scan-spinner-wrap">
+        <div class="scan-spinner-ring"></div>
+        <div class="scan-timer" id="cartScanTimer">0s</div>
+    </div>
+    <span class="scan-label">Scanning<span class="dots"></span></span>
+</div>
+<div class="result" id="cartResult">
+    <h3 id="cartCardName" style="color:#3498db;"></h3>
+    <span id="cartVariantBadge" class="variant-badge" style="display:none;"></span>
+    <div class="price" id="cartCardPrice" style="color:#3498db;"></div>
+    <div id="cartConditionPrices" class="cond-row" style="display:none;"></div>
+    <div class="confidence" id="cartCardConf"></div>
+    <div id="cartCardMeta" style="font-size:12px;color:#666;margin:2px 0;"></div>
+    <img id="cartRefImage" style="display:none;max-width:200px;margin:12px auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.5)" />
+    <canvas id="cartSparkline" width="150" height="40" style="display:none;margin:10px 0;"></canvas>
+    <div id="cartSparkLabel" style="display:none;font-size:11px;color:#888;"></div>
+    <div class="btn-row">
+        <button id="cartAddBtn" class="btn-cart" style="display:none;" onclick="addToSection('cart')">Add to Cart</button>
+    </div>
+    <div id="cartMsg" style="display:none;font-size:13px;margin-top:6px;text-align:center;"></div>
+</div>
+<div class="result" id="cartPageResult">
+    <h3 style="color:#3498db;">Binder Page Results</h3>
+    <div id="cartPageTotal" class="price" style="color:#3498db;"></div>
+    <div id="cartPageCards"></div>
+    <div class="btn-row" id="cartPageBtnRow" style="display:none;">
+        <button class="btn-cart" onclick="addAllPage('cart')">Add All to Cart</button>
+    </div>
+</div>
+<div style="text-align:center;margin:10px 0 0;">
+    <a href="/cart/view" style="color:#3498db;font-size:13px;text-decoration:none;">View Cart</a>
+</div>
 </div>
 <div id="cardDetailOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)this.style.display='none';">
     <div style="background:#16213e;border-radius:12px;padding:20px;max-width:360px;width:100%;max-height:90vh;overflow-y:auto;position:relative;text-align:center;">
@@ -462,78 +510,76 @@ function drawQR(canvasId,text,cellSize){
 })();
 </script>
 <script>
-var scanTimerInterval = null;
-function startScanTimer() {
+// ===== Section-parameterized scan timer =====
+var _scanTimers = {};
+function startScanTimer(sec) {
     var start = Date.now();
-    var timerEl = document.getElementById('scanTimer');
+    var timerEl = document.getElementById(sec + 'ScanTimer');
     timerEl.textContent = '0.0s';
-    scanTimerInterval = setInterval(function() {
+    _scanTimers[sec] = setInterval(function() {
         timerEl.textContent = ((Date.now() - start) / 1000).toFixed(1) + 's';
     }, 100);
 }
-function stopScanTimer() {
-    if (scanTimerInterval) {
-        clearInterval(scanTimerInterval);
-        scanTimerInterval = null;
-    }
+function stopScanTimer(sec) {
+    if (_scanTimers[sec]) { clearInterval(_scanTimers[sec]); _scanTimers[sec] = null; }
 }
-function handleFile(file) {
+
+// ===== Single card scan — parameterized by section =====
+function handleFile(file, sec) {
     if (!file) return;
-    var preview = document.getElementById('preview');
+    var preview = document.getElementById(sec + 'Preview');
     preview.src = URL.createObjectURL(file);
     preview.style.display = 'block';
-    var spinner = document.getElementById('spinner');
-    var result = document.getElementById('result');
+    var spinner = document.getElementById(sec + 'Spinner');
+    var result = document.getElementById(sec + 'Result');
     spinner.classList.add('show');
-    startScanTimer();
+    startScanTimer(sec);
     result.classList.remove('show');
     var fd = new FormData();
     fd.append('image', file);
     fetch('/scan', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            stopScanTimer();
+            stopScanTimer(sec);
             spinner.classList.remove('show');
             result.classList.add('show');
             if (data.status === 'pending') {
-                document.getElementById('cardName').textContent = 'Queued for identification...';
-                document.getElementById('cardPrice').textContent = 'Checking every 3s';
-                document.getElementById('cardConf').textContent = '';
-                document.getElementById('cardMeta').textContent = '';
-                pollResult(data.scan_id);
+                document.getElementById(sec + 'CardName').textContent = 'Queued for identification...';
+                document.getElementById(sec + 'CardPrice').textContent = 'Checking every 3s';
+                document.getElementById(sec + 'CardConf').textContent = '';
+                document.getElementById(sec + 'CardMeta').textContent = '';
+                pollResult(data.scan_id, sec);
             } else {
-                showResult(data);
+                showResult(data, sec);
             }
         })
         .catch(function(e) {
-            stopScanTimer();
+            stopScanTimer(sec);
             spinner.classList.remove('show');
             result.classList.add('show');
-            document.getElementById('cardName').textContent = 'Error: ' + e;
+            document.getElementById(sec + 'CardName').textContent = 'Error: ' + e;
         });
 }
-function showResult(data) {
-    // Card name with TCGPlayer link if available
-    var nameEl = document.getElementById('cardName');
+
+function showResult(data, sec) {
+    var nameEl = document.getElementById(sec + 'CardName');
     var cardName = data.card_name || 'Unknown Card';
+    var accentColor = sec === 'inv' ? '#4ecca3' : '#3498db';
     if (data.tcgplayer_url) {
-        nameEl.innerHTML = '<a href="' + data.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e94560;text-decoration:underline;">' + cardName + '</a>';
+        nameEl.innerHTML = '<a href="' + data.tcgplayer_url + '" target="_blank" rel="noopener" style="color:' + accentColor + ';text-decoration:underline;">' + cardName + '</a>';
     } else {
         nameEl.textContent = cardName;
     }
-    // Variant badge
-    var badge = document.getElementById('variantBadge');
+    var badge = document.getElementById(sec + 'VariantBadge');
     if (data.detected_variant && data.detected_variant !== 'normal') {
         badge.textContent = data.detected_variant.replace(/_/g, ' ');
         badge.style.display = 'inline-block';
     } else {
         badge.style.display = 'none';
     }
-    // Main price (NM, big green bold)
     var displayPrice = data.variant_price || data.market_price;
-    document.getElementById('cardPrice').textContent = displayPrice ? '$' + parseFloat(displayPrice).toFixed(2) : 'No price data';
-    // Condition prices — compact row: NM LP MP HP DMG
-    var cpDiv = document.getElementById('conditionPrices');
+    document.getElementById(sec + 'CardPrice').textContent = displayPrice ? '$' + parseFloat(displayPrice).toFixed(2) : 'No price data';
+    var cpDiv = document.getElementById(sec + 'ConditionPrices');
     var conditions = ['NM','LP','MP','HP','DMG'];
     var colors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
     if (data.condition_prices) {
@@ -543,28 +589,23 @@ function showResult(data) {
             var cond = conditions[ci];
             var info = cp[cond];
             if (!info) continue;
-            var clr = colors[cond];
-            html += '<span class="cond-pill" style="color:' + clr + ';">' + cond + ' $' + info.price.toFixed(2) + '</span>';
+            html += '<span class="cond-pill" style="color:' + colors[cond] + ';">' + cond + ' $' + info.price.toFixed(2) + '</span>';
         }
         cpDiv.innerHTML = html;
         cpDiv.style.display = 'flex';
     } else {
         cpDiv.style.display = 'none';
     }
-    document.getElementById('cardConf').textContent =
+    document.getElementById(sec + 'CardConf').textContent =
         (data.confidence ? (data.confidence * 100).toFixed(0) + '% confidence' : '') +
         (data.method ? ' via ' + data.method : '');
-    document.getElementById('cardMeta').textContent = data.card_id || '';
-    var refImg = document.getElementById('refImage');
-    if (data.image_url) {
-        refImg.src = data.image_url;
-        refImg.style.display = 'block';
-    } else {
-        refImg.style.display = 'none';
-    }
-    // Sparkline: fetch 30-day price history and draw
-    var spark = document.getElementById('sparkline');
-    var sparkLabel = document.getElementById('sparkLabel');
+    document.getElementById(sec + 'CardMeta').textContent = data.card_id || '';
+    var refImg = document.getElementById(sec + 'RefImage');
+    if (data.image_url) { refImg.src = data.image_url; refImg.style.display = 'block'; }
+    else { refImg.style.display = 'none'; }
+    // Sparkline
+    var spark = document.getElementById(sec + 'Sparkline');
+    var sparkLabel = document.getElementById(sec + 'SparkLabel');
     spark.style.display = 'none';
     sparkLabel.style.display = 'none';
     if (data.card_id) {
@@ -574,8 +615,7 @@ function showResult(data) {
                 if (!pts || pts.length < 2) return;
                 pts = pts.slice().reverse();
                 var prices = pts.map(function(p) { return p.price; });
-                var minP = Math.min.apply(null, prices);
-                var maxP = Math.max.apply(null, prices);
+                var minP = Math.min.apply(null, prices), maxP = Math.max.apply(null, prices);
                 var range = maxP - minP || 1;
                 var W = 150, H = 40, pad = 2;
                 spark.width = W; spark.height = H;
@@ -600,184 +640,141 @@ function showResult(data) {
             })
             .catch(function() {});
     }
-    // Show/hide action buttons
-    var addBtn = document.getElementById('addInventoryBtn');
-    var cartBtn = document.getElementById('addCartBtn');
-    var invMsg = document.getElementById('inventoryMsg');
-    var cartMsg = document.getElementById('cartMsg');
-    invMsg.style.display = 'none';
-    invMsg.textContent = '';
-    cartMsg.style.display = 'none';
-    cartMsg.textContent = '';
+    // Show add button
+    var addBtn = document.getElementById(sec + 'AddBtn');
+    var msg = document.getElementById(sec + 'Msg');
+    msg.style.display = 'none'; msg.textContent = '';
     if (data.card_id) {
         addBtn.style.display = 'block';
         addBtn.dataset.cardId = data.card_id;
-        cartBtn.style.display = 'block';
-        cartBtn.dataset.cardId = data.card_id;
-        cartBtn.dataset.cardName = cardName;
-        cartBtn.dataset.price = displayPrice || '';
+        addBtn.dataset.cardName = cardName;
+        addBtn.dataset.price = displayPrice || '';
     } else {
         addBtn.style.display = 'none';
-        cartBtn.style.display = 'none';
     }
-    reopenCamera();
+    // Store last scan data for section
+    _lastScanData[sec] = data;
+    reopenCamera(sec);
 }
-function addToInventory() {
-    var btn = document.getElementById('addInventoryBtn');
-    var msg = document.getElementById('inventoryMsg');
+
+// ===== Add to Inventory / Cart — unified =====
+var _lastScanData = {inv: null, cart: null};
+function addToSection(sec) {
+    var btn = document.getElementById(sec + 'AddBtn');
+    var msg = document.getElementById(sec + 'Msg');
     var cardId = btn.dataset.cardId;
     if (!cardId) return;
     btn.disabled = true;
     btn.textContent = 'Adding...';
-    fetch('/inventory/add', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({card_id: cardId, quantity: 1})
-    })
+    var url, body, label;
+    if (sec === 'inv') {
+        url = '/inventory/add';
+        body = JSON.stringify({card_id: cardId, quantity: 1});
+        label = 'Add to Inventory';
+    } else {
+        url = '/cart/add';
+        var cardName = btn.dataset.cardName || cardId;
+        var price = parseFloat(btn.dataset.price) || 0;
+        body = JSON.stringify({card_id: cardId, card_name: cardName, market_price: price, quantity: 1});
+        label = 'Add to Cart';
+    }
+    fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: body })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        btn.disabled = false;
-        btn.textContent = 'Add to Inventory';
+        btn.disabled = false; btn.textContent = label;
         msg.style.display = 'block';
         if (data.error) {
-            msg.style.color = '#e94560';
-            msg.textContent = data.error;
+            msg.style.color = '#e94560'; msg.textContent = data.error;
+        } else if (sec === 'inv') {
+            msg.style.color = '#4ecca3'; msg.textContent = 'Added! Total in inventory: ' + data.quantity;
         } else {
-            msg.style.color = '#4ecca3';
-            msg.textContent = 'Added! Total in inventory: ' + data.quantity;
+            msg.style.color = '#3498db'; msg.textContent = 'In cart! Qty: ' + data.quantity + ' | Cart total: $' + (data.cart_total || 0).toFixed(2);
         }
     })
     .catch(function(e) {
-        btn.disabled = false;
-        btn.textContent = 'Add to Inventory';
-        msg.style.display = 'block';
-        msg.style.color = '#e94560';
-        msg.textContent = 'Error: ' + e;
+        btn.disabled = false; btn.textContent = label;
+        msg.style.display = 'block'; msg.style.color = '#e94560'; msg.textContent = 'Error: ' + e;
     });
 }
-function addToCart() {
-    var btn = document.getElementById('addCartBtn');
-    var msg = document.getElementById('cartMsg');
-    var cardId = btn.dataset.cardId;
-    var cardName = btn.dataset.cardName || cardId;
-    var price = parseFloat(btn.dataset.price) || 0;
-    if (!cardId) return;
-    btn.disabled = true;
-    btn.textContent = 'Adding...';
-    fetch('/cart/add', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({card_id: cardId, card_name: cardName, market_price: price, quantity: 1})
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        btn.disabled = false;
-        btn.textContent = 'Add to Cart';
-        msg.style.display = 'block';
-        if (data.error) {
-            msg.style.color = '#e94560';
-            msg.textContent = data.error;
-        } else {
-            msg.style.color = '#e94560';
-            msg.textContent = 'In cart! Qty: ' + data.quantity + ' | Cart total: $' + (data.cart_total || 0).toFixed(2);
-        }
-    })
-    .catch(function(e) {
-        btn.disabled = false;
-        btn.textContent = 'Add to Cart';
-        msg.style.display = 'block';
-        msg.style.color = '#e94560';
-        msg.textContent = 'Error: ' + e;
-    });
-}
-function pollResult(scanId) {
+
+// ===== Polling — parameterized =====
+function pollResult(scanId, sec) {
     if (typeof EventSource !== 'undefined') {
         var es = new EventSource('/events/' + scanId);
-        es.addEventListener('resolved', function(e) {
-            es.close();
-            showResult(JSON.parse(e.data));
-        });
+        es.addEventListener('resolved', function(e) { es.close(); showResult(JSON.parse(e.data), sec); });
         es.addEventListener('timeout', function() {
             es.close();
-            document.getElementById('cardName').textContent = 'Identification timed out';
-            document.getElementById('cardPrice').textContent = '';
+            document.getElementById(sec + 'CardName').textContent = 'Identification timed out';
+            document.getElementById(sec + 'CardPrice').textContent = '';
         });
-        es.onerror = function() {
-            es.close();
-            // Fallback to polling on SSE failure
-            _pollFallback(scanId);
-        };
+        es.onerror = function() { es.close(); _pollFallback(scanId, sec); };
     } else {
-        _pollFallback(scanId);
+        _pollFallback(scanId, sec);
     }
 }
-function _pollFallback(scanId) {
+function _pollFallback(scanId, sec) {
     var poll = setInterval(function() {
-        fetch('/result/' + scanId)
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.status === 'resolved') {
-                    clearInterval(poll);
-                    showResult(data);
-                }
-            });
+        fetch('/result/' + scanId).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.status === 'resolved') { clearInterval(poll); showResult(data, sec); }
+        });
     }, 3000);
 }
-var continuousState = {inventory: {active: false, count: 0}, cart: {active: false, count: 0}};
-function toggleContinuous(section) {
-    var other = section === 'inventory' ? 'cart' : 'inventory';
-    var checkbox = document.getElementById(section === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart');
-    var otherCheckbox = document.getElementById(other === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart');
+
+// ===== Continuous scanning — parameterized =====
+var continuousState = {inv: {active: false, count: 0}, cart: {active: false, count: 0}};
+function toggleContinuous(sec) {
+    var other = sec === 'inv' ? 'cart' : 'inv';
+    var checkbox = document.getElementById(sec + 'Continuous');
+    var otherCheckbox = document.getElementById(other + 'Continuous');
     if (checkbox.checked) {
-        // Disable the other section's continuous mode
         otherCheckbox.checked = false;
         continuousState[other].active = false;
-        document.getElementById('continuousInfo' + other.charAt(0).toUpperCase() + other.slice(1)).style.display = 'none';
-        // Enable this section
-        continuousState[section].active = true;
-        continuousState[section].count = 0;
-        var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
-        document.getElementById(infoId).style.display = 'block';
-        updateContinuousCount(section);
+        document.getElementById(other + 'ContinuousInfo').style.display = 'none';
+        continuousState[sec].active = true;
+        continuousState[sec].count = 0;
+        document.getElementById(sec + 'ContinuousInfo').style.display = 'block';
+        document.getElementById(sec + 'ContinuousCount').textContent = '0';
     } else {
-        continuousState[section].active = false;
-        var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
-        document.getElementById(infoId).style.display = 'none';
+        continuousState[sec].active = false;
+        document.getElementById(sec + 'ContinuousInfo').style.display = 'none';
     }
 }
-function stopContinuous(section) {
-    var checkboxId = section === 'inventory' ? 'continuousScanInventory' : 'continuousScanCart';
-    document.getElementById(checkboxId).checked = false;
-    continuousState[section].active = false;
-    var infoId = 'continuousInfo' + section.charAt(0).toUpperCase() + section.slice(1);
-    document.getElementById(infoId).style.display = 'none';
+function stopContinuous(sec) {
+    document.getElementById(sec + 'Continuous').checked = false;
+    continuousState[sec].active = false;
+    document.getElementById(sec + 'ContinuousInfo').style.display = 'none';
 }
-function updateContinuousCount(section) {
-    var countId = 'continuousCount' + section.charAt(0).toUpperCase() + section.slice(1);
-    document.getElementById(countId).textContent = continuousState[section].count;
-}
-document.getElementById('camera').onchange = function() { handleFile(this.files[0]); this.value=''; };
-document.getElementById('gallery').onchange = function() { handleFile(this.files[0]); this.value=''; };
-function reopenCamera() {
-    if (continuousState.inventory.active) {
-        continuousState.inventory.count++;
-        updateContinuousCount('inventory');
-        setTimeout(function() { document.getElementById('camera').click(); }, 1200);
+function reopenCamera(sec) {
+    if (continuousState[sec] && continuousState[sec].active) {
+        continuousState[sec].count++;
+        document.getElementById(sec + 'ContinuousCount').textContent = continuousState[sec].count;
+        setTimeout(function() { document.getElementById(sec + 'Camera').click(); }, 1200);
     }
 }
-function reopenPageCamera() {
-    if (continuousState.cart.active) {
-        continuousState.cart.count++;
-        updateContinuousCount('cart');
-        setTimeout(function() { document.getElementById('pageCamera').click(); }, 1200);
+function reopenPageCamera(sec) {
+    if (continuousState[sec] && continuousState[sec].active) {
+        continuousState[sec].count++;
+        document.getElementById(sec + 'ContinuousCount').textContent = continuousState[sec].count;
+        setTimeout(function() { document.getElementById(sec + 'PageCamera').click(); }, 1200);
     }
 }
-var _pageCardsData = [];
-function _showCardDetail(idx) {
-    var c = _pageCardsData[idx];
+
+// ===== Wire up file inputs for both sections =====
+['inv', 'cart'].forEach(function(sec) {
+    document.getElementById(sec + 'Camera').onchange = function() { handleFile(this.files[0], sec); this.value=''; };
+    document.getElementById(sec + 'Gallery').onchange = function() { handleFile(this.files[0], sec); this.value=''; };
+    document.getElementById(sec + 'PageCamera').onchange = function() { handlePageFile(this.files[0], sec); this.value=''; };
+    document.getElementById(sec + 'PageGallery').onchange = function() { handlePageFile(this.files[0], sec); this.value=''; };
+});
+
+// ===== Page scan — parameterized by section =====
+var _pageCardsData = {inv: [], cart: []};
+function _showCardDetail(sec, idx) {
+    var c = _pageCardsData[sec][idx];
     if (!c) return;
     var overlay = document.getElementById('cardDetailOverlay');
     var body = document.getElementById('cardDetailBody');
+    var accentColor = sec === 'inv' ? '#4ecca3' : '#3498db';
     var displayPrice = c.variant_price || c.market_price;
     var h = '';
     var imgSrc = c.local_image_url || c.image_url || '';
@@ -786,7 +783,7 @@ function _showCardDetail(idx) {
     }
     var nameText = c.card_name || 'Unknown';
     if (c.tcgplayer_url) {
-        h += '<div style="font-size:18px;font-weight:bold;margin-bottom:4px;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:#4ecca3;">' + nameText + '</a></div>';
+        h += '<div style="font-size:18px;font-weight:bold;margin-bottom:4px;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:' + accentColor + ';">' + nameText + '</a></div>';
     } else {
         h += '<div style="font-size:18px;font-weight:bold;color:#e0e0e0;margin-bottom:4px;">' + nameText + '</div>';
     }
@@ -795,7 +792,7 @@ function _showCardDetail(idx) {
         h += '<span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px;margin-bottom:8px;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span>';
     }
     if (displayPrice) {
-        h += '<div style="font-size:24px;font-weight:bold;color:#4ecca3;margin:8px 0;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+        h += '<div style="font-size:24px;font-weight:bold;color:' + accentColor + ';margin:8px 0;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
     } else {
         h += '<div style="font-size:16px;color:#666;margin:8px 0;">No price data</div>';
     }
@@ -826,42 +823,43 @@ function _showCardDetail(idx) {
     body.innerHTML = h;
     overlay.style.display = 'flex';
 }
-function handlePageFile(file) {
+
+function handlePageFile(file, sec) {
     if (!file) return;
-    var preview = document.getElementById('preview');
+    var preview = document.getElementById(sec + 'Preview');
     preview.src = URL.createObjectURL(file);
     preview.style.display = 'block';
-    var spinner = document.getElementById('spinner');
-    var pageResult = document.getElementById('pageResult');
-    var result = document.getElementById('result');
+    var spinner = document.getElementById(sec + 'Spinner');
+    var pageResult = document.getElementById(sec + 'PageResult');
+    var singleResult = document.getElementById(sec + 'Result');
     spinner.classList.add('show');
-    startScanTimer();
+    startScanTimer(sec);
     pageResult.classList.remove('show');
-    result.classList.remove('show');
+    singleResult.classList.remove('show');
     var fd = new FormData();
     fd.append('image', file);
     fetch('/scan-page', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            stopScanTimer();
+            stopScanTimer(sec);
             spinner.classList.remove('show');
             pageResult.classList.add('show');
             if (data.error) {
-                document.getElementById('pageTotal').textContent = 'Error';
-                document.getElementById('pageCards').innerHTML = '<div style="color:#e94560;padding:16px;">' + data.error + '</div>';
+                document.getElementById(sec + 'PageTotal').textContent = 'Error';
+                document.getElementById(sec + 'PageCards').innerHTML = '<div style="color:#e94560;padding:16px;">' + data.error + '</div>';
                 return;
             }
             var cards = data.cards || [];
-            _pageCardsData = cards;
+            _pageCardsData[sec] = cards;
             var total = 0;
             if (data.status === 'pending') {
-                document.getElementById('pageTotal').textContent = 'Page queued for processing (' + (data.scan_id || '') + ')';
-                document.getElementById('pageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
+                document.getElementById(sec + 'PageTotal').textContent = 'Page queued (' + (data.scan_id || '') + ')';
+                document.getElementById(sec + 'PageCards').innerHTML = '<div style="color:#888;">Segmentation unavailable. Full page image saved for later processing.</div>';
                 return;
             }
+            var accentColor = sec === 'inv' ? '#4ecca3' : '#3498db';
             var condColors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f1c40f','HP':'#e67e22','DMG':'#e74c3c'};
             var condKeys = ['NM','LP','MP','HP','DMG'];
-            // Build grid of reference images
             var numCols = 3;
             var html = '<div style="display:grid;grid-template-columns:repeat(' + numCols + ',1fr);gap:8px;max-width:600px;margin:12px auto;">';
             for (var i = 0; i < cards.length; i++) {
@@ -870,31 +868,27 @@ function handlePageFile(file) {
                 var price = displayPrice ? parseFloat(displayPrice) : 0;
                 total += price;
                 var imgSrc = c.local_image_url || c.image_url || '';
-                html += '<div onclick="_showCardDetail(' + i + ')" style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(78,204,163,0.2);">';
+                html += '<div onclick="_showCardDetail(\'' + sec + '\',' + i + ')" style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(78,204,163,0.2);">';
                 if (imgSrc) {
                     html += '<img src="' + imgSrc + '" style="width:100%;display:block;border-radius:8px 8px 0 0;" />';
                 } else {
                     html += '<div style="width:100%;aspect-ratio:5/7;background:#16213e;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px;border-radius:8px 8px 0 0;">No image</div>';
                 }
                 html += '<div style="padding:6px 4px;">';
-                // Card name with TCGPlayer link
                 var nameText = c.card_name || 'Unknown';
                 if (c.tcgplayer_url) {
-                    html += '<div style="font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:#4ecca355;">' + nameText + '</a></div>';
+                    html += '<div style="font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:' + accentColor + '55;">' + nameText + '</a></div>';
                 } else {
                     html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nameText + '</div>';
                 }
-                // Variant badge
                 if (c.detected_variant && c.detected_variant !== 'normal') {
                     html += '<div style="margin:2px 0;"><span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:6px;line-height:1.3;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span></div>';
                 }
-                // Main price
                 if (displayPrice) {
-                    html += '<div style="font-size:16px;font-weight:bold;color:#4ecca3;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+                    html += '<div style="font-size:16px;font-weight:bold;color:' + accentColor + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
                 } else {
                     html += '<div style="font-size:13px;color:#666;">No price</div>';
                 }
-                // Condition prices (compact flex row)
                 if (c.condition_prices || c.market_price) {
                     html += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;">';
                     for (var cci = 0; cci < condKeys.length; cci++) {
@@ -906,12 +900,10 @@ function handlePageFile(file) {
                     }
                     html += '</div>';
                 }
-                // Set name
                 html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
                 html += '</div></div>';
             }
             html += '</div>';
-            // Totals
             var condTotals = {};
             for (var ci = 0; ci < condKeys.length; ci++) condTotals[condKeys[ci]] = 0;
             for (var ti = 0; ti < cards.length; ti++) {
@@ -924,21 +916,50 @@ function handlePageFile(file) {
             }
             var totalText = cards.length + ' cards \u2014 NM: $' + total.toFixed(2);
             if (condTotals.LP > 0) totalText += ' \u00b7 LP: $' + condTotals.LP.toFixed(2);
-            document.getElementById('pageTotal').textContent = totalText;
-            document.getElementById('pageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
-            reopenPageCamera();
+            document.getElementById(sec + 'PageTotal').textContent = totalText;
+            document.getElementById(sec + 'PageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
+            // Show "Add All" button if cards have IDs
+            var hasCards = cards.some(function(c) { return c.card_id; });
+            document.getElementById(sec + 'PageBtnRow').style.display = hasCards ? 'flex' : 'none';
+            reopenPageCamera(sec);
         })
         .catch(function(e) {
-            stopScanTimer();
+            stopScanTimer(sec);
             spinner.classList.remove('show');
             pageResult.classList.add('show');
-            document.getElementById('pageTotal').textContent = 'Error';
-            document.getElementById('pageCards').textContent = '' + e;
-            reopenPageCamera();
+            document.getElementById(sec + 'PageTotal').textContent = 'Error';
+            document.getElementById(sec + 'PageCards').textContent = '' + e;
+            reopenPageCamera(sec);
         });
 }
-document.getElementById('pageCamera').onchange = function() { handlePageFile(this.files[0]); this.value=''; };
-document.getElementById('pageGallery').onchange = function() { handlePageFile(this.files[0]); this.value=''; };
+
+// ===== Add All from page =====
+function addAllPage(sec) {
+    var cards = _pageCardsData[sec] || [];
+    var url = sec === 'inv' ? '/inventory/add' : '/cart/add';
+    var promises = [];
+    for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        if (!c.card_id) continue;
+        var body;
+        if (sec === 'inv') {
+            body = JSON.stringify({card_id: c.card_id, quantity: 1});
+        } else {
+            body = JSON.stringify({card_id: c.card_id, card_name: c.card_name || c.card_id, market_price: parseFloat(c.variant_price || c.market_price) || 0, quantity: 1});
+        }
+        promises.push(fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: body }));
+    }
+    var btn = document.getElementById(sec + 'PageBtnRow').querySelector('button');
+    btn.disabled = true; btn.textContent = 'Adding...';
+    Promise.all(promises).then(function() {
+        btn.disabled = false;
+        btn.textContent = sec === 'inv' ? 'Added All!' : 'Added All!';
+        setTimeout(function() { btn.textContent = sec === 'inv' ? 'Add All to Inventory' : 'Add All to Cart'; }, 2000);
+    }).catch(function() {
+        btn.disabled = false;
+        btn.textContent = sec === 'inv' ? 'Add All to Inventory' : 'Add All to Cart';
+    });
+}
 </script>
 </body>
 </html>
