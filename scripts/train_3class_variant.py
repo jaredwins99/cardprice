@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Train a 3-class variant classifier: NORMAL vs HOLOFOIL vs REVERSE_HOLO_STAMPED.
 
-Uses hand-crafted texture features from card images + DINOv2 CLS tokens.
-Evaluates with leave-one-out cross-validation.
+Strategy: DINOv2 patch token statistics from artwork vs text regions.
+Patch tokens capture LOCAL texture patterns (foil shimmer, speckle)
+better than CLS tokens (which capture semantic content).
 
-Ground truth from binder_ground_truth.jsonl + user-specified labels.
+Key idea: compute patch token VARIANCE within regions. Foil surfaces
+create more heterogeneous patch embeddings (high variance) compared to
+matte surfaces (low variance, more consistent patches).
+
+Then PCA to reduce dimensionality to match sample count.
 """
 
-import json
 import logging
 import pickle
 import time
@@ -17,10 +21,14 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 from torchvision import transforms
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -33,9 +41,9 @@ OUTPUT_PATH = PROJECT_ROOT / "data" / "variant_3class_classifier.pkl"
 CLASS_NAMES = ["NORMAL", "HOLOFOIL", "REVERSE_HOLO_STAMPED"]
 CLASS_MAP = {"NORMAL": 0, "HOLOFOIL": 1, "REVERSE_HOLO_STAMPED": 2}
 
-# DINOv2 setup
 GRID_SIZE = 16
 EMBED_DIM = 768
+
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD = [0.229, 0.224, 0.225]
 _transform = transforms.Compose([
@@ -45,11 +53,8 @@ _transform = transforms.Compose([
 ])
 
 
-# =============================================================================
-#  Ground truth: hardcoded from binder scans
-# =============================================================================
 GROUND_TRUTH = [
-    # page_20260305_094228_cards - EX Unseen Forces starters
+    # EX Dragon Frontiers page
     {"image": "page_20260305_094228_cards/card_00.png", "name": "Chikorita", "label": "REVERSE_HOLO_STAMPED"},
     {"image": "page_20260305_094228_cards/card_01.png", "name": "Bayleef", "label": "NORMAL"},
     {"image": "page_20260305_094228_cards/card_02.png", "name": "Meganium", "label": "REVERSE_HOLO_STAMPED"},
@@ -59,499 +64,373 @@ GROUND_TRUTH = [
     {"image": "page_20260305_094228_cards/card_06.png", "name": "Cyndaquil", "label": "NORMAL"},
     {"image": "page_20260305_094228_cards/card_07.png", "name": "Quilava", "label": "NORMAL"},
     {"image": "page_20260305_094228_cards/card_08.png", "name": "Typhlosion", "label": "HOLOFOIL"},
-    # page_20260228_174819_cards - stamped cards
+    # More EX-era cards
     {"image": "page_20260228_174819_cards/card_01.png", "name": "Skitty", "label": "REVERSE_HOLO_STAMPED"},
     {"image": "page_20260228_174819_cards/card_05.png", "name": "Vibrava", "label": "REVERSE_HOLO_STAMPED"},
-    # Prerelease stamps (treated as REVERSE_HOLO_STAMPED - same visual region)
+    {"image": "page_20260228_174819_cards/card_04.png", "name": "Delcatty ex", "label": "HOLOFOIL"},
+    {"image": "page_20260228_174819_cards/card_08.png", "name": "Flygon ex", "label": "HOLOFOIL"},
+    # Prerelease stamps
     {"image": "page_20260307_014406_cards/card_02.png", "name": "Misty's Seadra", "label": "REVERSE_HOLO_STAMPED"},
     {"image": "page_20260307_020047_cards/card_08.png", "name": "Aerodactyl", "label": "REVERSE_HOLO_STAMPED"},
     {"image": "page_20260307_015320_cards/card_05.png", "name": "Dragonite", "label": "REVERSE_HOLO_STAMPED"},
-    # Dark Dragonite holo
+    # Old-era holofoil
     {"image": "page_20260307_015320_cards/card_02.png", "name": "Dark Dragonite", "label": "HOLOFOIL"},
 ]
 
 
 def load_ground_truth():
-    """Load ground truth, verify images exist."""
     samples = []
     for entry in GROUND_TRUTH:
         path = INBOX_DIR / entry["image"]
         if path.exists():
             samples.append({
-                "path": path,
-                "name": entry["name"],
-                "label": CLASS_MAP[entry["label"]],
-                "label_name": entry["label"],
+                "path": path, "name": entry["name"],
+                "label": CLASS_MAP[entry["label"]], "label_name": entry["label"],
             })
         else:
             logger.warning("Missing image: %s", path)
     return samples
 
 
-# =============================================================================
-#  Feature extraction: hand-crafted texture features
-# =============================================================================
-
-def extract_texture_features(img_path):
-    """Extract texture features from multiple regions of a card image.
-
-    Returns a feature dict with named features for interpretability.
-    """
-    img = cv2.imread(str(img_path))
-    if img is None:
-        raise ValueError(f"Cannot read image: {img_path}")
-
-    h, w = img.shape[:2]
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-    features = {}
-
-    # Define regions (proportional)
-    regions = {
-        "border_top":    (0, 0, w, int(h * 0.08)),
-        "border_bottom": (0, int(h * 0.92), w, h),
-        "border_left":   (0, 0, int(w * 0.06), h),
-        "border_right":  (int(w * 0.94), 0, w, h),
-        "artwork":       (int(w * 0.10), int(h * 0.10), int(w * 0.90), int(h * 0.55)),
-        "text_area":     (int(w * 0.10), int(h * 0.55), int(w * 0.90), int(h * 0.85)),
-        "stamp_region":  (int(w * 0.50), int(h * 0.65), int(w * 0.95), int(h * 0.95)),
-        "full":          (0, 0, w, h),
-    }
-
-    for rname, (x1, y1, x2, y2) in regions.items():
-        roi_gray = gray[y1:y2, x1:x2]
-        roi_hsv = hsv[y1:y2, x1:x2]
-        roi_bgr = img[y1:y2, x1:x2]
-
-        if roi_gray.size == 0:
-            continue
-
-        # --- Intensity statistics ---
-        features[f"{rname}_mean"] = float(np.mean(roi_gray))
-        features[f"{rname}_std"] = float(np.std(roi_gray))
-        features[f"{rname}_var"] = float(np.var(roi_gray))
-
-        # --- Gradient energy (Sobel) ---
-        sobelx = cv2.Sobel(roi_gray, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(roi_gray, cv2.CV_64F, 0, 1, ksize=3)
-        grad_mag = np.sqrt(sobelx**2 + sobely**2)
-        features[f"{rname}_grad_energy"] = float(np.mean(grad_mag))
-        features[f"{rname}_grad_std"] = float(np.std(grad_mag))
-        features[f"{rname}_grad_max"] = float(np.percentile(grad_mag, 95))
-
-        # --- Laplacian variance (focus/texture measure) ---
-        lap = cv2.Laplacian(roi_gray, cv2.CV_64F)
-        features[f"{rname}_laplacian_var"] = float(np.var(lap))
-        features[f"{rname}_laplacian_mean"] = float(np.mean(np.abs(lap)))
-
-        # --- HSV saturation/value stats ---
-        features[f"{rname}_sat_mean"] = float(np.mean(roi_hsv[:, :, 1]))
-        features[f"{rname}_sat_std"] = float(np.std(roi_hsv[:, :, 1]))
-        features[f"{rname}_val_mean"] = float(np.mean(roi_hsv[:, :, 2]))
-        features[f"{rname}_val_std"] = float(np.std(roi_hsv[:, :, 2]))
-
-        # --- Color channel variance (holographic shimmer) ---
-        for ci, cname in enumerate(["b", "g", "r"]):
-            features[f"{rname}_{cname}_std"] = float(np.std(roi_bgr[:, :, ci]))
-
-        # --- Edge density (Canny) ---
-        edges = cv2.Canny(roi_gray, 50, 150)
-        features[f"{rname}_edge_density"] = float(np.mean(edges > 0))
-
-        # --- High-frequency energy (DCT-based) ---
-        roi_f = np.float32(roi_gray)
-        # Resize to fixed size for DCT
-        roi_resized = cv2.resize(roi_f, (64, 64))
-        dct = cv2.dct(roi_resized)
-        # High-freq energy: sum of absolute values in bottom-right quadrant
-        hf = np.abs(dct[32:, 32:])
-        lf = np.abs(dct[:32, :32])
-        features[f"{rname}_hf_energy"] = float(np.mean(hf))
-        features[f"{rname}_lf_energy"] = float(np.mean(lf))
-        features[f"{rname}_hf_ratio"] = float(np.mean(hf) / (np.mean(lf) + 1e-8))
-
-    # --- Cross-region ratios (key discriminating features) ---
-    # Holofoil: artwork shimmery, border matte
-    if "artwork_grad_energy" in features and "border_top_grad_energy" in features:
-        avg_border_grad = np.mean([
-            features.get("border_top_grad_energy", 0),
-            features.get("border_bottom_grad_energy", 0),
-            features.get("border_left_grad_energy", 0),
-            features.get("border_right_grad_energy", 0),
-        ])
-        features["artwork_vs_border_grad"] = features["artwork_grad_energy"] / (avg_border_grad + 1e-8)
-
-    # Reverse holo: border shimmery, artwork less so
-    if "border_top_var" in features and "artwork_var" in features:
-        avg_border_var = np.mean([
-            features.get("border_top_var", 0),
-            features.get("border_bottom_var", 0),
-            features.get("border_left_var", 0),
-            features.get("border_right_var", 0),
-        ])
-        features["border_vs_artwork_var"] = avg_border_var / (features["artwork_var"] + 1e-8)
-
-    # Stamp region edge excess
-    if "stamp_region_edge_density" in features and "text_area_edge_density" in features:
-        features["stamp_edge_excess"] = (
-            features["stamp_region_edge_density"] - features["text_area_edge_density"]
-        )
-
-    # Saturation contrasts
-    if "artwork_sat_mean" in features and "border_top_sat_mean" in features:
-        avg_border_sat = np.mean([
-            features.get("border_top_sat_mean", 0),
-            features.get("border_bottom_sat_mean", 0),
-        ])
-        features["artwork_vs_border_sat"] = features["artwork_sat_mean"] / (avg_border_sat + 1e-8)
-
-    return features
-
-
-def extract_dino_features(model, device, img_path):
-    """Extract DINOv2 CLS token and regional patch statistics."""
+def extract_dino_patch_features(model, device, img_path):
+    """Extract DINOv2 CLS + patch statistics from regions."""
     img = Image.open(img_path).convert("RGB")
     tensor = _transform(img).unsqueeze(0).to(device)
 
     with torch.no_grad():
         cls_out = model(tensor)
         patch_out = model.get_intermediate_layers(tensor, n=1)
-        patch_tokens = patch_out[0].squeeze(0)  # (256, 768)
+        patches = patch_out[0].squeeze(0)  # (256, 768)
 
     cls_np = cls_out.cpu().numpy().astype(np.float32).squeeze()
     norm = np.linalg.norm(cls_np)
     if norm > 0:
         cls_np /= norm
 
-    patches_np = patch_tokens.cpu().numpy().astype(np.float32)
+    patches_np = patches.cpu().numpy().astype(np.float32)
     pnorms = np.linalg.norm(patches_np, axis=1, keepdims=True)
     pnorms[pnorms == 0] = 1.0
     patches_np /= pnorms
 
-    # Reshape to grid
     grid = patches_np.reshape(GRID_SIZE, GRID_SIZE, EMBED_DIM)
 
-    # Regional statistics
-    dino_feats = {}
+    # Regions in 16x16 patch grid
+    # Artwork: rows 2-7 (top half, inside border)
+    artwork_patches = grid[2:8, 2:14, :].reshape(-1, EMBED_DIM)
+    # Text area: rows 9-14 (bottom half, inside border)
+    text_patches = grid[9:14, 2:14, :].reshape(-1, EMBED_DIM)
+    # Stamp: bottom-right
+    stamp_patches = grid[10:15, 8:15, :].reshape(-1, EMBED_DIM)
+    # Border: top 2 rows + bottom 2 rows
+    border_patches = np.vstack([
+        grid[0:2, :, :].reshape(-1, EMBED_DIM),
+        grid[14:16, :, :].reshape(-1, EMBED_DIM),
+    ])
 
-    # Full card CLS
-    dino_feats["cls"] = cls_np  # (768,)
+    features = {}
+    features["cls"] = cls_np
 
-    # Regional patch means and stds
-    region_slices = {
-        "top":    (slice(0, 8), slice(None)),
-        "bottom": (slice(8, 16), slice(None)),
-        "artwork": (slice(2, 9), slice(2, 14)),  # Approx artwork area
-        "border_tb": (slice(None), slice(None)),  # Will compute manually
-        "stamp":  (slice(10, 16), slice(8, 16)),  # Bottom-right
+    for rname, rpatches in [("artwork", artwork_patches), ("text", text_patches),
+                             ("stamp", stamp_patches), ("border", border_patches)]:
+        features[f"{rname}_mean"] = np.mean(rpatches, axis=0)
+        features[f"{rname}_std"] = np.std(rpatches, axis=0)
+        # Scalar statistics (very compact)
+        features[f"{rname}_var_scalar"] = float(np.mean(np.var(rpatches, axis=0)))
+        features[f"{rname}_mean_norm"] = float(np.mean(np.linalg.norm(rpatches, axis=1)))
+
+        # Pairwise distance stats (captures internal consistency)
+        if len(rpatches) > 2:
+            # Random subsample of pairs for efficiency
+            n = len(rpatches)
+            idx1 = np.random.RandomState(42).randint(0, n, min(50, n))
+            idx2 = np.random.RandomState(43).randint(0, n, min(50, n))
+            dists = np.linalg.norm(rpatches[idx1] - rpatches[idx2], axis=1)
+            features[f"{rname}_pair_dist_mean"] = float(np.mean(dists))
+            features[f"{rname}_pair_dist_std"] = float(np.std(dists))
+
+    return features
+
+
+def extract_handcrafted(img_path):
+    """Compact hand-crafted features."""
+    img = cv2.imread(str(img_path))
+    if img is None:
+        return np.zeros(8, dtype=np.float32)
+    h, w = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    art = gray[int(h*0.10):int(h*0.48), int(w*0.12):int(w*0.88)]
+    txt = gray[int(h*0.52):int(h*0.88), int(w*0.12):int(w*0.88)]
+    art_hsv = hsv[int(h*0.10):int(h*0.48), int(w*0.12):int(w*0.88)]
+    txt_hsv = hsv[int(h*0.52):int(h*0.88), int(w*0.12):int(w*0.88)]
+    stp = gray[int(h*0.55):int(h*0.85), int(w*0.50):int(w*0.88)]
+
+    art_lap = float(np.var(cv2.Laplacian(art, cv2.CV_64F)))
+    txt_lap = float(np.var(cv2.Laplacian(txt, cv2.CV_64F)))
+
+    stp_edges = cv2.Canny(stp, 50, 150)
+    txt_edges = cv2.Canny(txt, 50, 150)
+
+    return np.array([
+        art_lap,
+        txt_lap,
+        art_lap / (txt_lap + 1e-8),
+        float(np.std(art_hsv[:,:,0])),  # art hue std
+        float(np.std(txt_hsv[:,:,0])),  # txt hue std
+        float(np.std(art_hsv[:,:,1])),  # art sat std
+        float(np.std(txt_hsv[:,:,1])),  # txt sat std
+        float(np.mean(stp_edges > 0) - np.mean(txt_edges > 0)),  # stamp edge excess
+    ], dtype=np.float32)
+
+
+def build_feature_matrices(dino_feats, hc_feats):
+    """Build various feature matrix configurations."""
+    N = len(dino_feats)
+
+    # Scalar DINOv2 features (very compact: ~24 scalars)
+    scalar_keys = [k for k in dino_feats[0] if k.endswith("_scalar") or
+                   k.endswith("_mean_norm") or k.endswith("_dist_mean") or
+                   k.endswith("_dist_std")]
+    X_scalar = np.stack([[dino_feats[i][k] for k in scalar_keys] for i in range(N)])
+
+    # Regional means (768-dim each)
+    X_art_mean = np.stack([d["artwork_mean"] for d in dino_feats])
+    X_txt_mean = np.stack([d["text_mean"] for d in dino_feats])
+    X_brd_mean = np.stack([d["border_mean"] for d in dino_feats])
+    X_stp_mean = np.stack([d["stamp_mean"] for d in dino_feats])
+
+    # Regional stds (768-dim each)
+    X_art_std = np.stack([d["artwork_std"] for d in dino_feats])
+    X_txt_std = np.stack([d["text_std"] for d in dino_feats])
+
+    # CLS token
+    X_cls = np.stack([d["cls"] for d in dino_feats])
+
+    # Differences (artwork - text, captures which region has more texture)
+    X_mean_diff = X_art_mean - X_txt_mean
+    X_std_diff = X_art_std - X_txt_std
+
+    matrices = {
+        "scalar": X_scalar,
+        "scalar_hc": np.hstack([X_scalar, hc_feats]),
+        "cls": X_cls,
+        "art_mean": X_art_mean,
+        "txt_mean": X_txt_mean,
+        "mean_diff": X_mean_diff,
+        "std_diff": X_std_diff,
+        "art_std": X_art_std,
+        "txt_std": X_txt_std,
+        "art_txt_std": np.hstack([X_art_std, X_txt_std]),
+        "art_txt_mean": np.hstack([X_art_mean, X_txt_mean]),
+        "cls_scalar_hc": np.hstack([X_cls, X_scalar, hc_feats]),
+        "all_std": np.hstack([X_art_std, X_txt_std, X_scalar]),
+        "mean_std_diff": np.hstack([X_mean_diff, X_std_diff]),
+        "handcrafted": hc_feats,
     }
-
-    for rname, (rs, cs) in region_slices.items():
-        if rname == "border_tb":
-            # Top 2 rows + bottom 2 rows
-            border_patches = np.vstack([grid[:2, :, :].reshape(-1, EMBED_DIM),
-                                         grid[14:, :, :].reshape(-1, EMBED_DIM)])
-            dino_feats[f"dino_{rname}_mean"] = np.mean(border_patches, axis=0)
-            dino_feats[f"dino_{rname}_std"] = np.std(border_patches, axis=0)
-        else:
-            region_patches = grid[rs, cs, :].reshape(-1, EMBED_DIM)
-            dino_feats[f"dino_{rname}_mean"] = np.mean(region_patches, axis=0)
-            dino_feats[f"dino_{rname}_std"] = np.std(region_patches, axis=0)
-
-    # Stamp crop: extract CLS from bottom-right 40% of image
-    w_img, h_img = img.size
-    stamp_crop = img.crop((int(w_img * 0.5), int(h_img * 0.6), w_img, h_img))
-    stamp_tensor = _transform(stamp_crop).unsqueeze(0).to(device)
-    with torch.no_grad():
-        stamp_cls = model(stamp_tensor).cpu().numpy().astype(np.float32).squeeze()
-    snorm = np.linalg.norm(stamp_cls)
-    if snorm > 0:
-        stamp_cls /= snorm
-    dino_feats["stamp_crop_cls"] = stamp_cls
-
-    return dino_feats
+    return matrices, scalar_keys
 
 
-def build_feature_vector(texture_feats, dino_feats):
-    """Combine texture + DINOv2 features into a single vector."""
-    parts = []
-
-    # Texture features (sorted for reproducibility)
-    tex_keys = sorted(texture_feats.keys())
-    parts.append(np.array([texture_feats[k] for k in tex_keys], dtype=np.float32))
-
-    # DINOv2 CLS
-    parts.append(dino_feats["cls"])
-
-    # DINOv2 stamp crop CLS
-    parts.append(dino_feats["stamp_crop_cls"])
-
-    # DINOv2 regional means (compact)
-    for rname in ["top", "bottom", "artwork", "border_tb", "stamp"]:
-        mean_key = f"dino_{rname}_mean"
-        std_key = f"dino_{rname}_std"
-        if mean_key in dino_feats:
-            parts.append(dino_feats[mean_key])
-        if std_key in dino_feats:
-            parts.append(dino_feats[std_key])
-
-    return np.concatenate(parts)
-
-
-def build_texture_only_vector(texture_feats):
-    """Build feature vector from texture features only (no DINOv2)."""
-    tex_keys = sorted(texture_feats.keys())
-    return np.array([texture_feats[k] for k in tex_keys], dtype=np.float32)
-
-
-def build_dino_only_vector(dino_feats):
-    """Build feature vector from DINOv2 features only."""
-    parts = []
-    parts.append(dino_feats["cls"])
-    parts.append(dino_feats["stamp_crop_cls"])
-    for rname in ["top", "bottom", "artwork", "border_tb", "stamp"]:
-        mean_key = f"dino_{rname}_mean"
-        std_key = f"dino_{rname}_std"
-        if mean_key in dino_feats:
-            parts.append(dino_feats[mean_key])
-        if std_key in dino_feats:
-            parts.append(dino_feats[std_key])
-    return np.concatenate(parts)
-
-
-def leave_one_out_cv(X, y, samples, clf_factory, name=""):
-    """Leave-one-out cross-validation. Returns predictions and accuracy."""
+def leave_one_out_cv(X, y, samples, clf_factory, name="", verbose=False):
     N = len(y)
-    predictions = np.zeros(N, dtype=int)
-    probabilities = np.zeros((N, 3), dtype=float)
+    preds = np.zeros(N, dtype=int)
+    probs = np.zeros((N, 3), dtype=float)
 
     for i in range(N):
         mask = np.ones(N, dtype=bool)
         mask[i] = False
-
-        X_train, y_train = X[mask], y[mask]
-        X_test = X[i:i+1]
-
-        scaler = StandardScaler()
-        X_train_s = scaler.fit_transform(X_train)
-        X_test_s = scaler.transform(X_test)
-
         clf = clf_factory()
-        clf.fit(X_train_s, y_train)
-
-        predictions[i] = clf.predict(X_test_s)[0]
+        clf.fit(X[mask], y[mask])
+        preds[i] = clf.predict(X[i:i+1])[0]
         if hasattr(clf, "predict_proba"):
-            probabilities[i] = clf.predict_proba(X_test_s)[0]
+            probs[i] = clf.predict_proba(X[i:i+1])[0]
 
-    acc = accuracy_score(y, predictions)
-    print(f"\n{'='*60}")
-    print(f"  LOO-CV: {name}")
-    print(f"  Accuracy: {acc:.1%} ({sum(predictions == y)}/{N})")
-    print(f"{'='*60}")
+    acc = accuracy_score(y, preds)
+    cm = confusion_matrix(y, preds, labels=[0, 1, 2])
 
-    # Confusion matrix
-    cm = confusion_matrix(y, predictions, labels=[0, 1, 2])
-    print(f"\n  Confusion Matrix (rows=true, cols=pred):")
-    print(f"  {'':>20s} {'NORMAL':>10s} {'HOLOFOIL':>10s} {'REV_STAMP':>10s}")
-    for i_row, row_name in enumerate(CLASS_NAMES):
-        row_str = "  ".join(f"{cm[i_row, j]:>10d}" for j in range(3))
-        print(f"  {row_name:>20s} {row_str}")
+    if verbose:
+        print(f"\n{'='*60}")
+        print(f"  LOO-CV: {name}")
+        print(f"  Accuracy: {acc:.1%} ({sum(preds == y)}/{N})")
+        print(f"{'='*60}")
+        print(f"\n  Confusion Matrix:")
+        print(f"  {'':>20s} {'NORMAL':>8s} {'HOLO':>8s} {'STAMPED':>8s}")
+        for ir, rn in enumerate(CLASS_NAMES):
+            row = "  ".join(f"{cm[ir,j]:>8d}" for j in range(3))
+            print(f"  {rn:>20s} {row}")
+        print(classification_report(y, preds, target_names=CLASS_NAMES, zero_division=0))
+        for i in range(N):
+            status = "OK" if preds[i] == y[i] else "XX"
+            ps = " ".join(f"{probs[i,j]:.2f}" for j in range(3))
+            print(f"    [{status:>2s}] {samples[i]['name']:>20s}  "
+                  f"pred={CLASS_NAMES[preds[i]]:<22s} true={CLASS_NAMES[y[i]]:<22s} [{ps}]")
 
-    print(f"\n  Classification Report:")
-    print(classification_report(y, predictions, target_names=CLASS_NAMES, zero_division=0))
-
-    # Per-sample results
-    print(f"  Per-sample results:")
-    for i in range(N):
-        status = "OK" if predictions[i] == y[i] else "WRONG"
-        pred_name = CLASS_NAMES[predictions[i]]
-        true_name = CLASS_NAMES[y[i]]
-        probs_str = " ".join(f"{probabilities[i, j]:.2f}" for j in range(3))
-        print(f"    [{status:>5s}] {samples[i]['name']:>20s}  "
-              f"pred={pred_name:<22s} true={true_name:<22s} probs=[{probs_str}]")
-
-    return predictions, acc, cm
+    return preds, acc, cm
 
 
 def main():
     t0 = time.time()
 
-    # Load ground truth
     samples = load_ground_truth()
-    logger.info("Loaded %d samples", len(samples))
-
     y = np.array([s["label"] for s in samples], dtype=int)
-    for label_name in CLASS_NAMES:
-        count = sum(1 for s in samples if s["label_name"] == label_name)
-        logger.info("  %s: %d", label_name, count)
+    N = len(y)
+    logger.info("Loaded %d samples: %s", N,
+                {ln: sum(1 for s in samples if s["label_name"] == ln) for ln in CLASS_NAMES})
 
-    # =================================================================
-    #  Extract texture features from all samples
-    # =================================================================
-    logger.info("Extracting texture features...")
-    texture_feats_list = []
-    for s in samples:
-        feats = extract_texture_features(s["path"])
-        texture_feats_list.append(feats)
-        logger.info("  %s: %d texture features", s["name"], len(feats))
-
-    # =================================================================
-    #  Extract DINOv2 features
-    # =================================================================
+    # Extract DINOv2 features
     logger.info("Loading DINOv2...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dino_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vitb14")
-    dino_model.to(device)
-    dino_model.eval()
+    dino_model.to(device).eval()
 
-    logger.info("Extracting DINOv2 features...")
-    dino_feats_list = []
-    for s in samples:
-        feats = extract_dino_features(dino_model, device, s["path"])
-        dino_feats_list.append(feats)
-        logger.info("  %s: DINOv2 extracted", s["name"])
+    logger.info("Extracting DINOv2 patch features...")
+    dino_feats = [extract_dino_patch_features(dino_model, device, s["path"]) for s in samples]
 
-    # Free GPU memory
     del dino_model
     torch.cuda.empty_cache()
 
-    # =================================================================
-    #  Build feature matrices for different configurations
-    # =================================================================
-    X_texture = np.stack([build_texture_only_vector(tf) for tf in texture_feats_list])
-    X_dino = np.stack([build_dino_only_vector(df) for df in dino_feats_list])
-    X_combined = np.stack([
-        build_feature_vector(tf, df)
-        for tf, df in zip(texture_feats_list, dino_feats_list)
-    ])
+    # Hand-crafted features
+    logger.info("Extracting hand-crafted features...")
+    hc_feats = np.stack([extract_handcrafted(s["path"]) for s in samples])
 
-    logger.info("Feature dimensions: texture=%d, dino=%d, combined=%d",
-                X_texture.shape[1], X_dino.shape[1], X_combined.shape[1])
+    # Build feature matrices
+    matrices, scalar_keys = build_feature_matrices(dino_feats, hc_feats)
 
-    # =================================================================
-    #  LOO-CV experiments
-    # =================================================================
+    # Print scalar DINOv2 features for interpretability
+    print(f"\n  DINOv2 scalar features:")
+    for ki, kn in enumerate(scalar_keys):
+        print(f"\n  {kn}:")
+        for cls in CLASS_NAMES:
+            for i, s in enumerate(samples):
+                if s["label_name"] == cls:
+                    print(f"    {s['name']:>20s} ({cls[:8]:>8s}): {matrices['scalar'][i, ki]:>10.6f}")
+
+    # LOO-CV sweep
     best_acc = 0.0
-    best_config = None
-
-    configurations = [
-        # (name, X, classifier_factory)
-        ("Texture-only LogReg C=1",
-         X_texture,
-         lambda: LogisticRegression(C=1.0, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Texture-only LogReg C=10",
-         X_texture,
-         lambda: LogisticRegression(C=10.0, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Texture-only LogReg C=0.1",
-         X_texture,
-         lambda: LogisticRegression(C=0.1, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Texture-only RF",
-         X_texture,
-         lambda: RandomForestClassifier(n_estimators=100, max_depth=5,
-                                         random_state=42, class_weight="balanced")),
-        ("DINOv2-only LogReg C=1",
-         X_dino,
-         lambda: LogisticRegression(C=1.0, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("DINOv2-only LogReg C=0.1",
-         X_dino,
-         lambda: LogisticRegression(C=0.1, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("DINOv2-only RF",
-         X_dino,
-         lambda: RandomForestClassifier(n_estimators=100, max_depth=5,
-                                         random_state=42, class_weight="balanced")),
-        ("Combined LogReg C=1",
-         X_combined,
-         lambda: LogisticRegression(C=1.0, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Combined LogReg C=0.1",
-         X_combined,
-         lambda: LogisticRegression(C=0.1, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Combined LogReg C=10",
-         X_combined,
-         lambda: LogisticRegression(C=10.0, max_iter=5000, solver="lbfgs",
-                                     random_state=42)),
-        ("Combined RF",
-         X_combined,
-         lambda: RandomForestClassifier(n_estimators=100, max_depth=5,
-                                         random_state=42, class_weight="balanced")),
-        ("Combined RF deep",
-         X_combined,
-         lambda: RandomForestClassifier(n_estimators=200, max_depth=8,
-                                         random_state=42, class_weight="balanced")),
-    ]
-
     results = []
-    for name, X, clf_factory in configurations:
-        preds, acc, cm = leave_one_out_cv(X, y, samples, clf_factory, name=name)
-        results.append((name, acc, preds, cm, X, clf_factory))
-        if acc > best_acc:
-            best_acc = acc
-            best_config = (name, X, clf_factory)
 
-    # =================================================================
-    #  Summary
-    # =================================================================
-    print(f"\n{'#'*60}")
-    print(f"  SUMMARY")
-    print(f"{'#'*60}")
+    pca_dims = [3, 5, 8, 10]
+
+    for feat_name, X_feat in matrices.items():
+        ndim = X_feat.shape[1]
+
+        # With PCA
+        for pca_n in pca_dims:
+            if pca_n >= N - 1 or ndim <= pca_n:
+                continue
+
+            for clf_name, clf_f in [
+                ("lr01", lambda: LogisticRegression(C=0.1, max_iter=5000, random_state=42)),
+                ("lr1", lambda: LogisticRegression(C=1.0, max_iter=5000, random_state=42)),
+                ("lr10", lambda: LogisticRegression(C=10.0, max_iter=5000, random_state=42)),
+                ("knn3", lambda: KNeighborsClassifier(n_neighbors=3, weights="distance")),
+                ("svm1", lambda: SVC(C=1.0, kernel="rbf", probability=True, random_state=42, class_weight="balanced")),
+                ("svm10", lambda: SVC(C=10.0, kernel="rbf", probability=True, random_state=42, class_weight="balanced")),
+                ("rf2", lambda: RandomForestClassifier(n_estimators=100, max_depth=2, random_state=42, class_weight="balanced")),
+                ("rf3", lambda: RandomForestClassifier(n_estimators=100, max_depth=3, random_state=42, class_weight="balanced")),
+            ]:
+                name = f"{feat_name}_pca{pca_n}_{clf_name}"
+                factory = lambda cf=clf_f, pn=pca_n: Pipeline([
+                    ("scaler", StandardScaler()),
+                    ("pca", PCA(n_components=pn, random_state=42)),
+                    ("clf", cf()),
+                ])
+                preds, acc, cm = leave_one_out_cv(X_feat, y, samples, factory, name=name)
+                results.append((name, acc, preds, cm, feat_name))
+                if acc > best_acc:
+                    best_acc = acc
+
+        # Without PCA for small feature sets
+        if ndim <= 15:
+            for clf_name, clf_f in [
+                ("lr01", lambda: LogisticRegression(C=0.1, max_iter=5000, random_state=42)),
+                ("lr1", lambda: LogisticRegression(C=1.0, max_iter=5000, random_state=42)),
+                ("knn3", lambda: KNeighborsClassifier(n_neighbors=3, weights="distance")),
+                ("knn5", lambda: KNeighborsClassifier(n_neighbors=5, weights="distance")),
+                ("rf2", lambda: RandomForestClassifier(n_estimators=100, max_depth=2, random_state=42, class_weight="balanced")),
+                ("svm1", lambda: SVC(C=1.0, kernel="rbf", probability=True, random_state=42, class_weight="balanced")),
+            ]:
+                name = f"{feat_name}_nopca_{clf_name}"
+                factory = lambda cf=clf_f: Pipeline([("scaler", StandardScaler()), ("clf", cf())])
+                preds, acc, cm = leave_one_out_cv(X_feat, y, samples, factory, name=name)
+                results.append((name, acc, preds, cm, feat_name))
+                if acc > best_acc:
+                    best_acc = acc
+
+    # Sort and show top results
     results.sort(key=lambda x: x[1], reverse=True)
-    for name, acc, _, _, _, _ in results:
+
+    print(f"\n{'#'*60}")
+    print(f"  TOP 30 RESULTS (out of {len(results)})")
+    print(f"{'#'*60}")
+    for name, acc, _, _, _ in results[:30]:
         print(f"  {acc:.1%}  {name}")
 
-    # =================================================================
-    #  Train final model on all data if accuracy > 70%
-    # =================================================================
-    if best_acc >= 0.70:
-        best_name, best_X, best_clf_factory = best_config
+    # Detailed results for top 3
+    for rank in range(min(3, len(results))):
+        name, acc, preds, cm, fkey = results[rank]
         print(f"\n{'='*60}")
-        print(f"  Training final model: {best_name} (LOO acc={best_acc:.1%})")
+        print(f"  #{rank+1}: {name} ({acc:.1%})")
         print(f"{'='*60}")
+        print(f"\n  Confusion Matrix:")
+        print(f"  {'':>20s} {'NORMAL':>8s} {'HOLO':>8s} {'STAMPED':>8s}")
+        for ir, rn in enumerate(CLASS_NAMES):
+            row = "  ".join(f"{cm[ir,j]:>8d}" for j in range(3))
+            print(f"  {rn:>20s} {row}")
+        print(classification_report(y, preds, target_names=CLASS_NAMES, zero_division=0))
+        for i in range(N):
+            status = "OK" if preds[i] == y[i] else "XX"
+            print(f"    [{status:>2s}] {samples[i]['name']:>20s}  "
+                  f"pred={CLASS_NAMES[preds[i]]:<22s} true={CLASS_NAMES[y[i]]:<22s}")
 
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(best_X)
-        clf = best_clf_factory()
-        clf.fit(X_scaled, y)
+    # Save if > 70%
+    best_result = results[0] if results else None
+    if best_result and best_result[1] >= 0.70:
+        best_name, best_acc_f, _, _, best_fkey = best_result
+        X_final = matrices[best_fkey]
 
-        # Determine feature type for saving
-        if best_X is X_texture:
-            feat_type = "texture"
-        elif best_X is X_dino:
-            feat_type = "dino"
-        else:
-            feat_type = "combined"
+        # Parse config
+        pca_n = 0
+        for d in pca_dims:
+            if f"pca{d}" in best_name:
+                pca_n = d
+                break
 
-        # Get texture feature keys for reproducibility
-        tex_keys = sorted(texture_feats_list[0].keys())
-
-        save_obj = {
-            "model": clf,
-            "scaler": scaler,
-            "feature_type": feat_type,
-            "texture_feature_keys": tex_keys,
-            "class_names": CLASS_NAMES,
-            "metrics": {
-                "loo_accuracy": best_acc,
-                "config_name": best_name,
-                "n_samples": len(y),
-                "n_features": best_X.shape[1],
-            },
+        clf_map = {
+            "lr01": lambda: LogisticRegression(C=0.1, max_iter=5000, random_state=42),
+            "lr1": lambda: LogisticRegression(C=1.0, max_iter=5000, random_state=42),
+            "lr10": lambda: LogisticRegression(C=10.0, max_iter=5000, random_state=42),
+            "knn3": lambda: KNeighborsClassifier(n_neighbors=3, weights="distance"),
+            "knn5": lambda: KNeighborsClassifier(n_neighbors=5, weights="distance"),
+            "svm1": lambda: SVC(C=1.0, kernel="rbf", probability=True, random_state=42, class_weight="balanced"),
+            "svm10": lambda: SVC(C=10.0, kernel="rbf", probability=True, random_state=42, class_weight="balanced"),
+            "rf2": lambda: RandomForestClassifier(n_estimators=100, max_depth=2, random_state=42, class_weight="balanced"),
+            "rf3": lambda: RandomForestClassifier(n_estimators=100, max_depth=3, random_state=42, class_weight="balanced"),
         }
+        clf_key = best_name.split("_")[-1]
+        clf_f = clf_map.get(clf_key, lambda: LogisticRegression(C=1.0, max_iter=5000, random_state=42))
 
+        steps = [("scaler", StandardScaler())]
+        if pca_n > 0:
+            steps.append(("pca", PCA(n_components=pca_n, random_state=42)))
+        steps.append(("clf", clf_f()))
+        pipeline = Pipeline(steps)
+        pipeline.fit(X_final, y)
+
+        print(f"\n  Saved final model: {best_name} (LOO acc={best_acc_f:.1%})")
+        save_obj = {
+            "model": pipeline, "feature_key": best_fkey,
+            "class_names": CLASS_NAMES,
+            "metrics": {"loo_accuracy": best_acc_f, "config_name": best_name, "n_samples": N},
+        }
         with open(OUTPUT_PATH, "wb") as f:
             pickle.dump(save_obj, f)
         logger.info("Saved model to %s", OUTPUT_PATH)
     else:
-        print(f"\n  Best accuracy {best_acc:.1%} < 70%, NOT saving model.")
+        best_acc_val = best_result[1] if best_result else 0
+        print(f"\n  Best accuracy {best_acc_val:.1%} < 70%, NOT saving model.")
 
-    elapsed = time.time() - t0
-    logger.info("Total time: %.1f seconds", elapsed)
+    logger.info("Total time: %.1f seconds", time.time() - t0)
 
 
 if __name__ == "__main__":

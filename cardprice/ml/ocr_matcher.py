@@ -1121,7 +1121,7 @@ def fuzzy_match_card_name(
         query,
         name_list,
         scorer=fuzz.token_set_ratio,
-        limit=top_k * 2,  # Get extras since we'll filter
+        limit=top_k * 4,  # Get extra candidates for re-ranking
         score_cutoff=score_cutoff,
     )
 
@@ -1131,14 +1131,59 @@ def fuzzy_match_card_name(
             query,
             name_list,
             scorer=fuzz.WRatio,
-            limit=top_k * 2,
+            limit=top_k * 4,
             score_cutoff=score_cutoff,
         )
+
+    # -----------------------------------------------------------------------
+    # Re-rank to fix possessive name problem.
+    #
+    # token_set_ratio decomposes strings into token sets and scores based on
+    # the intersection.  This means "Misty's Horsea" vs "Horsea" scores 100
+    # because "horsea" is a perfect subset match — the extra "misty's" token
+    # is ignored.  When the query CONTAINS a possessive prefix, we must
+    # prefer matches that also include it.
+    #
+    # Strategy: blend token_set_ratio (good for partial OCR) with fuzz.ratio
+    # (penalises length mismatches).  For multi-word queries, also add a
+    # token coverage bonus when the match contains most of the query tokens.
+    # -----------------------------------------------------------------------
+    query_tokens = set(query.split())
+    query_len = len(query)
+
+    reranked = []
+    for matched_name, tsr_score, _idx in matches:
+        # fuzz.ratio penalises length differences, so "Misty's Horsea" vs
+        # "Horsea" scores ~63 while vs "Misty's Horsea" scores ~96.
+        ratio_score = fuzz.ratio(query, matched_name)
+
+        # Token coverage: what fraction of query tokens appear in the match?
+        match_tokens = set(matched_name.split())
+        if query_tokens:
+            # Count tokens that fuzzy-match (handles OCR typos like "mistys"→"misty's")
+            covered = 0
+            for qt in query_tokens:
+                for mt in match_tokens:
+                    if fuzz.ratio(qt, mt) >= 75:
+                        covered += 1
+                        break
+            coverage = covered / len(query_tokens)
+        else:
+            coverage = 1.0
+
+        # Blend: token_set_ratio (60%) + ratio (25%) + coverage bonus (15%)
+        # For single-token queries, coverage is always 1.0 so this is harmless.
+        blended = tsr_score * 0.60 + ratio_score * 0.25 + coverage * 100.0 * 0.15
+
+        reranked.append((matched_name, blended, tsr_score))
+
+    # Sort by blended score descending
+    reranked.sort(key=lambda r: -r[1])
 
     # Flatten: for each matched name, include all card_ids
     results: list[tuple[str, str, str, float]] = []
     seen_names = set()
-    for matched_name, score, _idx in matches:
+    for matched_name, blended_score, _tsr_score in reranked:
         if matched_name in seen_names:
             continue
         seen_names.add(matched_name)
@@ -1147,7 +1192,7 @@ def fuzzy_match_card_name(
             original_name = next(
                 n for _, n, _ in card_names if n.lower() == matched_name
             )
-            results.append((card_id, original_name, set_id, score))
+            results.append((card_id, original_name, set_id, blended_score))
 
     # Sort by score desc, then by card_id for stability
     results.sort(key=lambda r: (-r[3], r[0]))
