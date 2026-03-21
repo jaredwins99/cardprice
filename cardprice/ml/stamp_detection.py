@@ -109,6 +109,15 @@ STAMP_REGIONS = {
         "tight": (0.40, 0.20, 0.95, 0.55),
         "position": "artwork",
     },
+    # Build & Battle box promo stamp: rounded rectangle with pokeball graphic
+    # (left half) and trainer silhouette (right half).  Located in the
+    # bottom-left of the artwork area on SWSH/SV era SVP promo cards.
+    # Tight position from N's Zoroark ex analysis: x:4.5-16.5%, y:41.5-47.5%.
+    "build_battle": {
+        "wide": (0.03, 0.38, 0.20, 0.52),
+        "tight": (0.045, 0.415, 0.165, 0.475),
+        "position": "artwork_bottom_left",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -168,6 +177,123 @@ _MODERN_PROMO_SETS = frozenset({
     "swshp",  # Sword & Shield promos
     "svp",    # Scarlet & Violet promos
 })
+
+# ---------------------------------------------------------------------------
+# Prerelease-eligible sets by era
+# ---------------------------------------------------------------------------
+# WotC/EX/DP: gold foil "PRERELEASE" text on artwork (text-based detection)
+_PRERELEASE_TEXT_SETS = frozenset({
+    # WotC era (1)
+    "base2", "base3", "base5",
+    "gym1", "gym2",
+    "neo1", "neo2", "neo3", "neo4",
+    "ecard1", "ecard2", "ecard3",
+    # EX era (2)
+    "ex1", "ex2", "ex3", "ex4", "ex5", "ex6",
+    "ex7", "ex8", "ex9", "ex10", "ex11",
+    "ex12", "ex13", "ex14", "ex15", "ex16",
+    # DP era (3) -- last era with text-based prerelease stamps
+    "dp1", "dp2", "dp3", "dp4", "dp5", "dp6", "dp7",
+    "pl1", "pl2", "pl3", "pl4",
+})
+
+# HGSS onward: set logo stamp on artwork (logo-based detection).
+# The stamp shows the expansion set name/logo in the artwork area.
+_PRERELEASE_LOGO_SETS = frozenset({
+    # HGSS era (4)
+    "hgss1", "hgss2", "hgss3", "hgss4", "col1",
+    # BW era (5)
+    "bw1", "bw2", "bw3", "bw4", "bw5", "bw6",
+    "bw7", "bw8", "bw9", "bw10", "bw11",
+    # XY era (6)
+    "xy1", "xy2", "xy3", "xy4", "xy5", "xy6",
+    "xy7", "xy8", "xy9", "xy10", "xy11", "xy12",
+    # SM era (7)
+    "sm1", "sm2", "sm3", "sm35", "sm4", "sm5", "sm6",
+    "sm7", "sm75", "sm8", "sm9", "sm10", "sm11", "sm115", "sm12",
+    # SWSH era (8)
+    "swsh1", "swsh2", "swsh3", "swsh35", "swsh4", "swsh45",
+    "swsh5", "swsh6", "swsh7", "swsh8", "swsh9", "swsh10",
+    "swsh11", "swsh12", "swsh12pt5",
+    # SV era (9)
+    "sv1", "sv2", "sv3", "sv3pt5", "sv4", "sv4pt5",
+    "sv5", "sv6", "sv6pt5", "sv7", "sv8", "sv8pt5", "sv9",
+})
+
+# Known set names for HGSS+ prerelease logo stamp OCR matching.
+_PRERELEASE_LOGO_SET_TEXT: dict[str, list[str]] = {
+    "hgss1": ["heartgold", "soulsilver"],
+    "hgss2": ["unleashed"],
+    "hgss3": ["undaunted"],
+    "hgss4": ["triumphant"],
+    "col1":  ["call", "legends"],
+    "bw1":  ["black", "white"],
+    "bw2":  ["emerging", "powers"],
+    "bw3":  ["noble", "victories"],
+    "bw4":  ["next", "destinies"],
+    "bw5":  ["dark", "explorers"],
+    "bw6":  ["dragons", "exalted"],
+    "bw7":  ["boundaries", "crossed"],
+    "bw8":  ["plasma", "storm"],
+    "bw9":  ["plasma", "freeze"],
+    "bw10": ["plasma", "blast"],
+    "bw11": ["legendary", "treasures"],
+    "xy1":  ["xy"],
+    "xy2":  ["flashfire"],
+    "xy3":  ["furious", "fists"],
+    "xy4":  ["phantom", "forces"],
+    "xy5":  ["primal", "clash"],
+    "xy6":  ["roaring", "skies"],
+    "xy7":  ["ancient", "origins"],
+    "xy8":  ["breakthrough"],
+    "xy9":  ["breakpoint"],
+    "xy10": ["fates", "collide"],
+    "xy11": ["steam", "siege"],
+    "xy12": ["evolutions"],
+    "sm1":  ["sun", "moon"],
+    "sm2":  ["guardians", "rising"],
+    "sm3":  ["burning", "shadows"],
+    "sm35": ["shining", "legends"],
+    "sm4":  ["crimson", "invasion"],
+    "sm5":  ["ultra", "prism"],
+    "sm6":  ["forbidden", "light"],
+    "sm7":  ["celestial", "storm"],
+    "sm75": ["dragon", "majesty"],
+    "sm8":  ["lost", "thunder"],
+    "sm9":  ["team", "up"],
+    "sm10": ["unbroken", "bonds"],
+    "sm11": ["unified", "minds"],
+    "sm115": ["hidden", "fates"],
+    "sm12": ["cosmic", "eclipse"],
+    "swsh1":  ["sword", "shield"],
+    "swsh2":  ["rebel", "clash"],
+    "swsh3":  ["darkness", "ablaze"],
+    "swsh35": ["champion", "path"],
+    "swsh4":  ["vivid", "voltage"],
+    "swsh45": ["shining", "fates"],
+    "swsh5":  ["battle", "styles"],
+    "swsh6":  ["chilling", "reign"],
+    "swsh7":  ["evolving", "skies"],
+    "swsh8":  ["fusion", "strike"],
+    "swsh9":  ["brilliant", "stars"],
+    "swsh10": ["astral", "radiance"],
+    "swsh11": ["lost", "origin"],
+    "swsh12": ["silver", "tempest"],
+    "swsh12pt5": ["crown", "zenith"],
+    "sv1":    ["scarlet", "violet"],
+    "sv2":    ["paldea", "evolved"],
+    "sv3":    ["obsidian", "flames"],
+    "sv3pt5": ["151"],
+    "sv4":    ["paradox", "rift"],
+    "sv4pt5": ["paldean", "fates"],
+    "sv5":    ["temporal", "forces"],
+    "sv6":    ["twilight", "masquerade"],
+    "sv6pt5": ["shrouded", "fable"],
+    "sv7":    ["stellar", "crown"],
+    "sv8":    ["surging", "sparks"],
+    "sv8pt5": ["prismatic", "evolutions"],
+    "sv9":    ["journey", "together"],
+}
 
 # ---------------------------------------------------------------------------
 # Retailer-exclusive stamp definitions
@@ -997,6 +1123,183 @@ def _check_retailer_stamp(img_bgr: np.ndarray, set_id: str,
     return result_base
 
 
+
+
+def _check_pokemon_center_stamp(img_bgr: np.ndarray, set_id: str,
+                                 era: int) -> dict:
+    """Detect Pokemon Center exclusive stamp on ETB promo cards.
+
+    The Pokemon Center stamp is a small (~5% card width) circular logo
+    derived from the pokeball design, printed in red and white.  It appears
+    in the bottom-right of the artwork area on SVP promos distributed
+    through Pokemon Center Elite Trainer Boxes (SWSH/SV era, 2020+).
+
+    Detection strategy:
+      1. Crop the expected region (x:80-95%, y:55-70%).
+      2. Build an HSV red mask (hue 0-10 or 170-180, sat > 80, val > 80).
+      3. Find contours on the red mask; check for a circular blob of the
+         right size (~0.5-15% of crop area).
+      4. If a red circle is found, look for a white interior (pokeball
+         split) as confirmation.
+      5. OCR fallback for "POKEMON CENTER" text in the wider region.
+      6. HoughCircles fallback on the red mask if contour method fails.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (only 'svp' is relevant).
+        era: Card era number (8 = SWSH, 9 = SV).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {
+        "detected": False, "confidence": 0.0,
+        "position": "artwork_bottom_right",
+    }
+
+    # Gate: only SVP promos in SWSH/SV era (era 0 = unknown, allow it)
+    if set_id != "svp" or era not in (8, 9, 0):
+        return result_base
+
+    regions = STAMP_REGIONS["pokemon_center"]
+
+    # --- Step 1: crop the tight region (higher signal) ---
+    tight = _extract_region(img_bgr, *regions["tight"])
+    if tight.size == 0:
+        return result_base
+
+    h_crop, w_crop = tight.shape[:2]
+    crop_area = h_crop * w_crop
+
+    # --- Step 2: red mask in HSV ---
+    hsv = cv2.cvtColor(tight, cv2.COLOR_BGR2HSV)
+
+    # Red wraps around hue 0/180 in OpenCV HSV (0-180 range).
+    mask_lo = cv2.inRange(hsv, np.array([0, 80, 80]),
+                          np.array([10, 255, 255]))
+    mask_hi = cv2.inRange(hsv, np.array([170, 80, 80]),
+                          np.array([180, 255, 255]))
+    red_mask = cv2.bitwise_or(mask_lo, mask_hi)
+
+    # Morphological cleanup
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel)
+    red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)
+
+    # --- Step 3: find circular red blobs ---
+    contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL,
+                                    cv2.CHAIN_APPROX_SIMPLE)
+
+    best_circularity = 0.0
+    best_contour = None
+    min_blob_area = crop_area * 0.005   # 0.5% of crop
+    max_blob_area = crop_area * 0.15    # 15% of crop
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area < min_blob_area or area > max_blob_area:
+            continue
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter == 0:
+            continue
+        circularity = 4 * np.pi * area / (perimeter ** 2)
+        if circularity > best_circularity:
+            best_circularity = circularity
+            best_contour = cnt
+
+    red_circle_found = best_circularity >= 0.55
+
+    if red_circle_found and best_contour is not None:
+        # --- Step 4: white interior check (pokeball split) ---
+        x_b, y_b, w_b, h_b = cv2.boundingRect(best_contour)
+        pad_x = max(1, int(w_b * 0.2))
+        pad_y = max(1, int(h_b * 0.2))
+        x0 = max(0, x_b + pad_x)
+        y0 = max(0, y_b + pad_y)
+        x1 = min(w_crop, x_b + w_b - pad_x)
+        y1 = min(h_crop, y_b + h_b - pad_y)
+
+        has_white = False
+        white_ratio = 0.0
+        if x1 > x0 and y1 > y0:
+            interior = tight[y0:y1, x0:x1]
+            gray_int = cv2.cvtColor(interior, cv2.COLOR_BGR2GRAY)
+            white_pixels = int(np.sum(gray_int > 200))
+            total_pixels = max(gray_int.size, 1)
+            white_ratio = white_pixels / total_pixels
+            has_white = white_ratio > 0.10
+
+        if has_white:
+            logger.debug("Pokemon Center stamp: red circle (circ=%.2f) "
+                         "with white interior (%.1f%%)",
+                         best_circularity, white_ratio * 100)
+            return {
+                "detected": True, "confidence": 0.90,
+                "position": "artwork_bottom_right",
+                "evidence": "red_circle_white_interior",
+                "circularity": round(best_circularity, 3),
+                "white_ratio": round(white_ratio, 3),
+            }
+
+        # Red circle without confirmed white interior
+        logger.debug("Pokemon Center stamp: red circle (circ=%.2f) "
+                     "no white interior", best_circularity)
+        return {
+            "detected": True, "confidence": 0.70,
+            "position": "artwork_bottom_right",
+            "evidence": "red_circle_only",
+            "circularity": round(best_circularity, 3),
+        }
+
+    # --- Step 5: OCR fallback on wider region ---
+    wide = _extract_region(img_bgr, *regions["wide"])
+    if wide.size > 0:
+        ocr_text = _ocr_region(wide)
+        has_pokemon = "pokemon" in ocr_text or "pokémon" in ocr_text
+        has_center = "center" in ocr_text or "centre" in ocr_text
+
+        if has_pokemon and has_center:
+            return {
+                "detected": True, "confidence": 0.85,
+                "position": "artwork_bottom_right",
+                "evidence": "ocr_pokemon_center",
+                "ocr_text": ocr_text,
+            }
+        if has_pokemon or has_center:
+            return {
+                "detected": True, "confidence": 0.60,
+                "position": "artwork_bottom_right",
+                "evidence": "ocr_partial",
+                "ocr_text": ocr_text,
+            }
+
+    # --- Step 6: HoughCircles fallback on red mask ---
+    red_pixels = cv2.countNonZero(red_mask)
+    red_density = red_pixels / max(crop_area, 1)
+    if red_density > 0.005:
+        try:
+            blurred_mask = cv2.GaussianBlur(red_mask, (5, 5), 0)
+            min_r = max(3, int(min(h_crop, w_crop) * 0.03))
+            max_r = max(10, int(min(h_crop, w_crop) * 0.25))
+            circles = cv2.HoughCircles(
+                blurred_mask, cv2.HOUGH_GRADIENT, dp=1.5,
+                minDist=max(5, min_r * 2),
+                param1=50, param2=20,
+                minRadius=min_r, maxRadius=max_r,
+            )
+            if circles is not None and len(circles[0]) > 0:
+                return {
+                    "detected": True, "confidence": 0.55,
+                    "position": "artwork_bottom_right",
+                    "evidence": "hough_red_circle",
+                    "red_density": round(red_density, 4),
+                }
+        except Exception as e:
+            logger.debug("Pokemon Center HoughCircles fallback failed: %s", e)
+
+    return result_base
+
+
 # ---------------------------------------------------------------------------
 # Determine which stamps to check for a given card_id
 # ---------------------------------------------------------------------------
@@ -1031,6 +1334,10 @@ def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
     # SWSH/SV (era 8-9): modern promo pokeball
     if set_id in _MODERN_PROMO_SETS:
         checks.append("modern_promo")
+
+    # BW/XY/SM eras (5-7): retailer-exclusive stamps (Toys R Us, Build-A-Bear)
+    if era in _RETAILER_STAMP_ERAS:
+        checks.append("retailer_stamp")
 
     return checks
 
@@ -1094,6 +1401,8 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         "promo_stamp": lambda img_bgr: _check_promo_stamp(img_bgr),
         "copyright_year": lambda img_bgr: _check_copyright_year(img_bgr, set_id),
         "shadowless": lambda img_bgr: _check_shadowless(img_bgr, set_id),
+        "pokemon_center": lambda img_bgr: _check_pokemon_center_stamp(img_bgr, set_id, era),
+        "retailer_stamp": lambda img_bgr: _check_retailer_stamp(img_bgr, set_id, era),
     }
 
     for stamp_type in stamps_to_check:
@@ -1114,6 +1423,9 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
                 # Include variant for copyright_year detection
                 if "variant" in detail:
                     stamp_info["variant"] = detail["variant"]
+                # Include retailer name for retailer_stamp detection
+                if "retailer" in detail and detail["retailer"]:
+                    stamp_info["retailer"] = detail["retailer"]
                 result["stamp_details"][stamp_type] = stamp_info
                 logger.info("Stamp detected: %s on %s (conf=%.2f, evidence=%s%s)",
                             stamp_type, card_id, detail["confidence"],

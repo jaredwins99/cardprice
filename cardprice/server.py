@@ -25,6 +25,7 @@ Endpoints:
     GET  /cart       -> Current cart contents as JSON
     GET  /cart/clear -> Clear the entire shopping cart
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
+    GET  /card-image-variant/<card_id>?variants=... -> Card image with variant overlays
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
     GET  /condition/camera -> Live camera overlay UI for condition capture
     GET  /condition/camera/<card_id> -> Per-card camera UI with card identity pre-filled
@@ -1186,6 +1187,12 @@ class ScanHandler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             card_id = unquote(self.path.split("/price-history/", 1)[1])
             self._send_price_history(card_id)
+        elif self.path.startswith("/card-image-variant/"):
+            from urllib.parse import unquote, urlparse, parse_qs
+            parsed = urlparse(self.path)
+            card_id = unquote(parsed.path.split("/card-image-variant/", 1)[1])
+            variants = parse_qs(parsed.query).get("variants", [""])[0]
+            self._send_card_image_variant(card_id, variants)
         elif self.path.startswith("/card-image/"):
             from urllib.parse import unquote
             card_path = unquote(self.path.split("/card-image/", 1)[1])
@@ -1391,6 +1398,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "phash": phash_hex,
                     "detected_variant": detected_variant,
                     "variant_confidence": result.get("variant_confidence"),
+                    "stamps_detected": result.get("stamps_detected", []),
                     "stamp_details": result.get("stamp_details", {}),
                     "tcgplayer_url": None,
                 }
@@ -1882,6 +1890,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "method": result["method"],
                         "detected_variant": detected_variant,
                         "variant_confidence": result.get("variant_confidence"),
+                        "stamps_detected": result.get("stamps_detected", []),
                         "stamp_details": result.get("stamp_details", {}),
                         "card_name": None,
                         "market_price": None,
@@ -3690,6 +3699,64 @@ class ScanHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "public, max-age=86400")
         self.end_headers()
         self.wfile.write(png_data)
+
+    # Cache for variant overlay images: (card_id, frozenset(variants)) -> PNG bytes
+    _variant_image_cache = {}
+
+    def _send_card_image_variant(self, card_id, variants_str):
+        """Serve a card reference image with variant indicator overlays.
+
+        URL format: /card-image-variant/<card_id>?variants=1st_edition,reverse_holo
+        Loads the normal variant reference image, applies overlay badges for
+        each detected variant, caches the result, and returns PNG.
+        """
+        card_id = card_id.strip("/")
+        variant_list = [v.strip() for v in variants_str.split(",") if v.strip()]
+
+        if not variant_list:
+            # No variants requested — redirect to plain card-image
+            ref_url = _local_image_url(card_id)
+            if ref_url:
+                self.send_response(302)
+                self.send_header("Location", ref_url)
+                self.end_headers()
+            else:
+                self.send_error(404, f"No reference image for {card_id}")
+            return
+
+        # Check cache
+        cache_key = (card_id, frozenset(variant_list))
+        cached = ScanHandler._variant_image_cache.get(cache_key)
+        if cached:
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Length", str(len(cached)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(cached)
+            return
+
+        # Find the base reference image
+        ref_path = _ref_image_path(card_id)
+        if not ref_path:
+            self.send_error(404, f"No reference image for {card_id}")
+            return
+
+        # Apply overlay
+        from cardprice.ml.image_overlay import apply_variant_overlay
+        base_data = ref_path.read_bytes()
+        overlaid_data = apply_variant_overlay(base_data, variant_list)
+
+        # Cache the result (limit cache size to prevent unbounded memory growth)
+        if len(ScanHandler._variant_image_cache) < 500:
+            ScanHandler._variant_image_cache[cache_key] = overlaid_data
+
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(overlaid_data)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(overlaid_data)
 
     def _send_segment_image(self, rel_path):
         """Serve a segmented card image from data/inbox/.
