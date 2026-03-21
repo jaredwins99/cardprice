@@ -1948,6 +1948,11 @@ function drawQR(canvasId,text,cellSize){
         }
 
         var refSrc = card.local_image_url || card.image_url;
+        // If card has detected stamps, use variant image endpoint for overlay badges
+        if (card.stamps_detected && card.stamps_detected.length > 0 && card.card_id) {
+            refSrc = '/card-image-variant/' + encodeURIComponent(card.card_id) +
+                     '?variants=' + card.stamps_detected.join(',');
+        }
         if (refSrc) {
             var refCol = document.createElement('div');
             refCol.className = 'modal-img-col';
