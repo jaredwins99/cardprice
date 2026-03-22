@@ -647,6 +647,414 @@ canvas.proc-canvas { display: none; }
         return canvas;
     }
 
+    // Standard Pokemon card output size (2.5" x 3.5" at 168 DPI)
+    var CARD_W = 420, CARD_H = 586;
+
+    /**
+     * Crop the most prominent single card from a full camera frame.
+     *
+     *  1. Downscale to 480px width
+     *  2. Grayscale + Gaussian blur (3x3)
+     *  3. Sobel edge detection + 3x3 dilation
+     *  4. Flood-fill contour finding + border extraction
+     *  5. RDP polygon simplification; keep quadrilaterals
+     *  6. Filter: aspect 0.55-0.85, area 15%-80%, convex, not clipped
+     *  7. Pick quad closest to frame center
+     *  8. Order corners TL/TR/BR/BL, perspective warp to 420x586
+     *
+     * Returns perspective-corrected card canvas, or null if no quad found.
+     */
+    function cropCardFromFrame(sourceCanvas) {
+        var srcW = sourceCanvas.width, srcH = sourceCanvas.height;
+        if (srcW < 100 || srcH < 100) return null;
+
+        // Downscale
+        var procW = 480;
+        var procScale = procW / srcW;
+        var procH = Math.round(srcH * procScale);
+
+        var procCanvas = document.createElement('canvas');
+        procCanvas.width = procW;
+        procCanvas.height = procH;
+        var procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+        procCtx.drawImage(sourceCanvas, 0, 0, procW, procH);
+
+        var imgData = procCtx.getImageData(0, 0, procW, procH);
+        var px = imgData.data;
+        var totalPx = procW * procH;
+
+        // Grayscale
+        var gray = new Uint8Array(totalPx);
+        for (var i = 0; i < totalPx; i++) {
+            var off = i * 4;
+            gray[i] = Math.round(0.299 * px[off] + 0.587 * px[off + 1] + 0.114 * px[off + 2]);
+        }
+
+        // Gaussian blur 3x3 (kernel sum = 16)
+        var blurred = new Uint8Array(totalPx);
+        for (var y = 1; y < procH - 1; y++) {
+            for (var x = 1; x < procW - 1; x++) {
+                var idx = y * procW + x;
+                blurred[idx] = (
+                    gray[idx - procW - 1] + 2 * gray[idx - procW] + gray[idx - procW + 1] +
+                    2 * gray[idx - 1]     + 4 * gray[idx]          + 2 * gray[idx + 1] +
+                    gray[idx + procW - 1] + 2 * gray[idx + procW] + gray[idx + procW + 1]
+                ) >> 4;
+            }
+        }
+
+        // Sobel edge detection
+        var edgeBin = new Uint8Array(totalPx);
+        var sobelThr = 50;
+        for (var y = 1; y < procH - 1; y++) {
+            for (var x = 1; x < procW - 1; x++) {
+                var idx = y * procW + x;
+                var gx = -blurred[idx - procW - 1] + blurred[idx - procW + 1]
+                         - 2 * blurred[idx - 1] + 2 * blurred[idx + 1]
+                         - blurred[idx + procW - 1] + blurred[idx + procW + 1];
+                var gy = -blurred[idx - procW - 1] - 2 * blurred[idx - procW] - blurred[idx - procW + 1]
+                         + blurred[idx + procW - 1] + 2 * blurred[idx + procW] + blurred[idx + procW + 1];
+                edgeBin[idx] = (Math.sqrt(gx * gx + gy * gy) > sobelThr) ? 255 : 0;
+            }
+        }
+
+        // Dilate 3x3 to close edge gaps
+        var dilated = new Uint8Array(totalPx);
+        for (var y = 1; y < procH - 1; y++) {
+            for (var x = 1; x < procW - 1; x++) {
+                var idx = y * procW + x;
+                if (edgeBin[idx] ||
+                    edgeBin[idx - 1] || edgeBin[idx + 1] ||
+                    edgeBin[idx - procW] || edgeBin[idx + procW] ||
+                    edgeBin[idx - procW - 1] || edgeBin[idx - procW + 1] ||
+                    edgeBin[idx + procW - 1] || edgeBin[idx + procW + 1]) {
+                    dilated[idx] = 255;
+                }
+            }
+        }
+
+        // Find contours
+        var contours = findContours(dilated, procW, procH);
+
+        // Filter for card-like quadrilaterals
+        var frameCx = procW / 2, frameCy = procH / 2;
+        var frameArea = procW * procH;
+        var minArea = frameArea * 0.15, maxArea = frameArea * 0.80;
+        var borderMargin = 3;
+
+        var bestQuad = null, bestDist = Infinity;
+
+        for (var ci = 0; ci < contours.length; ci++) {
+            var contour = contours[ci];
+
+            // Perimeter
+            var perimeter = 0;
+            for (var pi = 0; pi < contour.length; pi++) {
+                var pj = (pi + 1) % contour.length;
+                var ddx = contour[pj][0] - contour[pi][0];
+                var ddy = contour[pj][1] - contour[pi][1];
+                perimeter += Math.sqrt(ddx * ddx + ddy * ddy);
+            }
+            if (perimeter < 80) continue;
+
+            // Approximate polygon (RDP)
+            var epsilon = 0.02 * perimeter;
+            var approx = rdpSimplify(contour, epsilon);
+            if (approx.length !== 4) continue;
+
+            // Convexity check
+            if (!isConvex(approx)) continue;
+
+            // Area
+            var area = polygonArea(approx);
+            if (area < minArea || area > maxArea) continue;
+
+            // Aspect ratio (bounding box)
+            var xs = approx.map(function(p) { return p[0]; });
+            var ys = approx.map(function(p) { return p[1]; });
+            var bw = Math.max.apply(null, xs) - Math.min.apply(null, xs);
+            var bh = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+            if (bw === 0 || bh === 0) continue;
+            var aspect = Math.min(bw, bh) / Math.max(bw, bh);
+            if (aspect < 0.55 || aspect > 0.85) continue;
+
+            // Reject quads touching frame border (partially clipped)
+            var touchesBorder = false;
+            for (var qi = 0; qi < approx.length; qi++) {
+                var ptx = approx[qi][0], pty = approx[qi][1];
+                if (ptx <= borderMargin || pty <= borderMargin ||
+                    ptx >= procW - borderMargin || pty >= procH - borderMargin) {
+                    touchesBorder = true;
+                    break;
+                }
+            }
+            if (touchesBorder) continue;
+
+            // Distance from quad centroid to frame center — pick most centered
+            var qcx = (approx[0][0] + approx[1][0] + approx[2][0] + approx[3][0]) / 4;
+            var qcy = (approx[0][1] + approx[1][1] + approx[2][1] + approx[3][1]) / 4;
+            var dist = Math.sqrt((qcx - frameCx) * (qcx - frameCx) + (qcy - frameCy) * (qcy - frameCy));
+
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestQuad = approx;
+            }
+        }
+
+        if (!bestQuad) return null;
+
+        // Order corners TL, TR, BR, BL and scale back to source resolution
+        var ordered = orderCorners(bestQuad);
+        var srcCorners = ordered.map(function(pt) {
+            return [pt[0] / procScale, pt[1] / procScale];
+        });
+        return perspectiveWarp(sourceCanvas, srcCorners, CARD_W, CARD_H);
+    }
+
+    /** Flood-fill contour finder on binary edge image. */
+    function findContours(binary, w, h) {
+        var visited = new Uint8Array(w * h);
+        var contours = [];
+        var minPts = 40;
+
+        for (var y = 1; y < h - 1; y++) {
+            for (var x = 1; x < w - 1; x++) {
+                var idx = y * w + x;
+                if (binary[idx] !== 255 || visited[idx]) continue;
+
+                // Flood fill 8-connectivity
+                var component = [];
+                var stack = [[x, y]];
+                visited[idx] = 1;
+
+                while (stack.length > 0) {
+                    var cur = stack.pop();
+                    component.push(cur);
+                    for (var ddy = -1; ddy <= 1; ddy++) {
+                        for (var ddx = -1; ddx <= 1; ddx++) {
+                            if (ddx === 0 && ddy === 0) continue;
+                            var nx = cur[0] + ddx, ny = cur[1] + ddy;
+                            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                            var nIdx = ny * w + nx;
+                            if (binary[nIdx] === 255 && !visited[nIdx]) {
+                                visited[nIdx] = 1;
+                                stack.push([nx, ny]);
+                            }
+                        }
+                    }
+                }
+
+                if (component.length < minPts) continue;
+
+                // Extract border points (edge pixels with at least one non-edge neighbor)
+                var border = [];
+                for (var bi = 0; bi < component.length; bi++) {
+                    var bx = component[bi][0], by = component[bi][1];
+                    var onBorder = false;
+                    for (var ddy = -1; ddy <= 1 && !onBorder; ddy++) {
+                        for (var ddx = -1; ddx <= 1 && !onBorder; ddx++) {
+                            if (ddx === 0 && ddy === 0) continue;
+                            var nnx = bx + ddx, nny = by + ddy;
+                            if (nnx < 0 || nny < 0 || nnx >= w || nny >= h ||
+                                binary[nny * w + nnx] === 0) {
+                                onBorder = true;
+                            }
+                        }
+                    }
+                    if (onBorder) border.push([bx, by]);
+                }
+
+                if (border.length >= minPts) {
+                    // Sort by angle from centroid to form polygon chain for RDP
+                    var bcx = 0, bcy = 0;
+                    for (var bi = 0; bi < border.length; bi++) {
+                        bcx += border[bi][0]; bcy += border[bi][1];
+                    }
+                    bcx /= border.length; bcy /= border.length;
+                    border.sort(function(a, b) {
+                        return Math.atan2(a[1] - bcy, a[0] - bcx) -
+                               Math.atan2(b[1] - bcy, b[0] - bcx);
+                    });
+                    contours.push(border);
+                }
+            }
+        }
+        return contours;
+    }
+
+    /** Ramer-Douglas-Peucker polygon simplification. */
+    function rdpSimplify(points, epsilon) {
+        if (points.length <= 2) return points.slice();
+        var maxDist = 0, maxIdx = 0;
+        var start = points[0], end = points[points.length - 1];
+        for (var i = 1; i < points.length - 1; i++) {
+            var d = pointToLineDist(points[i], start, end);
+            if (d > maxDist) { maxDist = d; maxIdx = i; }
+        }
+        if (maxDist > epsilon) {
+            var left = rdpSimplify(points.slice(0, maxIdx + 1), epsilon);
+            var right = rdpSimplify(points.slice(maxIdx), epsilon);
+            return left.slice(0, -1).concat(right);
+        }
+        return [start, end];
+    }
+
+    /** Perpendicular distance from point P to line A-B. */
+    function pointToLineDist(p, a, b) {
+        var dx = b[0] - a[0], dy = b[1] - a[1];
+        var lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return Math.sqrt((p[0] - a[0]) * (p[0] - a[0]) + (p[1] - a[1]) * (p[1] - a[1]));
+        return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / Math.sqrt(lenSq);
+    }
+
+    /** Check if a 4-point polygon is convex. */
+    function isConvex(pts) {
+        var n = pts.length, sign = 0;
+        for (var i = 0; i < n; i++) {
+            var a = pts[i], b = pts[(i + 1) % n], c = pts[(i + 2) % n];
+            var cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+            if (cross !== 0) {
+                if (sign === 0) sign = cross > 0 ? 1 : -1;
+                else if ((cross > 0 ? 1 : -1) !== sign) return false;
+            }
+        }
+        return true;
+    }
+
+    /** Polygon area via Shoelace (absolute value). */
+    function polygonArea(pts) {
+        var area = 0;
+        for (var i = 0; i < pts.length; i++) {
+            var j = (i + 1) % pts.length;
+            area += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1];
+        }
+        return Math.abs(area) / 2;
+    }
+
+    /** Order 4 corners: TL (min x+y), TR (min y-x), BR (max x+y), BL (max y-x). */
+    function orderCorners(pts) {
+        var sums = pts.map(function(p) { return p[0] + p[1]; });
+        var diffs = pts.map(function(p) { return p[1] - p[0]; });
+        return [
+            pts[sums.indexOf(Math.min.apply(null, sums))],    // TL
+            pts[diffs.indexOf(Math.min.apply(null, diffs))],   // TR
+            pts[sums.indexOf(Math.max.apply(null, sums))],     // BR
+            pts[diffs.indexOf(Math.max.apply(null, diffs))]    // BL
+        ];
+    }
+
+    /**
+     * Perspective warp: bilinear quad interpolation.
+     * Maps srcCorners [TL, TR, BR, BL] from sourceCanvas to dstW x dstH.
+     */
+    function perspectiveWarp(sourceCanvas, srcCorners, dstW, dstH) {
+        var srcCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+        var srcData = srcCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+        var srcPx = srcData.data;
+        var sW = sourceCanvas.width, sH = sourceCanvas.height;
+
+        var outCanvas = document.createElement('canvas');
+        outCanvas.width = dstW;
+        outCanvas.height = dstH;
+        var outCtx = outCanvas.getContext('2d');
+        var outData = outCtx.createImageData(dstW, dstH);
+        var outPx = outData.data;
+
+        var tl = srcCorners[0], tr = srcCorners[1], br = srcCorners[2], bl = srcCorners[3];
+
+        for (var dy = 0; dy < dstH; dy++) {
+            var v = dy / (dstH - 1);
+            // Left and right edge at this scanline
+            var lx = tl[0] + v * (bl[0] - tl[0]);
+            var ly = tl[1] + v * (bl[1] - tl[1]);
+            var rx = tr[0] + v * (br[0] - tr[0]);
+            var ry = tr[1] + v * (br[1] - tr[1]);
+
+            for (var dx = 0; dx < dstW; dx++) {
+                var u = dx / (dstW - 1);
+                var sx = lx + u * (rx - lx);
+                var sy = ly + u * (ry - ly);
+                var ix = Math.round(sx), iy = Math.round(sy);
+
+                var oi = (dy * dstW + dx) * 4;
+                if (ix >= 0 && ix < sW && iy >= 0 && iy < sH) {
+                    var si = (iy * sW + ix) * 4;
+                    outPx[oi] = srcPx[si];
+                    outPx[oi + 1] = srcPx[si + 1];
+                    outPx[oi + 2] = srcPx[si + 2];
+                    outPx[oi + 3] = 255;
+                }
+            }
+        }
+
+        outCtx.putImageData(outData, 0, 0);
+        return outCanvas;
+    }
+
+    /**
+     * Validate whether a cropped canvas looks like a Pokemon card.
+     * Checks brightness (40-240), luminance variance (>100), and
+     * Sobel edge density in top 20% (>3% = card name text present).
+     */
+    function validateCardCrop(croppedCanvas) {
+        var w = croppedCanvas.width, h = croppedCanvas.height;
+        var vCtx = croppedCanvas.getContext('2d', { willReadFrequently: true });
+        var imgData = vCtx.getImageData(0, 0, w, h);
+        var px = imgData.data;
+        var totalPx = w * h;
+
+        // Mean brightness
+        var bSum = 0;
+        for (var i = 0; i < totalPx; i++) {
+            var off = i * 4;
+            bSum += 0.299 * px[off] + 0.587 * px[off + 1] + 0.114 * px[off + 2];
+        }
+        var meanB = bSum / totalPx;
+        if (meanB < 40) return { valid: false, reason: 'Too dark — likely binder background' };
+        if (meanB > 240) return { valid: false, reason: 'Too bright — overexposed or blank' };
+
+        // Luminance variance
+        var vSum = 0;
+        for (var i = 0; i < totalPx; i++) {
+            var off = i * 4;
+            var lum = 0.299 * px[off] + 0.587 * px[off + 1] + 0.114 * px[off + 2];
+            vSum += (lum - meanB) * (lum - meanB);
+        }
+        if (vSum / totalPx < 100) return { valid: false, reason: 'Too uniform — likely solid background' };
+
+        // Edge density in top 20% (card name region)
+        var topH = Math.round(h * 0.20);
+        var topTotal = w * topH;
+        var topGray = new Uint8Array(topTotal);
+        for (var y = 0; y < topH; y++) {
+            for (var x = 0; x < w; x++) {
+                var off = (y * w + x) * 4;
+                topGray[y * w + x] = Math.round(
+                    0.299 * px[off] + 0.587 * px[off + 1] + 0.114 * px[off + 2]
+                );
+            }
+        }
+        var topEdges = 0;
+        for (var y = 1; y < topH - 1; y++) {
+            for (var x = 1; x < w - 1; x++) {
+                var idx = y * w + x;
+                var gx = -topGray[idx-w-1] + topGray[idx-w+1]
+                         -2*topGray[idx-1] + 2*topGray[idx+1]
+                         -topGray[idx+w-1] + topGray[idx+w+1];
+                var gy = -topGray[idx-w-1] - 2*topGray[idx-w] - topGray[idx-w+1]
+                         +topGray[idx+w-1] + 2*topGray[idx+w] + topGray[idx+w+1];
+                if (Math.sqrt(gx*gx + gy*gy) > 40) topEdges++;
+            }
+        }
+        if (topEdges / topTotal < 0.03) return { valid: false, reason: 'No text features in name region' };
+
+        return { valid: true, reason: 'OK' };
+    }
+
+    /**
+     * Fallback center-zone crop with card aspect ratio.
+     * Used when contour-based cropping fails to find a valid card quad.
+     */
     function smartCrop(sourceCanvas) {
         var w = sourceCanvas.width;
         var h = sourceCanvas.height;
@@ -699,7 +1107,18 @@ canvas.proc-canvas { display: none; }
 
         shutterBtn.disabled = true;
 
-        var cropped = smartCrop(frameCanvas);
+        // Try contour-based perspective-corrected crop first
+        var cropped = cropCardFromFrame(frameCanvas);
+        if (cropped) {
+            var validation = validateCardCrop(cropped);
+            if (!validation.valid) {
+                cropped = null;  // fall through to simple center crop
+            }
+        }
+        if (!cropped) {
+            cropped = smartCrop(frameCanvas);
+        }
+
         canvasToBlob(cropped).then(function(blob) {
             var dataUrl = URL.createObjectURL(blob);
 
