@@ -5230,12 +5230,10 @@ def identify_page_v2(card_image_paths, session=None,
             # with subsequent name OCR calls for other cards.
             ocr_name = ocr_data.get("ocr_name")
             ocr_conf = ocr_data.get("ocr_conf", 0)
-            # Skip attack OCR when name is reasonably confident.
-            # Attack OCR is VERY expensive (~10-15s/card) and rarely
-            # changes the result when name OCR is decent (>= 0.70).
-            # The v2 pipeline has attack fallback paths that can run
-            # lazily if needed during identification.
-            need_attacks = not ocr_name or ocr_conf < 0.70
+            # Skip attack OCR when name is confident enough.
+            # Attack OCR adds ~3-5s/card but is needed for disambiguation
+            # when name confidence is moderate. 0.85 balances speed vs accuracy.
+            need_attacks = not ocr_name or ocr_conf < 0.85
             if need_attacks:
                 _submit_attack_ocr(i, path)
             else:
