@@ -915,6 +915,12 @@ let speedWarningTimer = null;
 // ============================================================
 // Initialization
 // ============================================================
+function getActiveCol() {
+    // In zigzag mode: even rows go L->R, odd rows go R->L
+    if (currentRow % 2 === 0) return currentColInRow;
+    return CFG.cols - 1 - currentColInRow;
+}
+
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
