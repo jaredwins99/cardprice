@@ -1421,7 +1421,7 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_training_save()
         elif self.path == "/condition/assess":
             self._handle_condition_assess()
-        elif self.path == "/slide-scan/identify" or self.path.startswith("/slide-scan/identify?"):
+        elif self.path in ("/slide-scan", "/slide-scan/identify") or self.path.startswith("/slide-scan/identify?") or self.path.startswith("/slide-scan?"):
             self._handle_slide_scan_identify()
         elif self.path.startswith("/condition/photo/"):
             self._handle_condition_photo()
@@ -2212,11 +2212,21 @@ class ScanHandler(BaseHTTPRequestHandler):
         cards_dir.mkdir(parents=True, exist_ok=True)
 
         card_images = {}  # position -> path
+        num_cols = 3  # default binder page columns
         for field_name, (filename, file_data) in fields.items():
             if not field_name.startswith("card_"):
                 continue
+            # Support both "card_0" and "card_r0_c1" field name formats
+            suffix = field_name.split("card_", 1)[1]
             try:
-                pos = int(field_name.split("_", 1)[1])
+                if suffix.startswith("r") and "_c" in suffix:
+                    # Format: card_r0_c1 -> position = row * cols + col
+                    parts = suffix.split("_c")
+                    r = int(parts[0][1:])  # strip leading 'r'
+                    c = int(parts[1])
+                    pos = r * num_cols + c
+                else:
+                    pos = int(suffix)
             except (ValueError, IndexError):
                 continue
             if not file_data or len(file_data) < 100:
