@@ -939,15 +939,30 @@ async function init() {
             audio: false,
         });
         video.srcObject = stream;
+
+        // Wait for video frames to be available before playing.
+        // On iOS Safari, loadedmetadata fires too early.
+        await new Promise((resolve, reject) => {
+            video.addEventListener('loadeddata', resolve, { once: true });
+            video.addEventListener('error', reject, { once: true });
+            // Safety timeout
+            setTimeout(() => resolve(), 10000);
+        });
+
         await video.play();
         setStatus('Slide across cards slowly...');
 
-        resizeOverlay();
-        window.addEventListener('resize', resizeOverlay);
-
-        animFrameId = requestAnimationFrame(detectionLoop);
+        // Delay resize slightly so layout settles on mobile
+        setTimeout(() => {
+            resizeOverlay();
+            window.addEventListener('resize', resizeOverlay);
+            animFrameId = requestAnimationFrame(detectionLoop);
+        }, 200);
     } catch (err) {
         setStatus('Camera error: ' + err.message);
+        console.error('Camera init failed:', err);
+        // Show error visibly on screen
+        document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e74c3c;font-size:18px;">Camera Error<br><br><span style="font-size:14px;color:#888;">' + err.message + '<br><br>Make sure you allow camera access.<br>On some devices, HTTPS is required.</span></div>';
     }
 }
 
