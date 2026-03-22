@@ -717,6 +717,17 @@ function drawQR(canvasId,text,cellSize){
     drawQR('qrCanvas',url,6);
     if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent))
         document.getElementById('qrSection').style.display='none';
+    // Check for HTTPS tunnel URL (better for camera features)
+    fetch('/tunnel-url').then(r=>r.json()).then(d=>{
+        if(d.url){
+            document.getElementById('serverUrl').textContent=d.url;
+            drawQR('qrCanvas',d.url,6);
+            var note=document.createElement('p');
+            note.style.cssText='color:#4ecca3;font-size:11px;margin-top:6px;';
+            note.textContent='HTTPS tunnel (camera works)';
+            document.getElementById('qrSection').appendChild(note);
+        }
+    }).catch(function(){});
 })();
 </script>
 <script>
@@ -1594,6 +1605,10 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/video-scan":
             from cardprice.video_scan_ui import VIDEO_SCAN_HTML
             self._send_html(VIDEO_SCAN_HTML)
+        elif self.path == "/tunnel-url":
+            tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
+            url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
+            self._send_json({"url": url})
         elif self.path == "/install-cert":
             cert_path = Path(__file__).resolve().parent.parent / "data" / "server.crt"
             if cert_path.is_file():
@@ -5373,13 +5388,47 @@ def run_server(host="0.0.0.0", port=8888):
     lan_ip = _get_lan_ip()
     print(f"Card scanner server running at {protocol}://{host}:{port}")
     print(f"LAN URL (for phone): {protocol}://{lan_ip}:{port}")
+
+    # Auto-start Cloudflare tunnel for HTTPS (needed for getUserMedia/slide-scan)
+    tunnel_url = None
+    cloudflared_proc = None
+    cloudflared_path = Path.home() / ".local" / "bin" / "cloudflared"
+    if cloudflared_path.is_file() and not use_ssl:
+        import subprocess, threading
+        def _start_tunnel():
+            nonlocal tunnel_url, cloudflared_proc
+            try:
+                cloudflared_proc = subprocess.Popen(
+                    [str(cloudflared_path), "tunnel", "--url", f"http://localhost:{port}"],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                )
+                for line in cloudflared_proc.stdout:
+                    if "trycloudflare.com" in line:
+                        # Extract URL
+                        import re
+                        m = re.search(r'(https://[^\s]+trycloudflare\.com)', line)
+                        if m:
+                            tunnel_url = m.group(1)
+                            # Write tunnel URL to a file so the QR code JS can fetch it
+                            tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
+                            tunnel_file.write_text(tunnel_url)
+                            print(f"\n{'='*60}")
+                            print(f"  HTTPS tunnel: {tunnel_url}")
+                            print(f"  Slide scan:   {tunnel_url}/slide-scan")
+                            print(f"{'='*60}\n")
+            except Exception as e:
+                logger.warning("Cloudflare tunnel failed: %s", e)
+
+        tunnel_thread = threading.Thread(target=_start_tunnel, daemon=True)
+        tunnel_thread.start()
+
     print("Open this URL on your phone, or scan the QR code on the landing page")
-    if not use_ssl:
-        print(f"For camera features (slide-scan), set brave://flags insecure-origins to http://{lan_ip}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down.")
+        if cloudflared_proc:
+            cloudflared_proc.terminate()
         server.server_close()
 
 
