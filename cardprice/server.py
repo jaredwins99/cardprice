@@ -707,7 +707,7 @@ function drawQR(canvasId,text,cellSize){
 }
 // Render QR code with the server URL; hide on mobile (already on the phone)
 (function(){
-    var url='http://'+location.host;
+    var url=location.protocol+'//'+location.host;
     document.getElementById('serverUrl').textContent=url;
     drawQR('qrCanvas',url,6);
     if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent))
@@ -4416,10 +4416,25 @@ def run_server(host="0.0.0.0", port=8888):
         logger.info("Skipping warmup (CARDPRICE_SKIP_WARMUP set)")
 
     server = HTTPServer((host, port), ScanHandler)
+
+    # Wrap with SSL for getUserMedia (requires secure context on mobile)
+    import ssl
+    cert_path = Path(__file__).resolve().parent.parent / "data" / "server.crt"
+    key_path = Path(__file__).resolve().parent.parent / "data" / "server.key"
+    if cert_path.is_file() and key_path.is_file():
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(str(cert_path), str(key_path))
+        server.socket = ctx.wrap_socket(server.socket, server_side=True)
+        protocol = "https"
+    else:
+        protocol = "http"
+
     lan_ip = _get_lan_ip()
-    print(f"Card scanner server running at http://{host}:{port}")
-    print(f"LAN URL (for phone): http://{lan_ip}:{port}")
+    print(f"Card scanner server running at {protocol}://{host}:{port}")
+    print(f"LAN URL (for phone): {protocol}://{lan_ip}:{port}")
     print("Open this URL on your phone, or scan the QR code on the landing page")
+    if protocol == "https":
+        print("(Self-signed cert — accept the security warning on first visit)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
