@@ -46,6 +46,7 @@ import logging
 import os
 import re
 import socket
+import sys
 import time
 import urllib.request
 import urllib.error
@@ -1396,6 +1397,16 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/slide-scan":
             from cardprice.slide_scan_ui import SLIDE_SCAN_HTML
             self._send_html(SLIDE_SCAN_HTML)
+        elif self.path == "/install-cert":
+            cert_path = Path(__file__).resolve().parent.parent / "data" / "server.crt"
+            if cert_path.is_file():
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-x509-ca-cert")
+                self.send_header("Content-Disposition", "attachment; filename=cardprice-ca.crt")
+                self.end_headers()
+                self.wfile.write(cert_path.read_bytes())
+            else:
+                self.send_error(404, "No cert file found")
         else:
             self.send_error(404)
 
