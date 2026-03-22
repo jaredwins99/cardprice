@@ -4326,7 +4326,8 @@ def _is_card_back(image_path: str) -> bool:
 def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=None,
                      _precomputed_dino_embedding=None, _precomputed_attacks=None,
                      _precomputed_clip_embedding=None, _precomputed_easyocr_name=None,
-                     detect_variants=True, use_claude_vision_fallback=False):
+                     detect_variants=True, use_claude_vision_fallback=False,
+                     correct_perspective=False):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -4361,6 +4362,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         use_claude_vision_fallback: If True and the card remains unidentified
             after all ML steps, send the image to Claude vision API as a last
             resort. Costs API credits. Default False.
+        correct_perspective: If True, apply perspective correction to the card
+            image before identification. Saves a corrected copy alongside the
+            original. Default False.
 
     Returns:
         Dict with keys: card_id, confidence, method, explanation, raw_response.
@@ -4368,6 +4372,21 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             detected_variant, variant_confidence, variant_checks_run.
     """
     image_path = str(image_path)
+
+    # Optional perspective correction
+    if correct_perspective:
+        try:
+            import cv2 as _cv2_corr
+            from cardprice.ml.card_corrector import correct_card_image
+            _corr_img = _cv2_corr.imread(image_path)
+            if _corr_img is not None:
+                _corr_out = correct_card_image(_corr_img)
+                _corr_path = image_path + '_corrected.png'
+                _cv2_corr.imwrite(_corr_path, _corr_out)
+                logger.info("v2: perspective-corrected image saved: %s", _corr_path)
+                image_path = _corr_path
+        except Exception as e:
+            logger.warning("v2: perspective correction failed, using original: %s", e)
 
     # Convert HEIC/HEIF if needed
     try:
@@ -5109,7 +5128,8 @@ def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None)
 
 def identify_page_v2(card_image_paths, session=None,
                      detect_variants=False,
-                     use_claude_vision_fallback=False):
+                     use_claude_vision_fallback=False,
+                     correct_perspective=False):
     """V2 page identification: runs identify_card_v2 on each card, then
     applies page context reranking for low-confidence results.
 
@@ -5129,6 +5149,8 @@ def identify_page_v2(card_image_paths, session=None,
             variant detection can be triggered separately on-demand.
         use_claude_vision_fallback: If True, send unidentified cards to Claude
             vision API for identification. Costs API credits. Default False.
+        correct_perspective: If True, apply perspective correction to each
+            card image before identification. Default False.
 
     Returns:
         List of result dicts (same format as identify_card_v2), one per card.
@@ -5137,6 +5159,33 @@ def identify_page_v2(card_image_paths, session=None,
 
     if not card_image_paths:
         return []
+
+    # -------------------------------------------------------------------
+    # Optional: apply perspective correction to each card image
+    # -------------------------------------------------------------------
+    if correct_perspective:
+        try:
+            import cv2 as _cv2_corr
+            from cardprice.ml.card_corrector import correct_card_image
+            corrected_paths = []
+            for p in card_image_paths:
+                p_str = str(p)
+                try:
+                    _img = _cv2_corr.imread(p_str)
+                    if _img is not None:
+                        _out = correct_card_image(_img)
+                        _cp = p_str + '_corrected.png'
+                        _cv2_corr.imwrite(_cp, _out)
+                        corrected_paths.append(_cp)
+                    else:
+                        corrected_paths.append(p_str)
+                except Exception as e:
+                    logger.warning("identify_page_v2: perspective correction failed for %s: %s", p_str, e)
+                    corrected_paths.append(p_str)
+            card_image_paths = corrected_paths
+            logger.info("identify_page_v2: perspective correction applied to %d cards", len(corrected_paths))
+        except Exception as e:
+            logger.warning("identify_page_v2: perspective correction import failed: %s", e)
 
     # -------------------------------------------------------------------
     # Limit OpenMP/MKL threads to reduce CPU over-subscription.

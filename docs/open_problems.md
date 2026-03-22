@@ -1,6 +1,6 @@
 # Open Problems Catalog
 
-Last updated: 2026-03-19
+Last updated: 2026-03-22
 
 This document catalogs all known open problems in the card identification,
 variant detection, and pricing pipelines. Each problem includes root cause
@@ -964,3 +964,38 @@ compound names with "&" or multi-card layouts.
 **Conditioning in pipeline**: All pipeline steps
 
 **Dependencies**: Interacts with Problem 5 (full art) and Problem 15 (trainer cards).
+
+---
+
+## Slide-Scan Impact on Open Problems
+
+The slide-scan approach (see `docs/approach_slide_scan.md`) addresses many of the
+problems listed above by capturing individual cards at 3-4x higher resolution
+than binder-page scanning and eliminating the segmentation step entirely.
+
+| Problem | Impact | Detail |
+|---------|--------|--------|
+| P1: Possessive prefix | **Solved** | Full card name visible at close range, no edge clipping |
+| P2: Stamp detection | **Significantly improved** | Stamp text becomes OCR-readable at higher resolution |
+| P3: Holo detection | **Unchanged (static)** | Single frame still cannot detect holo shimmer; video extension could solve this |
+| P4: Edge clipping | **Eliminated** | No segmentation step, no contour expansion needed |
+| P5: Full art ID | **Improved** | Higher resolution helps DINOv2 discrimination |
+| P6: Art variant | **Improved** | DINOv2 scores increase from 0.3-0.6 to 0.65-0.85 |
+| P7: OCR noise | **Reduced** | Cleaner text separation at higher resolution |
+| P8: Japanese text | **Partially improved** | Higher resolution helps but does not solve missing JA OCR model |
+| P9: DINOv2 global | **Unchanged** | When OCR fails entirely, global search is still useless |
+| P10: Card back | **N/A** | User controls capture, no empty slots |
+| P11: Partial pages | **Eliminated** | User captures only cards that exist |
+| P12: Rotated cards | **Eliminated** | Client-side perspective correction handles orientation |
+| P13: Glare | **Reduced** | Smaller capture area, easier to angle phone to avoid glare |
+| P14: Ring shadow | **Eliminated** | No full-page capture, no ring shadow artifacts |
+| P15: Trainer/energy | **Improved** | Higher resolution helps name OCR on different layouts |
+| P16: Blur | **Largely solved** | Motion blur rejection and auto-capture ensure sharp frames |
+| P17: Color cast | **Unchanged** | Still photographing through binder sleeves |
+| P18: OCR thread safety | **Unchanged** | Same OCR pipeline on server side |
+| P19: Mixed-era context | **Unchanged** | Same page context logic applies |
+| P20: PV/HP suffix | **Unchanged** | Same fuzzy matching logic |
+| P21: Condition grading | **Improved** | Higher resolution enables basic condition assessment |
+| P22: Variant ID mapping | **Unchanged** | Data mapping issue, unrelated to capture method |
+| P23: eBay data | **Unchanged** | Data availability issue |
+| P24: Ace Spec cards | **Improved** | Higher resolution helps with unusual layouts |
