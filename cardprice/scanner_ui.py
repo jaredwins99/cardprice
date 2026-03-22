@@ -500,6 +500,7 @@ input[type=file] { display: none; }
 .cond-row .cp.hp { color: #e67e22; }
 .cond-row .cp.dmg { color: #e74c3c; }
 .cond-row .cp.blank { color: var(--text-faint); }
+.cond-row .cp.estimated { font-style: italic; opacity: 0.7; }
 
 /* Action Buttons (Add to Inventory / Cart) */
 .action-btns {
@@ -1713,7 +1714,7 @@ function drawQR(canvasId,text,cellSize){
                         var cpEl = document.createElement('div');
                         var cp = card.condition_prices && card.condition_prices[cond];
                         if (cp && cp.price != null) {
-                            cpEl.className = 'cp ' + classMap[cond];
+                            cpEl.className = 'cp ' + classMap[cond] + (cp.estimated ? ' estimated' : '');
                             cpEl.innerHTML = '<span class="cl">' + cond + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
                         } else {
                             cpEl.className = 'cp blank';
@@ -2091,7 +2092,7 @@ function drawQR(canvasId,text,cellSize){
                     var cpEl = document.createElement('div');
                     var cp = card.condition_prices && card.condition_prices[cond];
                     if (cp && cp.price != null) {
-                        cpEl.className = 'cp ' + mClassMap[cond];
+                        cpEl.className = 'cp ' + mClassMap[cond] + (cp.estimated ? ' estimated' : '');
                         cpEl.innerHTML = '<span class="cl">' + cond + '</span>$' + Number(cp.price).toFixed(cp.price >= 10 ? 0 : 2);
                     } else {
                         cpEl.className = 'cp blank';

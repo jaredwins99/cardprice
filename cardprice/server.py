@@ -788,7 +788,8 @@ function showResult(data, sec) {
             var info = cp[cond];
             if (!info) continue;
             var prefix = (info.source === 'estimated') ? '~$' : '$';
-            html += '<span class="cond-pill" style="color:' + colors[cond] + ';">' + cond + ' ' + prefix + info.price.toFixed(2) + '</span>';
+            var estStyle = info.estimated ? 'font-style:italic;opacity:0.7;' : '';
+            html += '<span class="cond-pill" style="color:' + colors[cond] + ';' + estStyle + '">' + cond + ' ' + prefix + info.price.toFixed(2) + '</span>';
         }
         // Show source indicator
         var allJtcg = Object.keys(cp).every(function(k){ return cp[k].source === 'justtcg'; });
