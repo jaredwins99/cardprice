@@ -905,7 +905,7 @@ function handlePageFile(file, sec) {
     singleResult.classList.remove('show');
     var fd = new FormData();
     fd.append('image', file);
-    fetch('/scan-page', {method: 'POST', body: fd})
+    fetch('/scan-page?variants=false', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
             stopScanTimer(sec);
@@ -982,7 +982,7 @@ function handlePageFile(file, sec) {
                 }
             }
             var totalText = cards.length + ' cards \u2014 NM: $' + total.toFixed(2);
-            if (condTotals.LP > 0) totalText += ' \u00b7 LP: $' + condTotals.LP.toFixed(2);
+            if (condTotals.MP > 0) totalText += ' \u00b7 MP: $' + condTotals.MP.toFixed(2);
             document.getElementById(sec + 'PageTotal').textContent = totalText;
             document.getElementById(sec + 'PageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
             // Show "Add All" button if cards have IDs
@@ -1246,8 +1246,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_scan()
         elif self.path == "/scan-url":
             self._handle_scan_url()
-        elif self.path == "/scan-page":
+        elif self.path == "/scan-page" or self.path.startswith("/scan-page?"):
             self._handle_scan_page()
+        elif self.path == "/detect-variants" or self.path.startswith("/detect-variants?"):
+            self._handle_detect_variants()
         elif self.path == "/resolve":
             self._handle_resolve()
         elif self.path == "/resolve-batch":
@@ -1797,7 +1799,17 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_json({"error": str(e)}, status=500)
 
     def _handle_scan_page(self):
-        """Handle binder page upload: segment into individual cards, identify each."""
+        """Handle binder page upload: segment into individual cards, identify each.
+
+        Query parameters:
+            variants=true  — run variant detection (holo/reverse/stamp checks)
+            variants=false — skip variant detection (default, faster)
+        """
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        detect_variants = qs.get("variants", ["false"])[0].lower() in ("true", "1", "yes")
+
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
             self.send_error(400, "Expected multipart/form-data")
@@ -1871,7 +1883,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
-                page_results = identify_page(card_images, session=session)
+                page_results = identify_page(card_images, session=session,
+                                             detect_variants=detect_variants)
                 for idx, (card_img_path, result) in enumerate(zip(card_images, page_results)):
                     # Compute grid position (assume 3 columns for binder pages)
                     num_cols = 3
@@ -1932,6 +1945,12 @@ class ScanHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             logger.error("Page scan identification error: %s", e)
+            # Reclaim memory even on error path
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
             self._send_json({"error": str(e), "cards": []}, status=500)
             return
 
@@ -1940,12 +1959,103 @@ class ScanHandler(BaseHTTPRequestHandler):
             for c in cards
             if (c["variant_price"] or c["market_price"])
         )
+        total_mp = sum(
+            (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
+            for c in cards
+        )
         self._send_json({
             "status": "ok",
             "cards": cards,
             "total_cards": len(cards),
             "total_value": round(total_value, 2),
+            "total_mp": round(total_mp, 2),
         })
+
+        # Release temporary objects and reclaim memory after page scan.
+        # Page scans allocate many large image arrays and intermediate tensors
+        # that Python's refcount GC may not collect promptly.
+        try:
+            import gc
+            gc.collect()
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    def _handle_detect_variants(self):
+        """Run variant detection on already-identified cards.
+
+        POST /detect-variants
+        Body: JSON with card_ids and their image paths.
+        Example: {"cards": [{"card_id": "base1-4/normal", "image_path": "/path/to/img.jpg"}, ...]}
+
+        Returns variant info for each card (detected_variant, variant_confidence,
+        stamps_detected, variant_price).
+        """
+        content_type = self.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            self.send_error(400, "Expected application/json")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+
+        body = self.rfile.read(length)
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+
+        card_list = payload.get("cards", [])
+        if not card_list:
+            self._send_json({"status": "ok", "cards": []})
+            return
+
+        try:
+            from cardprice.ml import _apply_variant_detection
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            results = []
+            with SessionLocal() as session:
+                for card_info in card_list:
+                    card_id = card_info.get("card_id")
+                    image_path = card_info.get("image_path")
+                    if not card_id or not image_path:
+                        results.append({"card_id": card_id, "error": "missing card_id or image_path"})
+                        continue
+
+                    result = {"card_id": card_id}
+                    _apply_variant_detection(result, image_path, detect_variants=True)
+
+                    detected_variant = result.get("detected_variant", "normal")
+                    variant_price = None
+                    if detected_variant != "normal":
+                        variant_price = _lookup_variant_price(session, card_id, detected_variant)
+
+                    results.append({
+                        "card_id": card_id,
+                        "detected_variant": detected_variant,
+                        "variant_confidence": result.get("variant_confidence"),
+                        "stamps_detected": result.get("stamps_detected", []),
+                        "stamp_details": result.get("stamp_details", {}),
+                        "variant_checks_run": result.get("variant_checks_run", []),
+                        "variant_price": variant_price,
+                    })
+
+            self._send_json({"status": "ok", "cards": results})
+        except Exception as e:
+            logger.error("Variant detection error: %s", e)
+            self._send_json({"error": str(e), "cards": []}, status=500)
 
     def _send_price_history(self, card_id):
         """Return last 30 days of market prices for a card as JSON array."""
@@ -3792,13 +3902,12 @@ def warmup():
     """Pre-load all ML models and data files so the first request is fast.
 
     Loads resources in dependency order:
-      1. PaddleOCR (name OCR) + dummy inference to trigger JIT compilation
-      2. EasyOCR (attack OCR fallback)
-      3. DINOv2 + dummy inference to trigger JIT/CUDA warmup
-      4. FAISS index + card_ids
-      5. Reference embeddings
-      6. Card names JSON
-      7. Card attacks JSON
+      1. RapidOCR (name + attack OCR) + dummy inference to trigger JIT compilation
+      2. DINOv2 + dummy inference to trigger JIT/CUDA warmup
+      3. FAISS index + card_ids
+      4. Reference embeddings
+      5. Card names JSON
+      6. Card attacks JSON
 
     Each step is timed and logged.  Failures are logged as warnings but do
     not prevent the server from starting.
@@ -3819,12 +3928,7 @@ def warmup():
         dummy = np.zeros((100, 300, 3), dtype=np.uint8)
         _paddle_ocr_name(dummy, 100, 300)
 
-    # --- 2. EasyOCR (attack OCR fallback) ---
-
-    def _warmup_easyocr_attack_ocr():
-        """Load shared EasyOCR reader (used by attack_ocr + hp_detector)."""
-        from cardprice.ml.ocr_matcher import get_easyocr_reader
-        get_easyocr_reader()
+    # --- 2. (EasyOCR removed — RapidOCR handles all OCR, saving ~800MB RAM + 15s warmup) ---
 
     # --- 3. DINOv2 + dummy inference ---
 
@@ -3880,8 +3984,7 @@ def warmup():
     # Ordered: critical models first with dummy inference, then data files.
     # CLIP is deliberately excluded (SIGSEGV with PaddlePaddle).
     steps = [
-        ("PaddleOCR (PP-OCRv5)",       _warmup_paddleocr),
-        ("EasyOCR (attack_ocr)",       _warmup_easyocr_attack_ocr),
+        ("RapidOCR (PP-OCRv5)",        _warmup_paddleocr),
         ("DINOv2 ViT-B/14",           _warmup_dinov2),
         ("FAISS index (DINOv2)",       _warmup_dino_faiss),
         ("Ref embeddings (DINOv2)",    _warmup_ref_embeddings),

@@ -1772,6 +1772,7 @@ function drawQR(canvasId,text,cellSize){
         bar.classList.add('show');
 
         var total = 0;
+        var totalMP = 0;
         var resolved = 0;
         var pending = 0;
 
@@ -1781,12 +1782,16 @@ function drawQR(canvasId,text,cellSize){
                 if (cards[i].market_price) {
                     total += Number(cards[i].market_price);
                 }
+                if (cards[i].condition_prices && cards[i].condition_prices.MP) {
+                    totalMP += cards[i].condition_prices.MP.price;
+                }
             } else {
                 pending++;
             }
         }
 
-        document.getElementById('summaryTotal').textContent = '$' + total.toFixed(2);
+        var totalText = 'NM: $' + total.toFixed(2) + ' \u00b7 MP: $' + totalMP.toFixed(2);
+        document.getElementById('summaryTotal').textContent = totalText;
 
         // Multi-page summary: "X pages . Y cards"
         var countParts = [];
