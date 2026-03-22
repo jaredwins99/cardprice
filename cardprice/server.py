@@ -466,6 +466,11 @@ input[type=file] { display: none; }
 </head>
 <body>
 <h1>Pokemon Card Scanner</h1>
+<div style="display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;">
+    <a href="/slide-scan" style="flex:1;display:block;background:#e94560;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Slide Scan</a>
+    <a href="/condition/camera" style="flex:1;display:block;background:#9b59b6;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Grade Condition</a>
+    <a href="/inventory/view" style="flex:1;display:block;background:#4ecca3;color:#1a1a2e;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Inventory</a>
+</div>
 <div class="qr-section" id="qrSection">
     <p>Scan QR code to open on your phone</p>
     <canvas id="qrCanvas"></canvas>
