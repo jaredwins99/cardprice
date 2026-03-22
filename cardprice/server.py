@@ -63,6 +63,97 @@ CARD_IMAGES_DIR = Path("data/card_images")
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
+# ---------------------------------------------------------------------------
+# JustTCG real condition prices (cached in-memory)
+# ---------------------------------------------------------------------------
+_JUSTTCG_DB_PATH = Path("data/justtcg_prices.db")
+
+# Condition name mapping: JustTCG long names -> our short codes
+_JUSTTCG_COND_MAP = {
+    "Near Mint": "NM",
+    "Lightly Played": "LP",
+    "Moderately Played": "MP",
+    "Heavily Played": "HP",
+    "Damaged": "DMG",
+}
+
+# Variant -> JustTCG printing name mapping (same as TCGCSV subtypes)
+_VARIANT_TO_JUSTTCG_PRINTING = {
+    "normal":           "Normal",
+    "holofoil":         "Holofoil",
+    "reverse_holofoil": "Reverse Holofoil",
+    "stamped":          "Reverse Holofoil",
+    "promo":            "Normal",
+    "shadowless":       "Normal",
+    "full_art":         "Holofoil",
+    "gold":             "Holofoil",
+    "rainbow_rare":     "Holofoil",
+    "cosmos":           "Holofoil",
+    "cracked_ice":      "Holofoil",
+    "1st_edition":      "1st Edition",
+}
+
+# Cache: {(tcg_product_id, printing) -> {"NM": price, "LP": price, ...}}
+_justtcg_cache: dict | None = None
+
+
+def _load_justtcg_cache():
+    """Load all JustTCG prices into memory, keyed by (tcg_product_id, printing)."""
+    global _justtcg_cache
+    if _justtcg_cache is not None:
+        return
+    _justtcg_cache = {}
+    if not _JUSTTCG_DB_PATH.exists():
+        logger.warning("JustTCG DB not found at %s — using estimated prices only", _JUSTTCG_DB_PATH)
+        return
+    try:
+        import sqlite3
+        conn = sqlite3.connect(str(_JUSTTCG_DB_PATH))
+        rows = conn.execute(
+            "SELECT tcg_product_id, printing, condition, price FROM justtcg_prices"
+        ).fetchall()
+        conn.close()
+        for product_id, printing, condition, price in rows:
+            short_cond = _JUSTTCG_COND_MAP.get(condition)
+            if not short_cond:
+                continue
+            key = (product_id, printing)
+            if key not in _justtcg_cache:
+                _justtcg_cache[key] = {}
+            _justtcg_cache[key][short_cond] = float(price)
+        logger.info("Loaded %d JustTCG price entries (%d card/printing combos)",
+                     len(rows), len(_justtcg_cache))
+    except Exception as e:
+        logger.error("Failed to load JustTCG prices: %s", e)
+        _justtcg_cache = {}
+
+
+def _get_justtcg_prices(tcg_product_id, printing="Normal"):
+    """Look up real condition prices from JustTCG cache.
+
+    Args:
+        tcg_product_id: TCGPlayer product ID (int)
+        printing: JustTCG printing name (e.g. "Normal", "Holofoil")
+
+    Returns dict with condition short codes as keys and price as values,
+    or None if not found.
+    """
+    _load_justtcg_cache()
+    if not tcg_product_id or not _justtcg_cache:
+        return None
+    # Try exact printing first, then fall back to any printing for this product
+    prices = _justtcg_cache.get((tcg_product_id, printing))
+    if prices and len(prices) >= 3:  # need at least 3 conditions to be useful
+        return prices
+    # Fallback: try other common printings
+    for fallback_printing in ("Holofoil", "Normal", "Reverse Holofoil"):
+        if fallback_printing == printing:
+            continue
+        prices = _justtcg_cache.get((tcg_product_id, fallback_printing))
+        if prices and len(prices) >= 3:
+            return prices
+    return None
+
 # In-memory shopping cart: card_id -> {quantity, card_name, set_name, market_price,
 #                                       condition_prices, image_url, tcgplayer_url}
 CART = {}
@@ -159,12 +250,50 @@ _PRICE_LOOKUP_BULK_SQL = """
 """
 
 
-def _build_condition_prices(nm_price):
-    """Build condition_prices dict for all 5 raw conditions from a NM price.
+def _build_condition_prices(nm_price, tcg_product_id=None, variant="normal"):
+    """Build condition_prices dict for all 5 raw conditions.
 
-    Returns dict with keys NM/LP/MP/HP/DMG, each having price/multiplier/range_low/range_high.
-    Returns None if nm_price is falsy.
+    First tries real per-condition prices from JustTCG (keyed by tcg_product_id
+    and printing/variant). Falls back to fixed multipliers from NM price.
+
+    Each condition entry has: price, source ("justtcg" or "estimated").
+    Estimated entries also include multiplier, range_low, range_high.
+
+    Returns None if nm_price is falsy and no JustTCG data found.
     """
+    # Try JustTCG real prices first
+    if tcg_product_id:
+        printing = _VARIANT_TO_JUSTTCG_PRINTING.get(variant or "normal", "Normal")
+        jtcg = _get_justtcg_prices(tcg_product_id, printing)
+        if jtcg:
+            cond_prices = {}
+            for cond in ("NM", "LP", "MP", "HP", "DMG"):
+                if cond in jtcg:
+                    cond_prices[cond] = {
+                        "price": round(jtcg[cond], 2),
+                        "source": "justtcg",
+                        "estimated": False,
+                    }
+            if len(cond_prices) >= 3:
+                # Fill any missing conditions with multipliers from NM
+                base = jtcg.get("NM") or nm_price
+                if base:
+                    from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
+                    base = float(base)
+                    for cond in ("NM", "LP", "MP", "HP", "DMG"):
+                        if cond not in cond_prices:
+                            mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
+                            cond_prices[cond] = {
+                                "price": round(base * mult, 2),
+                                "multiplier": mult,
+                                "range_low": round(base * ci_lo, 2),
+                                "range_high": round(base * ci_hi, 2),
+                                "source": "estimated",
+                                "estimated": True,
+                            }
+                return cond_prices
+
+    # Fallback: fixed multipliers from NM price
     if not nm_price:
         return None
     from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
@@ -177,6 +306,8 @@ def _build_condition_prices(nm_price):
             "multiplier": mult,
             "range_low": round(nm * ci_lo, 2),
             "range_high": round(nm * ci_hi, 2),
+            "source": "estimated",
+            "estimated": True,
         }
     return cond_prices
 
@@ -656,7 +787,14 @@ function showResult(data, sec) {
             var cond = conditions[ci];
             var info = cp[cond];
             if (!info) continue;
-            html += '<span class="cond-pill" style="color:' + colors[cond] + ';">' + cond + ' $' + info.price.toFixed(2) + '</span>';
+            var prefix = (info.source === 'estimated') ? '~$' : '$';
+            html += '<span class="cond-pill" style="color:' + colors[cond] + ';">' + cond + ' ' + prefix + info.price.toFixed(2) + '</span>';
+        }
+        // Show source indicator
+        var allJtcg = Object.keys(cp).every(function(k){ return cp[k].source === 'justtcg'; });
+        var anyJtcg = Object.keys(cp).some(function(k){ return cp[k].source === 'justtcg'; });
+        if (anyJtcg) {
+            html += '<span style="font-size:10px;color:#666;margin-left:4px;">' + (allJtcg ? 'market' : 'mixed') + '</span>';
         }
         cpDiv.innerHTML = html;
         cpDiv.style.display = 'flex';
@@ -867,16 +1005,24 @@ function _showCardDetail(sec, idx) {
         var cp = c.condition_prices;
         var conds = ['NM','LP','MP','HP','DMG'];
         var clrs = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f0c040','HP':'#e08040','DMG':'#e94560'};
+        var allJtcg2 = Object.keys(cp).every(function(k){ return cp[k].source === 'justtcg'; });
         h += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0;">';
-        h += '<tr style="border-bottom:1px solid #333;"><th style="text-align:left;padding:4px 8px;color:#888;">Cond</th><th style="text-align:right;padding:4px 8px;color:#888;">Price</th><th style="text-align:right;padding:4px 8px;color:#888;">Range</th></tr>';
+        h += '<tr style="border-bottom:1px solid #333;"><th style="text-align:left;padding:4px 8px;color:#888;">Cond</th><th style="text-align:right;padding:4px 8px;color:#888;">Price</th><th style="text-align:right;padding:4px 8px;color:#888;">' + (allJtcg2 ? 'Source' : 'Range') + '</th></tr>';
         for (var ci = 0; ci < conds.length; ci++) {
             var cond = conds[ci];
             var info = cp[cond];
             if (!info) continue;
             h += '<tr style="border-bottom:1px solid #222;">';
             h += '<td style="padding:4px 8px;color:' + clrs[cond] + ';font-weight:bold;">' + cond + '</td>';
-            h += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">$' + info.price.toFixed(2) + '</td>';
-            h += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">$' + info.range_low.toFixed(2) + ' - $' + info.range_high.toFixed(2) + '</td>';
+            var pricePrefix = (info.source === 'estimated') ? '~$' : '$';
+            h += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">' + pricePrefix + info.price.toFixed(2) + '</td>';
+            if (info.source === 'justtcg') {
+                h += '<td style="padding:4px 8px;text-align:right;color:#4ecca3;font-size:11px;">market</td>';
+            } else if (info.range_low != null) {
+                h += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">~$' + info.range_low.toFixed(2) + ' - $' + info.range_high.toFixed(2) + '</td>';
+            } else {
+                h += '<td></td>';
+            }
             h += '</tr>';
         }
         h += '</table>';
@@ -962,7 +1108,8 @@ function handlePageFile(file, sec) {
                         var cinfo = c.condition_prices && c.condition_prices[ccond];
                         var cclr = cinfo && cinfo.price != null ? condColors[ccond] : '#555';
                         var cval = cinfo && cinfo.price != null ? '$' + cinfo.price.toFixed(cinfo.price >= 10 ? 0 : 2) : '\u2014';
-                        html += '<div style="flex:1;text-align:center;color:' + cclr + ';background:rgba(255,255,255,0.04);border-radius:3px;padding:2px 0;"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
+                        var cestStyle = (cinfo && cinfo.estimated) ? 'font-style:italic;opacity:0.7;' : '';
+                        html += '<div style="flex:1;text-align:center;color:' + cclr + ';background:rgba(255,255,255,0.04);border-radius:3px;padding:2px 0;' + cestStyle + '"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
                     }
                     html += '</div>';
                     }
@@ -1428,7 +1575,11 @@ class ScanHandler(BaseHTTPRequestHandler):
 
                         # Condition-adjusted prices for all raw conditions
                         price_for_conditions = response.get("variant_price") or response.get("market_price")
-                        cond_prices = _build_condition_prices(price_for_conditions)
+                        cond_prices = _build_condition_prices(
+                            price_for_conditions,
+                            tcg_product_id=row.tcg_product_id,
+                            variant=detected_variant,
+                        )
                         if cond_prices:
                             response["condition_prices"] = cond_prices
                 else:
@@ -1530,7 +1681,13 @@ class ScanHandler(BaseHTTPRequestHandler):
                     set_name = row.set_name
                     market_price = float(row.market_price) if row.market_price else None
                     image_url = row.image_small
-                    condition_prices = _build_condition_prices(row.market_price)
+                    # Extract variant from card_id (format: "set-num/variant")
+                    _variant = card_id.rsplit("/", 1)[-1] if "/" in card_id else "normal"
+                    condition_prices = _build_condition_prices(
+                        row.market_price,
+                        tcg_product_id=row.tcg_product_id,
+                        variant=_variant,
+                    )
         except Exception as e:
             logger.warning("DB lookup failed during resolve for %s: %s", card_id, e)
 
@@ -1754,7 +1911,12 @@ class ScanHandler(BaseHTTPRequestHandler):
                         response["image_url"] = row.image_small
 
                         # Condition-adjusted prices for all raw conditions
-                        cond_prices = _build_condition_prices(row.market_price)
+                        _variant = result["card_id"].rsplit("/", 1)[-1] if "/" in result["card_id"] else "normal"
+                        cond_prices = _build_condition_prices(
+                            row.market_price,
+                            tcg_product_id=row.tcg_product_id,
+                            variant=_variant,
+                        )
                         if cond_prices:
                             response["condition_prices"] = cond_prices
                 else:
@@ -1939,7 +2101,11 @@ class ScanHandler(BaseHTTPRequestHandler):
                             # Use variant_price for condition pricing if available, else market_price
                             price_for_conditions = card_data["variant_price"] or card_data["market_price"]
                             if price_for_conditions:
-                                card_data["condition_prices"] = _build_condition_prices(price_for_conditions)
+                                card_data["condition_prices"] = _build_condition_prices(
+                                    price_for_conditions,
+                                    tcg_product_id=row.tcg_product_id,
+                                    variant=detected_variant,
+                                )
 
                     cards.append(card_data)
 
@@ -3424,7 +3590,12 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(r.market_price) if r.market_price else None
                         ),
                     }
-                    cond_prices = _build_condition_prices(r.market_price)
+                    _variant = r.card_id.rsplit("/", 1)[-1] if "/" in r.card_id else "normal"
+                    cond_prices = _build_condition_prices(
+                        r.market_price,
+                        tcg_product_id=r.tcg_product_id,
+                        variant=_variant,
+                    )
                     if cond_prices:
                         item["condition_prices"] = cond_prices
                     if r.tcg_product_id:
@@ -3693,7 +3864,12 @@ class ScanHandler(BaseHTTPRequestHandler):
                         data["market_price"] = float(row.market_price) if row.market_price else None
                         data["image_url"] = row.image_small
                         data["local_image_url"] = _local_image_url(data["card_id"])
-                        cond_prices = _build_condition_prices(row.market_price)
+                        _variant = data["card_id"].rsplit("/", 1)[-1] if "/" in data["card_id"] else "normal"
+                        cond_prices = _build_condition_prices(
+                            row.market_price,
+                            tcg_product_id=row.tcg_product_id,
+                            variant=_variant,
+                        )
                         if cond_prices:
                             data["condition_prices"] = cond_prices
             except Exception as e:
@@ -3743,7 +3919,12 @@ class ScanHandler(BaseHTTPRequestHandler):
                                     data["set_name"] = row.set_name
                                     data["market_price"] = float(row.market_price) if row.market_price else None
                                     data["image_url"] = row.image_small
-                                    cond_prices = _build_condition_prices(row.market_price)
+                                    _variant = data["card_id"].rsplit("/", 1)[-1] if "/" in data["card_id"] else "normal"
+                                    cond_prices = _build_condition_prices(
+                                        row.market_price,
+                                        tcg_product_id=row.tcg_product_id,
+                                        variant=_variant,
+                                    )
                                     if cond_prices:
                                         data["condition_prices"] = cond_prices
                                     data["local_image_url"] = _local_image_url(data["card_id"])
