@@ -30,6 +30,7 @@ Endpoints:
     POST /slide-scan/identify -> Identify individually captured card images
     GET  /video-scan -> Video-based slide-scan UI (record video, server extracts)
     POST /video-scan/extract -> Upload row video, extract card images server-side
+    POST /slide-scan/video   -> Upload slide video, extract + identify cards
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
     GET  /condition/camera -> Live camera overlay UI for condition capture
     GET  /condition/camera/<card_id> -> Per-card camera UI with card identity pre-filled
@@ -1637,6 +1638,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_slide_scan_identify()
         elif self.path == "/video-scan/extract" or self.path.startswith("/video-scan/extract?"):
             self._handle_video_extract()
+        elif self.path == "/slide-scan/video" or self.path.startswith("/slide-scan/video?"):
+            self._handle_slide_scan_video()
         elif self.path == "/slide-scan/fast" or self.path.startswith("/slide-scan/fast?"):
             self._handle_slide_scan_fast()
         elif self.path.startswith("/condition/photo/"):
@@ -2691,6 +2694,237 @@ class ScanHandler(BaseHTTPRequestHandler):
         except Exception as e:
             logger.error("Video extraction error: %s", e, exc_info=True)
             self._send_json({"error": str(e), "cards": []}, status=500)
+
+    def _handle_slide_scan_video(self):
+        """Extract cards from a slide-across video, then identify each card.
+
+        POST /slide-scan/video
+        Multipart form data with fields:
+            video: the video file (webm or mp4)
+            num_cards: number of cards to extract (default 3)
+            row: row number (0, 1, 2) for labeling
+            strategy: detection strategy - "auto", "gutter", or "brightness"
+
+        Query parameters:
+            variants=true  -- run variant detection (default true)
+
+        Returns same JSON format as /slide-scan/identify for UI compatibility.
+        """
+        from urllib.parse import urlparse, parse_qs
+
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        detect_variants = qs.get("variants", ["true"])[0].lower() in ("true", "1", "yes")
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        if length > MAX_UPLOAD_BYTES:
+            self.send_error(413, "Upload too large (max 20 MB)")
+            return
+
+        body = self.rfile.read(length)
+        fields = _parse_multipart_named(body, content_type)
+        if not fields:
+            self.send_error(400, "No fields in upload")
+            return
+
+        # Extract video file
+        video_data = None
+        video_ext = "webm"
+        for field_name, (filename, file_data) in fields.items():
+            if field_name == "video" and file_data and len(file_data) > 100:
+                video_data = file_data
+                if filename and filename.endswith(".mp4"):
+                    video_ext = "mp4"
+                break
+
+        if video_data is None:
+            self._send_json({"error": "No video file uploaded"}, status=400)
+            return
+
+        # Parse optional fields
+        num_cards = 3
+        row = 0
+        strategy = "auto"
+        for field_name, (filename, file_data) in fields.items():
+            if field_name == "num_cards":
+                try:
+                    num_cards = int(file_data.decode("utf-8", errors="ignore").strip())
+                except (ValueError, AttributeError):
+                    pass
+            elif field_name == "row":
+                try:
+                    row = int(file_data.decode("utf-8", errors="ignore").strip())
+                except (ValueError, AttributeError):
+                    pass
+            elif field_name == "strategy":
+                try:
+                    s = file_data.decode("utf-8", errors="ignore").strip()
+                    if s in ("auto", "gutter", "brightness"):
+                        strategy = s
+                except (ValueError, AttributeError):
+                    pass
+
+        # Save video to disk
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        video_dir = UPLOAD_DIR / f"video_{timestamp}_row{row}"
+        video_dir.mkdir(parents=True, exist_ok=True)
+        video_path = video_dir / f"row_{row}.{video_ext}"
+        video_path.write_bytes(video_data)
+
+        logger.info(
+            "Slide-scan video: received %d bytes, row=%d, num_cards=%d, "
+            "strategy=%s, saved to %s",
+            len(video_data), row, num_cards, strategy, video_path,
+        )
+
+        try:
+            from cardprice.ml.video_card_extractor import extract_cards_from_video
+
+            # Step 1: Extract card images from video
+            extraction_results = extract_cards_from_video(
+                str(video_path),
+                num_cards=num_cards,
+                output_dir=str(video_dir / "cards"),
+                strategy=strategy,
+            )
+
+            card_paths = [r["path"] for r in extraction_results]
+
+            # Step 2: Auto-crop each extracted card (same as slide-scan)
+            for idx, path in enumerate(list(card_paths)):
+                try:
+                    cropped = _autocrop_card(path)
+                    if cropped != path:
+                        card_paths[idx] = cropped
+                except Exception as e:
+                    logger.warning("Auto-crop failed for %s: %s", path, e)
+
+            # Step 3: Identify cards using the full pipeline
+            from cardprice.ml import identify_page_v2 as identify_page
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            cards = []
+            with SessionLocal() as session:
+                page_results = identify_page(
+                    card_paths, session=session,
+                    detect_variants=detect_variants,
+                )
+
+                for idx, result in enumerate(page_results):
+                    num_cols = 3
+                    pos = row * num_cols + idx
+                    col = idx
+
+                    seg_rel = str(Path(card_paths[idx]).relative_to(UPLOAD_DIR))
+                    detected_variant = result.get("detected_variant", "normal")
+
+                    card_data = {
+                        "position": pos,
+                        "row": row,
+                        "col": col,
+                        "card_id": result["card_id"],
+                        "confidence": result["confidence"],
+                        "method": result["method"],
+                        "detected_variant": detected_variant,
+                        "variant_confidence": result.get("variant_confidence"),
+                        "stamps_detected": result.get("stamps_detected", []),
+                        "stamp_details": result.get("stamp_details", {}),
+                        "card_name": None,
+                        "market_price": None,
+                        "variant_price": None,
+                        "set_name": None,
+                        "image_url": None,
+                        "tcgplayer_url": None,
+                        "local_image_url": _local_image_url(result["card_id"]),
+                        "segment_image_url": f"/segment-image/{seg_rel}",
+                        "video_frame": extraction_results[idx]["frame_number"],
+                        "extraction_confidence": extraction_results[idx]["confidence"],
+                    }
+
+                    if result["card_id"]:
+                        row_db = session.execute(
+                            sql_text(_PRICE_LOOKUP_SQL),
+                            {"cid": result["card_id"]},
+                        ).fetchone()
+                        if row_db:
+                            card_data["card_name"] = row_db.name
+                            card_data["set_name"] = row_db.set_name
+                            card_data["market_price"] = (
+                                float(row_db.market_price) if row_db.market_price else None
+                            )
+                            card_data["image_url"] = row_db.image_small
+                            if row_db.tcg_product_id:
+                                card_data["tcgplayer_url"] = (
+                                    f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
+                                )
+
+                            if detected_variant != "normal":
+                                vprice = _lookup_variant_price(
+                                    session, result["card_id"], detected_variant,
+                                )
+                                if vprice:
+                                    card_data["variant_price"] = vprice
+
+                            price_for_conditions = (
+                                card_data["variant_price"] or card_data["market_price"]
+                            )
+                            if price_for_conditions:
+                                card_data["condition_prices"] = _build_condition_prices(
+                                    price_for_conditions,
+                                    tcg_product_id=row_db.tcg_product_id,
+                                    variant=detected_variant,
+                                )
+
+                    cards.append(card_data)
+
+            total_value = sum(
+                (c["variant_price"] or c["market_price"])
+                for c in cards
+                if (c["variant_price"] or c["market_price"])
+            )
+            total_mp = sum(
+                (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
+                for c in cards
+            )
+            self._send_json({
+                "status": "ok",
+                "scan_type": "slide_scan_video",
+                "cards": cards,
+                "total_cards": len(cards),
+                "total_value": round(total_value, 2),
+                "total_mp": round(total_mp, 2),
+                "video_path": str(video_path),
+            })
+
+        except Exception as e:
+            logger.error("Slide-scan video error: %s", e, exc_info=True)
+            self._send_json({"error": str(e), "cards": []}, status=500)
+
+        try:
+            import gc
+            gc.collect()
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
     def _handle_slide_scan_fast(self):
         """Fast slide-scan: OCR-only identification, falls back to full pipeline.
