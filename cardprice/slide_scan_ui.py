@@ -1,8 +1,13 @@
-"""Slide-scan UI: 3-tap scanning for 9-card binder pages.
+"""Slide-scan UI: simple video-based row-at-a-time scanning.
 
-Flow: User taps "Scan Row" for each of 3 rows. Slides phone across row.
-System detects 3 card transitions via brightness peaks and captures automatically.
-After 3 rows (9 cards), auto-submits to /slide-scan/identify.
+Flow: For each of 3 rows, user records a short video sliding across the row.
+Client extracts 3 evenly-spaced frames per video, uploads to /slide-scan/identify.
+
+Screens:
+  1. Before scan: camera preview + "Start Scanning" button
+  2. During scan: recording indicator + timer + "Done" button
+  3. Row result: 3 card thumbnails with names + prices + "Next Row" button
+  4. All done: 3x3 grid of all 9 cards with total value
 
 Integration:
     GET  /slide-scan            -> serve this HTML
@@ -16,391 +21,294 @@ SLIDE_SCAN_HTML = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Slide Scan</title>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: -apple-system, system-ui, sans-serif;
-       overflow: hidden; height: 100dvh; width: 100vw; display: flex; flex-direction: column; }
-#video { width: 100%; flex: 1; object-fit: cover; }
-#topBar { position: absolute; top: 0; left: 0; right: 0; padding: 12px 16px;
-          display: flex; justify-content: space-between; align-items: center;
-          background: linear-gradient(rgba(0,0,0,.6), transparent); z-index: 10; }
-#rowLabel { font-size: 20px; font-weight: 700; }
-#status { font-size: 14px; opacity: .8; }
-#thumbStrip { position: absolute; top: 60px; left: 0; right: 0; display: flex;
-              justify-content: center; gap: 4px; padding: 8px; z-index: 10; }
-.thumb { width: 36px; height: 50px; border: 2px solid rgba(255,255,255,.3);
-         border-radius: 4px; background: rgba(0,0,0,.4); object-fit: cover; }
-.thumb.filled { border-color: #4f4; }
-.thumb.active { border-color: #ff0; box-shadow: 0 0 8px #ff0; }
-#bottomBar { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px;
-             display: flex; justify-content: center; z-index: 10;
-             background: linear-gradient(transparent, rgba(0,0,0,.7)); }
-#scanBtn { padding: 16px 48px; font-size: 20px; font-weight: 700; border: none;
-           border-radius: 50px; background: #4f4; color: #000; cursor: pointer;
-           transition: all .15s; }
-#scanBtn:active { transform: scale(.95); }
-#scanBtn:disabled { background: #555; color: #999; }
-#scanBtn.scanning { background: #f44; animation: pulse 1s infinite; }
-@keyframes pulse { 50% { opacity: .7; } }
-#brightBar { position: absolute; bottom: 90px; left: 16px; right: 16px; height: 4px;
-             background: rgba(255,255,255,.15); border-radius: 2px; z-index: 10; }
-#brightFill { height: 100%; width: 50%; background: #4f4; border-radius: 2px;
-              transition: width 50ms; }
-canvas { display: none; }
-#overlay { position: absolute; inset: 0; display: none; z-index: 20;
-           background: rgba(0,0,0,.85); justify-content: center; align-items: center;
-           flex-direction: column; gap: 16px; }
-#overlay.show { display: flex; }
-#overlay .msg { font-size: 22px; font-weight: 700; }
-#overlay .sub { font-size: 14px; opacity: .7; }
-.flash { position: absolute; inset: 0; background: #fff; z-index: 15;
-         animation: flashAnim .15s forwards; pointer-events: none; }
-@keyframes flashAnim { from { opacity: .6; } to { opacity: 0; } }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif;
+  height:100dvh;width:100vw;display:flex;flex-direction:column;overflow:hidden}
+video#cam{width:100%;flex:1;object-fit:cover}
+#hud{position:absolute;top:0;left:0;right:0;padding:16px 20px;
+  background:linear-gradient(rgba(0,0,0,.7),transparent);z-index:10;
+  display:flex;justify-content:space-between;align-items:center}
+#rowText{font-size:22px;font-weight:700}
+#recDot{width:14px;height:14px;border-radius:50%;background:#f44;display:none}
+#recDot.on{display:inline-block;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+#timer{font-size:16px;font-family:monospace;display:none}
+#btnWrap{position:absolute;bottom:0;left:0;right:0;padding:24px 20px;
+  background:linear-gradient(transparent,rgba(0,0,0,.7));z-index:10}
+#btn{width:100%;padding:18px;font-size:20px;font-weight:700;border:none;
+  border-radius:14px;cursor:pointer;transition:all .15s}
+#btn:active{transform:scale(.97)}
+.btn-green{background:#22c55e;color:#000}
+.btn-red{background:#ef4444;color:#fff}
+.btn-blue{background:#3b82f6;color:#fff}
+#resultScreen{position:absolute;inset:0;z-index:20;background:#000;
+  display:none;flex-direction:column;overflow-y:auto;padding:20px}
+#resultScreen.show{display:flex}
+.card-row{display:flex;gap:10px;justify-content:center;margin-bottom:8px}
+.card-thumb{flex:0 0 30%;text-align:center}
+.card-thumb img{width:100%;border-radius:6px;aspect-ratio:5/7;object-fit:cover;
+  background:#222}
+.card-thumb .name{font-size:12px;margin-top:4px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.card-thumb .price{font-size:14px;font-weight:700;color:#22c55e}
+#finalGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#totalValue{font-size:22px;font-weight:700;color:#22c55e;text-align:center;
+  margin:16px 0}
+h2{text-align:center;margin-bottom:12px}
+#modeToggle{display:flex;align-items:center;gap:6px;font-size:12px;opacity:.9}
+#modeToggle label{cursor:pointer}
+#modeToggle input{display:none}
+#modeToggle .toggle{width:36px;height:20px;border-radius:10px;background:#555;
+  position:relative;display:inline-block;vertical-align:middle;transition:background .2s;cursor:pointer}
+#modeToggle .toggle::after{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform .2s}
+#modeToggle input:checked+.toggle{background:#22c55e}
+#modeToggle input:checked+.toggle::after{transform:translateX(16px)}
 </style>
 </head>
 <body>
-<video id="video" autoplay playsinline muted></video>
-<canvas id="canvas"></canvas>
 
-<div id="topBar">
-  <span id="rowLabel">Row 1 / 3</span>
-  <span id="status">Ready</span>
+<video id="cam" autoplay playsinline muted></video>
+
+<div id="hud">
+  <span id="rowText">Row 1 of 3</span>
+  <span style="display:flex;align-items:center;gap:8px">
+    <span id="modeToggle">
+      <label><input type="checkbox" id="fastMode" checked><span class="toggle"></span></label>
+      <span id="modeLabel">Fast</span>
+    </span>
+    <span id="recDot"></span>
+    <span id="timer"></span>
+  </span>
 </div>
 
-<div id="thumbStrip"></div>
-
-<div id="brightBar"><div id="brightFill"></div></div>
-
-<div id="bottomBar">
-  <button id="scanBtn" onclick="startRow()">Scan Row 1</button>
+<div id="btnWrap">
+  <button id="btn" class="btn-green" onclick="onBtn()">Start Scanning</button>
 </div>
 
-<div id="overlay">
-  <div class="msg" id="overlayMsg">Submitting...</div>
-  <div class="sub" id="overlaySub">Identifying 9 cards</div>
-</div>
+<div id="resultScreen"></div>
 
 <script>
-const V = document.getElementById('video');
-const C = document.getElementById('canvas');
-const ctx = C.getContext('2d', { willReadFrequently: true });
-const thumbStrip = document.getElementById('thumbStrip');
-const scanBtn = document.getElementById('scanBtn');
-const rowLabel = document.getElementById('rowLabel');
-const statusEl = document.getElementById('status');
-const brightFill = document.getElementById('brightFill');
-const overlay = document.getElementById('overlay');
+const cam = document.getElementById('cam');
+const rowText = document.getElementById('rowText');
+const recDot = document.getElementById('recDot');
+const timerEl = document.getElementById('timer');
+const btn = document.getElementById('btn');
+const resultScreen = document.getElementById('resultScreen');
+const fastModeEl = document.getElementById('fastMode');
+const modeLabelEl = document.getElementById('modeLabel');
 
-// State
-let currentRow = 0;        // 0, 1, 2
-let scanning = false;
-let captures = new Array(9).fill(null);  // blob URLs
-let captureBlobs = new Array(9).fill(null);
-let rowCaptures = 0;        // how many cards captured in current row scan
-let rafId = null;
-
-// Brightness peak detection state
-let brightHistory = [];     // rolling window of brightness values
-let lastPeakTime = 0;       // prevent double-captures
-let inGutter = true;        // start assuming we're in a gutter
-let peakBrightness = 0;     // track peak within current card region
-let peakFrame = null;       // store the frame at peak brightness
-
-const HISTORY_LEN = 30;     // ~1 second at 30fps
-const MIN_PEAK_GAP_MS = 400; // minimum ms between captures
-const GUTTER_THRESHOLD = 0.92; // ratio below peak to consider "gutter" (relative)
-
-// Build thumbnail strip
-for (let i = 0; i < 9; i++) {
-  const img = document.createElement('img');
-  img.className = 'thumb';
-  img.id = 'thumb_' + i;
-  img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-  thumbStrip.appendChild(img);
-}
-updateActiveThumb();
-
-// Camera init
-async function initCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    });
-    V.srcObject = stream;
-    await V.play();
-    C.width = V.videoWidth;
-    C.height = V.videoHeight;
-  } catch (e) {
-    statusEl.textContent = 'Camera error: ' + e.message;
-  }
-}
-initCamera();
-
-function updateActiveThumb() {
-  for (let i = 0; i < 9; i++) {
-    const t = document.getElementById('thumb_' + i);
-    t.classList.toggle('active', i === currentRow * 3 + rowCaptures && scanning);
-  }
-}
-
-function startRow() {
-  if (scanning) {
-    // Cancel current scan
-    stopScanning();
-    return;
-  }
-  scanning = true;
-  rowCaptures = 0;
-  brightHistory = [];
-  lastPeakTime = 0;
-  inGutter = true;
-  peakBrightness = 0;
-  peakFrame = null;
-
-  scanBtn.textContent = 'Cancel';
-  scanBtn.classList.add('scanning');
-  statusEl.textContent = 'Slide across row ' + (currentRow + 1) + '...';
-  updateActiveThumb();
-
-  rafId = requestAnimationFrame(scanLoop);
-}
-
-function stopScanning() {
-  scanning = false;
-  cancelAnimationFrame(rafId);
-  scanBtn.classList.remove('scanning');
-  if (currentRow < 3) {
-    scanBtn.textContent = 'Scan Row ' + (currentRow + 1);
-  }
-  statusEl.textContent = 'Ready';
-  updateActiveThumb();
-}
-
-function scanLoop() {
-  if (!scanning || rowCaptures >= 3) return;
-
-  // Draw current frame
-  ctx.drawImage(V, 0, 0, C.width, C.height);
-
-  // Sample brightness from center vertical strip (middle 30% width, full height)
-  const stripX = Math.floor(C.width * 0.35);
-  const stripW = Math.floor(C.width * 0.3);
-  const stripH = C.height;
-  const imgData = ctx.getImageData(stripX, 0, stripW, stripH);
-  const d = imgData.data;
-
-  // Fast brightness: sample every 16th pixel
-  let sum = 0, count = 0;
-  for (let i = 0; i < d.length; i += 64) { // 64 = 16 pixels * 4 channels
-    sum += d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
-    count++;
-  }
-  const brightness = sum / count / 255; // normalized 0-1
-
-  // Update brightness bar
-  brightFill.style.width = (brightness * 100) + '%';
-
-  // Add to history
-  brightHistory.push({ b: brightness, t: performance.now() });
-  if (brightHistory.length > HISTORY_LEN) brightHistory.shift();
-
-  // Need at least a few frames to detect patterns
-  if (brightHistory.length < 5) {
-    rafId = requestAnimationFrame(scanLoop);
-    return;
-  }
-
-  // Compute running average and detect peaks
-  const now = performance.now();
-  const recentAvg = brightHistory.slice(-5).reduce((s, x) => s + x.b, 0) / 5;
-  const windowAvg = brightHistory.reduce((s, x) => s + x.b, 0) / brightHistory.length;
-
-  // Adaptive threshold: cards are brighter than average
-  // We detect: rising into card territory -> peak -> falling into gutter
-  const isAboveAvg = brightness > windowAvg * 1.02;
-
-  if (inGutter && isAboveAvg) {
-    // Entering a card region
-    inGutter = false;
-    peakBrightness = brightness;
-    peakFrame = ctx.getImageData(0, 0, C.width, C.height);
-  } else if (!inGutter && isAboveAvg) {
-    // Still on a card - track peak
-    if (brightness > peakBrightness) {
-      peakBrightness = brightness;
-      peakFrame = ctx.getImageData(0, 0, C.width, C.height);
-    }
-  } else if (!inGutter && !isAboveAvg) {
-    // Falling into gutter - capture at peak if enough time has passed
-    if (now - lastPeakTime > MIN_PEAK_GAP_MS && peakFrame) {
-      captureFrame(peakFrame);
-      lastPeakTime = now;
-    }
-    inGutter = true;
-    peakBrightness = 0;
-    peakFrame = null;
-  }
-
-  rafId = requestAnimationFrame(scanLoop);
-}
-
-function captureFrame(imageData) {
-  if (rowCaptures >= 3) return;
-
-  const pos = currentRow * 3 + rowCaptures;
-
-  // Create a temp canvas to convert imageData to blob
-  const tc = document.createElement('canvas');
-  tc.width = C.width;
-  tc.height = C.height;
-  const tctx = tc.getContext('2d');
-
-  if (imageData instanceof ImageData) {
-    tctx.putImageData(imageData, 0, 0);
-  } else {
-    tctx.drawImage(V, 0, 0, C.width, C.height);
-  }
-
-  // Flash effect
-  const flash = document.createElement('div');
-  flash.className = 'flash';
-  document.body.appendChild(flash);
-  setTimeout(() => flash.remove(), 200);
-
-  tc.toBlob(blob => {
-    if (!blob) return;
-    captureBlobs[pos] = blob;
-    const url = URL.createObjectURL(blob);
-    captures[pos] = url;
-
-    const thumb = document.getElementById('thumb_' + pos);
-    thumb.src = url;
-    thumb.classList.add('filled');
-
-    rowCaptures++;
-    statusEl.textContent = rowCaptures + '/3 cards captured';
-    updateActiveThumb();
-
-    if (rowCaptures >= 3) {
-      // Row done
-      scanning = false;
-      cancelAnimationFrame(rafId);
-      scanBtn.classList.remove('scanning');
-      currentRow++;
-
-      if (currentRow >= 3) {
-        // All 9 cards captured - submit
-        scanBtn.disabled = true;
-        scanBtn.textContent = 'Submitting...';
-        rowLabel.textContent = 'Done!';
-        statusEl.textContent = 'Identifying cards...';
-        submitCards();
-      } else {
-        rowLabel.textContent = 'Row ' + (currentRow + 1) + ' / 3';
-        scanBtn.textContent = 'Scan Row ' + (currentRow + 1);
-        statusEl.textContent = 'Row ' + currentRow + ' done!';
-      }
-    }
-  }, 'image/jpeg', 0.92);
-}
-
-// Manual capture fallback: tap during scan to force-capture current frame
-V.addEventListener('click', () => {
-  if (!scanning || rowCaptures >= 3) return;
-  captureFrame(null); // null = grab live frame
+fastModeEl.addEventListener('change', () => {
+  modeLabelEl.textContent = fastModeEl.checked ? 'Fast' : 'Full';
 });
 
-async function submitCards() {
-  overlay.classList.add('show');
-  document.getElementById('overlayMsg').textContent = 'Identifying...';
-  document.getElementById('overlaySub').textContent = captureBlobs.filter(Boolean).length + ' cards';
+function getEndpoint() {
+  return fastModeEl.checked ? '/slide-scan/fast' : '/slide-scan/identify';
+}
 
+let stream = null;
+let recorder = null;
+let chunks = [];
+let row = 0;           // 0,1,2
+let recording = false;
+let timerStart = 0;
+let timerRaf = null;
+let allCards = [];      // accumulates across rows
+const MAX_SEC = 5;
+
+// --- Camera ---
+async function initCam() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:'environment', width:{ideal:1920}, height:{ideal:1080} },
+      audio: false
+    });
+    cam.srcObject = stream;
+  } catch(e) { rowText.textContent = 'Camera: ' + e.message; }
+}
+initCam();
+
+// --- Button handler ---
+function onBtn() {
+  if (!recording) startRecording();
+  else stopRecording();
+}
+
+function startRecording() {
+  if (!stream) return;
+  recording = true;
+  chunks = [];
+
+  const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+    ? 'video/webm;codecs=vp9'
+    : MediaRecorder.isTypeSupported('video/webm')
+      ? 'video/webm'
+      : 'video/mp4';
+  recorder = new MediaRecorder(stream, { mimeType });
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = () => processVideo();
+  recorder.start();
+
+  // UI
+  rowText.textContent = 'Slide across Row ' + (row+1) + '...';
+  recDot.classList.add('on');
+  timerEl.style.display = 'inline';
+  btn.textContent = 'Done';
+  btn.className = 'btn-red';
+  timerStart = performance.now();
+  tickTimer();
+
+  // Auto-stop after MAX_SEC
+  setTimeout(() => { if (recording) stopRecording(); }, MAX_SEC * 1000);
+}
+
+function stopRecording() {
+  if (!recording) return;
+  recording = false;
+  recorder.stop();
+  recDot.classList.remove('on');
+  timerEl.style.display = 'none';
+  cancelAnimationFrame(timerRaf);
+  btn.textContent = 'Processing...';
+  btn.disabled = true;
+}
+
+function tickTimer() {
+  if (!recording) return;
+  const s = ((performance.now() - timerStart) / 1000).toFixed(1);
+  timerEl.textContent = s + 's';
+  timerRaf = requestAnimationFrame(tickTimer);
+}
+
+// --- Extract 3 frames from recorded video ---
+async function processVideo() {
+  const blob = new Blob(chunks, { type: recorder.mimeType });
+  const url = URL.createObjectURL(blob);
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  v.src = url;
+
+  await new Promise((res, rej) => {
+    v.onloadedmetadata = res;
+    v.onerror = rej;
+  });
+
+  const dur = v.duration;
+  if (!dur || dur < 0.3) {
+    showRowResult([], 'Video too short');
+    return;
+  }
+
+  // Seek to 3 evenly spaced points (25%, 50%, 75%)
+  const times = [dur*0.25, dur*0.5, dur*0.75];
+  const frames = [];
+  const canvas = document.createElement('canvas');
+
+  for (const t of times) {
+    v.currentTime = t;
+    await new Promise(r => { v.onseeked = r; });
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(v, 0, 0);
+    const frameBlob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.92));
+    frames.push(frameBlob);
+  }
+
+  URL.revokeObjectURL(url);
+  uploadRow(frames);
+}
+
+// --- Upload 3 frames for this row ---
+async function uploadRow(frames) {
   const form = new FormData();
-  for (let i = 0; i < 9; i++) {
-    if (captureBlobs[i]) {
-      form.append('card_' + i, captureBlobs[i], 'card_' + i + '.jpg');
-    }
+  for (let i = 0; i < frames.length; i++) {
+    const pos = row * 3 + i;
+    form.append('card_' + pos, frames[i], 'card_' + pos + '.jpg');
   }
 
   try {
-    const resp = await fetch('/slide-scan/identify', { method: 'POST', body: form });
+    const resp = await fetch(getEndpoint(), { method:'POST', body: form });
     const data = await resp.json();
-
-    if (data.error) {
-      document.getElementById('overlayMsg').textContent = 'Error';
-      document.getElementById('overlaySub').textContent = data.error;
-      setTimeout(() => { overlay.classList.remove('show'); resetAll(); }, 3000);
-      return;
-    }
-
-    showResults(data);
-  } catch (e) {
-    document.getElementById('overlayMsg').textContent = 'Network Error';
-    document.getElementById('overlaySub').textContent = e.message;
-    setTimeout(() => { overlay.classList.remove('show'); resetAll(); }, 3000);
+    if (data.error) { showRowResult([], data.error); return; }
+    const rowCards = (data.cards || []).slice(0, 3);
+    allCards.push(...rowCards);
+    showRowResult(rowCards);
+  } catch(e) {
+    showRowResult([], 'Network error: ' + e.message);
   }
 }
 
-function showResults(data) {
-  const cards = data.cards || [];
-  const total = data.total_value ? '$' + data.total_value.toFixed(2) : '';
-
-  let html = '<div style="width:100%;max-height:80vh;overflow-y:auto;padding:16px">';
-  html += '<div style="text-align:center;margin-bottom:12px">';
-  html += '<div style="font-size:24px;font-weight:700">Page Scanned</div>';
-  if (total) html += '<div style="font-size:18px;color:#4f4;margin-top:4px">' + total + ' total</div>';
-  html += '</div>';
-
-  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">';
-  for (const card of cards) {
-    const price = card.variant_price || card.market_price;
-    const name = card.card_name || 'Unknown';
-    const imgSrc = card.local_image_url || card.segment_image_url || '';
-    html += '<div style="text-align:center;background:rgba(255,255,255,.1);border-radius:8px;padding:6px">';
-    if (imgSrc) html += '<img src="' + imgSrc + '" style="width:100%;border-radius:4px;aspect-ratio:5/7;object-fit:cover">';
-    html += '<div style="font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div>';
-    if (price) html += '<div style="font-size:13px;font-weight:700;color:#4f4">$' + price.toFixed(2) + '</div>';
-    if (card.detected_variant && card.detected_variant !== 'normal')
-      html += '<div style="font-size:10px;color:#ff0">' + card.detected_variant + '</div>';
-    html += '</div>';
+// --- Screen 3: Row result ---
+function showRowResult(cards, error) {
+  let h = '<h2>Row ' + (row+1) + ' Result</h2>';
+  if (error) {
+    h += '<p style="text-align:center;color:#f44;margin:20px">' + error + '</p>';
+  } else {
+    h += '<div class="card-row">';
+    for (const c of cards) {
+      const img = c.local_image_url || c.segment_image_url || '';
+      const name = c.card_name || 'Unknown';
+      const price = c.variant_price || c.market_price;
+      h += '<div class="card-thumb">';
+      if (img) h += '<img src="' + img + '">';
+      h += '<div class="name">' + name + '</div>';
+      if (price) h += '<div class="price">$' + price.toFixed(2) + '</div>';
+      h += '</div>';
+    }
+    h += '</div>';
   }
-  html += '</div>';
 
-  html += '<div style="display:flex;gap:12px;margin-top:16px;justify-content:center">';
-  html += '<button onclick="resetAll();overlay.classList.remove(\'show\')" style="padding:12px 32px;font-size:16px;border:none;border-radius:25px;background:#4f4;color:#000;font-weight:700;cursor:pointer">Scan Next Page</button>';
-  html += '</div></div>';
+  row++;
+  if (row < 3) {
+    h += '<div style="padding:20px"><button class="btn-green" style="width:100%;padding:16px;font-size:18px;font-weight:700;border:none;border-radius:14px;cursor:pointer" onclick="nextRow()">Next Row</button></div>';
+  } else {
+    h += '<div style="padding:20px"><button class="btn-blue" style="width:100%;padding:16px;font-size:18px;font-weight:700;border:none;border-radius:14px;cursor:pointer" onclick="showFinal()">View All Cards</button></div>';
+  }
 
-  overlay.innerHTML = html;
+  resultScreen.innerHTML = h;
+  resultScreen.classList.add('show');
+}
+
+function nextRow() {
+  resultScreen.classList.remove('show');
+  rowText.textContent = 'Row ' + (row+1) + ' of 3';
+  btn.textContent = 'Start Scanning';
+  btn.className = 'btn-green';
+  btn.disabled = false;
+}
+
+// --- Screen 4: Final grid ---
+function showFinal() {
+  const total = allCards.reduce((s,c) => s + (c.variant_price || c.market_price || 0), 0);
+  let h = '<h2>Page Complete</h2>';
+  h += '<div id="totalValue">$' + total.toFixed(2) + ' total</div>';
+  h += '<div id="finalGrid">';
+  for (const c of allCards) {
+    const img = c.local_image_url || c.segment_image_url || '';
+    const name = c.card_name || 'Unknown';
+    const price = c.variant_price || c.market_price;
+    h += '<div class="card-thumb">';
+    if (img) h += '<img src="' + img + '">';
+    h += '<div class="name">' + name + '</div>';
+    if (price) h += '<div class="price">$' + price.toFixed(2) + '</div>';
+    h += '</div>';
+  }
+  h += '</div>';
+  h += '<div style="padding:20px"><button class="btn-green" style="width:100%;padding:16px;font-size:18px;font-weight:700;border:none;border-radius:14px;cursor:pointer" onclick="resetAll()">Scan Again</button></div>';
+
+  resultScreen.innerHTML = h;
 }
 
 function resetAll() {
-  currentRow = 0;
-  rowCaptures = 0;
-  scanning = false;
-  captures.fill(null);
-  captureBlobs.fill(null);
-  brightHistory = [];
-  inGutter = true;
-  peakBrightness = 0;
-  peakFrame = null;
-
-  rowLabel.textContent = 'Row 1 / 3';
-  scanBtn.textContent = 'Scan Row 1';
-  scanBtn.disabled = false;
-  scanBtn.classList.remove('scanning');
-  statusEl.textContent = 'Ready';
-
-  for (let i = 0; i < 9; i++) {
-    const t = document.getElementById('thumb_' + i);
-    if (t) {
-      t.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-      t.classList.remove('filled', 'active');
-    }
-  }
-
-  // Rebuild overlay structure
-  overlay.innerHTML = '<div class="msg" id="overlayMsg">Submitting...</div><div class="sub" id="overlaySub">Identifying 9 cards</div>';
-  overlay.classList.remove('show');
+  row = 0;
+  allCards = [];
+  resultScreen.classList.remove('show');
+  resultScreen.innerHTML = '';
+  rowText.textContent = 'Row 1 of 3';
+  btn.textContent = 'Start Scanning';
+  btn.className = 'btn-green';
+  btn.disabled = false;
 }
 </script>
 </body>
