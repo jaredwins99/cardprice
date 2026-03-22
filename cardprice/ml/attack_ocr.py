@@ -412,12 +412,9 @@ def extract_attack_names(
 ) -> list[tuple[str, float]]:
     """Extract likely attack names from a card image using OCR.
 
-    Steps:
-    1. Crop to attack region
-    2. Preprocess (grayscale, upscale, CLAHE)
-    3. Run EasyOCR
-    4. Recombine fragments on the same text line
-    5. Filter to likely attack names
+    Delegates to extract_attack_names_paddle() which uses RapidOCR
+    (ONNX Runtime).  Previously used EasyOCR directly, but RapidOCR
+    is 10x faster and avoids loading the ~800MB EasyOCR model.
 
     Parameters
     ----------
@@ -429,54 +426,7 @@ def extract_attack_names(
     list of (text, confidence) tuples
         Extracted attack name candidates with OCR confidence.
     """
-    image_path = str(Path(image_path).resolve())
-
-    img = cv2.imread(image_path)
-    if img is None:
-        logger.warning("Failed to read image: %s", image_path)
-        return []
-
-    # Crop to attack region
-    attack_crop = crop_attack_region(img)
-    processed = preprocess_attack_region(attack_crop)
-
-    # Run EasyOCR
-    reader = _get_reader()
-    results = reader.readtext(processed, detail=1, paragraph=False, batch_size=8)
-
-    if not results:
-        return []
-
-    # Recombine fragments on the same text line
-    merged_lines = _recombine_fragments(results)
-
-    # Also keep individual fragments as separate candidates
-    # (sometimes a line merges attack name with description)
-    individual = [(text.strip(), float(conf))
-                  for _, text, conf in results if text.strip()]
-
-    # Filter merged lines to likely attack names
-    candidates = []
-    seen = set()
-    for text, conf, _ in merged_lines:
-        text = text.strip()
-        if text and _is_likely_attack_name(text, conf):
-            key = text.lower()
-            if key not in seen:
-                candidates.append((text, conf))
-                seen.add(key)
-                logger.debug("  KEEP (merged): '%s' (conf=%.2f)", text, conf)
-
-    # Also add individual fragments that pass the filter
-    for text, conf in individual:
-        if _is_likely_attack_name(text, conf):
-            key = text.lower()
-            if key not in seen:
-                candidates.append((text, conf))
-                seen.add(key)
-                logger.debug("  KEEP (single): '%s' (conf=%.2f)", text, conf)
-
-    return candidates
+    return extract_attack_names_paddle(image_path)
 
 
 # ---------------------------------------------------------------------------
@@ -583,14 +533,6 @@ def extract_attack_names_paddle(
     # RapidOCR expects 3-channel BGR input
     if len(processed.shape) == 2:
         processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
-
-    # Upscale for better detection (same rationale as name OCR)
-    h, w = processed.shape[:2]
-    if h < 600:
-        scale = max(2, 600 // max(h, 1))
-        processed = cv2.resize(
-            processed, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC
-        )
 
     # Pad edges so text isn't at the very border
     processed = cv2.copyMakeBorder(

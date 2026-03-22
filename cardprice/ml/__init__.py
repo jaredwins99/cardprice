@@ -2917,10 +2917,13 @@ def _paddle_ocr_name_and_hp(image_path: str):
     # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, height_frac, method)
     all_detections = []
 
+    # Crop specs ordered by likelihood of finding the name quickly.
+    # top25 is the most complete region and works for ~90% of cards.
+    # Additional crops are tried only if needed (no good name found).
+    _OCR_UPSCALE = 2  # 2x is faster than 3x with equal or better accuracy
     crop_specs = [
-        (0.00, 0.15, 0.05, 0.95, "top15"),
-        (0.00, 0.20, 0.05, 0.95, "top20"),
         (0.00, 0.25, 0.03, 0.97, "top25"),
+        (0.00, 0.15, 0.05, 0.95, "top15"),
         (0.03, 0.18, 0.05, 0.95, "skip3"),
         # Deeper crop: catches card names when segment bleeds from card above
         # (e.g., actual name at 20-30% because top 15% is adjacent card text)
@@ -2941,13 +2944,14 @@ def _paddle_ocr_name_and_hp(image_path: str):
         pad = 30
         crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
         crop = _unsharp_mask_ocr(crop)
-        crop_up = upscale_for_ocr(crop, scale=3)
+        crop_up = upscale_for_ocr(crop, scale=_OCR_UPSCALE)
 
         result, _ = rapid_engine(crop_up)
         if not result:
             continue
 
         up_h, up_w = crop_up.shape[:2]
+        pad_scaled = pad * _OCR_UPSCALE
 
         for box, text, conf in result:
             conf = float(conf)
@@ -2961,10 +2965,10 @@ def _paddle_ocr_name_and_hp(image_path: str):
 
             # Compute position as fraction of the crop region
             # (account for the padding we added)
-            cx = (x + bw / 2 - pad * 3) / (crop_w * 3)  # 3x upscale
-            cy = (y + bh / 2 - pad * 3) / (crop_h * 3)
-            text_w_frac = bw / (crop_w * 3)
-            text_h_frac = bh / (crop_h * 3)
+            cx = (x + bw / 2 - pad_scaled) / (crop_w * _OCR_UPSCALE)
+            cy = (y + bh / 2 - pad_scaled) / (crop_h * _OCR_UPSCALE)
+            text_w_frac = bw / (crop_w * _OCR_UPSCALE)
+            text_h_frac = bh / (crop_h * _OCR_UPSCALE)
 
             # Map x position back to full card width fraction
             card_x_frac = left_frac + cx * (right_frac - left_frac)
@@ -3023,7 +3027,7 @@ def _paddle_ocr_name_and_hp(image_path: str):
         crop_h, crop_w = crop.shape[:2]
         pad = 30
         crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
-        crop_up = upscale_for_ocr(crop, scale=3)
+        crop_up = upscale_for_ocr(crop, scale=_OCR_UPSCALE)
         gray = cv2.cvtColor(crop_up, cv2.COLOR_BGR2GRAY)
         clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(gray)
@@ -3031,6 +3035,7 @@ def _paddle_ocr_name_and_hp(image_path: str):
 
         result, _ = rapid_engine(enhanced_bgr)
         if result:
+            pad_scaled = pad * _OCR_UPSCALE
             for box, text, conf in result:
                 conf = float(conf)
                 if not text or len(text.strip()) < 2 or conf < 0.3:
@@ -3038,10 +3043,10 @@ def _paddle_ocr_name_and_hp(image_path: str):
                 text = text.strip()
                 pts = np.array(box, dtype=np.float32)
                 x, y, bw, bh = cv2.boundingRect(pts)
-                cx = (x + bw / 2 - pad * 3) / (crop_w * 3)
+                cx = (x + bw / 2 - pad_scaled) / (crop_w * _OCR_UPSCALE)
                 card_x_frac = 0.03 + cx * 0.94
-                text_w_frac = bw / (crop_w * 3)
-                text_h_frac = bh / (crop_h * 3)
+                text_w_frac = bw / (crop_w * _OCR_UPSCALE)
+                text_h_frac = bh / (crop_h * _OCR_UPSCALE)
                 all_detections.append((text, conf, card_x_frac, 0.5, text_w_frac, text_h_frac, "clahe25"))
 
     if not all_detections:
@@ -5151,15 +5156,14 @@ def identify_page_v2(card_image_paths, session=None,
     # -----------------------------------------------------------------------
     # Pass 1a: Batch pre-compute ALL expensive operations in parallel.
     #
-    # Four concurrent threads, each on non-competing resources:
-    #   Thread 1: PaddleOCR name + HP  (sequential per card, _ocr_lock)
-    #   Thread 2: DINOv2 batch embed   (GPU, single forward pass)
-    #   Thread 3: Color detection      (CPU, no lock, pure OpenCV)
-    #   Thread 4+: Attack OCR          (CPU, no lock, dispatched as needed)
+    # Three concurrent thread pools, each on non-competing resources:
+    #   Pool 1: RapidOCR name + HP     (3 parallel threads, ONNX thread-safe)
+    #   Pool 2: DINOv2 batch embed     (GPU, single forward pass)
+    #   Pool 3: Color detection        (CPU, no lock, pure OpenCV)
+    #   Pool 4: Attack OCR             (CPU, dispatched as name OCR completes)
     #
-    # Name OCR is serialised by _ocr_lock (PaddleOCR not thread-safe).
-    # Color detection and attack OCR use independent engines and can run
-    # fully in parallel with each other and with name OCR.
+    # RapidOCR (ONNX Runtime) is thread-safe and benefits from parallel
+    # execution.  Name OCR runs 3 cards concurrently for ~2x throughput.
     # -----------------------------------------------------------------------
     import time as _time
 
@@ -5193,15 +5197,24 @@ def identify_page_v2(card_image_paths, session=None,
         _attack_futures.append(fut)
 
     def _batch_name_ocr():
-        """Thread 1: PaddleOCR name + HP for all cards (sequential — _ocr_lock).
+        """Thread 1: RapidOCR name + HP for all cards.
 
-        After each card's name OCR completes, immediately dispatches attack
-        OCR to the shared pool if needed (low confidence or no name).  This
-        overlaps attack OCR with subsequent name OCR calls for other cards.
+        Runs name OCR for all cards in parallel using a thread pool
+        (RapidOCR/ONNX Runtime is thread-safe).  After each card's name
+        OCR completes, dispatches attack OCR if needed.
+
+        The _hold_lock=False argument tells _run_name_and_hp to skip
+        acquiring _ocr_lock since RapidOCR handles concurrency internally.
         """
         t0 = _time.time()
-        for i, path in enumerate(card_image_paths):
-            ocr_data = precomputed[i] or {}
+
+        # Ensure RapidOCR engine is initialized before spawning threads
+        from cardprice.ml.ocr_matcher import get_rapid_engine as _ensure_rapid
+        _ensure_rapid()
+
+        def _name_ocr_one(i, path):
+            """Run name OCR for a single card."""
+            ocr_data = {}
 
             # Skip OCR for card backs — saves ~10-50s per card back
             # (avoids triggering Japanese PaddleOCR subprocess fallback)
@@ -5214,10 +5227,10 @@ def identify_page_v2(card_image_paths, session=None,
                 precomputed[i] = ocr_data
                 attack_results[i] = []  # no attacks on card backs
                 logger.info("identify_page_v2: skipping OCR for card %d (card back)", i)
-                continue
+                return
 
             try:
-                name, conf, raw, hp = _run_name_and_hp(str(path))
+                name, conf, raw, hp = _run_name_and_hp(str(path), _hold_lock=False)
                 ocr_data["ocr_name"] = name
                 ocr_data["ocr_conf"] = conf
                 ocr_data["ocr_raw"] = raw
@@ -5226,13 +5239,10 @@ def identify_page_v2(card_image_paths, session=None,
                 logger.warning("identify_page_v2: OCR card %d failed: %s", i, e)
             precomputed[i] = ocr_data
 
-            # Dispatch attack OCR immediately if needed — runs in parallel
-            # with subsequent name OCR calls for other cards.
+            # Dispatch attack OCR immediately if needed
             ocr_name = ocr_data.get("ocr_name")
             ocr_conf = ocr_data.get("ocr_conf", 0)
             # Skip attack OCR when name is confident enough.
-            # Attack OCR adds ~3-5s/card but is needed for disambiguation
-            # when name confidence is moderate. 0.85 balances speed vs accuracy.
             need_attacks = not ocr_name or ocr_conf < 0.85
             if need_attacks:
                 _submit_attack_ocr(i, path)
@@ -5244,6 +5254,20 @@ def identify_page_v2(card_image_paths, session=None,
                 attack_results[i] = []
                 logger.info("identify_page_v2: skipping attack OCR for card %d "
                             "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
+
+        # Run name OCR in parallel — RapidOCR (ONNX Runtime) is thread-safe.
+        # 3 workers balances throughput vs CPU contention (diminishing returns
+        # past 2-3 threads on CPU-bound ONNX inference).
+        with ThreadPoolExecutor(max_workers=3) as name_pool:
+            name_futures = [
+                name_pool.submit(_name_ocr_one, i, path)
+                for i, path in enumerate(card_image_paths)
+            ]
+            for fut in as_completed(name_futures):
+                try:
+                    fut.result()
+                except Exception as e:
+                    logger.warning("identify_page_v2: name OCR thread failed: %s", e)
 
         logger.info("identify_page_v2: name OCR thread done in %.1fs",
                      _time.time() - t0)
@@ -5312,11 +5336,10 @@ def identify_page_v2(card_image_paths, session=None,
         logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
 
     # Run three main threads in parallel:
-    #   - Name OCR (CPU, sequential per card due to _ocr_lock)
+    #   - Name OCR (CPU, 3 parallel threads via internal pool)
     #   - DINOv2 batch (GPU, single forward pass)
-    #   - Color detection (CPU, parallel across cards, no lock)
-    # Attack OCR tasks are dispatched by the name OCR thread into _attack_pool
-    # and run concurrently with subsequent name OCR calls.
+    #   - Color detection (CPU, parallel across cards)
+    # Attack OCR tasks are dispatched by name OCR threads into _attack_pool.
     with ThreadPoolExecutor(max_workers=3) as precomp_pool:
         f_name = precomp_pool.submit(_batch_name_ocr)
         f_dino = precomp_pool.submit(_batch_embeddings)
