@@ -4417,24 +4417,28 @@ def run_server(host="0.0.0.0", port=8888):
 
     server = HTTPServer((host, port), ScanHandler)
 
-    # Wrap with SSL for getUserMedia (requires secure context on mobile)
+    # SSL is available but disabled by default (self-signed certs cause
+    # issues on Brave/Chrome mobile). Instead, use browser flags:
+    #   brave://flags/#unsafely-treat-insecure-origin-as-secure
+    #   Add http://<ip>:8888, enable, relaunch.
+    # To enable SSL, pass --ssl flag.
     import ssl
-    cert_path = Path(__file__).resolve().parent.parent / "data" / "server.crt"
-    key_path = Path(__file__).resolve().parent.parent / "data" / "server.key"
-    if cert_path.is_file() and key_path.is_file():
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        ctx.load_cert_chain(str(cert_path), str(key_path))
-        server.socket = ctx.wrap_socket(server.socket, server_side=True)
-        protocol = "https"
-    else:
-        protocol = "http"
+    use_ssl = "--ssl" in sys.argv
+    if use_ssl:
+        cert_path = Path(__file__).resolve().parent.parent / "data" / "server.crt"
+        key_path = Path(__file__).resolve().parent.parent / "data" / "server.key"
+        if cert_path.is_file() and key_path.is_file():
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.load_cert_chain(str(cert_path), str(key_path))
+            server.socket = ctx.wrap_socket(server.socket, server_side=True)
 
+    protocol = "https" if use_ssl else "http"
     lan_ip = _get_lan_ip()
     print(f"Card scanner server running at {protocol}://{host}:{port}")
     print(f"LAN URL (for phone): {protocol}://{lan_ip}:{port}")
     print("Open this URL on your phone, or scan the QR code on the landing page")
-    if protocol == "https":
-        print("(Self-signed cert — accept the security warning on first visit)")
+    if not use_ssl:
+        print(f"For camera features (slide-scan), set brave://flags insecure-origins to http://{lan_ip}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
