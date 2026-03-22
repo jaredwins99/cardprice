@@ -1,23 +1,12 @@
-"""Slide-scan binder camera UI with row guidance system.
+"""Slide-scan binder camera UI -- simplified manual capture flow.
 
-User holds phone ~15cm from binder and slowly slides across each row.
-The camera detects individual cards as they pass through a central detection
-zone, auto-capturing at peak sharpness/alignment. All detection runs
-client-side in JS -- no server round-trips during scanning.
-
-Row guidance features:
-    - Row indicator with progress dots
-    - Animated direction arrows (zigzag: L->R odd rows, R->L even rows)
-    - Per-row card counter ("Card 2/3 captured")
-    - Green flash + thumbnail slide-in animation on capture
-    - Row completion banner with downward arrow animation
-    - Completion screen: 3x3 grid of thumbnails + "Submit for identification"
-    - Tap any thumbnail to re-capture that card
-    - Speed warning when user moves too fast (motion blur / rapid captures)
+User points phone at one card at a time, taps shutter to capture.
+System auto-crops the card from the frame, user reviews and accepts or retakes.
+Thumbnail strip shows progress (9 slots). Submit when ready.
 
 Integration into server.py:
-    GET  /slide-scan       -> serve this HTML
-    POST /slide-scan       -> receive 9 card images, identify, return JSON
+    GET  /slide-scan            -> serve this HTML
+    POST /slide-scan/identify   -> receive card images, identify, return JSON
 """
 
 SLIDE_SCAN_HTML = r"""<!DOCTYPE html>
@@ -29,10 +18,21 @@ SLIDE_SCAN_HTML = r"""<!DOCTYPE html>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+    --accent: #4ecca3;
+    --accent-dim: rgba(78, 204, 163, 0.3);
+    --danger: #e94560;
+    --bg: #1a1a2e;
+    --bg-dark: #0f0f1a;
+    --text: #fff;
+    --text-dim: rgba(255,255,255,0.55);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #000;
-    color: #fff;
+    background: var(--bg-dark);
+    color: var(--text);
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
@@ -41,1833 +41,893 @@ body {
     user-select: none;
 }
 
-/* ---- Camera container ---- */
-.camera-wrap {
+/* ================================================================ */
+/*  SCREEN: CAMERA (capture mode)                                    */
+/* ================================================================ */
+#screen-camera {
     position: relative;
     width: 100%;
     height: 100%;
-}
-
-video {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-}
-
-/* Hidden canvases for processing */
-canvas.hidden-canvas { display: none; }
-
-/* Detection zone overlay canvas */
-canvas#overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    pointer-events: none;
-}
-
-/* ================================================================ */
-/*  TOP HUD: row progress + direction + card counter                 */
-/* ================================================================ */
-.top-hud {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    z-index: 10;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 80%, transparent 100%);
-    padding: 10px 14px 24px;
-    pointer-events: none;
-}
-
-/* Row label: "Row 1 of 3" */
-.row-label {
-    font-size: 16px;
-    font-weight: 700;
-    text-align: center;
-    color: rgba(255,255,255,0.95);
-    margin-bottom: 6px;
-}
-
-/* Row progress dots */
-.row-dots {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-.row-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.25);
-    transition: all 0.3s;
-}
-.row-dot.active {
-    background: #4ecca3;
-    box-shadow: 0 0 8px rgba(78, 204, 163, 0.5);
-    transform: scale(1.3);
-}
-.row-dot.done {
-    background: #4ecca3;
-}
-
-/* Direction arrow + label */
-.direction-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 4px;
-}
-.dir-arrow {
-    font-size: 28px;
-    color: #4ecca3;
-    animation: slideRight 1.2s ease-in-out infinite;
-}
-.dir-arrow.left {
-    animation-name: slideLeft;
-}
-.dir-label {
-    font-size: 13px;
-    color: rgba(255,255,255,0.7);
-}
-
-@keyframes slideRight {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(12px); }
-}
-@keyframes slideLeft {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(-12px); }
-}
-
-/* Card counter: "Card 2/3 captured" */
-.card-counter {
-    text-align: center;
-    font-size: 13px;
-    color: rgba(255,255,255,0.65);
-}
-
-/* ================================================================ */
-/*  LEFT: row progress vertical dots (secondary indicator)           */
-/* ================================================================ */
-.row-progress-side {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    pointer-events: none;
 }
 
-/* ================================================================ */
-/*  FILMSTRIP: bottom thumbnail bar                                  */
-/* ================================================================ */
-.filmstrip {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
+/* -- Thumbnail strip at top -- */
+.thumb-strip {
+    background: var(--bg);
+    padding: 10px 12px 8px;
     z-index: 10;
-    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 70%, transparent 100%);
-    padding: 30px 10px 10px;
-    pointer-events: none;
+    flex-shrink: 0;
 }
 
-.strip-header {
+.thumb-strip-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 6px;
-    padding: 0 4px;
-}
-.strip-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.9);
-}
-.strip-counter {
-    font-size: 13px;
-    color: #4ecca3;
-    font-weight: 700;
+    margin-bottom: 8px;
 }
 
-.strip-thumbs {
+.thumb-counter {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+.thumb-counter span { color: var(--accent); }
+
+.thumb-slots {
     display: flex;
     gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    justify-content: center;
 }
-.strip-thumbs::-webkit-scrollbar { display: none; }
 
-/* Placeholder slots */
-.strip-slot {
-    flex-shrink: 0;
-    width: 52px;
-    height: 72px;
-    border-radius: 4px;
-    border: 2px dashed rgba(255,255,255,0.2);
+.thumb-slot {
+    width: 50px;
+    height: 70px;
+    border-radius: 6px;
+    border: 2px dashed rgba(255,255,255,0.15);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    color: rgba(255,255,255,0.3);
     position: relative;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    overflow: hidden;
+    flex-shrink: 0;
 }
-.strip-slot.active-slot {
-    border-color: #e94560;
+.thumb-slot.next-slot {
+    border-color: var(--accent);
     border-style: solid;
 }
-.strip-slot .slot-pos {
-    font-size: 9px;
-    color: rgba(255,255,255,0.3);
-}
-
-/* Filled thumbnail */
-.strip-thumb {
-    flex-shrink: 0;
-    width: 52px;
-    height: 72px;
-    border-radius: 4px;
-    border: 2px solid #4ecca3;
-    object-fit: cover;
-    opacity: 0;
-    transform: translateY(20px) scale(0.8);
-    transition: all 0.35s ease;
-    position: relative;
-    cursor: pointer;
-    pointer-events: auto;
-}
-.strip-thumb.visible {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-}
-.strip-thumb.latest {
-    border-color: #4ecca3;
-    box-shadow: 0 0 10px rgba(78, 204, 163, 0.6);
-}
-
-/* ================================================================ */
-/*  BOTTOM CONTROLS                                                  */
-/* ================================================================ */
-.bottom-controls {
-    position: absolute;
-    bottom: 95px; left: 0; right: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    pointer-events: none;
-}
-
-.status-text {
-    font-size: 14px;
-    color: rgba(255,255,255,0.7);
-    text-align: center;
-    min-height: 18px;
-    transition: color 0.2s;
-}
-.status-text.ready {
-    color: #4ecca3;
+.thumb-slot .slot-num {
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
     font-weight: 600;
 }
-
-.detection-meter {
-    width: 180px;
-    height: 3px;
-    background: rgba(255,255,255,0.12);
-    border-radius: 2px;
-    overflow: hidden;
-}
-.detection-fill {
+.thumb-slot img {
+    width: 100%;
     height: 100%;
-    width: 0%;
-    background: #4ecca3;
-    border-radius: 2px;
-    transition: width 0.15s;
+    object-fit: cover;
+    border-radius: 4px;
 }
-
-.btn-row {
-    display: flex;
-    gap: 12px;
-    pointer-events: auto;
-}
-
-.btn {
-    padding: 11px 22px;
-    border: none;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
+.thumb-slot.filled {
+    border: 2px solid var(--accent);
     cursor: pointer;
-    transition: all 0.15s;
 }
-.btn:active { transform: scale(0.95); }
-
-.btn-manual {
-    background: rgba(255,255,255,0.15);
+.thumb-slot.filled:active {
+    transform: scale(0.92);
+}
+/* redo badge on filled slots */
+.thumb-slot .redo-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--danger);
     color: #fff;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-.btn-next-row {
-    background: #4ecca3;
-    color: #1a1a2e;
+    font-size: 10px;
+    font-weight: 700;
     display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
 }
-.btn-done {
-    background: #e94560;
-    color: #fff;
-    display: none;
+.thumb-slot.filled .redo-badge {
+    display: flex;
 }
 
-/* ================================================================ */
-/*  GREEN FLASH (capture feedback)                                   */
-/* ================================================================ */
-.flash {
+/* -- Camera viewport -- */
+.camera-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+}
+
+.camera-area video {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Card guide overlay */
+.card-guide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 62%;
+    aspect-ratio: 2.5 / 3.5;
+    border: 2px solid rgba(78, 204, 163, 0.4);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 3;
+}
+.card-guide-label {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+
+/* Flash feedback */
+.flash-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(78, 204, 163, 0.35);
+    background: rgba(78, 204, 163, 0.3);
     z-index: 20;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s;
 }
-.flash.active {
+.flash-overlay.active {
     opacity: 1;
     transition: none;
 }
 
-/* ================================================================ */
-/*  SPEED WARNING                                                    */
-/* ================================================================ */
-.speed-warning {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) scale(0.8);
-    background: rgba(255, 68, 68, 0.9);
-    color: #fff;
-    font-weight: 700;
-    font-size: 20px;
-    padding: 14px 32px;
-    border-radius: 16px;
-    z-index: 25;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.25s, transform 0.25s;
-}
-.speed-warning.show {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+/* -- Bottom bar with shutter -- */
+.bottom-bar {
+    background: var(--bg);
+    padding: 12px 16px calc(12px + var(--safe-bottom));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 10;
+    flex-shrink: 0;
+    position: relative;
 }
 
+.shutter-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+.shutter-btn:active {
+    transform: scale(0.9);
+}
+.shutter-btn::after {
+    content: '';
+    position: absolute;
+    top: 5px; left: 5px; right: 5px; bottom: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: background 0.15s;
+}
+.shutter-btn:active::after {
+    background: #3bb88e;
+}
+.shutter-btn:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.submit-btn {
+    position: absolute;
+    right: 16px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 10px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: none;
+    transition: transform 0.1s;
+}
+.submit-btn:active { transform: scale(0.95); }
+.submit-btn.visible { display: block; }
+
+/* Hidden processing canvas */
+canvas.proc-canvas { display: none; }
+
 /* ================================================================ */
-/*  ROW COMPLETE OVERLAY                                             */
+/*  SCREEN: REVIEW (keep / retake)                                   */
 /* ================================================================ */
-.row-overlay {
+#screen-review {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 15;
-    background: rgba(0,0,0,0.88);
+    z-index: 30;
+    background: var(--bg-dark);
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    padding: 20px;
 }
-.row-overlay.visible { display: flex; }
-.row-overlay .row-check {
-    font-size: 48px;
-    color: #4ecca3;
+#screen-review.visible { display: flex; }
+
+.review-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text);
 }
-.row-overlay h2 {
-    font-size: 22px;
-    color: #4ecca3;
+
+.review-image {
+    max-width: 70%;
+    max-height: 55vh;
+    border-radius: 10px;
+    border: 3px solid var(--accent);
+    object-fit: contain;
+    margin-bottom: 8px;
 }
-.row-overlay p {
-    font-size: 15px;
-    color: rgba(255,255,255,0.7);
-    text-align: center;
-    padding: 0 30px;
+
+.review-status {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+    min-height: 20px;
 }
-.row-overlay .down-bounce {
-    font-size: 40px;
-    color: #4ecca3;
-    animation: bounceDown 0.8s ease-in-out infinite;
+
+.review-buttons {
+    display: flex;
+    gap: 16px;
 }
-@keyframes bounceDown {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(12px); }
+
+.review-btn {
+    padding: 14px 32px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s;
 }
-.row-overlay .btn {
-    margin-top: 8px;
+.review-btn:active { transform: scale(0.93); }
+.review-btn.keep {
+    background: var(--accent);
+    color: var(--bg);
+}
+.review-btn.retake {
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
 /* ================================================================ */
-/*  DONE / COMPLETION OVERLAY                                        */
+/*  SCREEN: PREVIEW (grid + submit)                                  */
 /* ================================================================ */
-.done-overlay {
+#screen-preview {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 25;
-    background: #1a1a2e;
+    z-index: 30;
+    background: var(--bg);
     display: none;
     flex-direction: column;
     align-items: center;
     overflow-y: auto;
     padding: 20px 16px 40px;
 }
-.done-overlay.visible { display: flex; }
-.done-overlay h2 {
+#screen-preview.visible { display: flex; }
+
+.preview-title {
     font-size: 22px;
-    color: #4ecca3;
+    font-weight: 700;
+    color: var(--accent);
     margin-bottom: 4px;
 }
-.done-overlay .done-sub {
-    color: rgba(255,255,255,0.6);
+.preview-sub {
     font-size: 13px;
-    margin-bottom: 12px;
+    color: var(--text-dim);
+    margin-bottom: 16px;
 }
 
-.done-grid {
+.preview-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     max-width: 320px;
     width: 100%;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
-.done-cell {
+.preview-cell {
+    aspect-ratio: 2.5 / 3.5;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
     cursor: pointer;
 }
-.done-cell img {
+.preview-cell img {
     width: 100%;
-    aspect-ratio: 63/88;
+    height: 100%;
     object-fit: cover;
-    border-radius: 6px;
-    border: 2px solid #4ecca3;
 }
-.done-cell .cell-label {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    background: rgba(0,0,0,0.65);
-    color: #fff;
-    font-size: 10px;
-    text-align: center;
-    padding: 2px 0;
-    border-radius: 0 0 6px 6px;
+.preview-cell .cell-empty {
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
 }
-.done-cell .cell-rescan {
+.preview-cell .cell-num {
     position: absolute;
-    top: 4px; right: 4px;
-    background: rgba(233, 69, 96, 0.85);
-    color: #fff;
-    border: none;
+    top: 4px;
+    left: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.5);
+    background: rgba(0,0,0,0.5);
+    padding: 1px 5px;
     border-radius: 4px;
-    font-size: 9px;
-    padding: 2px 6px;
-    cursor: pointer;
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 0.2s;
 }
-.done-cell:active .cell-rescan { opacity: 1; }
 
-.btn-submit {
-    padding: 16px 40px;
-    background: #4ecca3;
-    color: #1a1a2e;
+.preview-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.preview-btn {
+    padding: 14px 28px;
     border: none;
-    border-radius: 10px;
-    font-size: 17px;
+    border-radius: 12px;
+    font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    width: 100%;
-    max-width: 320px;
+    transition: transform 0.1s;
 }
-.btn-submit:active { transform: scale(0.97); }
-.btn-submit:disabled { opacity: 0.5; cursor: default; }
-
-.btn-rescan-all {
-    padding: 10px 20px;
-    background: transparent;
-    color: rgba(255,255,255,0.6);
-    border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 8px;
-    font-size: 13px;
-    cursor: pointer;
-    margin-top: 8px;
-    width: 100%;
-    max-width: 320px;
-    text-align: center;
+.preview-btn:active { transform: scale(0.93); }
+.preview-btn.go {
+    background: var(--accent);
+    color: var(--bg);
+}
+.preview-btn.back {
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
 /* ================================================================ */
-/*  IDENTIFYING OVERLAY (spinner + timer)                            */
+/*  SCREEN: UPLOADING                                                */
 /* ================================================================ */
-.id-overlay {
+#screen-uploading {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 30;
-    background: rgba(26, 26, 46, 0.95);
+    z-index: 35;
+    background: var(--bg-dark);
     display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 16px;
 }
-.id-overlay.visible { display: flex; }
+#screen-uploading.visible { display: flex; }
 
-.spinner-ring {
+.spinner {
     width: 48px;
     height: 48px;
-    border: 4px solid rgba(255,255,255,0.15);
-    border-top-color: #e94560;
+    border: 4px solid rgba(255,255,255,0.1);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.id-timer {
-    font-size: 28px;
-    font-weight: 700;
-    color: #fff;
+.upload-text {
+    font-size: 16px;
+    color: var(--text-dim);
 }
-.id-label {
+
+/* ================================================================ */
+/*  ERROR TOAST                                                      */
+/* ================================================================ */
+.toast {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(233, 69, 96, 0.92);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 10px;
     font-size: 14px;
-    color: rgba(255,255,255,0.55);
-}
-
-/* ================================================================ */
-/*  RESULTS OVERLAY                                                  */
-/* ================================================================ */
-.results-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 35;
-    background: #1a1a2e;
-    display: none;
-    flex-direction: column;
-    overflow-y: auto;
-    padding: 16px 12px 40px;
-}
-.results-overlay.visible { display: flex; }
-
-.results-header {
-    text-align: center;
-    margin-bottom: 10px;
-}
-.results-header h2 {
-    font-size: 20px;
-    color: #e94560;
-}
-
-.results-summary {
-    background: #16213e;
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-.results-summary .total-label {
-    font-size: 12px;
-    color: rgba(255,255,255,0.5);
-}
-.results-summary .total-value {
-    font-size: 22px;
-    font-weight: 700;
-    color: #4ecca3;
-}
-.results-summary .card-count {
-    font-size: 12px;
-    color: rgba(255,255,255,0.5);
-}
-
-.result-card {
-    background: #16213e;
-    border-radius: 10px;
-    padding: 10px;
-    margin-bottom: 6px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.result-card .rc-imgs {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
-}
-.result-card .rc-img {
-    width: 46px;
-    height: 64px;
-    border-radius: 4px;
-    object-fit: cover;
-    background: #0f1629;
-}
-.result-card .rc-info {
-    flex: 1;
-    min-width: 0;
-}
-.result-card .rc-name {
-    font-size: 13px;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.result-card .rc-name a {
-    color: #eee;
-    text-decoration: none;
-}
-.result-card .rc-set {
-    font-size: 11px;
-    color: rgba(255,255,255,0.5);
-}
-.result-card .rc-meta {
-    font-size: 10px;
-    color: rgba(255,255,255,0.3);
-    margin-top: 1px;
-}
-.result-card .rc-price {
-    font-size: 15px;
-    font-weight: 700;
-    color: #4ecca3;
-    flex-shrink: 0;
-}
-.result-card .rc-price.no-price {
-    color: rgba(255,255,255,0.25);
-}
-
-.variant-badge {
-    display: inline-block;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 3px;
-    margin-left: 4px;
-    vertical-align: middle;
-    background: #444;
-    color: #fff;
-}
-.variant-badge.first-edition  { background: #b8860b; }
-.variant-badge.reverse-holo   { background: #2e86de; }
-.variant-badge.stamped         { background: #8e44ad; }
-.variant-badge.promo           { background: #e67e22; }
-.variant-badge.prerelease      { background: #16a085; }
-.variant-badge.shadowless      { background: #6a5acd; }
-
-.btn-new-scan {
-    display: block;
-    width: 100%;
-    padding: 14px;
-    font-size: 15px;
-    font-weight: 700;
-    border: none;
-    border-radius: 10px;
-    background: #e94560;
-    color: #fff;
-    cursor: pointer;
-    margin-top: 12px;
-}
-.btn-new-scan:active {
-    background: #c23152;
-}
-
-/* ================================================================ */
-/*  SETTINGS                                                         */
-/* ================================================================ */
-.settings-btn {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    z-index: 11;
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.5);
-    font-size: 20px;
-    cursor: pointer;
-    padding: 6px;
-    pointer-events: auto;
-}
-.settings-panel {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 40;
-    background: rgba(0,0,0,0.92);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 30px;
-}
-.settings-panel.visible { display: flex; }
-.settings-panel h3 {
-    font-size: 20px;
-    color: #4ecca3;
-}
-.setting-row {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    max-width: 280px;
-    justify-content: space-between;
-}
-.setting-row label {
-    font-size: 15px;
-    color: rgba(255,255,255,0.8);
-}
-.setting-row input, .setting-row select {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid #555;
-    background: #222;
-    color: #fff;
-    font-size: 15px;
-    width: 72px;
-    text-align: center;
-}
-
-/* Debug info */
-.debug-info {
-    position: absolute;
-    bottom: 110px;
-    right: 10px;
-    z-index: 10;
-    font-size: 9px;
-    color: rgba(255,255,255,0.35);
-    text-align: right;
-    line-height: 1.4;
+    z-index: 50;
+    opacity: 0;
     pointer-events: none;
-    display: none;
-    font-family: monospace;
+    transition: opacity 0.25s, transform 0.25s;
+    text-align: center;
+    max-width: 85%;
 }
-.debug-info.visible { display: block; }
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
 </style>
 </head>
 <body>
 
-<div class="camera-wrap">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
-    <canvas id="detect" class="hidden-canvas"></canvas>
-    <canvas id="capture" class="hidden-canvas"></canvas>
-
-    <!-- ======== TOP HUD ======== -->
-    <div class="top-hud" id="topHud">
-        <div class="row-label" id="rowLabel">Row 1 of 3</div>
-        <div class="row-dots" id="rowDots"></div>
-        <div class="direction-row" id="directionRow">
-            <span class="dir-arrow" id="dirArrow">&#8594;</span>
-            <span class="dir-label" id="dirLabel">Slide right</span>
+<!-- CAMERA SCREEN -->
+<div id="screen-camera">
+    <!-- Thumbnail strip -->
+    <div class="thumb-strip">
+        <div class="thumb-strip-header">
+            <div class="thumb-counter"><span id="capture-count">0</span> of 9 captured</div>
         </div>
-        <div class="card-counter" id="cardCounter">Card 0/3 captured</div>
+        <div class="thumb-slots" id="thumb-slots"></div>
     </div>
 
-    <!-- ======== SIDE ROW DOTS ======== -->
-    <div class="row-progress-side" id="rowProgressSide"></div>
-
-    <!-- ======== BOTTOM CONTROLS ======== -->
-    <div class="bottom-controls">
-        <div class="status-text" id="statusText">Starting camera...</div>
-        <div class="detection-meter">
-            <div class="detection-fill" id="detectionFill"></div>
+    <!-- Camera viewport -->
+    <div class="camera-area">
+        <video id="cam-video" autoplay playsinline muted></video>
+        <div class="card-guide">
+            <div class="card-guide-label">Center a card in frame</div>
         </div>
-        <div class="btn-row">
-            <button class="btn btn-manual" id="btnManual" onclick="manualCapture()">Capture</button>
-            <button class="btn btn-next-row" id="btnNextRow" onclick="nextRow()">Next Row</button>
-            <button class="btn btn-done" id="btnDone" onclick="showDone()">Done</button>
-        </div>
+        <div class="flash-overlay" id="flash"></div>
     </div>
 
-    <!-- ======== FILMSTRIP ======== -->
-    <div class="filmstrip" id="filmstrip">
-        <div class="strip-header">
-            <span class="strip-title" id="stripTitle">Row 1</span>
-            <span class="strip-counter" id="stripCounter">0 / 9</span>
-        </div>
-        <div class="strip-thumbs" id="stripThumbs"></div>
+    <!-- Bottom bar -->
+    <div class="bottom-bar">
+        <button class="shutter-btn" id="shutter-btn" aria-label="Capture"></button>
+        <button class="submit-btn" id="submit-btn">Submit</button>
     </div>
 
-    <!-- ======== GREEN FLASH ======== -->
-    <div class="flash" id="flash"></div>
-
-    <!-- ======== SPEED WARNING ======== -->
-    <div class="speed-warning" id="speedWarning">Slow down!</div>
-
-    <!-- ======== ROW COMPLETE OVERLAY ======== -->
-    <div class="row-overlay" id="rowOverlay">
-        <div class="row-check">&#10003;</div>
-        <h2 id="rowOverlayTitle">Row 1 Complete</h2>
-        <p id="rowOverlayText">Move your phone down to row 2</p>
-        <div class="down-bounce">&#8595;</div>
-        <button class="btn btn-next-row" style="display:inline-block" onclick="continueNextRow()">Continue Scanning</button>
-    </div>
-
-    <!-- ======== COMPLETION / REVIEW OVERLAY ======== -->
-    <div class="done-overlay" id="doneOverlay">
-        <h2>Review Cards</h2>
-        <p class="done-sub" id="doneSummary">9 cards captured &mdash; tap any to re-scan</p>
-        <div class="done-grid" id="doneGrid"></div>
-        <button class="btn-submit" id="btnSubmit" onclick="submitCards()">Submit for Identification</button>
-        <button class="btn-rescan-all" onclick="restartScan()">Start Over</button>
-    </div>
-
-    <!-- ======== IDENTIFYING OVERLAY ======== -->
-    <div class="id-overlay" id="idOverlay">
-        <div class="spinner-ring"></div>
-        <div class="id-timer" id="idTimer">0s</div>
-        <div class="id-label">Identifying cards...</div>
-    </div>
-
-    <!-- ======== RESULTS OVERLAY ======== -->
-    <div class="results-overlay" id="resultsOverlay">
-        <div class="results-header"><h2>Scan Results</h2></div>
-        <div class="results-summary" id="resultsSummary">
-            <div>
-                <div class="total-label">Page Total</div>
-                <div class="total-value" id="resTotalValue">$0.00</div>
-            </div>
-            <div style="text-align:right">
-                <div class="card-count" id="resCardCount">0 cards</div>
-            </div>
-        </div>
-        <div id="resultsCards"></div>
-        <button class="btn-new-scan" onclick="restartFull()">Scan Another Page</button>
-    </div>
-
-    <!-- ======== SETTINGS ======== -->
-    <button class="settings-btn" onclick="toggleSettings()">&#9881;</button>
-    <div class="settings-panel" id="settingsPanel">
-        <h3>Scan Settings</h3>
-        <div class="setting-row">
-            <label>Columns</label>
-            <input type="number" id="setCols" value="3" min="1" max="6">
-        </div>
-        <div class="setting-row">
-            <label>Rows</label>
-            <input type="number" id="setRows" value="3" min="1" max="6">
-        </div>
-        <div class="setting-row">
-            <label>Debug</label>
-            <select id="setDebug"><option value="0">Off</option><option value="1">On</option></select>
-        </div>
-        <button class="btn" style="background:#4ecca3;color:#1a1a2e;margin-top:10px" onclick="applySettings()">Apply</button>
-    </div>
-
-    <!-- Debug info -->
-    <div class="debug-info" id="debugInfo"></div>
+    <canvas class="proc-canvas" id="proc-canvas"></canvas>
 </div>
 
+<!-- REVIEW SCREEN -->
+<div id="screen-review">
+    <div class="review-title" id="review-title">Card Preview</div>
+    <img class="review-image" id="review-img" alt="Captured card">
+    <div class="review-status" id="review-status"></div>
+    <div class="review-buttons">
+        <button class="review-btn retake" id="btn-retake">Retake</button>
+        <button class="review-btn keep" id="btn-keep">Keep</button>
+    </div>
+</div>
+
+<!-- PREVIEW SCREEN (grid before submit) -->
+<div id="screen-preview">
+    <div class="preview-title" id="preview-title">Ready to Identify</div>
+    <div class="preview-sub" id="preview-sub">9 cards captured</div>
+    <div class="preview-grid" id="preview-grid"></div>
+    <div class="preview-buttons">
+        <button class="preview-btn back" id="preview-back">Back</button>
+        <button class="preview-btn go" id="preview-go">Identify Cards</button>
+    </div>
+</div>
+
+<!-- UPLOADING SCREEN -->
+<div id="screen-uploading">
+    <div class="spinner"></div>
+    <div class="upload-text">Identifying cards...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
 <script>
-// ============================================================
-// Configuration
-// ============================================================
-let CFG = {
-    cols: 3,
-    rows: 3,
-    get total() { return this.cols * this.rows; },
+(function() {
+    'use strict';
 
-    // Detection zone: center portion of frame
-    zoneW: 0.50,
-    zoneH: 0.70,
+    var TOTAL_SLOTS = 9;
 
-    // Thresholds
-    edgeDensityMin: 0.12,
-    sharpnessMin: 15.0,
-    contrastMin: 10,
-    readyFramesNeeded: 3,
-    frameSampleInterval: 3,
+    // State
+    var captures = new Array(TOTAL_SLOTS).fill(null);
+    var nextSlot = 0;
+    var reviewSlot = -1;
+    var reviewBlob = null;
+    var reviewDataUrl = null;
+    var cameraStream = null;
 
-    // Detection canvas width (for speed)
-    detectWidth: 320,
+    // DOM refs
+    var video = document.getElementById('cam-video');
+    var canvas = document.getElementById('proc-canvas');
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    var shutterBtn = document.getElementById('shutter-btn');
+    var submitBtn = document.getElementById('submit-btn');
+    var flash = document.getElementById('flash');
+    var countEl = document.getElementById('capture-count');
+    var thumbSlotsEl = document.getElementById('thumb-slots');
 
-    debug: false,
-};
+    var screenReview = document.getElementById('screen-review');
+    var screenPreview = document.getElementById('screen-preview');
+    var screenUploading = document.getElementById('screen-uploading');
 
-// ============================================================
-// State
-// ============================================================
-let video, overlay, detectCanvas, captureCanvas;
-let overlayCtx, detectCtx, captureCtx;
-let captures = [];           // array of {dataUrl, row, col} indexed by grid position
-let currentRow = 0;          // 0-indexed
-let currentColInRow = 0;     // cards captured in current row
-let readyCount = 0;
-let cooldown = false;
-let cooldownFrames = 0;
-let frameCount = 0;
-let scanning = true;
-let animFrameId = null;
-let captureTimestamps = [];  // for speed warning
-let speedWarningTimer = null;
+    var reviewImg = document.getElementById('review-img');
+    var reviewTitleEl = document.getElementById('review-title');
+    var reviewStatus = document.getElementById('review-status');
+    var btnKeep = document.getElementById('btn-keep');
+    var btnRetake = document.getElementById('btn-retake');
 
-// ============================================================
-// Initialization
-// ============================================================
-function getActiveCol() {
-    // In zigzag mode: even rows go L->R, odd rows go R->L
-    if (currentRow % 2 === 0) return currentColInRow;
-    return CFG.cols - 1 - currentColInRow;
-}
+    var previewTitleEl = document.getElementById('preview-title');
+    var previewSub = document.getElementById('preview-sub');
+    var previewGrid = document.getElementById('preview-grid');
+    var previewBack = document.getElementById('preview-back');
+    var previewGo = document.getElementById('preview-go');
 
-document.addEventListener('DOMContentLoaded', init);
+    var toastEl = document.getElementById('toast');
 
-async function init() {
-    video = document.getElementById('video');
-    overlay = document.getElementById('overlay');
-    detectCanvas = document.getElementById('detect');
-    captureCanvas = document.getElementById('capture');
+    // ---- Build thumbnail slots ----
+    function buildSlots() {
+        thumbSlotsEl.innerHTML = '';
+        for (var i = 0; i < TOTAL_SLOTS; i++) {
+            var slot = document.createElement('div');
+            slot.className = 'thumb-slot' + (i === nextSlot ? ' next-slot' : '');
+            slot.dataset.idx = i;
 
-    overlayCtx = overlay.getContext('2d');
-    detectCtx = detectCanvas.getContext('2d', { willReadFrequently: true });
-    captureCtx = captureCanvas.getContext('2d');
+            if (captures[i]) {
+                slot.classList.add('filled');
+                var img = document.createElement('img');
+                img.src = captures[i].dataUrl;
+                slot.appendChild(img);
+                var badge = document.createElement('div');
+                badge.className = 'redo-badge';
+                badge.textContent = '\u21BB';
+                slot.appendChild(badge);
+            } else {
+                var num = document.createElement('div');
+                num.className = 'slot-num';
+                num.textContent = i + 1;
+                slot.appendChild(num);
+            }
 
-    buildUI();
+            slot.addEventListener('click', (function(idx) {
+                return function() { onSlotTap(idx); };
+            })(i));
+            thumbSlotsEl.appendChild(slot);
+        }
+    }
 
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+    function updateUI() {
+        var filled = captures.filter(Boolean).length;
+        countEl.textContent = filled;
+        submitBtn.classList.toggle('visible', filled > 0);
+        buildSlots();
+    }
+
+    function computeNextSlot() {
+        for (var i = 0; i < TOTAL_SLOTS; i++) {
+            if (!captures[i]) return i;
+        }
+        return TOTAL_SLOTS;
+    }
+
+    // ---- Camera ----
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: { ideal: 'environment' },
                 width: { ideal: 1920 },
-                height: { ideal: 1080 },
+                height: { ideal: 1080 }
             },
-            audio: false,
+            audio: false
+        }).then(function(stream) {
+            cameraStream = stream;
+            video.srcObject = stream;
+            video.play();
+        }).catch(function(err) {
+            showToast('Camera access denied. Please allow camera permissions.');
+            console.error('Camera error:', err);
         });
-        video.srcObject = stream;
+    }
 
-        // Wait for video frames to be available before playing.
-        // On iOS Safari, loadedmetadata fires too early.
-        await new Promise((resolve, reject) => {
-            video.addEventListener('loadeddata', resolve, { once: true });
-            video.addEventListener('error', reject, { once: true });
-            // Safety timeout
-            setTimeout(() => resolve(), 10000);
+    // ---- Capture ----
+    function captureFrame() {
+        if (!video.videoWidth) return null;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        return canvas;
+    }
+
+    function smartCrop(sourceCanvas) {
+        var w = sourceCanvas.width;
+        var h = sourceCanvas.height;
+
+        // Crop center region matching card aspect ratio (2.5:3.5)
+        var cropW = Math.round(w * 0.65);
+        var cropH = Math.round(cropW * (3.5 / 2.5));
+        var actualCropH = Math.min(cropH, Math.round(h * 0.85));
+        var actualCropW = Math.round(actualCropH * (2.5 / 3.5));
+
+        var x = Math.round((w - actualCropW) / 2);
+        var y = Math.round((h - actualCropH) / 2);
+
+        var cropCanvas = document.createElement('canvas');
+        cropCanvas.width = actualCropW;
+        cropCanvas.height = actualCropH;
+        var cropCtx = cropCanvas.getContext('2d');
+        cropCtx.drawImage(sourceCanvas, x, y, actualCropW, actualCropH, 0, 0, actualCropW, actualCropH);
+
+        return cropCanvas;
+    }
+
+    function canvasToBlob(cvs, quality) {
+        return new Promise(function(resolve) {
+            cvs.toBlob(function(blob) { resolve(blob); }, 'image/jpeg', quality || 0.92);
         });
-
-        await video.play();
-        setStatus('Slide across cards slowly...');
-
-        // Delay resize slightly so layout settles on mobile
-        setTimeout(() => {
-            resizeOverlay();
-            window.addEventListener('resize', resizeOverlay);
-            animFrameId = requestAnimationFrame(detectionLoop);
-        }, 200);
-    } catch (err) {
-        setStatus('Camera error: ' + err.message);
-        console.error('Camera init failed:', err);
-        // Show error visibly on screen
-        document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e74c3c;font-size:18px;">Camera Error<br><br><span style="font-size:14px;color:#888;">' + err.message + '<br><br>Make sure you allow camera access.<br>On some devices, HTTPS is required.</span></div>';
-    }
-}
-
-function resizeOverlay() {
-    const r = video.getBoundingClientRect();
-    overlay.width = r.width;
-    overlay.height = r.height;
-}
-
-// ============================================================
-// UI builders
-// ============================================================
-function buildUI() {
-    buildHud();
-    buildThumbs();
-    buildSideDots();
-}
-
-function buildHud() {
-    // Row label
-    document.getElementById('rowLabel').textContent =
-        'Row ' + (currentRow + 1) + ' of ' + CFG.rows;
-
-    // Row dots
-    const dotsEl = document.getElementById('rowDots');
-    dotsEl.innerHTML = '';
-    for (let r = 0; r < CFG.rows; r++) {
-        const dot = document.createElement('div');
-        dot.className = 'row-dot';
-        if (r < currentRow) dot.classList.add('done');
-        if (r === currentRow) dot.classList.add('active');
-        dotsEl.appendChild(dot);
     }
 
-    // Direction arrow: zigzag (even rows L->R, odd rows R->L)
-    const goRight = (currentRow % 2 === 0);
-    const dirArrow = document.getElementById('dirArrow');
-    const dirLabel = document.getElementById('dirLabel');
-    dirArrow.innerHTML = goRight ? '&#8594;' : '&#8592;';
-    dirArrow.className = 'dir-arrow' + (goRight ? '' : ' left');
-    dirLabel.textContent = goRight ? 'Slide right' : 'Slide left';
-
-    // Card counter
-    document.getElementById('cardCounter').textContent =
-        'Card ' + currentColInRow + '/' + CFG.cols + ' captured';
-}
-
-function buildThumbs() {
-    const container = document.getElementById('stripThumbs');
-    container.innerHTML = '';
-
-    for (let i = 0; i < CFG.total; i++) {
-        const cap = captures[i];
-        if (cap) {
-            const img = document.createElement('img');
-            img.className = 'strip-thumb visible';
-            if (i === captures.length - 1 ||
-                (captures.filter(Boolean).length > 0 &&
-                 i === captures.reduce((last, c, idx) => c ? idx : last, -1))) {
-                // Mark latest captured
-            }
-            img.src = cap.dataUrl;
-            img.onclick = () => rescanSlot(i);
-            container.appendChild(img);
-        } else {
-            const slot = document.createElement('div');
-            slot.className = 'strip-slot';
-            // Highlight active slot
-            const activeCol = getActiveCol();
-            const activeIdx = currentRow * CFG.cols + activeCol;
-            if (i === activeIdx && scanning) {
-                slot.classList.add('active-slot');
-            }
-            const r = Math.floor(i / CFG.cols) + 1;
-            const c = (i % CFG.cols) + 1;
-            const posLabel = document.createElement('span');
-            posLabel.className = 'slot-pos';
-            posLabel.textContent = r + '.' + c;
-            slot.appendChild(posLabel);
-            container.appendChild(slot);
-        }
-    }
-
-    document.getElementById('stripTitle').textContent = 'Row ' + (currentRow + 1);
-    document.getElementById('stripCounter').textContent =
-        captures.filter(Boolean).length + ' / ' + CFG.total;
-}
-
-function buildSideDots() {
-    const container = document.getElementById('rowProgressSide');
-    container.innerHTML = '';
-    for (let r = 0; r < CFG.rows; r++) {
-        const dot = document.createElement('div');
-        dot.className = 'row-dot';
-        if (r < currentRow) dot.classList.add('done');
-        if (r === currentRow) dot.classList.add('active');
-        container.appendChild(dot);
-    }
-}
-
-function getActiveCol() {
-    // Zigzag: even rows L->R, odd rows R->L
-    if (currentRow % 2 === 0) {
-        return currentColInRow;
-    } else {
-        return CFG.cols - 1 - currentColInRow;
-    }
-}
-
-function setStatus(msg, ready) {
-    const el = document.getElementById('statusText');
-    el.textContent = msg;
-    el.className = 'status-text' + (ready ? ' ready' : '');
-}
-
-function setMeter(fraction) {
-    document.getElementById('detectionFill').style.width = (fraction * 100) + '%';
-}
-
-function updateDebug(info) {
-    if (!CFG.debug) return;
-    const el = document.getElementById('debugInfo');
-    el.textContent = Object.entries(info).map(([k,v]) =>
-        k + ': ' + (typeof v === 'number' ? v.toFixed(2) : v)).join('\n');
-}
-
-// ============================================================
-// Detection loop
-// ============================================================
-function detectionLoop(timestamp) {
-    if (!scanning) return;
-
-    frameCount++;
-    drawOverlay();
-
-    if (frameCount % CFG.frameSampleInterval === 0) {
-        processFrame();
-    }
-
-    animFrameId = requestAnimationFrame(detectionLoop);
-}
-
-// ============================================================
-// Draw overlay (detection zone rectangle + direction arrow)
-// ============================================================
-function drawOverlay() {
-    const W = overlay.width;
-    const H = overlay.height;
-    overlayCtx.clearRect(0, 0, W, H);
-
-    // Card-shaped detection zone in center
-    const zw = W * CFG.zoneW;
-    const zh = H * CFG.zoneH;
-    const zx = (W - zw) / 2;
-    const zy = (H - zh) / 2;
-
-    // Dim outside zone
-    overlayCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    overlayCtx.fillRect(0, 0, W, zy);
-    overlayCtx.fillRect(0, zy + zh, W, H - zy - zh);
-    overlayCtx.fillRect(0, zy, zx, zh);
-    overlayCtx.fillRect(zx + zw, zy, W - zx - zw, zh);
-
-    // Zone border
-    const borderColor = cooldown ? 'rgba(255, 200, 50, 0.6)' :
-                         readyCount >= CFG.readyFramesNeeded ? 'rgba(78, 204, 163, 0.9)' :
-                         readyCount > 0 ? 'rgba(78, 204, 163, 0.5)' :
-                         'rgba(255, 255, 255, 0.4)';
-    overlayCtx.strokeStyle = borderColor;
-    overlayCtx.lineWidth = readyCount > 0 ? 3 : 2;
-    overlayCtx.setLineDash(readyCount > 0 ? [] : [8, 6]);
-
-    // Rounded rect
-    const r = 8;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(zx + r, zy);
-    overlayCtx.lineTo(zx + zw - r, zy);
-    overlayCtx.arcTo(zx + zw, zy, zx + zw, zy + r, r);
-    overlayCtx.lineTo(zx + zw, zy + zh - r);
-    overlayCtx.arcTo(zx + zw, zy + zh, zx + zw - r, zy + zh, r);
-    overlayCtx.lineTo(zx + r, zy + zh);
-    overlayCtx.arcTo(zx, zy + zh, zx, zy + zh - r, r);
-    overlayCtx.lineTo(zx, zy + r);
-    overlayCtx.arcTo(zx, zy, zx + r, zy, r);
-    overlayCtx.closePath();
-    overlayCtx.stroke();
-    overlayCtx.setLineDash([]);
-
-    // Corner brackets
-    const bLen = 20;
-    overlayCtx.strokeStyle = borderColor;
-    overlayCtx.lineWidth = 3;
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(zx, zy + bLen); overlayCtx.lineTo(zx, zy); overlayCtx.lineTo(zx + bLen, zy);
-    overlayCtx.stroke();
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(zx + zw - bLen, zy); overlayCtx.lineTo(zx + zw, zy); overlayCtx.lineTo(zx + zw, zy + bLen);
-    overlayCtx.stroke();
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(zx, zy + zh - bLen); overlayCtx.lineTo(zx, zy + zh); overlayCtx.lineTo(zx + bLen, zy + zh);
-    overlayCtx.stroke();
-    overlayCtx.beginPath();
-    overlayCtx.moveTo(zx + zw - bLen, zy + zh); overlayCtx.lineTo(zx + zw, zy + zh); overlayCtx.lineTo(zx + zw, zy + zh - bLen);
-    overlayCtx.stroke();
-
-    // Animated direction arrow on canvas (below detection zone)
-    if (!cooldown && readyCount === 0 && captures.filter(Boolean).length < CFG.total) {
-        const goRight = (currentRow % 2 === 0);
-        overlayCtx.save();
-        overlayCtx.globalAlpha = 0.35 + 0.15 * Math.sin(Date.now() / 400);
-        overlayCtx.fillStyle = '#4ecca3';
-        overlayCtx.font = '26px sans-serif';
-        overlayCtx.textAlign = 'center';
-        // Pulse position
-        const pulse = Math.sin(Date.now() / 400) * 8;
-        const arrowX = goRight ? W / 2 + pulse : W / 2 - pulse;
-        overlayCtx.fillText(goRight ? '\u25B6' : '\u25C0', arrowX, zy + zh + 28);
-        overlayCtx.restore();
-    }
-}
-
-// ============================================================
-// Frame processing
-// ============================================================
-function processFrame() {
-    if (!video.videoWidth || cooldown) {
-        if (cooldown) {
-            cooldownFrames++;
-            const info = analyzeZone();
-            if (info && info.edgeDensity < CFG.edgeDensityMin * 0.5) {
-                cooldown = false;
-                cooldownFrames = 0;
-                setStatus('Slide to next card...', false);
-                setMeter(0);
-            } else if (cooldownFrames > 30) {
-                cooldown = false;
-                cooldownFrames = 0;
-                setStatus('Slide to next card...', false);
-                setMeter(0);
-            }
-            updateDebug({ state: 'cooldown', frames: cooldownFrames,
-                          edgeDensity: info ? info.edgeDensity : 0 });
-        }
-        return;
-    }
-
-    const info = analyzeZone();
-    if (!info) return;
-
-    const isReady = info.edgeDensity >= CFG.edgeDensityMin
-                 && info.sharpness >= CFG.sharpnessMin
-                 && info.contrast >= CFG.contrastMin;
-
-    updateDebug({
-        edge: info.edgeDensity,
-        sharp: info.sharpness,
-        contrast: info.contrast,
-        ready: readyCount,
-        state: isReady ? 'READY' : 'scanning',
-        row: currentRow + 1,
-        col: getActiveCol() + 1,
-    });
-
-    if (isReady) {
-        readyCount++;
-        setMeter(Math.min(readyCount / CFG.readyFramesNeeded, 1));
-
-        if (readyCount === 1) {
-            setStatus('Card detected...', false);
-        } else if (readyCount >= 2) {
-            setStatus('Hold steady...', true);
-        }
-
-        if (readyCount >= CFG.readyFramesNeeded) {
-            captureCard();
-        }
-    } else {
-        if (readyCount > 0) readyCount = Math.max(0, readyCount - 1);
-        setMeter(Math.min(readyCount / CFG.readyFramesNeeded, 1));
-        if (readyCount === 0 && !cooldown) {
-            if (captures.filter(Boolean).length < CFG.total) {
-                setStatus('Slide across cards slowly...', false);
-            }
-        }
-    }
-}
-
-// ============================================================
-// Analyze the detection zone
-// ============================================================
-function analyzeZone() {
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    if (!vw || !vh) return null;
-
-    const scale = CFG.detectWidth / vw;
-    const dw = CFG.detectWidth;
-    const dh = Math.round(vh * scale);
-    detectCanvas.width = dw;
-    detectCanvas.height = dh;
-    detectCtx.drawImage(video, 0, 0, dw, dh);
-
-    const zx = Math.round(dw * (1 - CFG.zoneW) / 2);
-    const zy = Math.round(dh * (1 - CFG.zoneH) / 2);
-    const zw = Math.round(dw * CFG.zoneW);
-    const zh = Math.round(dh * CFG.zoneH);
-
-    if (zw <= 0 || zh <= 0) return null;
-
-    const imgData = detectCtx.getImageData(zx, zy, zw, zh);
-    const px = imgData.data;
-    const total = zw * zh;
-
-    // Convert to grayscale
-    const gray = new Float32Array(total);
-    for (let i = 0; i < total; i++) {
-        const off = i * 4;
-        gray[i] = 0.299 * px[off] + 0.587 * px[off + 1] + 0.114 * px[off + 2];
-    }
-
-    // Edge density via Sobel
-    let edgeCount = 0;
-    const edgeThreshold = 60;
-    for (let y = 1; y < zh - 1; y++) {
-        for (let x = 1; x < zw - 1; x++) {
-            const idx = y * zw + x;
-            const gx = -gray[idx - zw - 1] + gray[idx - zw + 1]
-                       -2 * gray[idx - 1] + 2 * gray[idx + 1]
-                       -gray[idx + zw - 1] + gray[idx + zw + 1];
-            const gy = -gray[idx - zw - 1] - 2 * gray[idx - zw] - gray[idx - zw + 1]
-                       +gray[idx + zw - 1] + 2 * gray[idx + zw] + gray[idx + zw + 1];
-            if (Math.sqrt(gx * gx + gy * gy) > edgeThreshold) edgeCount++;
-        }
-    }
-    const edgeDensity = edgeCount / total;
-
-    // Sharpness via Laplacian variance
-    let lapSum = 0, lapSumSq = 0, lapCount = 0;
-    for (let y = 1; y < zh - 1; y++) {
-        for (let x = 1; x < zw - 1; x++) {
-            const idx = y * zw + x;
-            const lap = gray[idx - zw] + gray[idx + zw] + gray[idx - 1] + gray[idx + 1] - 4 * gray[idx];
-            lapSum += lap;
-            lapSumSq += lap * lap;
-            lapCount++;
-        }
-    }
-    const lapMean = lapSum / lapCount;
-    const sharpness = (lapSumSq / lapCount) - (lapMean * lapMean);
-
-    // Contrast: center vs border brightness
-    const cx1 = Math.round(zw * 0.3);
-    const cy1 = Math.round(zh * 0.3);
-    const cx2 = Math.round(zw * 0.7);
-    const cy2 = Math.round(zh * 0.7);
-    let centerSum = 0, centerCount = 0;
-    let borderSum = 0, borderCount = 0;
-    for (let y = 0; y < zh; y++) {
-        for (let x = 0; x < zw; x++) {
-            const v = gray[y * zw + x];
-            if (x >= cx1 && x < cx2 && y >= cy1 && y < cy2) {
-                centerSum += v; centerCount++;
-            } else {
-                borderSum += v; borderCount++;
-            }
-        }
-    }
-    const contrast = Math.abs(
-        (centerCount ? centerSum / centerCount : 128) -
-        (borderCount ? borderSum / borderCount : 128)
-    );
-
-    return { edgeDensity, sharpness, contrast };
-}
-
-// ============================================================
-// Capture card at full resolution
-// ============================================================
-function captureCard() {
-    if (captures.filter(Boolean).length >= CFG.total) return;
-
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-
-    const zx = Math.round(vw * (1 - CFG.zoneW) / 2);
-    const zy = Math.round(vh * (1 - CFG.zoneH) / 2);
-    const zw = Math.round(vw * CFG.zoneW);
-    const zh = Math.round(vh * CFG.zoneH);
-
-    captureCanvas.width = zw;
-    captureCanvas.height = zh;
-    captureCtx.drawImage(video, zx, zy, zw, zh, 0, 0, zw, zh);
-
-    const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.92);
-
-    // Compute grid position using zigzag
-    const col = getActiveCol();
-    const slotIdx = currentRow * CFG.cols + col;
-
-    captures[slotIdx] = { dataUrl, row: currentRow, col };
-    currentColInRow++;
-
-    // Speed warning: check timing between captures
-    const now = Date.now();
-    captureTimestamps.push(now);
-    if (captureTimestamps.length >= 2) {
-        const dt = now - captureTimestamps[captureTimestamps.length - 2];
-        if (dt < 1200) {
-            showSpeedWarning();
-        }
-    }
-
-    // Green flash
-    triggerFlash();
-
-    // Haptic
-    if (navigator.vibrate) navigator.vibrate(50);
-
-    // Update UI
-    buildUI();
-
-    // Scroll filmstrip to latest
-    const thumbsEl = document.getElementById('stripThumbs');
-    thumbsEl.scrollLeft = thumbsEl.scrollWidth;
-
-    // Check row completion
-    if (currentColInRow >= CFG.cols) {
-        if (currentRow >= CFG.rows - 1) {
-            // All rows done
-            setStatus('All cards captured!', true);
-            document.getElementById('btnDone').style.display = 'inline-block';
-            document.getElementById('btnManual').style.display = 'none';
-            scanning = false;
-            // Auto-show completion after brief delay
-            setTimeout(() => showDone(), 600);
-        } else {
-            showRowComplete();
-        }
-    }
-
-    // Cooldown
-    readyCount = 0;
-    cooldown = true;
-    cooldownFrames = 0;
-    setMeter(0);
-}
-
-function triggerFlash() {
-    const flash = document.getElementById('flash');
-    flash.classList.add('active');
-    setTimeout(() => flash.classList.remove('active'), 150);
-}
-
-function showSpeedWarning() {
-    const el = document.getElementById('speedWarning');
-    el.classList.add('show');
-    if (speedWarningTimer) clearTimeout(speedWarningTimer);
-    speedWarningTimer = setTimeout(() => {
-        el.classList.remove('show');
-        speedWarningTimer = null;
-    }, 2000);
-}
-
-// ============================================================
-// Manual capture
-// ============================================================
-function manualCapture() {
-    if (captures.filter(Boolean).length >= CFG.total) return;
-    readyCount = CFG.readyFramesNeeded;
-    captureCard();
-}
-
-// ============================================================
-// Row transitions
-// ============================================================
-function showRowComplete() {
-    scanning = false;
-    const ovl = document.getElementById('rowOverlay');
-    document.getElementById('rowOverlayTitle').textContent =
-        'Row ' + (currentRow + 1) + ' Complete!';
-    document.getElementById('rowOverlayText').textContent =
-        'Move your phone down to row ' + (currentRow + 2);
-    ovl.classList.add('visible');
-}
-
-function continueNextRow() {
-    document.getElementById('rowOverlay').classList.remove('visible');
-    currentRow++;
-    currentColInRow = 0;
-    readyCount = 0;
-    cooldown = false;
-    cooldownFrames = 0;
-    scanning = true;
-    buildUI();
-
-    const goRight = (currentRow % 2 === 0);
-    setStatus('Slide ' + (goRight ? 'right' : 'left') + ' across row ' + (currentRow + 1) + '...', false);
-    setMeter(0);
-    animFrameId = requestAnimationFrame(detectionLoop);
-}
-
-function nextRow() {
-    showRowComplete();
-}
-
-// ============================================================
-// Completion / review screen
-// ============================================================
-function showDone() {
-    scanning = false;
-    const ovl = document.getElementById('doneOverlay');
-    const count = captures.filter(Boolean).length;
-    document.getElementById('doneSummary').textContent =
-        count + ' cards captured \u2014 tap any to re-scan';
-
-    const grid = document.getElementById('doneGrid');
-    grid.innerHTML = '';
-
-    for (let i = 0; i < CFG.total; i++) {
-        const cell = document.createElement('div');
-        cell.className = 'done-cell';
-
-        if (captures[i]) {
-            const img = document.createElement('img');
-            img.src = captures[i].dataUrl;
-            cell.appendChild(img);
-        } else {
-            // Empty slot placeholder
-            const placeholder = document.createElement('div');
-            placeholder.style.cssText =
-                'width:100%;aspect-ratio:63/88;background:#16213e;border-radius:6px;' +
-                'border:2px dashed rgba(255,255,255,0.2);display:flex;align-items:center;' +
-                'justify-content:center;color:rgba(255,255,255,0.3);font-size:12px';
-            placeholder.textContent = 'Empty';
-            cell.appendChild(placeholder);
-        }
-
-        const label = document.createElement('div');
-        label.className = 'cell-label';
-        label.textContent = 'R' + (Math.floor(i / CFG.cols) + 1) +
-                            ' C' + ((i % CFG.cols) + 1);
-        cell.appendChild(label);
-
-        const rescanBtn = document.createElement('button');
-        rescanBtn.className = 'cell-rescan';
-        rescanBtn.textContent = 'Re-scan';
-        cell.appendChild(rescanBtn);
-
-        // Tap cell to re-scan
-        ((idx) => {
-            cell.onclick = () => rescanSlot(idx);
-        })(i);
-
-        grid.appendChild(cell);
-    }
-
-    grid.style.gridTemplateColumns = 'repeat(' + CFG.cols + ', 1fr)';
-
-    // Enable/disable submit
-    document.getElementById('btnSubmit').disabled = (count < CFG.total);
-
-    ovl.classList.add('visible');
-}
-
-// ============================================================
-// Re-scan a specific slot
-// ============================================================
-function rescanSlot(idx) {
-    // Hide done overlay, go back to camera for one capture
-    document.getElementById('doneOverlay').classList.remove('visible');
-
-    // Set position to capture into this slot
-    const targetRow = Math.floor(idx / CFG.cols);
-    const targetCol = idx % CFG.cols;
-
-    // Temporarily override: capture next card into this slot
-    const origRow = currentRow;
-    const origCol = currentColInRow;
-
-    // Manual single-capture mode
-    scanning = true;
-    currentRow = targetRow;
-    // For zigzag, figure out what currentColInRow should be
-    if (targetRow % 2 === 0) {
-        currentColInRow = targetCol;
-    } else {
-        currentColInRow = CFG.cols - 1 - targetCol;
-    }
-
-    buildUI();
-    setStatus('Capture card for R' + (targetRow + 1) + ' C' + (targetCol + 1), false);
-
-    // After this capture, go back to done screen
-    const origCaptureCard = captureCard;
-    const self = this;
-    const patchedCapture = () => {
-        // Do normal capture
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
-        const zx = Math.round(vw * (1 - CFG.zoneW) / 2);
-        const zy = Math.round(vh * (1 - CFG.zoneH) / 2);
-        const zw = Math.round(vw * CFG.zoneW);
-        const zh = Math.round(vh * CFG.zoneH);
-        captureCanvas.width = zw;
-        captureCanvas.height = zh;
-        captureCtx.drawImage(video, zx, zy, zw, zh, 0, 0, zw, zh);
-        const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.92);
-
-        captures[idx] = { dataUrl, row: targetRow, col: targetCol };
-        triggerFlash();
-        if (navigator.vibrate) navigator.vibrate(50);
-
-        // Restore state
-        scanning = false;
-        currentRow = origRow;
-        currentColInRow = origCol;
-
-        // Remove patch
-        window._rescanCapture = null;
-
-        // Show done overlay again
-        setTimeout(() => showDone(), 300);
-    };
-    window._rescanCapture = patchedCapture;
-
-    // Override manual capture to use patched version
-    document.getElementById('btnManual').onclick = () => {
-        if (window._rescanCapture) {
-            window._rescanCapture();
-        } else {
-            manualCapture();
-        }
-    };
-
-    setMeter(0);
-    animFrameId = requestAnimationFrame(rescanDetectionLoop);
-}
-
-function rescanDetectionLoop() {
-    if (!scanning) return;
-
-    frameCount++;
-    drawOverlay();
-
-    if (frameCount % CFG.frameSampleInterval === 0) {
-        if (!video.videoWidth || cooldown) {
-            if (cooldown) {
-                cooldownFrames++;
-                if (cooldownFrames > 30) {
-                    cooldown = false;
-                    cooldownFrames = 0;
-                }
-            }
-        } else {
-            const info = analyzeZone();
-            if (info) {
-                const isReady = info.edgeDensity >= CFG.edgeDensityMin
-                             && info.sharpness >= CFG.sharpnessMin
-                             && info.contrast >= CFG.contrastMin;
-
-                if (isReady) {
-                    readyCount++;
-                    setMeter(Math.min(readyCount / CFG.readyFramesNeeded, 1));
-                    if (readyCount >= CFG.readyFramesNeeded && window._rescanCapture) {
-                        window._rescanCapture();
-                        return;
-                    }
-                } else {
-                    if (readyCount > 0) readyCount = Math.max(0, readyCount - 1);
-                    setMeter(Math.min(readyCount / CFG.readyFramesNeeded, 1));
-                }
-            }
-        }
-    }
-
-    animFrameId = requestAnimationFrame(rescanDetectionLoop);
-}
-
-// ============================================================
-// Submit cards for identification
-// ============================================================
-async function submitCards() {
-    const count = captures.filter(Boolean).length;
-    if (count === 0) return;
-
-    const btn = document.getElementById('btnSubmit');
-    btn.disabled = true;
-
-    // Hide done overlay, show ID overlay
-    document.getElementById('doneOverlay').classList.remove('visible');
-    const idOvl = document.getElementById('idOverlay');
-    idOvl.classList.add('visible');
-
-    // Start timer
-    const timerStart = Date.now();
-    const timerEl = document.getElementById('idTimer');
-    timerEl.textContent = '0s';
-    const timerInterval = setInterval(() => {
-        timerEl.textContent = Math.round((Date.now() - timerStart) / 1000) + 's';
-    }, 1000);
-
-    try {
-        const formData = new FormData();
-        for (let i = 0; i < CFG.total; i++) {
-            if (!captures[i]) continue;
-            // Convert dataUrl to blob
-            const resp0 = await fetch(captures[i].dataUrl);
-            const blob = await resp0.blob();
-            // Field name: card_0 through card_8 (position index)
-            formData.append('card_' + i, blob, 'card_' + i + '.jpg');
-        }
-
-        const resp = await fetch('/slide-scan/identify', { method: 'POST', body: formData });
-        if (!resp.ok) throw new Error('Server error: ' + resp.status);
-        const data = await resp.json();
-
-        clearInterval(timerInterval);
-        idOvl.classList.remove('visible');
-
-        if (data.error) {
-            btn.disabled = false;
-            document.getElementById('doneOverlay').classList.add('visible');
-            alert('Error: ' + data.error);
+    function onShutter() {
+        if (nextSlot >= TOTAL_SLOTS && captures.every(Boolean)) {
+            showPreview();
             return;
         }
 
-        showResults(data);
-    } catch (err) {
-        clearInterval(timerInterval);
-        idOvl.classList.remove('visible');
-        btn.disabled = false;
-        document.getElementById('doneOverlay').classList.add('visible');
-        alert('Error: ' + err.message);
-    }
-}
-
-// ============================================================
-// Results display
-// ============================================================
-function showResults(data) {
-    const ovl = document.getElementById('resultsOverlay');
-    const cards = data.cards || [];
-    let total = 0;
-    let identified = 0;
-
-    const container = document.getElementById('resultsCards');
-    container.innerHTML = '';
-
-    for (let i = 0; i < cards.length; i++) {
-        const card = cards[i];
-        if (card.market_price) total += Number(card.market_price);
-        if (card.card_id) identified++;
-
-        const row = document.createElement('div');
-        row.className = 'result-card';
-
-        // Images
-        const imgs = document.createElement('div');
-        imgs.className = 'rc-imgs';
-
-        const slotIdx = card.position != null ? card.position : i;
-        if (captures[slotIdx]) {
-            const segImg = document.createElement('img');
-            segImg.className = 'rc-img';
-            segImg.src = captures[slotIdx].dataUrl;
-            imgs.appendChild(segImg);
+        var slot = nextSlot < TOTAL_SLOTS ? nextSlot : captures.findIndex(function(c) { return !c; });
+        if (slot < 0) {
+            showPreview();
+            return;
         }
 
-        const refSrc = card.local_image_url || card.image_url;
-        if (refSrc) {
-            const refImg = document.createElement('img');
-            refImg.className = 'rc-img';
-            refImg.src = refSrc;
-            imgs.appendChild(refImg);
+        // Flash feedback
+        flash.classList.add('active');
+        setTimeout(function() { flash.classList.remove('active'); }, 150);
+
+        var frameCanvas = captureFrame();
+        if (!frameCanvas) {
+            showToast('Camera not ready');
+            return;
         }
-        row.appendChild(imgs);
 
-        // Info
-        const info = document.createElement('div');
-        info.className = 'rc-info';
+        shutterBtn.disabled = true;
 
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'rc-name';
-        if (card.tcgplayer_url) {
-            const link = document.createElement('a');
-            link.href = card.tcgplayer_url;
-            link.target = '_blank';
-            link.rel = 'noopener';
-            link.textContent = card.card_name || 'Unknown';
-            nameDiv.appendChild(link);
-        } else {
-            nameDiv.textContent = card.card_name || 'Unknown';
-        }
-        if (card.detected_variant && card.detected_variant !== 'normal') {
-            const badge = document.createElement('span');
-            badge.className = 'variant-badge ' +
-                card.detected_variant.replace(/_/g, '-');
-            badge.textContent = card.detected_variant.replace(/_/g, ' ');
-            nameDiv.appendChild(badge);
-        }
-        info.appendChild(nameDiv);
+        var cropped = smartCrop(frameCanvas);
+        canvasToBlob(cropped).then(function(blob) {
+            var dataUrl = URL.createObjectURL(blob);
 
-        const setDiv = document.createElement('div');
-        setDiv.className = 'rc-set';
-        setDiv.textContent = card.set_name || '';
-        info.appendChild(setDiv);
+            reviewSlot = slot;
+            reviewBlob = blob;
+            reviewDataUrl = dataUrl;
 
-        if (card.confidence || card.method) {
-            const metaDiv = document.createElement('div');
-            metaDiv.className = 'rc-meta';
-            const parts = [];
-            if (card.confidence) parts.push(Math.round(card.confidence * 100) + '%');
-            if (card.method) parts.push(card.method);
-            parts.push('R' + (Math.floor(slotIdx / CFG.cols) + 1) +
-                        'C' + ((slotIdx % CFG.cols) + 1));
-            metaDiv.textContent = parts.join(' \u00b7 ');
-            info.appendChild(metaDiv);
-        }
-        row.appendChild(info);
-
-        // Price
-        const priceDiv = document.createElement('div');
-        priceDiv.className = 'rc-price';
-        if (card.market_price) {
-            priceDiv.textContent = '$' + Number(card.market_price).toFixed(2);
-        } else {
-            priceDiv.textContent = '--';
-            priceDiv.className += ' no-price';
-        }
-        row.appendChild(priceDiv);
-
-        container.appendChild(row);
+            showReviewScreen(slot, dataUrl);
+            shutterBtn.disabled = false;
+        });
     }
 
-    document.getElementById('resTotalValue').textContent = '$' + total.toFixed(2);
-    document.getElementById('resCardCount').textContent =
-        identified + '/' + cards.length + ' identified';
+    // ---- Slot tap (redo) ----
+    function onSlotTap(idx) {
+        if (captures[idx]) {
+            nextSlot = idx;
+            updateUI();
+        }
+    }
 
-    ovl.classList.add('visible');
-}
+    // ---- Review screen ----
+    function showReviewScreen(slot, dataUrl) {
+        reviewImg.src = dataUrl;
+        reviewTitleEl.textContent = 'Card ' + (slot + 1) + ' of ' + TOTAL_SLOTS;
+        reviewStatus.textContent = '';
+        screenReview.classList.add('visible');
+    }
 
-// ============================================================
-// Restart
-// ============================================================
-function restartScan() {
-    document.getElementById('doneOverlay').classList.remove('visible');
-    captures = [];
-    currentRow = 0;
-    currentColInRow = 0;
-    readyCount = 0;
-    cooldown = false;
-    cooldownFrames = 0;
-    captureTimestamps = [];
-    scanning = true;
+    function onKeep() {
+        if (captures[reviewSlot] && captures[reviewSlot].dataUrl) {
+            URL.revokeObjectURL(captures[reviewSlot].dataUrl);
+        }
+        captures[reviewSlot] = {
+            blob: reviewBlob,
+            dataUrl: reviewDataUrl
+        };
+        screenReview.classList.remove('visible');
+        nextSlot = computeNextSlot();
+        updateUI();
+        reviewBlob = null;
+        reviewDataUrl = null;
+    }
 
-    document.getElementById('btnDone').style.display = 'none';
-    document.getElementById('btnManual').style.display = 'inline-block';
-    document.getElementById('btnManual').onclick = manualCapture;
+    function onRetake() {
+        if (reviewDataUrl) URL.revokeObjectURL(reviewDataUrl);
+        reviewBlob = null;
+        reviewDataUrl = null;
+        screenReview.classList.remove('visible');
+    }
 
-    buildUI();
-    setStatus('Slide across cards slowly...', false);
-    setMeter(0);
-    animFrameId = requestAnimationFrame(detectionLoop);
-}
+    // ---- Preview screen ----
+    function showPreview() {
+        var filled = captures.filter(Boolean).length;
+        if (filled === 0) {
+            showToast('Capture at least one card first');
+            return;
+        }
 
-function restartFull() {
-    document.getElementById('resultsOverlay').classList.remove('visible');
-    restartScan();
-}
+        previewTitleEl.textContent = 'Ready to Identify';
+        previewSub.textContent = filled + ' card' + (filled !== 1 ? 's' : '') + ' captured';
+        previewGrid.innerHTML = '';
+        previewGo.style.display = '';
+        previewBack.textContent = 'Back';
+        previewBack.onclick = null;
 
-// ============================================================
-// Settings
-// ============================================================
-function toggleSettings() {
-    document.getElementById('settingsPanel').classList.toggle('visible');
-}
+        for (var i = 0; i < TOTAL_SLOTS; i++) {
+            var cell = document.createElement('div');
+            cell.className = 'preview-cell';
 
-function applySettings() {
-    CFG.cols = parseInt(document.getElementById('setCols').value) || 3;
-    CFG.rows = parseInt(document.getElementById('setRows').value) || 3;
-    CFG.debug = document.getElementById('setDebug').value === '1';
+            var numLabel = document.createElement('div');
+            numLabel.className = 'cell-num';
+            numLabel.textContent = i + 1;
+            cell.appendChild(numLabel);
 
-    document.getElementById('debugInfo').className =
-        'debug-info' + (CFG.debug ? ' visible' : '');
+            if (captures[i]) {
+                var img = document.createElement('img');
+                img.src = captures[i].dataUrl;
+                cell.appendChild(img);
+            } else {
+                var empty = document.createElement('div');
+                empty.className = 'cell-empty';
+                empty.textContent = 'Empty';
+                cell.appendChild(empty);
+            }
 
-    toggleSettings();
-    restartScan();
-}
+            cell.addEventListener('click', (function(idx) {
+                return function() {
+                    screenPreview.classList.remove('visible');
+                    nextSlot = idx;
+                    updateUI();
+                };
+            })(i));
 
-// ============================================================
-// Prevent pinch zoom on iOS
-// ============================================================
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('touchmove', e => {
-    if (e.touches.length > 1) e.preventDefault();
-}, { passive: false });
+            previewGrid.appendChild(cell);
+        }
 
+        screenPreview.classList.add('visible');
+    }
+
+    // ---- Submit ----
+    function onSubmit() {
+        var filledIndices = [];
+        for (var i = 0; i < TOTAL_SLOTS; i++) {
+            if (captures[i]) filledIndices.push(i);
+        }
+        if (filledIndices.length === 0) {
+            showToast('No cards captured');
+            return;
+        }
+
+        screenPreview.classList.remove('visible');
+        screenUploading.classList.add('visible');
+
+        var formData = new FormData();
+        for (var j = 0; j < filledIndices.length; j++) {
+            var idx = filledIndices[j];
+            formData.append('card_' + idx, captures[idx].blob, 'card_' + idx + '.jpg');
+        }
+
+        fetch('/slide-scan/identify?variants=true', {
+            method: 'POST',
+            body: formData
+        }).then(function(resp) {
+            return resp.json();
+        }).then(function(data) {
+            screenUploading.classList.remove('visible');
+            if (data.error) {
+                showToast('Error: ' + data.error);
+                return;
+            }
+            showResults(data);
+        }).catch(function(err) {
+            screenUploading.classList.remove('visible');
+            showToast('Upload failed: ' + err.message);
+            console.error('Submit error:', err);
+        });
+    }
+
+    // ---- Results display ----
+    function showResults(data) {
+        var cards = data.cards || [];
+        var totalValue = data.total_value || 0;
+
+        previewTitleEl.textContent = 'Results';
+        previewSub.textContent = cards.length + ' card' + (cards.length !== 1 ? 's' : '') +
+            ' identified \u2014 Total: $' + totalValue.toFixed(2);
+
+        previewGrid.innerHTML = '';
+
+        for (var i = 0; i < cards.length; i++) {
+            var card = cards[i];
+            var cell = document.createElement('div');
+            cell.className = 'preview-cell';
+            cell.style.cursor = 'default';
+
+            var imgUrl = card.local_image_url || card.image_url || card.segment_image_url;
+            if (imgUrl) {
+                var img = document.createElement('img');
+                img.src = imgUrl;
+                cell.appendChild(img);
+            }
+
+            var info = document.createElement('div');
+            info.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.85));padding:4px 5px 3px;';
+
+            var name = document.createElement('div');
+            name.style.cssText = 'font-size:9px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            name.textContent = card.card_name || 'Unknown';
+            info.appendChild(name);
+
+            var price = card.variant_price || card.market_price;
+            if (price) {
+                var priceEl = document.createElement('div');
+                priceEl.style.cssText = 'font-size:10px;font-weight:700;color:#4ecca3;';
+                priceEl.textContent = '$' + price.toFixed(2);
+                if (card.detected_variant && card.detected_variant !== 'normal') {
+                    priceEl.textContent += ' (' + card.detected_variant + ')';
+                }
+                info.appendChild(priceEl);
+            }
+
+            cell.appendChild(info);
+            previewGrid.appendChild(cell);
+        }
+
+        previewBack.textContent = 'Scan Again';
+        previewBack.onclick = function() {
+            for (var k = 0; k < TOTAL_SLOTS; k++) {
+                if (captures[k] && captures[k].dataUrl) {
+                    URL.revokeObjectURL(captures[k].dataUrl);
+                }
+                captures[k] = null;
+            }
+            nextSlot = 0;
+            updateUI();
+            screenPreview.classList.remove('visible');
+        };
+        previewGo.style.display = 'none';
+
+        screenPreview.classList.add('visible');
+    }
+
+    // ---- Toast ----
+    var toastTimer = null;
+    function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 3000);
+    }
+
+    // ---- Event listeners ----
+    shutterBtn.addEventListener('click', onShutter);
+    btnKeep.addEventListener('click', onKeep);
+    btnRetake.addEventListener('click', onRetake);
+    submitBtn.addEventListener('click', showPreview);
+    previewBack.addEventListener('click', function() {
+        screenPreview.classList.remove('visible');
+    });
+    previewGo.addEventListener('click', onSubmit);
+
+    // ---- Init ----
+    buildSlots();
+    updateUI();
+    startCamera();
+
+})();
 </script>
-
 </body>
 </html>
 """
