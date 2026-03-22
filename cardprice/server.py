@@ -1306,6 +1306,196 @@ def _corner_condition(ratio):
     return "HP", "Heavily Played"
 
 
+# ---------------------------------------------------------------------------
+# Auto-crop: extract a single card from a messy slide-scan frame
+# ---------------------------------------------------------------------------
+
+def _autocrop_card(img_path: str) -> str:
+    """Try to find and crop the most prominent Pokemon card from a frame.
+
+    Uses multiple detection strategies (Canny edges at various thresholds,
+    HSV-based blue binder exclusion) to find card-shaped quadrilaterals.
+    Picks the candidate closest to the image centre with the best aspect
+    ratio match (Pokemon cards are 63x88mm, ratio ~0.716).
+
+    Falls back to the original image if no suitable card region is found.
+    """
+    import cv2
+    import numpy as np
+
+    CARD_RATIO = 0.716          # 63/88
+    OUT_W, OUT_H = 420, 586     # standard output portrait size
+
+    img = cv2.imread(str(img_path))
+    if img is None:
+        return str(img_path)
+
+    h, w = img.shape[:2]
+    min_area = 0.05 * w * h
+    max_area = 0.85 * w * h
+    center = np.array([w / 2.0, h / 2.0])
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    candidates = []  # list of (4,2) float32 arrays
+
+    # --- Strategy 1: Canny edges at multiple thresholds ---
+    for lo, hi in [(20, 80), (30, 100), (50, 150)]:
+        edges = cv2.Canny(blur, lo, hi)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        edges = cv2.dilate(edges, kernel, iterations=2)
+        contours, _ = cv2.findContours(edges, cv2.RETR_LIST,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < min_area or area > max_area:
+                continue
+            peri = cv2.arcLength(cnt, True)
+            for eps in (0.02, 0.03, 0.04, 0.05, 0.06):
+                approx = cv2.approxPolyDP(cnt, eps * peri, True)
+                if len(approx) == 4:
+                    candidates.append(approx.reshape(4, 2).astype(np.float32))
+                    break
+
+    # --- Strategy 2: minAreaRect from merged/dilated edge contours ---
+    for lo, hi in [(20, 80), (30, 100)]:
+        edges = cv2.Canny(blur, lo, hi)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        edges = cv2.dilate(edges, kernel, iterations=3)
+        edges = cv2.erode(edges, kernel, iterations=1)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < min_area or area > max_area:
+                continue
+            rect = cv2.minAreaRect(cnt)
+            rw, rh = sorted(rect[1])
+            if rh == 0:
+                continue
+            ratio = rw / rh
+            if 0.55 < ratio < 0.90:
+                box = cv2.boxPoints(rect).astype(np.float32)
+                candidates.append(box)
+
+    # --- Strategy 3: HSV blue-binder exclusion ---
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    mask_blue = cv2.inRange(hsv, (90, 40, 40), (130, 255, 255))
+    mask_card = cv2.bitwise_not(mask_blue)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    mask_card = cv2.morphologyEx(mask_card, cv2.MORPH_OPEN, kernel)
+    mask_card = cv2.morphologyEx(mask_card, cv2.MORPH_CLOSE, kernel)
+    contours, _ = cv2.findContours(mask_card, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area < min_area or area > max_area:
+            continue
+        rect = cv2.minAreaRect(cnt)
+        rw, rh = sorted(rect[1])
+        if rh == 0:
+            continue
+        ratio = rw / rh
+        if 0.55 < ratio < 0.90:
+            box = cv2.boxPoints(rect).astype(np.float32)
+            candidates.append(box)
+
+    # --- Score candidates: prefer central, card-shaped, large ---
+    best = None
+    best_score = float('inf')
+
+    for pts in candidates:
+        area = cv2.contourArea(pts)
+        if area < min_area or area > max_area:
+            continue
+
+        rect = cv2.minAreaRect(pts)
+        rw, rh = sorted(rect[1])
+        if rh == 0:
+            continue
+        ratio = rw / rh
+        if not (0.60 < ratio < 0.85):
+            continue
+
+        M = cv2.moments(pts)
+        if M['m00'] == 0:
+            continue
+        cx = M['m10'] / M['m00']
+        cy = M['m01'] / M['m00']
+        dist = np.linalg.norm(np.array([cx, cy]) - center)
+
+        ratio_penalty = abs(ratio - CARD_RATIO) * 2.0
+        size_bonus = -0.3 * (area / (w * h))
+        score = dist / max(w, h) + ratio_penalty + size_bonus
+
+        if score < best_score:
+            best_score = score
+            best = pts
+
+    if best is None:
+        return str(img_path)
+
+    # Validate: reject crops that are too small or uniform (e.g. carpet)
+    best_area = cv2.contourArea(best)
+    area_frac = best_area / (w * h)
+
+    # If the detected region is already most of the frame, skip cropping
+    if area_frac > 0.70:
+        return str(img_path)
+
+    # Check the detected region for card-like content (not uniform texture)
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillConvexPoly(mask, best.astype(np.int32), 255)
+    roi_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    roi_pixels = roi_hsv[mask == 255]
+    if len(roi_pixels) > 0:
+        hue_std = roi_pixels[:, 0].astype(np.float64).std()
+        sat_mean = roi_pixels[:, 1].astype(np.float64).mean()
+        val_std = roi_pixels[:, 2].astype(np.float64).std()
+        # Carpet/uniform backgrounds have very low hue AND value variance.
+        # Cards always have printed text/art with meaningful contrast.
+        if hue_std < 10 and val_std < 25:
+            logger.debug("Auto-crop rejected (uniform region): hue_std=%.1f val_std=%.1f",
+                         hue_std, val_std)
+            return str(img_path)
+
+    # Order points: TL, TR, BR, BL
+    ordered = np.zeros((4, 2), dtype=np.float32)
+    s = best.sum(axis=1)
+    diff = np.diff(best, axis=1).ravel()
+    ordered[0] = best[np.argmin(s)]       # top-left
+    ordered[2] = best[np.argmax(s)]       # bottom-right
+    ordered[1] = best[np.argmin(diff)]    # top-right
+    ordered[3] = best[np.argmax(diff)]    # bottom-left
+
+    # Determine if the detected quad is landscape
+    width_avg = (np.linalg.norm(ordered[1] - ordered[0])
+                 + np.linalg.norm(ordered[2] - ordered[3])) / 2.0
+    height_avg = (np.linalg.norm(ordered[3] - ordered[0])
+                  + np.linalg.norm(ordered[2] - ordered[1])) / 2.0
+
+    out_w, out_h = OUT_W, OUT_H
+    if width_avg > height_avg:
+        out_w, out_h = OUT_H, OUT_W
+
+    dst = np.array([[0, 0], [out_w, 0], [out_w, out_h], [0, out_h]],
+                   dtype=np.float32)
+    M_warp = cv2.getPerspectiveTransform(ordered, dst)
+    warped = cv2.warpPerspective(img, M_warp, (out_w, out_h))
+
+    # Rotate landscape to portrait
+    if out_w > out_h:
+        warped = cv2.rotate(warped, cv2.ROTATE_90_CLOCKWISE)
+
+    path_str = str(img_path)
+    base, ext = os.path.splitext(path_str)
+    crop_path = f"{base}_cropped{ext or '.jpg'}"
+    cv2.imwrite(crop_path, warped)
+    logger.info("Auto-cropped card: %s -> %s", img_path, crop_path)
+    return crop_path
+
+
 class ScanHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
@@ -2257,6 +2447,15 @@ class ScanHandler(BaseHTTPRequestHandler):
 
         logger.info("Slide-scan: received %d card images in %s",
                      len(card_images), cards_dir)
+
+        # Auto-crop: try to extract a clean card from each frame
+        for pos, path in list(card_images.items()):
+            try:
+                cropped = _autocrop_card(path)
+                if cropped != path:
+                    card_images[pos] = cropped
+            except Exception as e:
+                logger.warning("Auto-crop failed for %s: %s", path, e)
 
         # Sort by position for consistent ordering
         sorted_positions = sorted(card_images.keys())
