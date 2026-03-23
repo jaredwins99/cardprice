@@ -124,6 +124,8 @@ const ANALYSIS_W = 240;         // downsample width for speed
 let currentRow = 0, captures = [], scanning = false, stream = null;
 const S = { IDLE: 0, DETECT: 1, STABLE: 2, CAPTURED: 3 };
 let state = S.IDLE, stableN = 0, gutterN = 0;
+let lastCapturePixels = null; // for frame diff after capture
+const DIFF_THRESHOLD = 25; // mean pixel diff needed to consider "new card"
 
 // ===== Camera setup (IDENTICAL to slide_scan_v6.py) =====
 const video = document.getElementById('cam');
@@ -427,10 +429,14 @@ function scanLoop() {
                 }
                 break;
             case S.CAPTURED:
-                if (!a.cardPresent || (a.edgeDensity || 0) < MIN_EDGE_DENSITY * 1.5) {
-                    gutterN++;
-                    if (gutterN >= GUTTER_NEEDED) { state = S.DETECT; stableN = 0; gutterN = 0; setStatus('Slide to next card...'); }
-                } else gutterN = 0;
+                // After capture, wait briefly then go back to detecting.
+                // Simple timer approach — avoids complex gutter/frame-diff detection.
+                // At ~30fps, 15 frames ≈ 0.5s cooldown before looking for next card.
+                gutterN++;
+                if (gutterN >= 15) {
+                    state = S.DETECT; stableN = 0; gutterN = 0;
+                    setStatus('Slide to next card...');
+                }
                 break;
         }
     }
