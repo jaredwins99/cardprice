@@ -1,19 +1,12 @@
-"""Slide-scan UI v7: smart auto-capture with quality gates.
+"""Slide-scan UI v7: auto-detection + overlay, relaxed thresholds.
 
-Camera code copied character-for-character from slide_scan_v6.py (confirmed
-working on Brave via Cloudflare tunnel).
+Scans a 3x3 binder page one row at a time. User slides the phone across
+each row; the UI auto-detects card presence via edge density and sharpness,
+then auto-captures when a card is stable. After all 3 rows (9 images),
+submits to /slide-scan/identify with field names card_0..card_8.
 
-Behavior:
-  1. Idle: live camera feed + card guide rectangle + "Scan Row N" button.
-  2. Scanning: analyse every frame via requestAnimationFrame:
-     - Card fill check (Sobel edges -> rectangle 35-70% of frame)
-     - Sharpness check (Laplacian variance > 30)
-     - Single card check (exactly 1 card-like rectangle)
-     - 3 consecutive good frames -> AUTO-CAPTURE
-     - Wait for card to EXIT before looking for next card
-     - After 3 captures -> row done
-  3. Row transition: "Row N done!" then "Scan Row N+1" button
-  4. After 3 rows: 3x3 grid preview + Submit -> POST /slide-scan/identify
+Camera init is identical to slide_scan_v6.py.
+Overlay canvas uses condition_camera_ui.py's setup.
 
 Integration into server.py:
     elif self.path == "/slide-scan-v7":
@@ -26,294 +19,118 @@ SLIDE_SCAN_V7_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Slide Scan v7</title>
+<title>Card Scanner</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #000;
-    color: #fff;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
+    background: #000; color: #fff;
+    height: 100vh; height: 100dvh;
+    overflow: hidden; touch-action: none;
+    -webkit-user-select: none; user-select: none;
 }
-
-/* ---- Camera container ---- */
-.camera-wrap {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-video {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-}
-
-/* ---- Overlay canvas (template + guides) ---- */
-canvas#overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    pointer-events: none;
-}
-
-/* ---- Hidden capture canvas ---- */
-canvas#capture {
-    display: none;
-}
-
-/* ---- Hidden analysis canvas ---- */
-canvas#analysis {
-    display: none;
-}
-
-/* ---- Flash effect ---- */
-.flash {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #fff;
-    z-index: 20;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s;
-}
-.flash.active {
-    opacity: 0.8;
-    transition: none;
-}
-
-/* ---- Top bar ---- */
+.camera-wrap { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+canvas#overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+canvas#capture { display: none; }
+.flash { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.1s; }
+.flash.active { opacity: 0.8; transition: none; }
 .top-bar {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    z-index: 10;
+    position: absolute; top: 0; left: 0; right: 0; z-index: 10;
     background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
-    padding: 16px 20px 30px;
+    padding: 16px 20px 30px; display: flex; justify-content: space-between; align-items: flex-start;
 }
-.row-label {
-    font-size: 22px;
-    font-weight: 700;
-}
-.capture-count {
-    position: absolute;
-    top: 16px; right: 20px;
-    font-size: 28px;
-    font-weight: 700;
-    color: #4ecca3;
-}
-.row-dots {
-    display: flex;
-    gap: 8px;
-    margin-top: 12px;
-}
-.row-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.3);
-    transition: all 0.3s;
-}
+.row-label { font-size: 22px; font-weight: 700; }
+.capture-count { font-size: 18px; font-weight: 600; color: #4ecca3; }
+.row-dots { display: flex; gap: 8px; margin-top: 8px; }
+.row-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.3); transition: all 0.3s; }
 .row-dot.active { background: #4ecca3; box-shadow: 0 0 8px rgba(78,204,163,0.5); }
 .row-dot.done { background: #4ecca3; }
-
-/* ---- Bottom bar ---- */
 .bottom-bar {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    z-index: 10;
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
     background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
-    padding: 30px 20px 30px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    padding: 30px 20px; display: flex; flex-direction: column; align-items: center; gap: 12px;
 }
-.status-text {
-    font-size: 15px;
-    color: rgba(255,255,255,0.8);
-    text-align: center;
-    min-height: 20px;
-}
+.status-text { font-size: 15px; color: rgba(255,255,255,0.8); text-align: center; min-height: 20px; }
 .scan-btn {
-    padding: 16px 40px;
-    background: #4ecca3;
-    color: #1a1a2e;
-    border: none;
-    border-radius: 10px;
-    font-size: 18px;
-    font-weight: 700;
-    cursor: pointer;
-    min-width: 200px;
+    padding: 16px 40px; background: #4ecca3; color: #1a1a2e; border: none; border-radius: 10px;
+    font-size: 18px; font-weight: 700; cursor: pointer; min-width: 200px;
 }
-.scan-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
-.scan-btn.hidden {
-    display: none;
-}
-
-/* ---- Thumbnails strip ---- */
-.thumbs-strip {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-    flex-wrap: wrap;
-    max-width: 100%;
-}
-.thumb-img {
-    width: 55px;
-    height: 55px;
-    object-fit: cover;
-    border-radius: 4px;
-    border: 2px solid #333;
-    animation: thumbSlideIn 0.3s ease-out;
-}
-.thumb-img.current-row {
-    border-color: #4ecca3;
-}
-@keyframes thumbSlideIn {
-    from { transform: scale(0.5); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
-
-/* ---- Results overlay ---- */
+.scan-btn:disabled { opacity: 0.5; cursor: default; }
+.scan-btn.scanning { background: #e74c3c; }
+.thumb-strip { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; max-width: 100%; }
+.thumb-img { width: 55px; height: 55px; object-fit: cover; border-radius: 4px; border: 2px solid #333; }
+.thumb-img.current-row { border-color: #4ecca3; }
 .results-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 25;
-    background: #1a1a2e;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    overflow-y: auto;
-    padding: 30px 20px;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 25;
+    background: #1a1a2e; display: none; flex-direction: column; align-items: center;
+    overflow-y: auto; padding: 30px 20px;
 }
 .results-overlay.visible { display: flex; }
-.results-overlay h2 {
-    font-size: 24px;
-    color: #4ecca3;
-    margin-bottom: 16px;
-}
-.grid-preview {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    max-width: 320px;
-    margin-bottom: 20px;
-}
-.grid-preview img {
-    width: 100%;
-    aspect-ratio: 0.716;
-    object-fit: cover;
-    border-radius: 4px;
-}
+.results-overlay h2 { font-size: 24px; color: #4ecca3; margin-bottom: 16px; }
 .result-card {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    background: rgba(255,255,255,0.05);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 8px;
-    width: 100%;
-    max-width: 400px;
+    display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,0.05);
+    border-radius: 8px; padding: 10px; margin-bottom: 8px; width: 100%; max-width: 400px;
 }
-.result-card img {
-    width: 60px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: 4px;
-}
-.result-card .info {
-    flex: 1;
-    font-size: 14px;
-}
-.result-card .name {
-    font-weight: 600;
-    font-size: 15px;
-}
-.result-card .detail {
-    color: rgba(255,255,255,0.6);
-    font-size: 12px;
-    margin-top: 2px;
+.result-card img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; }
+.result-card .info { flex: 1; font-size: 14px; }
+.result-card .name { font-weight: 600; font-size: 15px; }
+.result-card .detail { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 2px; }
+.reset-btn {
+    margin-top: 16px; padding: 14px 36px; background: #333; color: #fff;
+    border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer;
 }
 </style>
 </head>
 <body>
-
 <div class="camera-wrap">
     <video id="cam" autoplay playsinline muted></video>
     <canvas id="overlay"></canvas>
     <canvas id="capture"></canvas>
-    <canvas id="analysis"></canvas>
     <div class="flash" id="flash"></div>
 
     <div class="top-bar">
-        <div class="row-label" id="rowLabel">Row 1 of 3</div>
-        <div class="capture-count" id="captureCount"></div>
-        <div class="row-dots" id="rowDots"></div>
+        <div>
+            <div class="row-label" id="rowLabel">Row 1 of 3</div>
+            <div class="row-dots" id="rowDots"></div>
+        </div>
+        <div class="capture-count" id="captureCount">0/3</div>
     </div>
 
     <div class="bottom-bar">
-        <div class="thumbs-strip" id="thumbs"></div>
+        <div class="thumb-strip" id="thumbStrip"></div>
         <div class="status-text" id="status">Starting camera...</div>
-        <button class="scan-btn" id="scanBtn" onclick="onScanBtn()">Scan Row 1</button>
+        <button class="scan-btn" id="scanBtn" onclick="toggleScanning()">Scan Row 1</button>
     </div>
 
     <div class="results-overlay" id="resultsOverlay">
-        <h2>Scan Complete</h2>
-        <div class="grid-preview" id="gridPreview"></div>
+        <h2>Identification Results</h2>
         <div id="resultsList"></div>
-        <button class="scan-btn" id="submitBtn" onclick="submitImages()" style="margin-top:16px;">Submit for Identification</button>
+        <button class="reset-btn" onclick="resetAll()">Scan Again</button>
     </div>
 </div>
 
 <script>
 // ===== Constants =====
-const ROWS = 3;
-const CARDS_PER_ROW = 3;
-const CARD_ASPECT = 0.716;          // width / height of Pokemon card
-const MIN_FILL = 0.35;
-const MAX_FILL = 0.70;
-const SHARPNESS_THRESHOLD = 30;
-const CONSECUTIVE_GOOD_NEEDED = 3;
-const ANALYSIS_SIZE = 160;          // downscale for speed
-const COOLDOWN_MS = 800;            // min time between captures
-const ROW_END_IDLE_MS = 3000;       // idle time before triggering incomplete row check
+const ROWS = 3, CARDS_PER_ROW = 3, TOTAL_CARDS = 9;
+const EDGE_THRESH = 25;         // Sobel magnitude to count as edge
+const MIN_EDGE_DENSITY = 0.02;  // relaxed: fraction of region with edges
+const MIN_SHARPNESS = 8;        // relaxed laplacian variance
+const STABLE_NEEDED = 4;        // consecutive good frames before capture
+const GUTTER_NEEDED = 3;        // frames of low-edge before re-arming
+const ANALYSIS_W = 240;         // downsample width for speed
 
 // ===== State =====
-let currentRow = 0;
-let currentCol = 0;               // 0-based within current row
-let captures = [];                  // {blob, dataUrl, row, col}
-let scanning = false;
-let consecutiveGood = 0;
-let waitingForExit = false;
-let inCooldown = false;
-let cooldownTimer = null;
-let animFrameId = null;
-let stream = null;
-let lastCaptureTime = 0;           // for idle detection
+let currentRow = 0, captures = [], scanning = false, stream = null;
+const S = { IDLE: 0, DETECT: 1, STABLE: 2, CAPTURED: 3 };
+let state = S.IDLE, stableN = 0, gutterN = 0;
 
-// ===== Camera setup (IDENTICAL to condition_camera_ui.py) =====
+// ===== Camera setup (IDENTICAL to slide_scan_v6.py) =====
 const video = document.getElementById('cam');
 const overlay = document.getElementById('overlay');
 const captureCanvas = document.getElementById('capture');
-const analysisCanvas = document.getElementById('analysis');
 const ctx = overlay.getContext('2d');
 const capCtx = captureCanvas.getContext('2d');
-const anaCtx = analysisCanvas.getContext('2d');
 
 async function startCamera() {
     // Check if getUserMedia is available at all
@@ -368,7 +185,6 @@ async function startCamera() {
         }
 
         setStatus('Ready. Tap "Scan Row 1" to begin.');
-        drawOverlay();
     } catch (e) {
         console.error('Camera error:', e);
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -411,684 +227,281 @@ window.addEventListener('orientationchange', () => {
     setTimeout(resizeOverlay, 200);
 });
 
-// ===== UI helpers =====
-function setStatus(text) {
-    document.getElementById('status').textContent = text;
+// ===== Reusable analysis canvas =====
+let _ac = null, _actx = null;
+function acCanvas() {
+    if (!_ac) { _ac = document.createElement('canvas'); _actx = _ac.getContext('2d', { willReadFrequently: true }); }
+    return { c: _ac, x: _actx };
 }
 
-function updateUI() {
-    const label = document.getElementById('rowLabel');
-    const dots = document.getElementById('rowDots');
-    const btn = document.getElementById('scanBtn');
-    const countEl = document.getElementById('captureCount');
+// ===== Frame analysis =====
+function analyzeFrame() {
+    if (!video.videoWidth || !video.videoHeight)
+        return { cardPresent: false, sharp: false, hint: 'Waiting for camera...' };
 
-    if (currentRow >= ROWS) {
-        label.textContent = 'All rows captured!';
-        btn.classList.add('hidden');
-        countEl.textContent = '';
-        showGridPreview();
-    } else {
-        label.textContent = `Row ${currentRow + 1} of ${ROWS}`;
-        if (scanning) {
-            btn.classList.add('hidden');
-            countEl.textContent = `${currentCol}/${CARDS_PER_ROW}`;
-        } else {
-            btn.classList.remove('hidden');
-            btn.textContent = `Scan Row ${currentRow + 1}`;
-            btn.disabled = false;
-            countEl.textContent = currentCol > 0 ? `${currentCol}/${CARDS_PER_ROW}` : '';
+    const { c: ac, x: actx } = acCanvas();
+    const scale = ANALYSIS_W / video.videoWidth;
+    const ah = Math.round(video.videoHeight * scale);
+    ac.width = ANALYSIS_W; ac.height = ah;
+    actx.drawImage(video, 0, 0, ANALYSIS_W, ah);
+
+    // ROI: center 70%
+    const rx = Math.round(ANALYSIS_W * 0.15), ry = Math.round(ah * 0.15);
+    const rw = Math.round(ANALYSIS_W * 0.7), rh = Math.round(ah * 0.7);
+    const img = actx.getImageData(rx, ry, rw, rh);
+    const d = img.data, n = rw * rh;
+
+    // Grayscale + brightness
+    const g = new Uint8Array(n);
+    let bsum = 0;
+    for (let i = 0; i < n; i++) { const j = i*4; g[i] = (0.299*d[j] + 0.587*d[j+1] + 0.114*d[j+2]) | 0; bsum += g[i]; }
+    const avgB = bsum / n;
+    if (avgB < 30) return { cardPresent: false, sharp: false, hint: 'Too dark' };
+    if (avgB > 240) return { cardPresent: false, sharp: false, hint: 'Too bright' };
+
+    // Sobel edges + Laplacian sharpness in one pass
+    let edgePx = 0, lapSum = 0, lapN = 0;
+    for (let y = 1; y < rh - 1; y++) {
+        for (let x = 1; x < rw - 1; x++) {
+            const i = y * rw + x;
+            const gx = -g[i-rw-1]+g[i-rw+1] -2*g[i-1]+2*g[i+1] -g[i+rw-1]+g[i+rw+1];
+            const gy = -g[i-rw-1]-2*g[i-rw]-g[i-rw+1] +g[i+rw-1]+2*g[i+rw]+g[i+rw+1];
+            if (Math.sqrt(gx*gx + gy*gy) > EDGE_THRESH) edgePx++;
+            const lap = g[i-rw]+g[i+rw]+g[i-1]+g[i+1]-4*g[i];
+            lapSum += lap*lap; lapN++;
         }
     }
 
-    // Dots
-    dots.innerHTML = '';
-    for (let i = 0; i < ROWS; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'row-dot' + (i < currentRow ? ' done' : i === currentRow ? ' active' : '');
-        dots.appendChild(dot);
+    const edgeDensity = edgePx / n;
+    const sharpness = Math.sqrt(lapSum / Math.max(lapN, 1));
+    const cardPresent = edgeDensity >= MIN_EDGE_DENSITY;
+    const sharp = sharpness >= MIN_SHARPNESS;
+
+    let hint = '';
+    if (!cardPresent) hint = 'Slide to next card...';
+    else if (!sharp) hint = 'Hold steady — blurry';
+
+    return { cardPresent, sharp, edgeDensity, sharpness, hint };
+}
+
+// ===== UI =====
+function setStatus(t) { document.getElementById('status').textContent = t; }
+
+function updateUI() {
+    const rowCap = captures.length - currentRow * CARDS_PER_ROW;
+    const btn = document.getElementById('scanBtn');
+    const lbl = document.getElementById('rowLabel');
+    const cnt = document.getElementById('captureCount');
+    const dots = document.getElementById('rowDots');
+
+    if (currentRow >= ROWS) {
+        lbl.textContent = 'All rows captured';
+        cnt.textContent = captures.length + '/' + TOTAL_CARDS;
+        btn.textContent = 'Submit'; btn.classList.remove('scanning'); btn.disabled = false;
+    } else {
+        lbl.textContent = 'Row ' + (currentRow+1) + ' of ' + ROWS;
+        cnt.textContent = Math.max(0, rowCap) + '/' + CARDS_PER_ROW;
+        if (scanning) { btn.textContent = 'Stop'; btn.classList.add('scanning'); btn.disabled = false; }
+        else { btn.textContent = 'Scan Row ' + (currentRow+1); btn.classList.remove('scanning'); btn.disabled = false; }
     }
 
+    dots.innerHTML = '';
+    for (let i = 0; i < ROWS; i++) {
+        const d = document.createElement('div');
+        d.className = 'row-dot' + (i < currentRow ? ' done' : i === currentRow ? ' active' : '');
+        dots.appendChild(d);
+    }
     renderThumbs();
 }
 
 function renderThumbs() {
-    const container = document.getElementById('thumbs');
-    container.innerHTML = '';
-    // Show all 9 slots, fill in captured ones
-    for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
-        const row = Math.floor(i / CARDS_PER_ROW);
-        const col = i % CARDS_PER_ROW;
-        const cap = captures.find(c => c.row === row && c.col === col);
+    const c = document.getElementById('thumbStrip');
+    c.innerHTML = '';
+    for (let i = 0; i < captures.length; i++) {
         const img = document.createElement('img');
+        img.src = captures[i].dataUrl;
         img.className = 'thumb-img';
-        if (cap) {
-            img.src = cap.dataUrl;
-            img.classList.add('current-row');
-        } else {
-            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-        }
-        container.appendChild(img);
+        if (Math.floor(i / CARDS_PER_ROW) === currentRow) img.classList.add('current-row');
+        c.appendChild(img);
     }
-}
-
-// ===== Guide rectangle dimensions =====
-function getGuideRect(w, h) {
-    // Card guide: ~50% of frame height, card aspect ratio
-    const guideH = h * 0.50;
-    const guideW = guideH * CARD_ASPECT;
-    const gx = (w - guideW) / 2;
-    const gy = (h - guideH) / 2;
-    return { x: gx, y: gy, w: guideW, h: guideH };
 }
 
 // ===== Overlay drawing =====
-function drawOverlay(statusMsg) {
-    const w = overlay.clientWidth;
-    const h = overlay.clientHeight;
+function drawOverlay() {
+    const w = overlay.clientWidth, h = overlay.clientHeight;
     if (!w || !h) return;
-
     ctx.clearRect(0, 0, w, h);
-
-    const guide = getGuideRect(w, h);
-
-    // Draw guide rectangle
-    if (!scanning) {
-        // Idle: bright green solid
-        ctx.strokeStyle = '#4ecca3';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-    } else if (waitingForExit) {
-        // Waiting for card to leave
-        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([8, 8]);
-    } else if (consecutiveGood >= 1) {
-        // Getting close to capture
-        ctx.strokeStyle = '#f1c40f';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([]);
-    } else {
-        // Scanning, looking for card
-        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 8]);
-    }
-
-    ctx.strokeRect(guide.x, guide.y, guide.w, guide.h);
-    ctx.setLineDash([]);
-
-    // Corner accents
-    const cornerLen = 20;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = scanning && consecutiveGood >= 2 ? '#4ecca3' : (scanning ? 'rgba(255,255,255,0.5)' : '#4ecca3');
-    // Top-left
-    ctx.beginPath();
-    ctx.moveTo(guide.x, guide.y + cornerLen); ctx.lineTo(guide.x, guide.y); ctx.lineTo(guide.x + cornerLen, guide.y);
-    ctx.stroke();
-    // Top-right
-    ctx.beginPath();
-    ctx.moveTo(guide.x + guide.w - cornerLen, guide.y); ctx.lineTo(guide.x + guide.w, guide.y); ctx.lineTo(guide.x + guide.w, guide.y + cornerLen);
-    ctx.stroke();
-    // Bottom-left
-    ctx.beginPath();
-    ctx.moveTo(guide.x, guide.y + guide.h - cornerLen); ctx.lineTo(guide.x, guide.y + guide.h); ctx.lineTo(guide.x + cornerLen, guide.y + guide.h);
-    ctx.stroke();
-    // Bottom-right
-    ctx.beginPath();
-    ctx.moveTo(guide.x + guide.w - cornerLen, guide.y + guide.h); ctx.lineTo(guide.x + guide.w, guide.y + guide.h); ctx.lineTo(guide.x + guide.w, guide.y + guide.h - cornerLen);
-    ctx.stroke();
-
-    // Status text at bottom
-    if (statusMsg) {
-        ctx.font = '600 16px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(statusMsg, w / 2, h - 80);
-    }
-
-    // Slide direction arrow during scanning
-    if (scanning && !waitingForExit) {
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.fillText('\u2192', w / 2, guide.y - 20);
-    }
-}
-
-// ===== Image analysis (runs on every frame during scanning) =====
-
-function getFrameData() {
-    // Draw video to small analysis canvas for speed
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    if (!vw || !vh) return null;
-
-    const scale = ANALYSIS_SIZE / Math.max(vw, vh);
-    const aw = Math.round(vw * scale);
-    const ah = Math.round(vh * scale);
-    analysisCanvas.width = aw;
-    analysisCanvas.height = ah;
-    anaCtx.drawImage(video, 0, 0, aw, ah);
-    return anaCtx.getImageData(0, 0, aw, ah);
-}
-
-function toGrayscale(imageData) {
-    const { data, width, height } = imageData;
-    const gray = new Float32Array(width * height);
-    for (let i = 0; i < gray.length; i++) {
-        const j = i * 4;
-        gray[i] = 0.299 * data[j] + 0.587 * data[j+1] + 0.114 * data[j+2];
-    }
-    return { gray, width, height };
-}
-
-// Laplacian variance for sharpness
-function laplacianVariance(grayObj) {
-    const { gray, width, height } = grayObj;
-    // Sample center 50% region for speed
-    const x0 = Math.floor(width * 0.25);
-    const x1 = Math.floor(width * 0.75);
-    const y0 = Math.floor(height * 0.25);
-    const y1 = Math.floor(height * 0.75);
-
-    let sum = 0, sum2 = 0, n = 0;
-    for (let y = y0 + 1; y < y1 - 1; y++) {
-        for (let x = x0 + 1; x < x1 - 1; x++) {
-            const idx = y * width + x;
-            const lap = gray[idx - width] + gray[idx + width] + gray[idx - 1] + gray[idx + 1] - 4 * gray[idx];
-            sum += lap;
-            sum2 += lap * lap;
-            n++;
-        }
-    }
-    if (n === 0) return 0;
-    const mean = sum / n;
-    return (sum2 / n) - (mean * mean);
-}
-
-// Sobel edge magnitude
-function sobelEdges(grayObj) {
-    const { gray, width, height } = grayObj;
-    const edges = new Float32Array(width * height);
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-            const idx = y * width + x;
-            const gx = -gray[idx-width-1] + gray[idx-width+1]
-                       -2*gray[idx-1] + 2*gray[idx+1]
-                       -gray[idx+width-1] + gray[idx+width+1];
-            const gy = -gray[idx-width-1] - 2*gray[idx-width] - gray[idx-width+1]
-                       +gray[idx+width-1] + 2*gray[idx+width] + gray[idx+width+1];
-            edges[idx] = Math.sqrt(gx*gx + gy*gy);
-        }
-    }
-    return edges;
-}
-
-// Find card-like rectangle from edge image
-function findCardRect(edges, width, height) {
-    // Threshold edges
-    const threshold = 40;
-    let minX = width, maxX = 0, minY = height, maxY = 0;
-    let edgeCount = 0;
-
-    for (let y = 2; y < height - 2; y++) {
-        for (let x = 2; x < width - 2; x++) {
-            if (edges[y * width + x] > threshold) {
-                edgeCount++;
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
-            }
-        }
-    }
-
-    if (edgeCount < 50) return null;
-
-    const rectW = maxX - minX;
-    const rectH = maxY - minY;
-    if (rectW < 10 || rectH < 10) return null;
-
-    const aspect = rectW / rectH;
-    const fillRatio = (rectW * rectH) / (width * height);
-
-    return { x: minX, y: minY, w: rectW, h: rectH, aspect, fillRatio, edgeCount };
-}
-
-// Count distinct edge clusters (to detect multiple cards)
-function countEdgeClusters(edges, width, height) {
-    // Simple: check if edge density in left third and right third are both high
-    // which would indicate two cards side by side
-    const threshold = 40;
-    const third = Math.floor(width / 3);
-    let leftEdges = 0, rightEdges = 0, centerEdges = 0;
-    const centerY0 = Math.floor(height * 0.2);
-    const centerY1 = Math.floor(height * 0.8);
-
-    for (let y = centerY0; y < centerY1; y++) {
-        for (let x = 2; x < third; x++) {
-            if (edges[y * width + x] > threshold) leftEdges++;
-        }
-        for (let x = third; x < 2 * third; x++) {
-            if (edges[y * width + x] > threshold) centerEdges++;
-        }
-        for (let x = 2 * third; x < width - 2; x++) {
-            if (edges[y * width + x] > threshold) rightEdges++;
-        }
-    }
-
-    // If both left and right have significant edges and center has a gap-like dip,
-    // there might be two cards
-    const avgSide = (leftEdges + rightEdges) / 2;
-    if (leftEdges > 30 && rightEdges > 30 && centerEdges < avgSide * 0.5) {
-        return 2;
-    }
-    return 1;
-}
-
-// Main analysis function returns { cardFill, sharpness, singleCard, feedback }
-function analyzeFrame() {
-    const imageData = getFrameData();
-    if (!imageData) return { cardFill: false, sharpness: false, singleCard: false, feedback: 'No video' };
-
-    const grayObj = toGrayscale(imageData);
-    const { width, height } = grayObj;
-
-    // 1. Sharpness
-    const lapVar = laplacianVariance(grayObj);
-    const sharpness = lapVar > SHARPNESS_THRESHOLD;
-
-    // 2. Edge detection
-    const edges = sobelEdges(grayObj);
-    const rect = findCardRect(edges, width, height);
-
-    if (!rect) {
-        return { cardFill: false, sharpness, singleCard: true, feedback: 'No card detected', fillRatio: 0, lapVar };
-    }
-
-    // 3. Card fill check
-    const cardFill = rect.fillRatio >= MIN_FILL && rect.fillRatio <= MAX_FILL;
-
-    // 4. Aspect ratio check (allow some tolerance for Pokemon cards)
-    const aspectOk = rect.aspect > 0.5 && rect.aspect < 0.95;
-
-    // 5. Single card check
-    const clusters = countEdgeClusters(edges, width, height);
-    const singleCard = clusters === 1;
-
-    // Build feedback message
-    let feedback = '';
-    if (!cardFill && rect.fillRatio < MIN_FILL) {
-        feedback = 'Move closer';
-    } else if (!cardFill && rect.fillRatio > MAX_FILL) {
-        feedback = 'Move back a bit';
-    } else if (!sharpness) {
-        feedback = 'Too blurry - hold steady';
-    } else if (!singleCard) {
-        feedback = 'Center one card only';
-    } else if (!aspectOk) {
-        feedback = 'Center the card';
-    } else {
-        feedback = 'Hold steady...';
-    }
-
-    return {
-        cardFill: cardFill && aspectOk,
-        sharpness,
-        singleCard,
-        feedback,
-        fillRatio: rect.fillRatio,
-        lapVar,
-    };
-}
-
-// Check if card has exited frame (for preventing double captures)
-function isCardPresent() {
-    const imageData = getFrameData();
-    if (!imageData) return false;
-    const grayObj = toGrayscale(imageData);
-    const edges = sobelEdges(grayObj);
-    const rect = findCardRect(edges, grayObj.width, grayObj.height);
-    // Card is "present" if fill > 25%
-    return rect && rect.fillRatio > 0.25;
-}
-
-// ===== Cooldown =====
-function enterCooldown() {
-    inCooldown = true;
-    if (cooldownTimer) clearTimeout(cooldownTimer);
-    cooldownTimer = setTimeout(() => {
-        inCooldown = false;
-        cooldownTimer = null;
-    }, COOLDOWN_MS);
-}
-
-function clearCooldown() {
-    inCooldown = false;
-    if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
-}
-
-// ===== Scanning loop =====
-function scanLoop() {
     if (!scanning) return;
 
-    if (waitingForExit || inCooldown) {
-        // Wait for card to leave the frame before next capture
-        if (waitingForExit) {
-            const present = isCardPresent();
-            if (!present) {
-                waitingForExit = false;
-                consecutiveGood = 0;
-                setStatus('Slide to next card...');
-            }
-            drawOverlay(present ? 'Slide to next card...' : 'Ready for next card');
-        } else {
-            drawOverlay('Get ready...');
-        }
-        animFrameId = requestAnimationFrame(scanLoop);
-        return;
-    }
+    // Guide rect (card-shaped, center)
+    const cardAR = 63/88, gH = h * 0.6, gW = gH * cardAR;
+    const gX = (w - gW) / 2, gY = (h - gH) / 2 - h * 0.02;
 
-    // Check for idle timeout (user stopped sliding with incomplete row)
-    const now = performance.now();
-    if (currentCol > 0 && currentCol < CARDS_PER_ROW && lastCaptureTime > 0) {
-        const idleTime = now - lastCaptureTime;
-        if (idleTime > ROW_END_IDLE_MS) {
-            // User seems done but row incomplete
-            finishRow();
-            return;
-        }
-    }
+    // Dim surround
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, w, gY);
+    ctx.fillRect(0, gY, gX, gH);
+    ctx.fillRect(gX + gW, gY, w - gX - gW, gH);
+    ctx.fillRect(0, gY + gH, w, h - gY - gH);
 
-    const result = analyzeFrame();
-    const allGood = result.cardFill && result.sharpness && result.singleCard;
+    // Border color by state
+    let bc = 'rgba(255,255,255,0.4)';
+    if (state === S.STABLE) { const p = stableN / STABLE_NEEDED; bc = p > 0.6 ? '#4ecca3' : '#f1c40f'; }
+    else if (state === S.CAPTURED) bc = '#4ecca3';
 
-    if (allGood) {
-        consecutiveGood++;
-    } else {
-        consecutiveGood = 0;
-    }
+    ctx.strokeStyle = bc; ctx.lineWidth = 3;
+    ctx.beginPath(); roundRect(ctx, gX, gY, gW, gH, 8); ctx.stroke();
 
-    // Draw overlay with feedback
-    let overlayMsg = result.feedback;
-    if (consecutiveGood >= 1 && consecutiveGood < CONSECUTIVE_GOOD_NEEDED) {
-        overlayMsg = `Hold steady... (${consecutiveGood}/${CONSECUTIVE_GOOD_NEEDED})`;
-    }
-    drawOverlay(overlayMsg);
+    // Corner brackets
+    const bL = 22; ctx.strokeStyle = bc; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(gX, gY+bL); ctx.lineTo(gX, gY); ctx.lineTo(gX+bL, gY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(gX+gW-bL, gY); ctx.lineTo(gX+gW, gY); ctx.lineTo(gX+gW, gY+bL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(gX, gY+gH-bL); ctx.lineTo(gX, gY+gH); ctx.lineTo(gX+bL, gY+gH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(gX+gW-bL, gY+gH); ctx.lineTo(gX+gW, gY+gH); ctx.lineTo(gX+gW, gY+gH-bL); ctx.stroke();
 
-    if (consecutiveGood >= CONSECUTIVE_GOOD_NEEDED) {
-        // AUTO-CAPTURE
-        doCapture();
-    }
-
-    animFrameId = requestAnimationFrame(scanLoop);
+    // Row capture counter above guide
+    const rc = captures.length - currentRow * CARDS_PER_ROW;
+    ctx.font = '600 16px -apple-system, sans-serif'; ctx.fillStyle = bc; ctx.textAlign = 'right';
+    ctx.fillText(rc + '/' + CARDS_PER_ROW, gX + gW - 8, gY - 8);
 }
 
-// ===== Capture (the core function) =====
+function roundRect(c, x, y, w, h, r) {
+    c.moveTo(x+r, y); c.lineTo(x+w-r, y); c.quadraticCurveTo(x+w, y, x+w, y+r);
+    c.lineTo(x+w, y+h-r); c.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    c.lineTo(x+r, y+h); c.quadraticCurveTo(x, y+h, x, y+h-r);
+    c.lineTo(x, y+r); c.quadraticCurveTo(x, y, x+r, y);
+}
+
+// ===== Scanning control =====
+function toggleScanning() {
+    if (currentRow >= ROWS) { submitAll(); return; }
+    if (scanning) stopScanning(); else startScanning();
+}
+
+function startScanning() {
+    scanning = true; state = S.DETECT; stableN = 0; gutterN = 0;
+    updateUI(); setStatus('Slide slowly across the row...');
+    requestAnimationFrame(scanLoop);
+}
+
+function stopScanning() {
+    scanning = false; state = S.IDLE;
+    const rc = captures.length - currentRow * CARDS_PER_ROW;
+    if (rc >= CARDS_PER_ROW) {
+        currentRow++;
+        if (currentRow >= ROWS) setStatus('All rows captured! Tap Submit.');
+        else setStatus('Row done. Tap to scan next row.');
+    } else {
+        setStatus('Stopped. ' + rc + '/' + CARDS_PER_ROW + ' captured.');
+    }
+    updateUI();
+    const w = overlay.clientWidth, h = overlay.clientHeight;
+    if (w && h) ctx.clearRect(0, 0, w, h);
+}
+
+// ===== Scan loop =====
+let _skip = 0;
+function scanLoop() {
+    if (!scanning) return;
+    if ((captures.length - currentRow * CARDS_PER_ROW) >= CARDS_PER_ROW) { stopScanning(); return; }
+
+    drawOverlay();
+
+    _skip++;
+    if (_skip % 2 === 0) {
+        const a = analyzeFrame();
+        switch (state) {
+            case S.DETECT:
+                if (a.cardPresent && a.sharp) { state = S.STABLE; stableN = 1; setStatus('Card detected...'); }
+                else setStatus(a.hint || 'Slide to next card...');
+                break;
+            case S.STABLE:
+                if (a.cardPresent && a.sharp) {
+                    stableN++;
+                    if (stableN >= STABLE_NEEDED) {
+                        doCapture(); state = S.CAPTURED; setStatus('Captured! Slide to next...');
+                    } else setStatus('Steady... (' + Math.round(stableN/STABLE_NEEDED*100) + '%)');
+                } else {
+                    stableN = Math.max(0, stableN - 2);
+                    if (stableN === 0) { state = S.DETECT; setStatus(a.hint || 'Lost — reposition'); }
+                }
+                break;
+            case S.CAPTURED:
+                if (!a.cardPresent || (a.edgeDensity || 0) < MIN_EDGE_DENSITY * 1.5) {
+                    gutterN++;
+                    if (gutterN >= GUTTER_NEEDED) { state = S.DETECT; stableN = 0; gutterN = 0; setStatus('Slide to next card...'); }
+                } else gutterN = 0;
+                break;
+        }
+    }
+    requestAnimationFrame(scanLoop);
+}
+
+// ===== Capture =====
 function doCapture() {
     captureCanvas.width = video.videoWidth;
     captureCanvas.height = video.videoHeight;
     capCtx.drawImage(video, 0, 0);
 
-    // Flash effect
-    const flashEl = document.getElementById('flash');
-    flashEl.classList.add('active');
-    setTimeout(() => flashEl.classList.remove('active'), 150);
+    const flash = document.getElementById('flash');
+    flash.classList.add('active');
+    setTimeout(() => flash.classList.remove('active'), 150);
+    if (navigator.vibrate) navigator.vibrate(50);
 
-    // Haptic feedback
-    if (navigator.vibrate) navigator.vibrate(30);
-
-    // Get blob + dataUrl
     const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.92);
-    captureCanvas.toBlob(blob => {
-        if (!blob) return;
-        captures.push({ blob, dataUrl, row: currentRow, col: currentCol });
-        lastCaptureTime = performance.now();
-
-        const capturedInRow = currentCol + 1;
-        setStatus(`Captured ${capturedInRow}/${CARDS_PER_ROW} for row ${currentRow + 1}`);
-        document.getElementById('captureCount').textContent = `${capturedInRow}/${CARDS_PER_ROW}`;
-        renderThumbs();
-
-        console.log('[v7] Captured row=' + currentRow + ' col=' + currentCol + ' total=' + captures.length);
-
-        currentCol++;
-        if (currentCol >= CARDS_PER_ROW) {
-            finishRow();
-        } else {
-            // Wait for card to exit before detecting next
-            consecutiveGood = 0;
-            waitingForExit = true;
-            enterCooldown();
-        }
-    }, 'image/jpeg', 0.92);
+    captureCanvas.toBlob(blob => { captures.push({ dataUrl, blob }); updateUI(); }, 'image/jpeg', 0.92);
 }
 
-// ===== Row completion =====
-function finishRow() {
-    stopScanning();
-    const capturedInRow = captures.filter(c => c.row === currentRow).length;
-
-    if (capturedInRow < CARDS_PER_ROW) {
-        // Incomplete row -- show dialog
-        showRowDialog(capturedInRow);
-        return;
-    }
-
-    // Row complete -- advance
-    advanceRow();
-}
-
-function advanceRow() {
-    currentRow++;
-    currentCol = 0;
-
-    if (currentRow >= ROWS) {
-        // All rows done -- show preview grid
-        updateUI();
-    } else {
-        setStatus(`Row ${currentRow} done! Ready for row ${currentRow + 1}`);
-        updateUI();
-    }
-}
-
-function stopScanning() {
-    scanning = false;
-    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-    clearCooldown();
-    waitingForExit = false;
-    consecutiveGood = 0;
-}
-
-// ===== Row incomplete dialog =====
-function showRowDialog(capturedCount) {
-    // Build dialog dynamically in the results overlay area
-    const ov = document.getElementById('resultsOverlay');
-    ov.innerHTML = `
-        <h2>Incomplete Row</h2>
-        <p style="font-size:18px;margin:12px 0;">Only ${capturedCount}/${CARDS_PER_ROW} cards captured</p>
-        <p style="font-size:14px;color:rgba(255,255,255,.6);margin-bottom:20px;text-align:center;">
-            Move more slowly across the row, or tap the screen to manually capture.
-        </p>
-        <button onclick="retryRow()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:#f1c40f;color:#000;cursor:pointer;margin-bottom:12px;min-width:200px;">
-            Scan Row ${currentRow + 1} Again
-        </button>
-        <button onclick="acceptIncompleteRow()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;min-width:200px;">
-            Continue Anyway
-        </button>
-    `;
-    ov.classList.add('visible');
-}
-
-function retryRow() {
-    document.getElementById('resultsOverlay').classList.remove('visible');
-    // Remove captures for this row
-    captures = captures.filter(c => c.row !== currentRow);
-    currentCol = 0;
-    // Restart scanning for this row
-    startScanning();
-}
-
-function acceptIncompleteRow() {
-    document.getElementById('resultsOverlay').classList.remove('visible');
-    advanceRow();
-}
-
-// ===== Manual capture: tap video during scan =====
-video.addEventListener('click', () => {
-    if (!scanning || currentCol >= CARDS_PER_ROW || inCooldown || waitingForExit) return;
-    doCapture();
-});
-
-// ===== Button handler =====
-function onScanBtn() {
-    if (currentRow >= ROWS) {
-        showGridPreview();
-        return;
-    }
-    if (scanning) return;
-    startScanning();
-}
-
-function startScanning() {
-    scanning = true;
-    currentCol = captures.filter(c => c.row === currentRow).length;  // resume if retrying
-    consecutiveGood = 0;
-    waitingForExit = false;
-    lastCaptureTime = 0;
-    updateUI();
-    setStatus(`Scanning Row ${currentRow + 1}... slide cards through the guide`);
-    scanLoop();
-}
-
-// ===== Grid preview (after all 3 rows) =====
-function showGridPreview() {
-    const ov = document.getElementById('resultsOverlay');
-    const grid = document.getElementById('gridPreview');
-    const list = document.getElementById('resultsList');
-    grid.innerHTML = '';
-    list.innerHTML = '';
-
-    // Show 3x3 grid of captures in position order
-    for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
-        const row = Math.floor(i / CARDS_PER_ROW);
-        const col = i % CARDS_PER_ROW;
-        const cap = captures.find(c => c.row === row && c.col === col);
-        const img = document.createElement('img');
-        if (cap) {
-            img.src = cap.dataUrl;
-        } else {
-            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-            img.style.background = 'rgba(255,255,255,.08)';
-        }
-        grid.appendChild(img);
-    }
-
-    // Reset buttons
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.textContent = 'Submit for Identification';
-    submitBtn.disabled = false;
-    submitBtn.onclick = submitImages;
-
-    ov.querySelector('h2').textContent = 'Review Captures';
-    ov.classList.add('visible');
-}
-
-// ===== Submit (card_0 through card_8, same as v6) =====
-async function submitImages() {
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Identifying...';
+// ===== Submit =====
+async function submitAll() {
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true; btn.textContent = 'Identifying...';
+    setStatus('Uploading ' + captures.length + ' images...');
 
     try {
-        const formData = new FormData();
+        const fd = new FormData();
+        for (let i = 0; i < captures.length; i++)
+            fd.append('card_' + i, captures[i].blob, 'card_' + i + '.jpg');
 
-        // Build card_0 through card_8 ordered by grid position
-        for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
-            const row = Math.floor(i / CARDS_PER_ROW);
-            const col = i % CARDS_PER_ROW;
-            const cap = captures.find(c => c.row === row && c.col === col);
-            if (cap) {
-                formData.append('card_' + i, cap.blob, 'card_' + i + '.jpg');
-            }
-        }
-
-        const resp = await fetch('/slide-scan/identify', {
-            method: 'POST',
-            body: formData,
-        });
+        const resp = await fetch('/slide-scan/identify', { method: 'POST', body: fd });
         const result = await resp.json();
         showResults(result);
     } catch (e) {
         console.error('Submit error:', e);
         setStatus('Error: ' + e.message);
-        btn.disabled = false;
-        btn.textContent = 'Retry Submit';
+        btn.disabled = false; btn.textContent = 'Retry Submit';
     }
 }
 
-// ===== Results display (3x3 grid from slide_scan_ui.py) =====
-function showResults(data) {
-    const ov = document.getElementById('resultsOverlay');
-    const cards = data.cards || [];
-    const total = data.total_value ? '$' + data.total_value.toFixed(2) : '';
+function showResults(result) {
+    const ro = document.getElementById('resultsOverlay');
+    const list = document.getElementById('resultsList');
+    list.innerHTML = '';
 
-    let html = '<h2>Page Scanned</h2>';
-    if (total) html += '<div style="font-size:18px;color:#4ecca3;font-weight:700;margin-bottom:12px">' + total + ' total</div>';
-
-    html += '<div class="grid-preview" style="max-width:320px;margin-bottom:16px">';
-    for (const card of cards) {
-        const price = card.variant_price || card.market_price;
-        const name = card.card_name || 'Unknown';
-        const imgSrc = card.local_image_url || card.segment_image_url || '';
-        html += '<div style="text-align:center;background:rgba(255,255,255,.1);border-radius:8px;padding:6px">';
-        if (imgSrc) html += '<img src="' + imgSrc + '" style="width:100%;border-radius:4px;aspect-ratio:5/7;object-fit:cover">';
-        html += '<div style="font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div>';
-        if (price) html += '<div style="font-size:13px;font-weight:700;color:#4ecca3">$' + price.toFixed(2) + '</div>';
-        if (card.detected_variant && card.detected_variant !== 'normal')
-            html += '<div style="font-size:10px;color:#ff0">' + card.detected_variant + '</div>';
-        html += '</div>';
+    const cards = result.cards || result.results || [];
+    if (cards.length === 0) {
+        list.innerHTML = '<p style="color:rgba(255,255,255,0.6);">No cards identified.</p>';
+    } else {
+        for (const card of cards) {
+            const div = document.createElement('div');
+            div.className = 'result-card';
+            const ts = card.thumb || card.image || '';
+            const nm = card.name || card.card_name || 'Unknown';
+            const dt = card.set || card.detail || '';
+            div.innerHTML = (ts ? '<img src="'+ts+'">' : '') +
+                '<div class="info"><div class="name">'+nm+'</div><div class="detail">'+dt+'</div></div>';
+            list.appendChild(div);
+        }
     }
-    html += '</div>';
-
-    if (data.error) {
-        html += '<p style="color:#e74c3c;margin-top:12px;">' + data.error + '</p>';
-    }
-    if (cards.length === 0 && !data.error) {
-        html += '<p style="color:rgba(255,255,255,.6)">No cards identified.</p>';
-    }
-
-    html += '<button onclick="scanAgain()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:#4ecca3;color:#1a1a2e;cursor:pointer;margin-top:16px">Scan Next Page</button>';
-
-    ov.innerHTML = html;
-}
-
-// ===== Scan Again (full reset) =====
-function scanAgain() {
-    resetAll();
+    if (result.error) list.innerHTML += '<p style="color:#e74c3c;margin-top:12px;">'+result.error+'</p>';
+    ro.classList.add('visible');
 }
 
 function resetAll() {
-    stopScanning();
-
-    currentRow = 0;
-    currentCol = 0;
-    captures = [];
-    lastCaptureTime = 0;
-
-    // Restore results overlay structure
-    const ov = document.getElementById('resultsOverlay');
-    ov.classList.remove('visible');
-    ov.innerHTML = `
-        <h2>Scan Complete</h2>
-        <div class="grid-preview" id="gridPreview"></div>
-        <div id="resultsList"></div>
-        <button class="scan-btn" id="submitBtn" onclick="submitImages()" style="margin-top:16px;">Submit for Identification</button>
-    `;
-
-    updateUI();
-    setStatus('Ready. Tap "Scan Row 1" to begin.');
-    drawOverlay();
+    captures = []; currentRow = 0; scanning = false;
+    state = S.IDLE; stableN = 0; gutterN = 0;
+    document.getElementById('resultsOverlay').classList.remove('visible');
+    updateUI(); setStatus('Ready. Tap "Scan Row 1" to begin.');
 }
 
 // ===== Init =====
