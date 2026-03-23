@@ -66,6 +66,25 @@ PENDING_DIR = Path("data/pending_scans")
 PENDING_DIR.mkdir(parents=True, exist_ok=True)
 
 CARD_IMAGES_DIR = Path("data/card_images")
+JP_CARD_IMAGES_DIR = Path("data/card_images_jp")
+
+# Reverse mapping: english card_id -> japanese image path (relative)
+_jp_image_index = {}  # type: dict[str, str]
+
+def _load_jp_image_index():
+    """Load JP->EN card mapping and build reverse index (EN card_id -> JP image path)."""
+    mapping_path = Path("data/jp_en_card_mapping.json")
+    if not mapping_path.is_file():
+        return
+    try:
+        mapping = json.loads(mapping_path.read_text())
+        for jp_path, en_card_id in mapping.items():
+            _jp_image_index[en_card_id] = jp_path
+        logger.info("Loaded %d JP card image mappings", len(_jp_image_index))
+    except Exception as e:
+        logger.warning("Failed to load JP card mapping: %s", e)
+
+_load_jp_image_index()
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -1267,14 +1286,25 @@ def _parse_multipart_named(body, content_type):
     return result
 
 
-def _local_image_url(card_id):
+def _local_image_url(card_id, ocr_raw=None):
     """Return local /card-image/ URL for a card_id if the image file exists.
 
     card_id format: "ex14-94/normal" or "bw5-107" (with or without variant).
     Checks for normal variant PNG on disk.  Returns None if not found.
+
+    If ocr_raw contains "[JP]" and a Japanese reference image exists for this
+    card_id, returns a /jp-card-image/ URL instead.
     """
     if not card_id:
         return None
+
+    # Check for Japanese image preference
+    is_jp = ocr_raw and isinstance(ocr_raw, str) and "[JP]" in ocr_raw
+    if is_jp and card_id in _jp_image_index:
+        jp_path = _jp_image_index[card_id]
+        if Path(jp_path).is_file():
+            return f"/jp-card-image/{jp_path}"
+
     # Strip variant suffix if present (e.g. "ex14-94/normal" -> "ex14-94")
     base_id = card_id.split("/")[0] if "/" in card_id else card_id
     # Extract set_id: everything before the last '-' (e.g. "ecard3-H32" -> "ecard3")
@@ -1554,6 +1584,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             card_id = unquote(parsed.path.split("/card-image-variant/", 1)[1])
             variants = parse_qs(parsed.query).get("variants", [""])[0]
             self._send_card_image_variant(card_id, variants)
+        elif self.path.startswith("/jp-card-image/"):
+            from urllib.parse import unquote
+            jp_path = unquote(self.path.split("/jp-card-image/", 1)[1])
+            self._send_jp_card_image(jp_path)
         elif self.path.startswith("/card-image/"):
             from urllib.parse import unquote
             card_path = unquote(self.path.split("/card-image/", 1)[1])
@@ -1797,7 +1831,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "variant_price": None,
                     "set_name": None,
                     "image_url": None,
-                    "local_image_url": _local_image_url(result["card_id"]),
+                    "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                     "phash": phash_hex,
                     "detected_variant": detected_variant,
                     "variant_confidence": result.get("variant_confidence"),
@@ -2146,7 +2180,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "market_price": None,
                     "set_name": None,
                     "image_url": None,
-                    "local_image_url": _local_image_url(result["card_id"]),
+                    "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                     "phash": phash_hex,
                     "source_url": url,
                 }
@@ -2331,7 +2365,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"]),
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                     }
 
@@ -2537,7 +2571,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"]),
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                     }
 
@@ -2879,7 +2913,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"]),
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                         "video_frame": extraction_results[idx]["frame_number"],
                         "extraction_confidence": extraction_results[idx]["confidence"],
@@ -3241,7 +3275,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                             "set_name": None,
                             "image_url": None,
                             "tcgplayer_url": None,
-                            "local_image_url": _local_image_url(result["card_id"]),
+                            "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
                             "segment_image_url": f"/segment-image/{seg_rel}",
                         }
 
@@ -5163,6 +5197,32 @@ class ScanHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "public, max-age=86400")
         self.end_headers()
         self.wfile.write(png_data)
+
+    def _send_jp_card_image(self, jp_path):
+        """Serve a Japanese card reference image.
+
+        URL format: /jp-card-image/data/card_images_jp/.../<filename>.jpg
+        The jp_path is the full relative path from the project root.
+        """
+        image_path = Path(jp_path)
+        if not image_path.is_file():
+            self.send_error(404, f"JP image not found: {jp_path}")
+            return
+
+        # Determine content type from extension
+        ext = image_path.suffix.lower()
+        content_type = {
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".png": "image/png", ".webp": "image/webp",
+        }.get(ext, "image/jpeg")
+
+        img_data = image_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(img_data)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.end_headers()
+        self.wfile.write(img_data)
 
     # Cache for variant overlay images: (card_id, frozenset(variants)) -> PNG bytes
     _variant_image_cache = {}
