@@ -24,7 +24,7 @@ SLIDE_SCAN_HTML = r"""<!DOCTYPE html>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#000;color:#fff;font-family:-apple-system,system-ui,sans-serif;
   overflow:hidden;height:100dvh;width:100vw;display:flex;flex-direction:column}
-#video{width:100%;flex:1;object-fit:cover}
+#video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1}
 canvas#drawCanvas{display:none}
 
 #topBar{position:absolute;top:0;left:0;right:0;padding:12px 16px;
@@ -363,7 +363,7 @@ async function initCamera() {
             throw new Error('Camera not available. Need HTTPS — use the tunnel URL from the QR code.');
         }
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
             audio: false
         });
         V.srcObject = stream;
@@ -372,9 +372,15 @@ async function initCamera() {
             V.addEventListener('error', reject, { once: true });
             setTimeout(resolve, 8000);
         });
+        await new Promise((resolve, reject) => {
+            V.addEventListener('loadeddata', resolve, { once: true });
+            V.addEventListener('error', reject, { once: true });
+            setTimeout(resolve, 10000);
+        });
         await V.play();
-        C.width = V.videoWidth;
-        C.height = V.videoHeight;
+        await new Promise(r => setTimeout(r, 150));
+        C.width = V.videoWidth || 1920;
+        C.height = V.videoHeight || 1080;
     } catch (e) {
         document.body.innerHTML = '<div style="padding:30px;text-align:center;color:#e74c3c;font-size:18px;">Camera Error<br><br><span style="font-size:14px;color:#aaa;">' + e.message + '</span><br><br><span style="font-size:12px;color:#666;">Make sure you\'re using the HTTPS tunnel URL<br>(scan QR code from main page)</span></div>';
     }
