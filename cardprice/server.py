@@ -1605,6 +1605,9 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/camera-diag":
             from cardprice.camera_diag import CAMERA_DIAG_HTML
             self._send_html(CAMERA_DIAG_HTML)
+        elif self.path == "/slide-scan-v7":
+            from cardprice.slide_scan_v7 import SLIDE_SCAN_V7_HTML
+            self._send_html(SLIDE_SCAN_V7_HTML)
         elif self.path == "/slide-scan-v6":
             from cardprice.slide_scan_v6 import SLIDE_SCAN_V6_HTML
             self._send_html(SLIDE_SCAN_V6_HTML)
