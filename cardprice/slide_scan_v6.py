@@ -470,7 +470,7 @@ async function submitImages() {
     try {
         const formData = new FormData();
         for (let i = 0; i < captures.length; i++) {
-            formData.append('image_' + i, captures[i].blob, 'frame_' + i + '.jpg');
+            formData.append('card_' + i, captures[i].blob, 'card_' + i + '.jpg');
         }
 
         const resp = await fetch('/slide-scan/identify', {
