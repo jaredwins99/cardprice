@@ -290,16 +290,21 @@ const MAX_FILL = 0.70;
 const SHARPNESS_THRESHOLD = 30;
 const CONSECUTIVE_GOOD_NEEDED = 3;
 const ANALYSIS_SIZE = 160;          // downscale for speed
+const COOLDOWN_MS = 800;            // min time between captures
+const ROW_END_IDLE_MS = 3000;       // idle time before triggering incomplete row check
 
 // ===== State =====
 let currentRow = 0;
-let captures = [];
+let currentCol = 0;               // 0-based within current row
+let captures = [];                  // {blob, dataUrl, row, col}
 let scanning = false;
-let cardsThisRow = 0;
 let consecutiveGood = 0;
 let waitingForExit = false;
+let inCooldown = false;
+let cooldownTimer = null;
 let animFrameId = null;
 let stream = null;
+let lastCaptureTime = 0;           // for idle detection
 
 // ===== Camera setup (IDENTICAL to condition_camera_ui.py) =====
 const video = document.getElementById('cam');
@@ -426,12 +431,12 @@ function updateUI() {
         label.textContent = `Row ${currentRow + 1} of ${ROWS}`;
         if (scanning) {
             btn.classList.add('hidden');
-            countEl.textContent = `${cardsThisRow}/${CARDS_PER_ROW}`;
+            countEl.textContent = `${currentCol}/${CARDS_PER_ROW}`;
         } else {
             btn.classList.remove('hidden');
             btn.textContent = `Scan Row ${currentRow + 1}`;
             btn.disabled = false;
-            countEl.textContent = cardsThisRow > 0 ? `${cardsThisRow}/${CARDS_PER_ROW}` : '';
+            countEl.textContent = currentCol > 0 ? `${currentCol}/${CARDS_PER_ROW}` : '';
         }
     }
 
@@ -449,12 +454,19 @@ function updateUI() {
 function renderThumbs() {
     const container = document.getElementById('thumbs');
     container.innerHTML = '';
-    for (let i = 0; i < captures.length; i++) {
-        const img = document.createElement('img');
-        img.src = captures[i].dataUrl;
-        img.className = 'thumb-img';
+    // Show all 9 slots, fill in captured ones
+    for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
         const row = Math.floor(i / CARDS_PER_ROW);
-        if (row === currentRow) img.classList.add('current-row');
+        const col = i % CARDS_PER_ROW;
+        const cap = captures.find(c => c.row === row && c.col === col);
+        const img = document.createElement('img');
+        img.className = 'thumb-img';
+        if (cap) {
+            img.src = cap.dataUrl;
+            img.classList.add('current-row');
+        } else {
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        }
         container.appendChild(img);
     }
 }
@@ -741,24 +753,51 @@ function isCardPresent() {
     return rect && rect.fillRatio > 0.25;
 }
 
+// ===== Cooldown =====
+function enterCooldown() {
+    inCooldown = true;
+    if (cooldownTimer) clearTimeout(cooldownTimer);
+    cooldownTimer = setTimeout(() => {
+        inCooldown = false;
+        cooldownTimer = null;
+    }, COOLDOWN_MS);
+}
+
+function clearCooldown() {
+    inCooldown = false;
+    if (cooldownTimer) { clearTimeout(cooldownTimer); cooldownTimer = null; }
+}
+
 // ===== Scanning loop =====
 function scanLoop() {
     if (!scanning) return;
 
-    const w = overlay.clientWidth;
-    const h = overlay.clientHeight;
-
-    if (waitingForExit) {
-        // Wait for card to leave the frame
-        const present = isCardPresent();
-        if (!present) {
-            waitingForExit = false;
-            consecutiveGood = 0;
-            setStatus('Slide to next card...');
+    if (waitingForExit || inCooldown) {
+        // Wait for card to leave the frame before next capture
+        if (waitingForExit) {
+            const present = isCardPresent();
+            if (!present) {
+                waitingForExit = false;
+                consecutiveGood = 0;
+                setStatus('Slide to next card...');
+            }
+            drawOverlay(present ? 'Slide to next card...' : 'Ready for next card');
+        } else {
+            drawOverlay('Get ready...');
         }
-        drawOverlay(present ? 'Remove card from frame...' : 'Slide to next card...');
         animFrameId = requestAnimationFrame(scanLoop);
         return;
+    }
+
+    // Check for idle timeout (user stopped sliding with incomplete row)
+    const now = performance.now();
+    if (currentCol > 0 && currentCol < CARDS_PER_ROW && lastCaptureTime > 0) {
+        const idleTime = now - lastCaptureTime;
+        if (idleTime > ROW_END_IDLE_MS) {
+            // User seems done but row incomplete
+            finishRow();
+            return;
+        }
     }
 
     const result = analyzeFrame();
@@ -778,48 +817,128 @@ function scanLoop() {
     drawOverlay(overlayMsg);
 
     if (consecutiveGood >= CONSECUTIVE_GOOD_NEEDED) {
-        // AUTO-CAPTURE!
-        captureCard();
-        consecutiveGood = 0;
-        waitingForExit = true;
-
-        if (cardsThisRow >= CARDS_PER_ROW) {
-            // Row done
-            scanning = false;
-            if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-            currentRow++;
-            setStatus(`Row ${currentRow} done!`);
-            setTimeout(() => updateUI(), 500);
-            return;
-        }
+        // AUTO-CAPTURE
+        doCapture();
     }
 
     animFrameId = requestAnimationFrame(scanLoop);
 }
 
-// ===== Capture =====
-function captureCard() {
+// ===== Capture (the core function) =====
+function doCapture() {
     captureCanvas.width = video.videoWidth;
     captureCanvas.height = video.videoHeight;
     capCtx.drawImage(video, 0, 0);
 
     // Flash effect
-    const flash = document.getElementById('flash');
-    flash.classList.add('active');
-    setTimeout(() => flash.classList.remove('active'), 150);
+    const flashEl = document.getElementById('flash');
+    flashEl.classList.add('active');
+    setTimeout(() => flashEl.classList.remove('active'), 150);
 
     // Haptic feedback
-    if (navigator.vibrate) navigator.vibrate(50);
+    if (navigator.vibrate) navigator.vibrate(30);
 
+    // Get blob + dataUrl
     const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.92);
     captureCanvas.toBlob(blob => {
-        captures.push({ dataUrl, blob });
-        cardsThisRow++;
-        setStatus(`Captured ${cardsThisRow}/${CARDS_PER_ROW} for row ${currentRow + 1}`);
-        document.getElementById('captureCount').textContent = `${cardsThisRow}/${CARDS_PER_ROW}`;
+        if (!blob) return;
+        captures.push({ blob, dataUrl, row: currentRow, col: currentCol });
+        lastCaptureTime = performance.now();
+
+        const capturedInRow = currentCol + 1;
+        setStatus(`Captured ${capturedInRow}/${CARDS_PER_ROW} for row ${currentRow + 1}`);
+        document.getElementById('captureCount').textContent = `${capturedInRow}/${CARDS_PER_ROW}`;
         renderThumbs();
+
+        console.log('[v7] Captured row=' + currentRow + ' col=' + currentCol + ' total=' + captures.length);
+
+        currentCol++;
+        if (currentCol >= CARDS_PER_ROW) {
+            finishRow();
+        } else {
+            // Wait for card to exit before detecting next
+            consecutiveGood = 0;
+            waitingForExit = true;
+            enterCooldown();
+        }
     }, 'image/jpeg', 0.92);
 }
+
+// ===== Row completion =====
+function finishRow() {
+    stopScanning();
+    const capturedInRow = captures.filter(c => c.row === currentRow).length;
+
+    if (capturedInRow < CARDS_PER_ROW) {
+        // Incomplete row -- show dialog
+        showRowDialog(capturedInRow);
+        return;
+    }
+
+    // Row complete -- advance
+    advanceRow();
+}
+
+function advanceRow() {
+    currentRow++;
+    currentCol = 0;
+
+    if (currentRow >= ROWS) {
+        // All rows done -- show preview grid
+        updateUI();
+    } else {
+        setStatus(`Row ${currentRow} done! Ready for row ${currentRow + 1}`);
+        updateUI();
+    }
+}
+
+function stopScanning() {
+    scanning = false;
+    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+    clearCooldown();
+    waitingForExit = false;
+    consecutiveGood = 0;
+}
+
+// ===== Row incomplete dialog =====
+function showRowDialog(capturedCount) {
+    // Build dialog dynamically in the results overlay area
+    const ov = document.getElementById('resultsOverlay');
+    ov.innerHTML = `
+        <h2>Incomplete Row</h2>
+        <p style="font-size:18px;margin:12px 0;">Only ${capturedCount}/${CARDS_PER_ROW} cards captured</p>
+        <p style="font-size:14px;color:rgba(255,255,255,.6);margin-bottom:20px;text-align:center;">
+            Move more slowly across the row, or tap the screen to manually capture.
+        </p>
+        <button onclick="retryRow()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:#f1c40f;color:#000;cursor:pointer;margin-bottom:12px;min-width:200px;">
+            Scan Row ${currentRow + 1} Again
+        </button>
+        <button onclick="acceptIncompleteRow()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;min-width:200px;">
+            Continue Anyway
+        </button>
+    `;
+    ov.classList.add('visible');
+}
+
+function retryRow() {
+    document.getElementById('resultsOverlay').classList.remove('visible');
+    // Remove captures for this row
+    captures = captures.filter(c => c.row !== currentRow);
+    currentCol = 0;
+    // Restart scanning for this row
+    startScanning();
+}
+
+function acceptIncompleteRow() {
+    document.getElementById('resultsOverlay').classList.remove('visible');
+    advanceRow();
+}
+
+// ===== Manual capture: tap video during scan =====
+video.addEventListener('click', () => {
+    if (!scanning || currentCol >= CARDS_PER_ROW || inCooldown || waitingForExit) return;
+    doCapture();
+});
 
 // ===== Button handler =====
 function onScanBtn() {
@@ -828,34 +947,54 @@ function onScanBtn() {
         return;
     }
     if (scanning) return;
+    startScanning();
+}
 
+function startScanning() {
     scanning = true;
-    cardsThisRow = 0;
+    currentCol = captures.filter(c => c.row === currentRow).length;  // resume if retrying
     consecutiveGood = 0;
     waitingForExit = false;
+    lastCaptureTime = 0;
     updateUI();
     setStatus(`Scanning Row ${currentRow + 1}... slide cards through the guide`);
     scanLoop();
 }
 
-// ===== Grid preview =====
+// ===== Grid preview (after all 3 rows) =====
 function showGridPreview() {
-    const overlay = document.getElementById('resultsOverlay');
+    const ov = document.getElementById('resultsOverlay');
     const grid = document.getElementById('gridPreview');
     const list = document.getElementById('resultsList');
     grid.innerHTML = '';
     list.innerHTML = '';
 
-    for (let i = 0; i < captures.length; i++) {
+    // Show 3x3 grid of captures in position order
+    for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
+        const row = Math.floor(i / CARDS_PER_ROW);
+        const col = i % CARDS_PER_ROW;
+        const cap = captures.find(c => c.row === row && c.col === col);
         const img = document.createElement('img');
-        img.src = captures[i].dataUrl;
+        if (cap) {
+            img.src = cap.dataUrl;
+        } else {
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            img.style.background = 'rgba(255,255,255,.08)';
+        }
         grid.appendChild(img);
     }
 
-    overlay.classList.add('visible');
+    // Reset buttons
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.textContent = 'Submit for Identification';
+    submitBtn.disabled = false;
+    submitBtn.onclick = submitImages;
+
+    ov.querySelector('h2').textContent = 'Review Captures';
+    ov.classList.add('visible');
 }
 
-// ===== Submit =====
+// ===== Submit (card_0 through card_8, same as v6) =====
 async function submitImages() {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
@@ -863,8 +1002,15 @@ async function submitImages() {
 
     try {
         const formData = new FormData();
-        for (let i = 0; i < captures.length; i++) {
-            formData.append('card_' + i, captures[i].blob, 'card_' + i + '.jpg');
+
+        // Build card_0 through card_8 ordered by grid position
+        for (let i = 0; i < ROWS * CARDS_PER_ROW; i++) {
+            const row = Math.floor(i / CARDS_PER_ROW);
+            const col = i % CARDS_PER_ROW;
+            const cap = captures.find(c => c.row === row && c.col === col);
+            if (cap) {
+                formData.append('card_' + i, cap.blob, 'card_' + i + '.jpg');
+            }
         }
 
         const resp = await fetch('/slide-scan/identify', {
@@ -881,38 +1027,68 @@ async function submitImages() {
     }
 }
 
-function showResults(result) {
-    const list = document.getElementById('resultsList');
-    list.innerHTML = '';
+// ===== Results display (3x3 grid from slide_scan_ui.py) =====
+function showResults(data) {
+    const ov = document.getElementById('resultsOverlay');
+    const cards = data.cards || [];
+    const total = data.total_value ? '$' + data.total_value.toFixed(2) : '';
 
-    const cards = result.cards || result.results || [];
-    if (cards.length === 0) {
-        list.innerHTML = '<p style="color:rgba(255,255,255,0.6);">No cards identified.</p>';
-    } else {
-        for (const card of cards) {
-            const div = document.createElement('div');
-            div.className = 'result-card';
-            const thumbSrc = card.thumb || card.image || '';
-            const name = card.name || card.card_name || 'Unknown';
-            const detail = card.set || card.detail || '';
-            div.innerHTML = `
-                ${thumbSrc ? '<img src="' + thumbSrc + '">' : ''}
-                <div class="info">
-                    <div class="name">${name}</div>
-                    <div class="detail">${detail}</div>
-                </div>
-            `;
-            list.appendChild(div);
-        }
+    let html = '<h2>Page Scanned</h2>';
+    if (total) html += '<div style="font-size:18px;color:#4ecca3;font-weight:700;margin-bottom:12px">' + total + ' total</div>';
+
+    html += '<div class="grid-preview" style="max-width:320px;margin-bottom:16px">';
+    for (const card of cards) {
+        const price = card.variant_price || card.market_price;
+        const name = card.card_name || 'Unknown';
+        const imgSrc = card.local_image_url || card.segment_image_url || '';
+        html += '<div style="text-align:center;background:rgba(255,255,255,.1);border-radius:8px;padding:6px">';
+        if (imgSrc) html += '<img src="' + imgSrc + '" style="width:100%;border-radius:4px;aspect-ratio:5/7;object-fit:cover">';
+        html += '<div style="font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + name + '</div>';
+        if (price) html += '<div style="font-size:13px;font-weight:700;color:#4ecca3">$' + price.toFixed(2) + '</div>';
+        if (card.detected_variant && card.detected_variant !== 'normal')
+            html += '<div style="font-size:10px;color:#ff0">' + card.detected_variant + '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+
+    if (data.error) {
+        html += '<p style="color:#e74c3c;margin-top:12px;">' + data.error + '</p>';
+    }
+    if (cards.length === 0 && !data.error) {
+        html += '<p style="color:rgba(255,255,255,.6)">No cards identified.</p>';
     }
 
-    if (result.error) {
-        list.innerHTML += '<p style="color:#e74c3c;margin-top:12px;">' + result.error + '</p>';
-    }
+    html += '<button onclick="scanAgain()" style="padding:14px 32px;font-size:16px;font-weight:700;border:none;border-radius:10px;background:#4ecca3;color:#1a1a2e;cursor:pointer;margin-top:16px">Scan Next Page</button>';
 
-    const btn = document.getElementById('submitBtn');
-    btn.textContent = 'Done';
-    btn.disabled = true;
+    ov.innerHTML = html;
+}
+
+// ===== Scan Again (full reset) =====
+function scanAgain() {
+    resetAll();
+}
+
+function resetAll() {
+    stopScanning();
+
+    currentRow = 0;
+    currentCol = 0;
+    captures = [];
+    lastCaptureTime = 0;
+
+    // Restore results overlay structure
+    const ov = document.getElementById('resultsOverlay');
+    ov.classList.remove('visible');
+    ov.innerHTML = `
+        <h2>Scan Complete</h2>
+        <div class="grid-preview" id="gridPreview"></div>
+        <div id="resultsList"></div>
+        <button class="scan-btn" id="submitBtn" onclick="submitImages()" style="margin-top:16px;">Submit for Identification</button>
+    `;
+
+    updateUI();
+    setStatus('Ready. Tap "Scan Row 1" to begin.');
+    drawOverlay();
 }
 
 // ===== Init =====
