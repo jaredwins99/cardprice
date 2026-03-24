@@ -31,6 +31,8 @@ Endpoints:
     GET  /video-scan -> Video-based slide-scan UI (record video, server extracts)
     POST /video-scan/extract -> Upload row video, extract card images server-side
     POST /slide-scan/video   -> Upload slide video, extract + identify cards
+    GET  /scanner    -> Scanner camera UI (9-card grid capture)
+    POST /scanner/identify -> Identify individually captured card images (no auto-crop)
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
     GET  /condition/camera -> Live camera overlay UI for condition capture
     GET  /condition/camera/<card_id> -> Per-card camera UI with card identity pre-filled
@@ -492,6 +494,7 @@ input[type=file] { display: none; }
 <div style="display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;">
     <a href="/slide-scan" style="flex:1;display:block;background:#e94560;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Slide Scan</a>
     <a href="/video-scan" style="flex:1;display:block;background:#e67e22;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Video Scan</a>
+    <a href="/scanner" style="flex:1;display:block;background:#2ecc71;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Scanner</a>
     <a href="/condition/camera" style="flex:1;display:block;background:#9b59b6;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Grade Condition</a>
     <a href="/inventory/view" style="flex:1;display:block;background:#4ecca3;color:#1a1a2e;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Inventory</a>
 </div>
@@ -1648,6 +1651,9 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/slide-scan":
             from cardprice.slide_scan_ui import SLIDE_SCAN_HTML
             self._send_html(SLIDE_SCAN_HTML)
+        elif self.path == "/scanner":
+            from cardprice.scanner_camera_ui import SCANNER_HTML
+            self._send_html(SCANNER_HTML)
         elif self.path == "/video-scan":
             from cardprice.video_scan_ui import VIDEO_SCAN_HTML
             self._send_html(VIDEO_SCAN_HTML)
@@ -1703,6 +1709,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_slide_scan_video()
         elif self.path == "/slide-scan/fast" or self.path.startswith("/slide-scan/fast?"):
             self._handle_slide_scan_fast()
+        elif self.path == "/scanner/identify" or self.path.startswith("/scanner/identify?"):
+            self._handle_scanner_identify()
         elif self.path.startswith("/condition/photo/"):
             self._handle_condition_photo()
         else:
@@ -2627,6 +2635,195 @@ class ScanHandler(BaseHTTPRequestHandler):
         self._send_json({
             "status": "ok",
             "scan_type": "slide_scan",
+            "cards": cards,
+            "total_cards": len(cards),
+            "total_value": round(total_value, 2),
+            "total_mp": round(total_mp, 2),
+        })
+
+        try:
+            import gc
+            gc.collect()
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+    def _handle_scanner_identify(self):
+        """Handle scanner: receive individual card images, identify each.
+
+        POST /scanner/identify
+        Multipart form data with fields card_0 through card_8 (each a JPEG).
+        No segmentation or auto-crop — cards already extracted by scanner UI.
+
+        Query parameters:
+            variants=true  — run variant detection (default true)
+            variants=false — skip variant detection
+
+        Returns same JSON format as /scan-page for UI compatibility.
+        """
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        qs = parse_qs(parsed.query)
+        detect_variants = qs.get("variants", ["true"])[0].lower() in ("true", "1", "yes")
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self.send_error(400, "Expected multipart/form-data")
+            return
+
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            self.send_error(411, "Content-Length required")
+            return
+        try:
+            length = int(raw_length)
+        except (ValueError, TypeError):
+            self.send_error(400, "Invalid Content-Length")
+            return
+        if length <= 0:
+            self.send_error(400, "Empty request body")
+            return
+        if length > MAX_UPLOAD_BYTES:
+            self.send_error(413, "Upload too large (max 20 MB)")
+            return
+
+        body = self.rfile.read(length)
+        fields = _parse_multipart_named(body, content_type)
+        if not fields:
+            self.send_error(400, "No card images uploaded")
+            return
+
+        # Extract card images from card_0 through card_8
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        cards_dir = UPLOAD_DIR / f"scanner_{timestamp}_cards"
+        cards_dir.mkdir(parents=True, exist_ok=True)
+
+        card_images = {}  # position -> path
+        num_cols = 3
+        for field_name, (filename, file_data) in fields.items():
+            if not field_name.startswith("card_"):
+                continue
+            suffix = field_name.split("card_", 1)[1]
+            try:
+                if suffix.startswith("r") and "_c" in suffix:
+                    parts = suffix.split("_c")
+                    r = int(parts[0][1:])
+                    c = int(parts[1])
+                    pos = r * num_cols + c
+                else:
+                    pos = int(suffix)
+            except (ValueError, IndexError):
+                continue
+            if not file_data or len(file_data) < 100:
+                continue
+            save_path = cards_dir / f"card_{pos:02d}.jpg"
+            save_path.write_bytes(file_data)
+            card_images[pos] = str(save_path)
+
+        if not card_images:
+            self.send_error(400, "No valid card images found")
+            return
+
+        logger.info("Scanner: received %d card images in %s",
+                     len(card_images), cards_dir)
+
+        # Sort by position for consistent ordering
+        sorted_positions = sorted(card_images.keys())
+        card_paths = [card_images[p] for p in sorted_positions]
+
+        # Identify cards using identify_page_v2 (no segmentation needed)
+        cards = []
+        try:
+            from cardprice.ml import identify_page_v2 as identify_page
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+
+            with SessionLocal() as session:
+                page_results = identify_page(card_paths, session=session,
+                                             detect_variants=detect_variants)
+
+                for idx, (pos, result) in enumerate(zip(sorted_positions, page_results)):
+                    row = pos // num_cols
+                    col = pos % num_cols
+
+                    seg_rel = str(Path(card_images[pos]).relative_to(UPLOAD_DIR))
+                    detected_variant = result.get("detected_variant", "normal")
+
+                    card_data = {
+                        "position": pos,
+                        "row": row,
+                        "col": col,
+                        "card_id": result["card_id"],
+                        "confidence": result["confidence"],
+                        "method": result["method"],
+                        "detected_variant": detected_variant,
+                        "variant_confidence": result.get("variant_confidence"),
+                        "stamps_detected": result.get("stamps_detected", []),
+                        "stamp_details": result.get("stamp_details", {}),
+                        "card_name": None,
+                        "market_price": None,
+                        "variant_price": None,
+                        "set_name": None,
+                        "image_url": None,
+                        "tcgplayer_url": None,
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
+                        "segment_image_url": f"/segment-image/{seg_rel}",
+                    }
+
+                    if result["card_id"]:
+                        row_db = session.execute(
+                            sql_text(_PRICE_LOOKUP_SQL),
+                            {"cid": result["card_id"]},
+                        ).fetchone()
+                        if row_db:
+                            card_data["card_name"] = row_db.name
+                            card_data["set_name"] = row_db.set_name
+                            card_data["market_price"] = (
+                                float(row_db.market_price) if row_db.market_price else None
+                            )
+                            card_data["image_url"] = row_db.image_small
+                            if row_db.tcg_product_id:
+                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
+
+                            if detected_variant != "normal":
+                                vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
+                                if vprice:
+                                    card_data["variant_price"] = vprice
+
+                            price_for_conditions = card_data["variant_price"] or card_data["market_price"]
+                            if price_for_conditions:
+                                card_data["condition_prices"] = _build_condition_prices(
+                                    price_for_conditions,
+                                    tcg_product_id=row_db.tcg_product_id,
+                                    variant=detected_variant,
+                                )
+
+                    cards.append(card_data)
+
+        except Exception as e:
+            logger.error("Scanner identification error: %s", e, exc_info=True)
+            try:
+                import gc
+                gc.collect()
+            except Exception:
+                pass
+            self._send_json({"error": str(e), "cards": []}, status=500)
+            return
+
+        total_value = sum(
+            (c["variant_price"] or c["market_price"])
+            for c in cards
+            if (c["variant_price"] or c["market_price"])
+        )
+        total_mp = sum(
+            (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
+            for c in cards
+        )
+        self._send_json({
+            "status": "ok",
+            "scan_type": "scanner",
             "cards": cards,
             "total_cards": len(cards),
             "total_value": round(total_value, 2),
@@ -5487,6 +5684,7 @@ def run_server(host="0.0.0.0", port=8888):
                             print(f"\n{'='*60}")
                             print(f"  HTTPS tunnel: {tunnel_url}")
                             print(f"  Slide scan:   {tunnel_url}/slide-scan")
+                            print(f"  Scanner:      {tunnel_url}/scanner")
                             print(f"{'='*60}\n")
             except Exception as e:
                 logger.warning("Cloudflare tunnel failed: %s", e)
