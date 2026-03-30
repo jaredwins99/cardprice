@@ -4665,29 +4665,47 @@ def _check_reverse_holo(img_bgr: np.ndarray, set_id: str, era: int
                    + _channel_variance(border_right_bgr)) / 2.0
     art_cvar = _channel_variance(art_center_bgr)
 
+    # --- Border hue variance (rainbow shimmer detector) ---
+    # Real reverse holos produce rapid hue shifts across the border from
+    # holographic foil.  Colored theme borders (e.g. Team Aqua blue,
+    # Team Magma red) have uniformly high saturation but *low* hue variance.
+    hue = hsv[:, :, 0].astype(np.float32)
+    border_left_hue = hue[int(h * 0.15):int(h * 0.85),
+                          int(w * 0.05):int(w * 0.13)]
+    border_right_hue = hue[int(h * 0.15):int(h * 0.85),
+                           int(w * 0.87):int(w * 0.95)]
+    border_hue_std = float(np.concatenate([
+        border_left_hue.flatten(), border_right_hue.flatten(),
+    ]).std())
+
     logger.debug(
         "Reverse holo check: border_sat_std=%.1f art_sat_std=%.1f "
-        "border_cvar=%.1f art_cvar=%.1f (set=%s era=%d)",
-        border_sat_std, art_sat_std, border_cvar, art_cvar, set_id, era,
+        "border_cvar=%.1f art_cvar=%.1f border_hue_std=%.1f (set=%s era=%d)",
+        border_sat_std, art_sat_std, border_cvar, art_cvar, border_hue_std,
+        set_id, era,
     )
 
     # --- Decision logic ---
     # Primary signal: border_sat_std vs art_sat_std (spec thresholds)
     # Secondary signal: border_cvar vs art_cvar (cross-channel shimmer)
+    # Guard: border_hue_std must be high enough to indicate rainbow shimmer
+    #   (not just a uniformly colored border like Team Aqua/Magma)
+    #   Normal colored borders: hue_std ~1-4; real reverse holos: hue_std 10+
 
     # Reverse holo: shiny borders, matte artwork
-    if border_sat_std > 25 and art_sat_std < 20:
+    if border_sat_std > 25 and art_sat_std < 20 and border_hue_std > 8:
         conf = min(0.95, 0.70 + (border_sat_std - 25) / 100)
         return ("reverse_holo", conf)
 
     # Also catch reverse holos via cross-channel variance when sat_std
     # is ambiguous (artwork has some natural color variation)
-    if border_cvar > 30 and art_cvar < 15:
+    if border_cvar > 30 and art_cvar < 15 and border_hue_std > 8:
         conf = min(0.90, 0.65 + (border_cvar - 30) / 100)
         return ("reverse_holo", conf)
 
     # Combined: both metrics lean reverse-holo but neither decisive alone
-    if border_sat_std > 25 and border_cvar > 25 and art_cvar < 20:
+    if (border_sat_std > 25 and border_cvar > 25 and art_cvar < 20
+            and border_hue_std > 8):
         conf = min(0.85, 0.60 + (border_sat_std - 25) / 150)
         return ("reverse_holo", conf)
 
