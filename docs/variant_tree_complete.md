@@ -4,7 +4,7 @@ Comprehensive variant catalog covering all 10 eras (1999-present).
 Structured for implementation: each variant includes detection region,
 visual signature, applicable sets, and pricing impact.
 
-Last updated: 2026-03-21
+Last updated: 2026-03-30
 
 ---
 
@@ -14,13 +14,19 @@ Each variant entry follows this schema:
 
 ```
 ERA -> Set Range -> Variant Type
-  Detection region:  [x0, y0, x1, y1] as fractions of card dimensions
-  Visual signature:  What to look for in the image
-  Applicable sets:   Which set IDs have this variant
-  Detection method:  Algorithm/module to use
-  TCGCSV subtype:    Whether this variant has its own price row (affects pricing)
-  Price impact:      Relative price premium over base variant
+  Detection region:      [x0, y0, x1, y1] as fractions of card dimensions
+  Visual signature:      What to look for in the image
+  Applicable sets:       Which set IDs have this variant
+  Detection method:      Algorithm/module to use
+  TCGCSV subtype:        Whether this variant has its own price row (affects pricing)
+  Price impact:          Relative price premium over base variant
+  Detection feasibility: Whether this variant can be detected from binder scans
 ```
+
+**Detection Feasibility Key**:
+- **Detectable** -- reliably detectable from standard binder page scans
+- **Maybe** -- depends on image quality, lighting, sleeve type, or card positioning
+- **Not detectable** -- requires close-up photography, physical inspection, or video
 
 Coordinate system: origin at top-left of card image. x increases rightward,
 y increases downward. Values are fractions of card width/height (0.0 to 1.0).
@@ -71,6 +77,7 @@ Tight region:      [0.03, 0.53, 0.15, 0.67]  (focused)
 Applicable sets:   base1, base2, base3, base5
 TCGCSV subtype:    YES -- "1st Edition" / "1st Edition Holofoil"
 Price impact:      5x-100x over Unlimited depending on card
+Detection feasibility: Maybe -- stamp is small, OCR works ~85% at binder resolution
 ```
 
 **Visual signature**: Small black circle (~30-40px at binder resolution) containing
@@ -102,6 +109,7 @@ Detection region:  Right edge: [0.90, 0.00, 1.00, 1.00]
 Applicable sets:   base1 ONLY
 TCGCSV subtype:    NO -- shares Normal/Holofoil subtype
 Price impact:      3x-50x over Unlimited (Charizard shadowless is >$5000)
+Detection feasibility: Maybe -- edge gradient analysis works but sleeve edges can interfere
 ```
 
 **Visual signature**: No dark gradient/shadow on right and bottom card borders.
@@ -131,6 +139,7 @@ Detection region:  Copyright line: ~[0.10, 0.95, 0.90, 1.00]
 Applicable sets:   base1 ONLY
 TCGCSV subtype:    NO -- same product as Unlimited
 Price impact:      None (informational only, helps confirm shadowless status)
+Detection feasibility: Not detectable -- copyright text too small at binder resolution
 ```
 
 **Visual signature**: Copyright text at card bottom reads either:
@@ -147,6 +156,7 @@ Detection region:  Same as 1st Edition (absence of stamp)
 Applicable sets:   base1, base2, base3, base5
 TCGCSV subtype:    YES -- "Unlimited" / "Unlimited Holofoil"
 Price impact:      Base price (1st Edition is the premium)
+Detection feasibility: Detectable -- default when no 1st Ed stamp found
 ```
 
 **Detection method**: Default -- if no 1st Edition stamp detected and not shadowless,
@@ -160,6 +170,7 @@ Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
 Applicable sets:   All WotC sets (rare cards only)
 TCGCSV subtype:    YES -- "Holofoil"
 Price impact:      2x-20x over Normal for same card
+Detection feasibility: Not detectable -- holo shimmer invisible through binder sleeves
 ```
 
 **Visual signature**: Holographic "star" or "cosmos" pattern visible on the artwork
@@ -189,6 +200,7 @@ Detection region:  Cheek area of artwork: ~[0.35, 0.25, 0.65, 0.45]
 Applicable sets:   base1 ONLY (card #58)
 TCGCSV subtype:    NO -- same product
 Price impact:      Red cheeks: slight premium ($5-15 vs $3-8 for yellow cheeks)
+Detection feasibility: Maybe -- color difference is subtle but measurable in artwork
 ```
 
 **Visual signature**: Pikachu's cheek circles are red instead of yellow.
@@ -208,6 +220,7 @@ Detection region:  HP text area: ~[0.70, 0.03, 0.95, 0.10]
 Applicable sets:   base2 (Jungle)
 TCGCSV subtype:    NO -- same product
 Price impact:      Error version: $10-30 premium
+Detection feasibility: Not detectable -- HP text too small at binder resolution
 ```
 
 **Visual signature**: HP printed as "50" instead of correct "60" on early print runs.
@@ -222,6 +235,7 @@ Detection region:  Set symbol area: [0.42, 0.86, 0.62, 0.97]
 Applicable sets:   base2 (Jungle)
 TCGCSV subtype:    NO -- same product
 Price impact:      $5-50 depending on card rarity
+Detection feasibility: Maybe -- set symbol absence detectable if resolution is adequate
 ```
 
 **Visual signature**: Jungle set symbol (palm tree/leaf) is missing from the card.
@@ -238,6 +252,7 @@ Detection region:  Varies by error type
 Applicable sets:   base3 (Fossil)
 TCGCSV subtype:    NO -- same product
 Price impact:      $5-30 depending on error
+Detection feasibility: Not detectable -- requires close-up inspection
 ```
 
 Known Fossil errors:
@@ -253,6 +268,7 @@ Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
 Applicable sets:   Any holo card from any era
 TCGCSV subtype:    NO -- same product
 Price impact:      $5-50 premium for visible swirl pattern
+Detection feasibility: Not detectable -- requires direct angled lighting
 ```
 
 **Visual signature**: A spiral/swirl pattern visible in the holographic foil,
@@ -272,6 +288,7 @@ Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
 Applicable sets:   base4 (Base Set 2)
 TCGCSV subtype:    YES -- "Holofoil"
 Price impact:      Generally worth less than base1 holos
+Detection feasibility: Not detectable -- same holo limitation through sleeves
 ```
 
 **Visual signature**: "Cosmos" holographic pattern (small scattered dots/sparkles)
@@ -289,6 +306,7 @@ Detection region:  1st Ed stamp region: [0.02, 0.44, 0.24, 0.65]
 Applicable sets:   base1 ONLY (card #8, Machamp)
 TCGCSV subtype:    YES -- "1st Edition Holofoil"
 Price impact:      Minimal -- almost all Machamps are 1st Ed ($5-15)
+Detection feasibility: Maybe -- stamp is present but "true" 1st Ed requires card stock analysis
 ```
 
 **Special case**: Machamp was only distributed in Base Set Starter Decks, which
@@ -312,6 +330,7 @@ Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
 Applicable sets:   base5 (Team Rocket)
 TCGCSV subtype:    YES -- separate products for holo vs non-holo
 Price impact:      Holo version 3x-10x over non-holo
+Detection feasibility: Not detectable -- holo vs non-holo indistinguishable through sleeves
 ```
 
 **Visual signature**: Team Rocket rare cards exist as both holo and non-holo
@@ -334,6 +353,7 @@ Detection region:  Card number region: ~[0.60, 0.90, 0.95, 0.98]
 Applicable sets:   base5 (Team Rocket)
 TCGCSV subtype:    YES -- separate product
 Price impact:      $100-500+ (rare secret card)
+Detection feasibility: Detectable -- DINOv2 matches the specific card reference
 ```
 
 **Visual signature**: Card number 83/82 (exceeds set total). Holofoil.
@@ -350,6 +370,7 @@ Variant:           6 distinct printings of Dark Dragonite
 Applicable sets:   base5 (Team Rocket)
 TCGCSV subtype:    Partially -- 1st Ed Holo, 1st Ed Non-Holo, Unl Holo, Unl Non-Holo
 Price impact:      1st Ed Holo: $50-200, Non-Holo: $5-20
+Detection feasibility: Maybe -- 1st Ed stamp detectable, holo/non-holo not through sleeves
 ```
 
 **Variant matrix**:
@@ -371,6 +392,7 @@ Detection region:  Name bar: [0.06, 0.02, 0.94, 0.10]
 Applicable sets:   gym1 (Gym Heroes), gym2 (Gym Challenge)
 TCGCSV subtype:    YES -- each is a separate product
 Price impact:      Varies widely by trainer and Pokemon
+Detection feasibility: Detectable -- name OCR reads trainer prefix
 ```
 
 **Visual signature**: Card name includes trainer prefix: "Misty's Seadra",
@@ -389,6 +411,7 @@ Detection region:  Energy symbols in attack cost: ~[0.08, 0.58, 0.40, 0.72]
 Applicable sets:   gym2 (Gym Challenge)
 TCGCSV subtype:    NO -- same product
 Price impact:      Error version: slight premium
+Detection feasibility: Not detectable -- energy symbols too small at binder resolution
 ```
 
 **Visual signature**: Wrong energy symbol printed in attack cost area on early
@@ -416,6 +439,7 @@ Detection region:  [0.02, 0.44, 0.24, 0.65]
 Applicable sets:   neo1, neo2, neo3, neo4
 TCGCSV subtype:    YES -- "1st Edition" / "1st Edition Holofoil"
 Price impact:      2x-20x over Unlimited
+Detection feasibility: Maybe -- same as ERA 1 (~85% OCR accuracy)
 ```
 
 Same detection as ERA 1. Neo Destiny (neo4) was the LAST Pokemon TCG set to
@@ -432,6 +456,7 @@ Applicable sets:   neo3 (Shining Gyarados, Shining Magikarp)
                          Shining Steelix, Shining Tyranitar)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $50-500+ (chase cards of the era)
+Detection feasibility: Detectable -- name OCR reads "Shining" prefix
 ```
 
 **Visual signature**: Name starts with "Shining". Card has a distinctive
@@ -452,6 +477,7 @@ Applicable sets:   ecard2 (Aquapolis: Crystal Kingdra, Crystal Lugia, Crystal Ni
                            Crystal Golem, Crystal Ho-Oh, Crystal Kabutops)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $100-2000+ (extremely rare, low print runs)
+Detection feasibility: Detectable -- name OCR reads "Crystal" prefix
 ```
 
 **Visual signature**: Name includes "Crystal" prefix. Card has a unique
@@ -469,6 +495,7 @@ Detection region:  Border/text regions (NOT artwork): body regions as defined in
 Applicable sets:   base6 (Legendary Collection) ONLY
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      5x-50x over normal version (highly collectible pattern)
+Detection feasibility: Detectable -- hf_decorr on name bar works at 100% for reverse holo
 ```
 
 **Visual signature**: Unique "fireworks" holographic pattern on everything
@@ -497,6 +524,7 @@ Detection region:  Bottom edge strip: ~[0.05, 0.93, 0.95, 1.00]
 Applicable sets:   ecard1 (Expedition), ecard2 (Aquapolis), ecard3 (Skyridge)
 TCGCSV subtype:    NO -- same product (dot codes are on all e-Card cards)
 Price impact:      None (all cards in these sets have dot codes)
+Detection feasibility: Maybe -- dot pattern visible but not needed for variant detection
 ```
 
 **Visual signature**: Machine-readable dot code pattern along the bottom and/or
@@ -514,6 +542,7 @@ Detection region:  Dot code area (bottom/left edge)
 Applicable sets:   ecard2 (Aquapolis), ecard3 (Skyridge)
 TCGCSV subtype:    NO -- same product
 Price impact:      None (identical pricing)
+Detection feasibility: Not detectable -- dot patterns too fine at binder resolution
 ```
 
 **Visual signature**: Some cards exist with two different dot code patterns
@@ -529,6 +558,7 @@ Detection region:  Border/text regions
 Applicable sets:   ecard1, ecard2, ecard3
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      2x-10x over normal
+Detection feasibility: Detectable -- hf_decorr method works for reverse holo detection
 ```
 
 **Visual signature**: "Cosmic" holographic pattern on everything except artwork.
@@ -542,6 +572,7 @@ Variant:           Name prefix variants ("Dark" or "Light")
 Applicable sets:   neo4 (Neo Destiny)
 TCGCSV subtype:    YES -- separate products
 Price impact:      Varies by card
+Detection feasibility: Detectable -- name OCR reads "Dark"/"Light" prefix
 ```
 
 **Visual signature**: Cards with "Dark" or "Light" prefix to the Pokemon name.
@@ -567,6 +598,7 @@ Applicable sets:   ex1 (Ruby & Sapphire), ex2 (Sandstorm), ex3 (Dragon),
                    ex6 (FireRed & LeafGreen)
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      1.5x-3x over Normal
+Detection feasibility: Detectable -- hf_decorr method
 ```
 
 **Visual signature**: Standard reverse holographic foil on border and text areas.
@@ -587,6 +619,7 @@ Applicable sets:   ex7 (Team Rocket Returns), ex8 (Deoxys), ex9 (Emerald),
                    ex15 (Dragon Frontiers), ex16 (Power Keepers)
 TCGCSV subtype:    YES -- same as "Reverse Holofoil" (stamp does not create separate subtype)
 Price impact:      Same as reverse holo; stamped status is visual confirmation of reverse holo
+Detection feasibility: Maybe -- stamp OCR at 68.8% accuracy on binder scans
 ```
 
 **Visual signature**: Semi-transparent set logo and set name text overlaid on
@@ -619,6 +652,7 @@ Detection region:  Name bar area, right of name: ~[0.60, 0.03, 0.80, 0.10]
 Applicable sets:   ex5, ex7, ex8, ex10, ex11, ex12, ex13, ex14, ex15, ex16
 TCGCSV subtype:    YES -- separate products
 Price impact:      $50-3000+ (chase cards, extremely collectible)
+Detection feasibility: Detectable -- DINOv2 matches distinct artwork
 ```
 
 **Visual signature**: A gold star symbol appears next to the Pokemon's name in
@@ -637,6 +671,7 @@ Detection region:  Name bar: "ex" suffix after Pokemon name
 Applicable sets:   ex1 through ex16
 TCGCSV subtype:    YES -- separate products
 Price impact:      Varies (2x-20x over regular version)
+Detection feasibility: Detectable -- name OCR reads "ex" suffix
 ```
 
 **Visual signature**: Card name ends in "ex" (lowercase). Card has a distinct
@@ -653,6 +688,7 @@ Detection region:  [0.55, 0.30, 0.95, 0.58] (artwork bottom-right)
 Applicable sets:   Various EX sets (one prerelease card per set)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50 over regular version
+Detection feasibility: Maybe -- OCR reads stamp text but garbling is common
 ```
 
 **Visual signature**: Gold/yellow "PRERELEASE" text stamped on the card artwork,
@@ -670,6 +706,7 @@ Variant:           normal / holofoil only (no reverse holo)
 Applicable sets:   pop1, pop2, pop3, pop4, pop5
 TCGCSV subtype:    YES -- separate products per POP set
 Price impact:      Moderate (limited distribution)
+Detection feasibility: Detectable -- identified via set/card matching
 ```
 
 **Visual signature**: Standard card layout. POP Series cards have their own
@@ -690,6 +727,7 @@ Detection region:  Name bar -- "LV.X" text after Pokemon name
 Applicable sets:   dp1 through pl4
 TCGCSV subtype:    YES -- separate products
 Price impact:      $10-200+ depending on Pokemon
+Detection feasibility: Detectable -- name OCR reads "LV.X" suffix
 ```
 
 **Visual signature**: Card name includes "LV.X" suffix. Card has a distinctive
@@ -706,6 +744,7 @@ Detection region:  Border/text regions
 Applicable sets:   dp1-dp7, pl1-pl4
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      1.5x-3x over Normal
+Detection feasibility: Detectable -- hf_decorr method
 ```
 
 **Visual signature**: Clean rainbow holographic sheen on border and text areas.
@@ -725,6 +764,7 @@ Applicable sets:   pl3 (Supreme Victors: Milotic, Relicanth, Swablu,
                         Duskull, Voltorb)
 TCGCSV subtype:    YES -- separate products (SH number prefix)
 Price impact:      $20-100+
+Detection feasibility: Detectable -- DINOv2 matches distinct shiny artwork
 ```
 
 **Visual signature**: Pokemon depicted in its shiny/alternate color palette
@@ -740,6 +780,7 @@ Variant:           Rotom form cards
 Applicable sets:   pl3 (Supreme Victors) and pl4 (Arceus)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-30
+Detection feasibility: Detectable -- distinct artwork per form
 ```
 
 **Visual signature**: Rotom in various appliance forms (Wash, Heat, Fan, Frost, Mow).
@@ -752,6 +793,7 @@ Variant:           Different Arceus type forms
 Applicable sets:   pl4 (Arceus)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- distinct type-colored backgrounds
 ```
 
 **Visual signature**: Arceus depicted with different type-colored backgrounds.
@@ -765,6 +807,7 @@ Detection region:  Card number area: ~[0.60, 0.90, 0.95, 0.98]
 Applicable sets:   Various DP/Platinum sets
 TCGCSV subtype:    YES -- separate products
 Price impact:      $20-200+
+Detection feasibility: Detectable -- DINOv2 matches distinct secret rare artwork
 ```
 
 **Detection method**: Identified by card number exceeding set size (e.g., 131/130).
@@ -779,6 +822,7 @@ Detection region:  [0.55, 0.30, 0.95, 0.58] (artwork bottom-right)
 Applicable sets:   Various DP/Platinum sets
 TCGCSV subtype:    YES -- separate products
 Price impact:      Prerelease: $5-30; Staff: $20-200+
+Detection feasibility: Maybe -- stamp OCR works but text is small
 ```
 
 Same detection as ERA 4 prerelease stamps. Staff stamp is separate:
@@ -792,6 +836,7 @@ Variant:           normal / holofoil / promo
 Applicable sets:   dpp
 TCGCSV subtype:    YES -- separate products
 Price impact:      Varies
+Detection feasibility: Detectable -- identified via set/card matching
 ```
 
 ---
@@ -809,6 +854,7 @@ Detection region:  Below name bar or in card text
 Applicable sets:   hgss1-hgss4
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- name OCR reads "PRIME" text
 ```
 
 **Visual signature**: "PRIME" text below the Pokemon name. Card has a distinctive
@@ -825,6 +871,7 @@ Detection region:  Full card -- distinctive landscape format
 Applicable sets:   hgss1, hgss2, hgss4
 TCGCSV subtype:    YES -- separate products (top half and bottom half)
 Price impact:      $10-100+ per half; $50-300+ for pairs
+Detection feasibility: Detectable -- distinctive half-card layout + name OCR for "LEGEND"
 ```
 
 **Visual signature**: LEGEND cards span TWO physical cards that combine to form
@@ -843,6 +890,7 @@ Detection region:  Edge strips: outer 5% on each side
 Applicable sets:   bw1-bw11
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      2x-20x over regular version
+Detection feasibility: Detectable -- edge strip saturation analysis
 ```
 
 **Visual signature**: Artwork extends to card edges with no visible border.
@@ -864,6 +912,7 @@ Detection region:  Same as full art EX
 Applicable sets:   bw1-bw11 (introduced mid-BW era)
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      $10-200+
+Detection feasibility: Detectable -- edge strip saturation analysis
 ```
 
 **Visual signature**: Supporter cards with full-art illustration extending to
@@ -877,6 +926,7 @@ Detection region:  ACE SPEC text/symbol in card text area
 Applicable sets:   bw7-bw10 (Boundaries Crossed through Plasma Blast)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- DINOv2 matches distinct card design
 ```
 
 **Visual signature**: "ACE SPEC" designation with a distinctive gold ACE SPEC
@@ -892,6 +942,7 @@ Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
 Applicable sets:   Various BW and XY theme deck exclusives
 TCGCSV subtype:    YES -- "Holofoil" (same subtype as standard holo)
 Price impact:      Generally lower than booster pack holos ($2-10)
+Detection feasibility: Not detectable -- holo pattern distinction invisible through sleeves
 ```
 
 **Visual signature**: Instead of the standard cosmos/star holographic pattern,
@@ -909,6 +960,7 @@ Detection region:  Full card -- distinctive cute/chibi art style
 Applicable sets:   bw11 (Legendary Treasures)
 TCGCSV subtype:    YES -- separate products (RC-numbered cards)
 Price impact:      $2-100+ (RC Full Art Meloetta, etc.)
+Detection feasibility: Detectable -- DINOv2 matches distinct artwork
 ```
 
 **Visual signature**: Cards numbered with "RC" prefix (e.g., RC1, RC25).
@@ -921,6 +973,7 @@ Variant:           Shiny Pokemon cards
 Applicable sets:   bw9 (Plasma Freeze), bw11 (Legendary Treasures)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $10-300+
+Detection feasibility: Detectable -- DINOv2 matches distinct shiny artwork
 ```
 
 **Visual signature**: Pokemon depicted in shiny/alternate color palette.
@@ -934,6 +987,7 @@ Detection region:  Artwork area
 Applicable sets:   Various theme deck cards, some promos
 TCGCSV subtype:    YES -- "Holofoil"
 Price impact:      Usually lower than booster holo ($1-5)
+Detection feasibility: Not detectable -- holo pattern invisible through sleeves
 ```
 
 **Visual signature**: Galaxy/cosmos sparkle pattern across artwork instead of
@@ -964,6 +1018,7 @@ Detection region:  Name bar -- "M" prefix and "EX" suffix
 Applicable sets:   xy1-xy12, g1
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-100+
+Detection feasibility: Detectable -- name OCR reads "M" prefix + "-EX" suffix
 ```
 
 **Visual signature**: Card name starts with "M " and ends with "-EX" (e.g.,
@@ -980,6 +1035,7 @@ Detection region:  Full card -- 90-degree rotated layout
 Applicable sets:   xy8 (BREAKthrough), xy9 (BREAKpoint), xy12 (Evolutions)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $3-30
+Detection feasibility: Maybe -- landscape orientation detectable but rotation handling needed
 ```
 
 **Visual signature**: Card is LANDSCAPE oriented (rotated 90 degrees from normal).
@@ -1002,6 +1058,7 @@ Detection region:  Edge strips: outer 5%
 Applicable sets:   xy1-xy12, g1
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      2x-20x over regular version
+Detection feasibility: Detectable -- edge strip saturation analysis
 ```
 
 Same detection as ERA 6 full art.
@@ -1014,6 +1071,7 @@ Detection region:  Full card -- gold border and gold color dominance
 Applicable sets:   xy1-xy12
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      $10-100+
+Detection feasibility: Detectable -- HSV gold color analysis
 ```
 
 **Visual signature**: Entire card has gold-tinted borders and accents. Card
@@ -1034,6 +1092,7 @@ Detection region:  Full card -- distinctive art style
 Applicable sets:   g1 (Generations)
 TCGCSV subtype:    YES -- separate products (RC-numbered)
 Price impact:      $5-200+ (Radiant Collection FA cards)
+Detection feasibility: Detectable -- DINOv2 matches distinct artwork
 ```
 
 **Visual signature**: Cards numbered with "RC" prefix. Cute/chibi art style
@@ -1059,6 +1118,7 @@ Detection region:  Name bar -- "GX" suffix
 Applicable sets:   sm1-sm12 (all SM main sets)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $3-200+
+Detection feasibility: Detectable -- name OCR reads "-GX" suffix
 ```
 
 **Visual signature**: Card name ends in "-GX". Cards have a holographic GX
@@ -1075,6 +1135,7 @@ Detection region:  Edge strips: outer 5%
 Applicable sets:   sm1-sm12
 TCGCSV subtype:    NO -- shares Holofoil subtype (different product from regular GX)
 Price impact:      2x-10x over regular GX
+Detection feasibility: Detectable -- edge strip saturation analysis
 ```
 
 **Visual signature**: Full art illustration extending to card edges. Textured
@@ -1088,6 +1149,7 @@ Detection region:  Full card surface
 Applicable sets:   sm1-sm12 (first era with rainbow rares)
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      2x-20x over regular version
+Detection feasibility: Detectable -- multi-hue saturation analysis
 ```
 
 **Visual signature**: Full art card with rainbow/prismatic foil covering the
@@ -1108,6 +1170,7 @@ Detection region:  Full card surface, especially borders
 Applicable sets:   sm1-sm12
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      $10-200+
+Detection feasibility: Detectable -- HSV gold color analysis
 ```
 
 **Visual signature**: Entire card dominated by gold color including borders.
@@ -1127,6 +1190,7 @@ Detection region:  Name bar -- prism star symbol after name
 Applicable sets:   sm5 (Ultra Prism) through sm11 (Unified Minds)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $2-20
+Detection feasibility: Detectable -- DINOv2 matches distinct card design
 ```
 
 **Visual signature**: A prismatic/rainbow star symbol appears after the card name.
@@ -1143,6 +1207,7 @@ Detection region:  Name bar -- two Pokemon names connected by "&"
 Applicable sets:   sm9 (Team Up) through sm12 (Cosmic Eclipse)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-500+ (alt art Tag Teams are chase cards)
+Detection feasibility: Detectable -- name OCR reads "&" connector + "-GX" suffix
 ```
 
 **Visual signature**: Card name contains two Pokemon names with "&" connector
@@ -1159,6 +1224,7 @@ Detection region:  Full card -- different artwork from standard version
 Applicable sets:   sm9-sm12
 TCGCSV subtype:    YES -- separate products
 Price impact:      $20-500+ (highly collectible)
+Detection feasibility: Detectable -- DINOv2 distinguishes alt art from regular
 ```
 
 **Visual signature**: Same Pokemon name and card text but completely different
@@ -1177,6 +1243,7 @@ Detection region:  Full card -- unique art style with trainer character
 Applicable sets:   sm12 (Cosmic Eclipse)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- DINOv2 matches distinct artwork
 ```
 
 **Visual signature**: Card artwork features a Pokemon alongside a known Pokemon
@@ -1191,6 +1258,7 @@ Detection region:  Border/text regions
 Applicable sets:   sm1-sm12
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      1.2x-2x over Normal
+Detection feasibility: Detectable -- hf_decorr method
 ```
 
 **Visual signature**: Horizontal rows of small type symbols (fire, water, grass,
@@ -1221,6 +1289,7 @@ Detection region:  Name bar -- "V", "VMAX", or "VSTAR" suffix
 Applicable sets:   swsh1-swsh12, swsh12pt5
 TCGCSV subtype:    YES -- separate products
 Price impact:      V: $2-50, VMAX: $5-100, VSTAR: $5-50
+Detection feasibility: Detectable -- name OCR reads V/VMAX/VSTAR suffix
 ```
 
 **Visual signature**:
@@ -1236,6 +1305,7 @@ Detection region:  Full card -- unique scene-based artwork
 Applicable sets:   swsh5 (Battle Styles) onward through swsh12
 TCGCSV subtype:    YES -- separate products
 Price impact:      $20-500+ (Moonbreon VMAX alt art: $200-400)
+Detection feasibility: Detectable -- DINOv2 distinguishes alt art from regular
 ```
 
 **Visual signature**: Same Pokemon name and attacks as regular version but with
@@ -1254,6 +1324,7 @@ Detection region:  Full card surface
 Applicable sets:   swsh1-swsh12
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      $5-100+
+Detection feasibility: Detectable -- multi-hue saturation analysis
 ```
 
 Same detection as ERA 8 rainbow rare.
@@ -1266,6 +1337,7 @@ Detection region:  Full card surface
 Applicable sets:   swsh1-swsh12
 TCGCSV subtype:    NO -- shares Holofoil subtype
 Price impact:      $10-100+
+Detection feasibility: Detectable -- HSV gold color analysis
 ```
 
 Same detection as ERA 8 gold.
@@ -1278,6 +1350,7 @@ Detection region:  Full card -- character + Pokemon art
 Applicable sets:   swsh9tg, swsh10tg, swsh11tg, swsh12tg
 TCGCSV subtype:    YES -- separate products (TG-numbered)
 Price impact:      $3-50
+Detection feasibility: Detectable -- DINOv2 matches distinct artwork
 ```
 
 **Visual signature**: Cards numbered with "TG" prefix. Feature Pokemon alongside
@@ -1294,6 +1367,7 @@ Detection region:  Border region -- distinctive rainbow/prismatic border
 Applicable sets:   swsh4 (Vivid Voltage), swsh5 (Battle Styles)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-30
+Detection feasibility: Detectable -- rainbow border color analysis + DINOv2
 ```
 
 **Visual signature**: Rainbow-colored border with a unique stained-glass-like
