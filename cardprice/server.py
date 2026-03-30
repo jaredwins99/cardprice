@@ -467,7 +467,24 @@ input[type=file] { display: none; }
 .price { font-size: 24px; color: #4ecca3; font-weight: bold; }
 .cond-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; font-size: 12px; font-weight: 600; }
 .cond-pill { padding: 2px 7px; border-radius: 10px; background: #1a1a2e; }
-.variant-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; background: #f0c040; color: #1a1a2e; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-left: 8px; }
+.variant-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; background: #f0c040; color: #1a1a2e; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-right: 4px; margin-bottom: 2px; }
+.variant-badge.first-edition { background: #f1c40f; color: #333; }
+.variant-badge.shadowless { background: #bdc3c7; color: #333; }
+.variant-badge.ghost { background: #95a5a6; color: #fff; }
+.variant-badge.no-symbol { background: #e67e22; color: #fff; }
+.variant-badge.promo { background: #2c3e50; color: #fff; }
+.variant-badge.prerelease { background: #3498db; color: #fff; }
+.variant-badge.staff { background: linear-gradient(135deg, #f1c40f, #3498db); color: #fff; }
+.variant-badge.stamped { background: #9b59b6; color: #fff; }
+.variant-badge.pc-exclusive { background: #e74c3c; color: #fff; }
+.variant-badge.bb-promo { background: #e74c3c; color: #fff; }
+.variant-badge.winner { background: #f39c12; color: #333; }
+.variant-badge.crosshatch { background: #1abc9c; color: #fff; }
+.variant-badge.wc { background: #7f8c8d; color: #fff; }
+.variant-badge.ditto { background: #9b59b6; color: #fff; }
+.variant-badge.tru { background: #2980b9; color: #fff; }
+.variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
+.variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
 .btn-row { display: flex; gap: 8px; justify-content: center; margin: 12px 0 4px; }
 .btn-row button { flex: 1; max-width: 180px; padding: 10px 16px; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
 .btn-inv { background: #4ecca3; color: #1a1a2e; }
@@ -543,7 +560,7 @@ input[type=file] { display: none; }
 </div>
 <div class="result" id="invResult">
     <h3 id="invCardName" style="color:#4ecca3;"></h3>
-    <span id="invVariantBadge" class="variant-badge" style="display:none;"></span>
+    <div id="invVariantBadges" style="display:none;margin:4px 0;"></div>
     <div class="price" id="invCardPrice"></div>
     <div id="invConditionPrices" class="cond-row" style="display:none;"></div>
     <div class="confidence" id="invCardConf"></div>
@@ -610,7 +627,7 @@ input[type=file] { display: none; }
 </div>
 <div class="result" id="cartResult">
     <h3 id="cartCardName" style="color:#3498db;"></h3>
-    <span id="cartVariantBadge" class="variant-badge" style="display:none;"></span>
+    <div id="cartVariantBadges" style="display:none;margin:4px 0;"></div>
     <div class="price" id="cartCardPrice" style="color:#3498db;"></div>
     <div id="cartConditionPrices" class="cond-row" style="display:none;"></div>
     <div class="confidence" id="cartCardConf"></div>
@@ -804,6 +821,30 @@ function handleFile(file, sec) {
         });
 }
 
+// Global stamp badge map for variant display
+var _STAMP_BADGE_MAP = {
+    '1st_edition':        {label: '1st Ed',       cssClass: 'first-edition'},
+    'shadowless':         {label: 'Shadowless',    cssClass: 'shadowless'},
+    'ghost_stamp':        {label: 'Ghost',         cssClass: 'ghost'},
+    'no_symbol':          {label: 'No Symbol',     cssClass: 'no-symbol'},
+    'reverse_holo':       {label: 'Rev Holo',      cssClass: 'reverse-holo'},
+    'ex_set_stamp':       {label: 'Stamped',       cssClass: 'stamped'},
+    'black_star_promo':   {label: 'Promo',         cssClass: 'promo'},
+    'modern_promo':       {label: 'Promo',         cssClass: 'promo'},
+    'promo_stamp':        {label: 'Promo',         cssClass: 'promo'},
+    'promo':              {label: 'Promo',         cssClass: 'promo'},
+    'prerelease':         {label: 'Prerelease',    cssClass: 'prerelease'},
+    'staff':              {label: 'Staff',          cssClass: 'staff'},
+    'pokemon_center':     {label: 'PC',            cssClass: 'pc-exclusive'},
+    'build_battle':       {label: 'B&B',           cssClass: 'bb-promo'},
+    'winner':             {label: 'Winner',        cssClass: 'winner'},
+    'crosshatch':         {label: 'Crosshatch',    cssClass: 'crosshatch'},
+    'world_championship': {label: 'WC Deck',       cssClass: 'wc'},
+    'ditto':              {label: 'Ditto!',        cssClass: 'ditto'},
+    'toys_r_us':          {label: 'TRU',           cssClass: 'tru'},
+    'stamped':            {label: 'Stamped',        cssClass: 'stamped'},
+};
+
 function showResult(data, sec) {
     var nameEl = document.getElementById(sec + 'CardName');
     var cardName = data.card_name || 'Unknown Card';
@@ -813,12 +854,39 @@ function showResult(data, sec) {
     } else {
         nameEl.textContent = cardName;
     }
-    var badge = document.getElementById(sec + 'VariantBadge');
-    if (data.detected_variant && data.detected_variant !== 'normal') {
-        badge.textContent = data.detected_variant.replace(/_/g, ' ');
-        badge.style.display = 'inline-block';
+    var badgeContainer = document.getElementById(sec + 'VariantBadges');
+    badgeContainer.innerHTML = '';
+    var stampBadgesSeen = {};
+    var stampSources = [];
+    // Primary: stamp_details (multiple stamps)
+    if (data.stamp_details && typeof data.stamp_details === 'object') {
+        var skeys = Object.keys(data.stamp_details);
+        for (var si = 0; si < skeys.length; si++) { stampSources.push(skeys[si]); }
+    }
+    // Fallback: stamps_detected array
+    if (stampSources.length === 0 && data.stamps_detected && data.stamps_detected.length > 0) {
+        for (var si2 = 0; si2 < data.stamps_detected.length; si2++) { stampSources.push(data.stamps_detected[si2]); }
+    }
+    // Fallback: detected_variant scalar
+    if (stampSources.length === 0 && data.detected_variant && data.detected_variant !== 'normal') {
+        stampSources.push(data.detected_variant);
+    }
+    for (var si3 = 0; si3 < stampSources.length; si3++) {
+        var stype = stampSources[si3];
+        var sinfo = _STAMP_BADGE_MAP[stype];
+        var slabel = sinfo ? sinfo.label : stype.replace(/_/g, ' ');
+        var scls = sinfo ? sinfo.cssClass : '';
+        if (stampBadgesSeen[slabel]) continue;
+        stampBadgesSeen[slabel] = true;
+        var sb = document.createElement('span');
+        sb.className = 'variant-badge' + (scls ? ' ' + scls : '');
+        sb.textContent = slabel;
+        badgeContainer.appendChild(sb);
+    }
+    if (stampSources.length > 0) {
+        badgeContainer.style.display = 'block';
     } else {
-        badge.style.display = 'none';
+        badgeContainer.style.display = 'none';
     }
     var displayPrice = data.variant_price || data.market_price;
     document.getElementById(sec + 'CardPrice').textContent = displayPrice ? '$' + parseFloat(displayPrice).toFixed(2) : 'No price data';
@@ -1039,8 +1107,29 @@ function _showCardDetail(sec, idx) {
         h += '<div style="font-size:18px;font-weight:bold;color:#e0e0e0;margin-bottom:4px;">' + nameText + '</div>';
     }
     if (c.set_name) h += '<div style="font-size:13px;color:#888;margin-bottom:8px;">' + c.set_name + '</div>';
-    if (c.detected_variant && c.detected_variant !== 'normal') {
-        h += '<span style="display:inline-block;background:#f0c040;color:#1a1a2e;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:10px;margin-bottom:8px;">' + c.detected_variant.replace(/_/g, ' ').toUpperCase() + '</span>';
+    // Render all detected stamp badges for inventory/cart list items
+    var listStamps = [];
+    if (c.stamp_details && typeof c.stamp_details === 'object') {
+        var lsKeys = Object.keys(c.stamp_details);
+        for (var lsi = 0; lsi < lsKeys.length; lsi++) listStamps.push(lsKeys[lsi]);
+    } else if (c.stamps_detected && c.stamps_detected.length > 0) {
+        for (var lsi2 = 0; lsi2 < c.stamps_detected.length; lsi2++) listStamps.push(c.stamps_detected[lsi2]);
+    } else if (c.detected_variant && c.detected_variant !== 'normal') {
+        listStamps.push(c.detected_variant);
+    }
+    if (listStamps.length > 0) {
+        var lsSeen = {};
+        h += '<div style="margin-bottom:8px;">';
+        for (var lsi3 = 0; lsi3 < listStamps.length; lsi3++) {
+            var lst = listStamps[lsi3];
+            var lsInfo = _STAMP_BADGE_MAP[lst];
+            var lsLabel = lsInfo ? lsInfo.label : lst.replace(/_/g, ' ');
+            if (lsSeen[lsLabel]) continue;
+            lsSeen[lsLabel] = true;
+            var lsCls = lsInfo ? lsInfo.cssClass : '';
+            h += '<span class="variant-badge' + (lsCls ? ' ' + lsCls : '') + '">' + lsLabel + '</span>';
+        }
+        h += '</div>';
     }
     if (displayPrice) {
         h += '<div style="font-size:24px;font-weight:bold;color:' + accentColor + ';margin:8px 0;">$' + parseFloat(displayPrice).toFixed(2) + '</div>';

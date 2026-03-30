@@ -421,16 +421,23 @@ input[type=file] { display: none; }
 /* Variant colored borders on scanned card images */
 .binder-img-col .img-wrap.variant-1st-edition { border: 3px solid #DAA520; }
 .binder-img-col .img-wrap.variant-shadowless { border: 3px solid #C0C0C0; }
+.binder-img-col .img-wrap.variant-ghost-stamp { border: 3px solid #95a5a6; }
+.binder-img-col .img-wrap.variant-no-symbol { border: 3px solid #e67e22; }
 .binder-img-col .img-wrap.variant-reverse-holo { border: 2px solid #3498db; }
 .binder-img-col .img-wrap.variant-stamped { border: 3px solid #9b59b6; }
 .binder-img-col .img-wrap.variant-promo { border: 3px solid #2c3e50; }
-.binder-img-col .img-wrap.variant-prerelease { border: 2px solid #1abc9c; }
+.binder-img-col .img-wrap.variant-prerelease { border: 2px solid #3498db; }
 .binder-img-col .img-wrap.variant-staff { border: 3px solid #DAA520; background: linear-gradient(135deg, #DAA520, #f5d76e, #DAA520); }
 .binder-img-col .img-wrap.variant-pokemon-center { border: 2px solid #e74c3c; }
 .binder-img-col .img-wrap.variant-build-battle { border: 2px dashed #e74c3c; }
 .binder-img-col .img-wrap.variant-grey-stamp { border: 3px solid #808080; }
 .binder-img-col .img-wrap.variant-ex-set-stamp { border: 2px solid #3498db; }
 .binder-img-col .img-wrap.variant-black-star-promo { border: 3px solid #2c3e50; }
+.binder-img-col .img-wrap.variant-winner { border: 3px solid #f39c12; }
+.binder-img-col .img-wrap.variant-crosshatch { border: 3px solid #1abc9c; }
+.binder-img-col .img-wrap.variant-world-championship { border: 3px solid #7f8c8d; }
+.binder-img-col .img-wrap.variant-ditto { border: 3px solid #9b59b6; }
+.binder-img-col .img-wrap.variant-toys-r-us { border: 3px solid #2980b9; }
 
 /* Card info section */
 .binder-card-info {
@@ -730,11 +737,18 @@ input[type=file] { display: none; }
 .variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
 .variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
 .variant-badge.shadowless { background: #bdc3c7; color: #333; }
+.variant-badge.ghost { background: #95a5a6; color: #fff; }
+.variant-badge.no-symbol { background: #e67e22; color: #fff; }
 .variant-badge.promo { background: #2c3e50; color: #fff; }
 .variant-badge.prerelease { background: #3498db; color: #fff; }
 .variant-badge.staff { background: linear-gradient(135deg, #f1c40f, #3498db); color: #fff; }
 .variant-badge.pc-exclusive { background: #e74c3c; color: #fff; }
 .variant-badge.bb-promo { background: linear-gradient(135deg, #e74c3c, #fff); color: #333; }
+.variant-badge.winner { background: #f39c12; color: #333; }
+.variant-badge.crosshatch { background: #1abc9c; color: #fff; }
+.variant-badge.wc { background: #7f8c8d; color: #fff; }
+.variant-badge.ditto { background: #9b59b6; color: #fff; }
+.variant-badge.tru { background: #2980b9; color: #fff; }
 .modal-close {
     display: block;
     width: 100%;
@@ -816,11 +830,18 @@ input[type=file] { display: none; }
 .modal-variant-badge.holo { background: linear-gradient(135deg, #e74c3c, #f1c40f, #2ecc71, #3498db); color: #fff; }
 .modal-variant-badge.reverse-holo { background: #95a5a6; color: #fff; }
 .modal-variant-badge.shadowless { background: #bdc3c7; color: #333; }
+.modal-variant-badge.ghost { background: #95a5a6; color: #fff; }
+.modal-variant-badge.no-symbol { background: #e67e22; color: #fff; }
 .modal-variant-badge.promo { background: #2c3e50; color: #fff; }
 .modal-variant-badge.prerelease { background: #3498db; color: #fff; }
 .modal-variant-badge.staff { background: linear-gradient(135deg, #f1c40f, #3498db); color: #fff; }
 .modal-variant-badge.pc-exclusive { background: #e74c3c; color: #fff; }
 .modal-variant-badge.bb-promo { background: linear-gradient(135deg, #e74c3c, #fff); color: #333; }
+.modal-variant-badge.winner { background: #f39c12; color: #333; }
+.modal-variant-badge.crosshatch { background: #1abc9c; color: #fff; }
+.modal-variant-badge.wc { background: #7f8c8d; color: #fff; }
+.modal-variant-badge.ditto { background: #9b59b6; color: #fff; }
+.modal-variant-badge.tru { background: #2980b9; color: #fff; }
 </style>
 </head>
 <body>
@@ -1454,18 +1475,26 @@ function drawQR(canvasId,text,cellSize){
     // Map stamp_details keys and variant field to display badges.
     // Returns array of {label, cssClass, confidence} objects.
     var _STAMP_BADGE_MAP = {
-        '1st_edition':      {label: '1st Ed',       cssClass: 'first-edition'},
-        'shadowless':       {label: 'Shadowless',    cssClass: 'shadowless'},
-        'reverse_holo':     {label: 'Rev Holo',      cssClass: 'reverse-holo'},
-        'ex_set_stamp':     {label: 'Stamped',       cssClass: 'stamped'},
-        'black_star_promo': {label: 'Promo',         cssClass: 'promo'},
-        'modern_promo':     {label: 'Promo',         cssClass: 'promo'},
-        'promo_stamp':      {label: 'Promo',         cssClass: 'promo'},
-        'prerelease':       {label: 'Prerelease',    cssClass: 'prerelease'},
-        'staff':            {label: 'Staff',          cssClass: 'staff'},
-        'pokemon_center':   {label: 'PC Exclusive',  cssClass: 'pc-exclusive'},
-        'build_battle':     {label: 'B&B Promo',     cssClass: 'bb-promo'},
-        'stamped':          {label: 'Stamped',        cssClass: 'stamped'},
+        '1st_edition':        {label: '1st Ed',       cssClass: 'first-edition'},
+        'shadowless':         {label: 'Shadowless',    cssClass: 'shadowless'},
+        'ghost_stamp':        {label: 'Ghost',         cssClass: 'ghost'},
+        'no_symbol':          {label: 'No Symbol',     cssClass: 'no-symbol'},
+        'reverse_holo':       {label: 'Rev Holo',      cssClass: 'reverse-holo'},
+        'ex_set_stamp':       {label: 'Stamped',       cssClass: 'stamped'},
+        'black_star_promo':   {label: 'Promo',         cssClass: 'promo'},
+        'modern_promo':       {label: 'Promo',         cssClass: 'promo'},
+        'promo_stamp':        {label: 'Promo',         cssClass: 'promo'},
+        'promo':              {label: 'Promo',         cssClass: 'promo'},
+        'prerelease':         {label: 'Prerelease',    cssClass: 'prerelease'},
+        'staff':              {label: 'Staff',          cssClass: 'staff'},
+        'pokemon_center':     {label: 'PC',            cssClass: 'pc-exclusive'},
+        'build_battle':       {label: 'B&B',           cssClass: 'bb-promo'},
+        'winner':             {label: 'Winner',        cssClass: 'winner'},
+        'crosshatch':         {label: 'Crosshatch',    cssClass: 'crosshatch'},
+        'world_championship': {label: 'WC Deck',       cssClass: 'wc'},
+        'ditto':              {label: 'Ditto!',        cssClass: 'ditto'},
+        'toys_r_us':          {label: 'TRU',           cssClass: 'tru'},
+        'stamped':            {label: 'Stamped',        cssClass: 'stamped'},
     };
 
     function _getVariantBadges(card) {

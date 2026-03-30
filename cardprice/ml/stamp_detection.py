@@ -118,7 +118,52 @@ STAMP_REGIONS = {
         "tight": (0.045, 0.415, 0.165, 0.475),
         "position": "artwork_bottom_left",
     },
+    # Wizards "W" gold foil stamp: artwork area, typically bottom-right.
+    # Extremely rare WotC-era promo — only 7 cards ever produced (1999-2001).
+    # Gold foil Wizards logo "W" stamped directly on the card artwork.
+    "w_stamp": {
+        "wide": (0.10, 0.14, 0.90, 0.56),
+        "tight": (0.40, 0.25, 0.85, 0.55),
+        "position": "artwork",
+    },
+    # Winner tournament stamp: bottom-right of artwork area.
+    # Three eras:
+    #   WotC (2002-2003): gold foil lowercase "winner" with star dot on "i"
+    #   Pokemon USA (2003-2004): Poke Ball + "WINNER" text
+    #   Modern (2025+): Poke Ball + "WINNER" in caps
+    "winner_stamp": {
+        "wide": (0.50, 0.25, 0.98, 0.58),
+        "tight": (0.55, 0.30, 0.95, 0.55),
+        "position": "artwork_bottom_right",
+    },
+    # Peelable Ditto face icon: bottom-left corner of card.
+    # Pokemon GO set (2022) has Bidoof/Numel/Spinarak cards where some copies
+    # have a tiny purple Ditto face icon.  Peeling the sticker front reveals
+    # a Ditto card underneath.  Icon is ~3-4mm, purple/pink smiley.
+    "peelable_ditto": {
+        "wide": (0.03, 0.83, 0.18, 0.97),
+        "tight": (0.05, 0.85, 0.15, 0.95),
+        "position": "bottom_left",
+    },
+    # Pokemon Day event stamp: appears on the card artwork, typically
+    # bottom-right area.  Annual event promo with "POKEMON DAY" logo text.
+    "pokemon_day": {
+        "wide": (0.40, 0.14, 0.95, 0.58),
+        "tight": (0.50, 0.25, 0.95, 0.55),
+        "position": "artwork_bottom_right",
+    },
 }
+
+# ---------------------------------------------------------------------------
+# Special Delivery promo cards — Pokemon Center online exclusives
+# ---------------------------------------------------------------------------
+# These are specific card_ids, so detection is a simple set membership check.
+# No visual detection needed — the card_id uniquely identifies them.
+_SPECIAL_DELIVERY_CARD_IDS = frozenset({
+    "swshp-SWSH074",   # Special Delivery Pikachu
+    "swshp-SWSH075",   # Special Delivery Charizard
+    "swshp-SWSH177",   # Special Delivery Bidoof
+})
 
 # ---------------------------------------------------------------------------
 # Era-to-stamp mapping: which stamps are possible for each era/set
@@ -330,6 +375,18 @@ _RETAILER_OCR_SUBS: dict[str, str] = {
 
 # Eras where retailer stamps are possible (BW=5, XY=6, SM=7)
 _RETAILER_STAMP_ERAS = frozenset({5, 6, 7})
+
+# ---------------------------------------------------------------------------
+# Winner stamp eligible sets
+# ---------------------------------------------------------------------------
+# Winner stamps appear on tournament prize cards across three eras:
+#   WotC (2002-2003): Jungle, Fossil, Base Set 2, Team Rocket, Gym Heroes/Challenge
+#   Pokemon USA (2003-2004): EX-era sets (Ruby & Sapphire through Hidden Legends)
+#   Modern (2025+): SV-era sets
+# These overlap heavily with prerelease-eligible sets since both are event promos.
+_WINNER_STAMP_SETS = (
+    _PRERELEASE_TEXT_SETS | _PRERELEASE_LOGO_SETS | _FIRST_EDITION_SETS
+)
 
 
 def _extract_set_id(card_id: str) -> str:
@@ -760,6 +817,108 @@ def _check_1st_edition(img_bgr: np.ndarray) -> dict:
     return {"detected": False, "confidence": 0.0, "position": "left"}
 
 
+def _check_ghost_stamp(img_bgr: np.ndarray, set_id: str) -> dict:
+    """Detect partially printed 1st Edition 'ghost' stamp.
+
+    A ghost stamp is a manufacturing error where only part of the 1st Edition
+    stamp was printed -- common on Base Set Pikachu from Zap! theme decks.
+    The stamp appears as a faint or partial dark mark in the same region as
+    the normal 1st Edition stamp.
+
+    Detection logic:
+      1. Extract the 1st Edition stamp region.
+      2. Count dark pixels at two thresholds: strict (<=80, normal stamp)
+         and relaxed (<=120, faint ink).
+      3. If the strict count is too low for a real 1st Edition stamp but
+         the relaxed count shows some dark signal, flag as ghost.
+      4. Require the dark pixels to be spatially clustered (not just noise)
+         by checking that the largest dark contour is >=30% of total dark area.
+
+    Only applicable to base1 cards.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (only 'base1' is valid).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    if set_id != "base1":
+        return {"detected": False, "confidence": 0.0, "position": "left"}
+
+    regions = STAMP_REGIONS["1st_edition"]
+    tight = _extract_region(img_bgr, *regions["tight"])
+    if tight.size == 0:
+        return {"detected": False, "confidence": 0.0, "position": "left"}
+
+    gray = cv2.cvtColor(tight, cv2.COLOR_BGR2GRAY)
+    h, w = gray.shape
+    total_pixels = h * w
+    if total_pixels == 0:
+        return {"detected": False, "confidence": 0.0, "position": "left"}
+
+    # Strict threshold: what a normal 1st edition stamp would show
+    _, strict_mask = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+    strict_dark = np.count_nonzero(strict_mask)
+    strict_frac = strict_dark / total_pixels
+
+    # If enough dark pixels for a normal stamp, this isn't a ghost --
+    # let _check_1st_edition handle it
+    if strict_frac > 0.05:
+        return {"detected": False, "confidence": 0.0, "position": "left",
+                "evidence": "too_dark_for_ghost"}
+
+    # Relaxed threshold: captures faint/partial ink
+    _, relaxed_mask = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY_INV)
+    relaxed_dark = np.count_nonzero(relaxed_mask)
+    relaxed_frac = relaxed_dark / total_pixels
+
+    # Need some faint signal but not too much (noise)
+    if relaxed_frac < 0.008 or relaxed_frac > 0.25:
+        return {"detected": False, "confidence": 0.0, "position": "left",
+                "evidence": "no_faint_signal"}
+
+    # Check spatial clustering: the dark pixels should form a coherent mark,
+    # not random noise scattered across the region
+    contours, _ = cv2.findContours(relaxed_mask, cv2.RETR_EXTERNAL,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return {"detected": False, "confidence": 0.0, "position": "left"}
+
+    largest_area = max(cv2.contourArea(c) for c in contours)
+    cluster_ratio = largest_area / relaxed_dark if relaxed_dark > 0 else 0.0
+
+    # Largest contour should be a meaningful fraction of the dark pixels --
+    # random noise would be many tiny scattered blobs
+    if cluster_ratio < 0.30:
+        return {"detected": False, "confidence": 0.0, "position": "left",
+                "evidence": "scattered_noise"}
+
+    # Confidence scales with how much faint signal is present and how
+    # well-clustered it is
+    signal_score = min(relaxed_frac / 0.04, 1.0)  # saturates at 4%
+    cluster_score = min(cluster_ratio / 0.60, 1.0)  # saturates at 60%
+    confidence = round(0.50 + 0.40 * signal_score * cluster_score, 2)
+    confidence = min(confidence, 0.90)  # cap -- ghost stamps are inherently
+    #                                     uncertain without manual verification
+
+    logger.info(
+        "Ghost stamp candidate: relaxed_frac=%.4f, strict_frac=%.4f, "
+        "cluster_ratio=%.2f, confidence=%.2f",
+        relaxed_frac, strict_frac, cluster_ratio, confidence,
+    )
+
+    return {
+        "detected": True,
+        "confidence": confidence,
+        "position": "left",
+        "evidence": "faint_partial_ink",
+        "relaxed_dark_frac": round(relaxed_frac, 4),
+        "strict_dark_frac": round(strict_frac, 4),
+        "cluster_ratio": round(cluster_ratio, 2),
+    }
+
+
 def _check_grey_stamp(img_bgr: np.ndarray, stamp_region_crop: np.ndarray
                       ) -> tuple[str, float]:
     """After 1st edition detected, check if stamp ink is grey vs black.
@@ -1053,6 +1212,63 @@ def _check_copyright_year(img_bgr: np.ndarray, set_id: str) -> dict:
 
 
 
+def _check_world_championship(img_bgr: np.ndarray, set_id: str) -> dict:
+    """Detect World Championship deck cards (reproductions, not real).
+
+    Key indicator: grey/silver border instead of normal yellow/colored.
+    Region: outer border strips (x:0-3% and x:97-100%).
+
+    Normal cards have colored borders with moderate-to-high saturation
+    (yellow borders sat>40, colored borders even higher).  WC deck cards
+    have distinctive grey/silver borders with very low saturation (<25).
+
+    This is a cheap pixel-based check (no OCR), runs in <1ms.
+
+    Returns dict with 'detected', 'confidence', etc.
+    """
+    h, w = img_bgr.shape[:2]
+
+    # Sample outer 3% border strips (left and right)
+    border_w = max(int(w * 0.03), 2)
+    left_strip = img_bgr[:, :border_w]
+    right_strip = img_bgr[:, w - border_w:]
+
+    # Combine both strips
+    border_pixels = np.concatenate([left_strip, right_strip], axis=1)
+
+    # Convert to HSV for saturation analysis
+    hsv = cv2.cvtColor(border_pixels, cv2.COLOR_BGR2HSV)
+    mean_sat = float(np.mean(hsv[:, :, 1]))
+    mean_val = float(np.mean(hsv[:, :, 2]))
+
+    # Grey/silver: low saturation, moderate-to-high value (not black)
+    # Normal borders: higher saturation (yellow ~100+, blue/red ~80+)
+    is_grey = mean_sat < 25 and mean_val > 80
+
+    # Confidence based on how definitively grey the border is
+    if is_grey:
+        # Lower saturation = higher confidence (0 sat = perfect grey)
+        sat_score = max(0.0, 1.0 - mean_sat / 25.0)
+        # Value should be moderate (silver ~120-200), not too dark or bright
+        val_score = 1.0 if 100 < mean_val < 220 else 0.7
+        confidence = round(0.6 * sat_score + 0.4 * val_score, 3)
+    else:
+        confidence = 0.0
+
+    logger.debug(
+        "WC deck check: mean_sat=%.1f, mean_val=%.1f, is_grey=%s, conf=%.3f",
+        mean_sat, mean_val, is_grey, confidence,
+    )
+
+    return {
+        "detected": is_grey,
+        "confidence": confidence,
+        "position": "border",
+        "evidence": f"border_sat={mean_sat:.1f},border_val={mean_val:.1f}",
+        "warning": "World Championship deck card — reproduction, not tournament legal",
+    }
+
+
 def _check_shadowless(img_bgr: np.ndarray, set_id: str) -> dict:
     """Check if a Base Set card is Shadowless (no right/bottom border shadow).
 
@@ -1340,8 +1556,121 @@ def _check_retailer_stamp(img_bgr: np.ndarray, set_id: str,
                 if conf > best_confidence:
                     best_retailer = retailer_name
                     best_confidence = conf
-                    best_evidence = f"wide_ocr_{n_keywords}_keywords"
-                    best_source = ocr_text_wide
+
+
+# ---------------------------------------------------------------------------
+# Toys R Us stamp: Generations through Ultra Prism (2016-2018).
+# Stamped promo cards distributed at Toys R Us store events.
+# Highly collectible since Toys R Us closed.
+# ---------------------------------------------------------------------------
+_TOYS_R_US_ERAS = frozenset({6, 7})  # XY=6, SM=7
+
+# OCR confusion substitutions specific to "Toys R Us" text.
+_TRU_OCR_SUBS: dict[str, str] = {
+    "ioys": "toys",
+    "t0ys": "toys",
+    "tays": "toys",
+    "iovs": "toys",
+    "tqys": "toys",
+}
+
+
+def _check_toys_r_us_stamp(img_bgr: np.ndarray, set_id: str,
+                            era: int) -> tuple[bool, float]:
+    """Detect 'Toys R Us' text stamp on card.
+
+    Toys R Us distributed stamped promo cards at store events (2016-2018,
+    Generations through Ultra Prism).  The stamp is a text overlay reading
+    "Toys 'R' Us" on the card artwork.  Position varies by card, so we
+    scan the full artwork region.
+
+    False positive rate matters more than recall -- these are rare cards
+    and a false positive would misidentify a common card as a collectible
+    variant.
+
+    Detection strategy:
+      1. Era-gate to XY/SM eras only (eras 6-7).
+      2. Crop the artwork region (wide and tight).
+      3. Run OCR and apply TRU-specific confusion substitutions.
+      4. Require BOTH "toys" AND a secondary keyword ("r us", "rus", " us")
+         to match.  Single-keyword matches are rejected to avoid false
+         positives from card text containing "toys" or "us" independently.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g. "smp", "g1").
+        era: Era number (6 for XY, 7 for SM).
+
+    Returns:
+        (is_tru, confidence) tuple.  is_tru is True if a Toys R Us stamp
+        is detected; confidence is 0.0-1.0.
+    """
+    # Era gate: TRU stamps only existed in XY/SM eras (2016-2018)
+    if era not in _TOYS_R_US_ERAS and era != 0:
+        return (False, 0.0)
+
+    regions = STAMP_REGIONS["retailer_stamp"]
+
+    # --- Tight region first (less noise, higher confidence) ---
+    tight = _extract_region(img_bgr, *regions["tight"])
+    ocr_tight = ""
+    if tight.size > 0:
+        ocr_tight = _ocr_region(tight)
+        for wrong, right in _TRU_OCR_SUBS.items():
+            ocr_tight = ocr_tight.replace(wrong, right)
+
+    # --- Wide region (full artwork, more noise) ---
+    wide = _extract_region(img_bgr, *regions["wide"])
+    ocr_wide = ""
+    if wide.size > 0:
+        ocr_wide = _ocr_region(wide)
+        for wrong, right in _TRU_OCR_SUBS.items():
+            ocr_wide = ocr_wide.replace(wrong, right)
+
+    logger.debug("TRU stamp OCR tight=%r wide=%r", ocr_tight, ocr_wide)
+
+    if not ocr_tight and not ocr_wide:
+        return (False, 0.0)
+
+    # --- Match logic: require "toys" + secondary keyword ---
+    # Two-keyword requirement prevents false positives from card text
+    # that might contain "toys" or "us" independently.
+    _SECONDARY = ("r us", "rus", " us")
+
+    for source_name, ocr_text in [("tight", ocr_tight), ("wide", ocr_wide)]:
+        if not ocr_text:
+            continue
+
+        has_toys = "toys" in ocr_text or "toysrus" in ocr_text
+        has_secondary = any(kw in ocr_text for kw in _SECONDARY)
+        has_combined = "toysrus" in ocr_text
+
+        if has_toys and (has_secondary or has_combined):
+            if source_name == "tight":
+                conf = 0.92 if (has_combined or "r us" in ocr_text) else 0.85
+            else:
+                conf = 0.80 if (has_combined or "r us" in ocr_text) else 0.72
+
+            logger.info(
+                "Toys R Us stamp detected (conf=%.2f, source=%s, ocr=%r)",
+                conf, source_name, ocr_text,
+            )
+            return (True, conf)
+
+    return (False, 0.0)
+
+
+def _toys_r_us_as_dict(img_bgr: np.ndarray, set_id: str,
+                        era: int) -> dict:
+    """Wrap _check_toys_r_us_stamp tuple into a dict for the dispatch table."""
+    is_tru, conf = _check_toys_r_us_stamp(img_bgr, set_id, era)
+    return {
+        "detected": is_tru,
+        "confidence": conf,
+        "position": "artwork",
+        "evidence": "ocr_toys_r_us" if is_tru else "",
+    }
+
 
     if best_retailer is not None:
         logger.info(
@@ -1360,6 +1689,109 @@ def _check_retailer_stamp(img_bgr: np.ndarray, set_id: str,
     return result_base
 
 
+# ---------------------------------------------------------------------------
+# Build-A-Bear Workshop stamp detection
+# ---------------------------------------------------------------------------
+
+_BUILD_A_BEAR_KEYWORDS: list[list[str]] = [
+    ["build", "bear", "workshop"],  # full text
+    ["build", "bear"],              # partial: "BUILD-A-BEAR"
+    ["build", "workshop"],          # partial: "BUILD ... WORKSHOP"
+    ["bear", "workshop"],           # partial: "BEAR WORKSHOP"
+]
+
+_BUILD_A_BEAR_OCR_SUBS: dict[str, str] = {
+    "bui1d": "build",
+    "bu1ld": "build",
+    "bulld": "build",
+    "w0rkshop": "workshop",
+    "worksho9": "workshop",
+    "vorkshop": "workshop",
+    "w0rksh0p": "workshop",
+}
+
+
+def _check_build_a_bear_stamp(img_bgr: np.ndarray, set_id: str,
+                               era: int) -> tuple[bool, float]:
+    """Detect Build-A-Bear Workshop stamp.
+
+    Build-A-Bear cards were distributed with Pokemon stuffed animals.
+    Approximately 8 unique stamped cards exist, all from the XY/SM era
+    (2014-2019).  The stamp reads "BUILD-A-BEAR WORKSHOP" and is overlaid
+    on the card artwork, similar in position to prerelease stamps.
+
+    Detection strategy:
+      1. Era-gate to XY/SM (eras 6-7).  Build-A-Bear stamps did not
+         exist outside this window.
+      2. Crop the artwork region (wide then tight).
+      3. Run OCR on each crop with Build-A-Bear-specific confusion subs.
+      4. Require at least TWO keywords to match (e.g. "build" + "bear").
+         Single-keyword matches are rejected to avoid false positives
+         on cards with attack names containing "build" or "bear".
+      5. Three-keyword match ("build" + "bear" + "workshop") gets higher
+         confidence than two-keyword match.
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g. "smp", "xyp").
+        era: Era number (6-7 for XY/SM).
+
+    Returns:
+        (is_bab, confidence) tuple.  is_bab is True when the stamp is
+        detected.  confidence is 0.0-1.0.
+    """
+    # Era gate: Build-A-Bear stamps only existed in XY/SM eras
+    if era not in (0, 6, 7):
+        return (False, 0.0)
+
+    regions = STAMP_REGIONS["retailer_stamp"]
+
+    # --- Wide region scan ---
+    wide = _extract_region(img_bgr, *regions["wide"])
+    if wide.size == 0:
+        return (False, 0.0)
+
+    ocr_wide = _ocr_region(wide)
+    for wrong, right in _BUILD_A_BEAR_OCR_SUBS.items():
+        ocr_wide = ocr_wide.replace(wrong, right)
+
+    # --- Tight region scan ---
+    tight = _extract_region(img_bgr, *regions["tight"])
+    ocr_tight = ""
+    if tight.size > 0:
+        ocr_tight = _ocr_region(tight)
+        for wrong, right in _BUILD_A_BEAR_OCR_SUBS.items():
+            ocr_tight = ocr_tight.replace(wrong, right)
+
+    logger.debug("Build-A-Bear OCR wide=%r tight=%r", ocr_wide, ocr_tight)
+
+    if not ocr_wide.strip() and not ocr_tight.strip():
+        return (False, 0.0)
+
+    # --- Keyword matching ---
+    best_confidence = 0.0
+
+    for group in _BUILD_A_BEAR_KEYWORDS:
+        n_keywords = len(group)
+
+        # Tight region match (less noise, higher confidence)
+        if ocr_tight and all(kw in ocr_tight for kw in group):
+            conf = 0.95 if n_keywords >= 3 else 0.85
+            best_confidence = max(best_confidence, conf)
+
+        # Wide region match (more noise, lower confidence)
+        elif all(kw in ocr_wide for kw in group):
+            conf = 0.85 if n_keywords >= 3 else 0.75
+            best_confidence = max(best_confidence, conf)
+
+    if best_confidence > 0.0:
+        logger.info(
+            "Build-A-Bear stamp detected (conf=%.2f, set=%s)",
+            best_confidence, set_id,
+        )
+        return (True, best_confidence)
+
+    return (False, 0.0)
 
 
 def _check_pokemon_center_stamp(img_bgr: np.ndarray, set_id: str,
@@ -1575,6 +2007,121 @@ def _fuzzy_match_prerelease(text: str) -> tuple[bool, float]:
         return True, score
 
     return False, score
+
+
+
+# ---------------------------------------------------------------------------
+# Special Delivery promo detection (ID-based, no visual analysis)
+# ---------------------------------------------------------------------------
+
+def _check_special_delivery(img_bgr: np.ndarray, card_id: str) -> dict:
+    """Detect Special Delivery Pokemon Center promo.
+
+    These are specific SVP promo cards -- check card_id against known list.
+    Known cards: SWSH074 (Pikachu), SWSH075 (Charizard), SWSH177 (Bidoof).
+
+    No visual detection needed -- the card_id uniquely identifies these promos.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    # Strip variant suffix: "swshp-SWSH074/normal" -> "swshp-SWSH074"
+    bare_id = card_id.split("/")[0] if "/" in card_id else card_id
+
+    is_special = bare_id in _SPECIAL_DELIVERY_CARD_IDS
+
+    return {
+        "detected": is_special,
+        "confidence": 1.0 if is_special else 0.0,
+        "position": "card_id",
+        "evidence": f"card_id_match:{bare_id}" if is_special else "no_match",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Pokemon Day event stamp detection (OCR-based)
+# ---------------------------------------------------------------------------
+
+def _check_pokemon_day_stamp(img_bgr: np.ndarray, set_id: str,
+                             era: int) -> dict:
+    """Detect Pokemon Day event stamp on card artwork.
+
+    Pokemon Day promos have a "POKEMON DAY" logo stamped on the card artwork,
+    typically in the bottom-right area.  Uses OCR to scan for the text.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {
+        "detected": False,
+        "confidence": 0.0,
+        "position": "artwork_bottom_right",
+    }
+
+    regions = STAMP_REGIONS["pokemon_day"]
+
+    best_score = 0.0
+    best_evidence = ""
+
+    for region_name, coords in [("tight", regions["tight"]),
+                                ("wide", regions["wide"])]:
+        crop = _extract_region(img_bgr, *coords)
+        if crop.size == 0:
+            continue
+
+        ocr_text = _ocr_region(crop)
+        if not ocr_text:
+            continue
+
+        is_match, score, method = _is_pokemon_day_text(ocr_text)
+        if is_match and score > best_score:
+            best_score = score
+            best_evidence = f"ocr_{region_name}:{method}:{ocr_text[:50]}"
+
+    if best_score > 0:
+        return {
+            "detected": True,
+            "confidence": min(0.95, best_score / 100.0),
+            "position": "artwork_bottom_right",
+            "evidence": best_evidence,
+        }
+
+    return result_base
+
+
+def _is_pokemon_day_text(text: str) -> tuple[bool, float, str]:
+    """Check if OCR text matches "POKEMON DAY" using fuzzy matching.
+
+    Returns (is_match, score, method).
+    """
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        logger.debug("rapidfuzz not available for Pokemon Day matching")
+        return (False, 0.0, "no_rapidfuzz")
+
+    clean = text.strip().upper()
+
+    # Direct substring check -- most reliable
+    if "POKEMON DAY" in clean or "POKÉMON DAY" in clean:
+        return (True, 95.0, "exact_substring")
+
+    # Partial ratio against "POKEMON DAY" to handle OCR noise
+    partial = fuzz.partial_ratio(clean, "POKEMON DAY")
+    if partial >= 80:
+        return (True, partial, "partial_ratio")
+
+    # Token-level check: both "POKEMON" and "DAY" present (possibly garbled)
+    tokens = clean.replace(".", " ").replace(",", " ").split()
+    has_pokemon = any(
+        fuzz.ratio(t, "POKEMON") >= 70 or fuzz.ratio(t, "POKÉMON") >= 70
+        for t in tokens
+    )
+    has_day = any(fuzz.ratio(t, "DAY") >= 70 for t in tokens)
+
+    if has_pokemon and has_day:
+        return (True, 80.0, "token_match")
+
+    return (False, max(partial, 0.0), "none")
+
 
 
 def _check_prerelease(img_bgr: np.ndarray, set_id: str = "",
@@ -2071,6 +2618,123 @@ def _check_prerelease_text(img_bgr: np.ndarray) -> dict:
         }
 
     logger.debug("Prerelease text not found (best score=%.1f, text=%r)",
+                 best_score, best_text)
+    return result_base
+
+
+def _is_winner_text(text: str) -> tuple[bool, float, str]:
+    """Check if OCR text matches "WINNER" using fuzzy matching.
+
+    Winner stamps read "WINNER" (6 chars) or lowercase "winner" (WotC era).
+    Uses length and character guards similar to _is_prerelease_text.
+
+    Returns (is_match, score, method).
+    """
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        return (False, 0.0, "no_rapidfuzz")
+
+    clean = text.strip().upper().replace(" ", "")
+
+    # Exact match
+    if clean == "WINNER":
+        return (True, 100.0, "exact")
+
+    # Too short or too long to be "WINNER" (6 chars)
+    if len(clean) < 4 or len(clean) > 12:
+        return (False, 0.0, "length_guard")
+
+    ratio = fuzz.ratio(clean, "WINNER")
+
+    # Character composition: WINNER letters are W, I, N, E, R
+    winner_chars = set("WINER")
+    char_overlap = (sum(1 for c in clean if c in winner_chars) / len(clean)
+                    if clean else 0.0)
+
+    # High confidence: fuzzy ratio >= 75, text is short (just the stamp)
+    if ratio >= 75 and 4 <= len(clean) <= 10:
+        return (True, ratio, "fuzzy_short")
+
+    # Medium confidence: ratio >= 70 with high character overlap
+    if ratio >= 70 and char_overlap >= 0.7 and len(clean) >= 4:
+        return (True, ratio, "fuzzy_overlap")
+
+    # Partial match for longer garbled reads containing "WINNER"
+    partial = fuzz.partial_ratio(clean, "WINNER")
+    if partial >= 90 and 5 <= len(clean) <= 14 and char_overlap >= 0.6:
+        return (True, partial, "partial")
+
+    return (False, max(ratio, partial), "none")
+
+
+def _check_winner_stamp(img_bgr: np.ndarray, set_id: str = "",
+                        era: int = 0) -> dict:
+    """Detect WINNER tournament stamp on artwork.
+
+    Winner stamps appear on tournament prize cards in three eras:
+      - WotC (2002-2003): gold foil lowercase "winner" with star for "i" dot
+      - Pokemon USA (2003-2004): Poke Ball + "WINNER" text
+      - Modern (2025+): Poke Ball + "WINNER" in caps
+
+    All three appear in the bottom-right of the artwork area (same general
+    region as prerelease stamps). Detection uses multi-preprocessing OCR
+    with fuzzy matching against "WINNER".
+
+    Args:
+        img_bgr: Card image in BGR format.
+        set_id: Set identifier (e.g. "base2", "sv1").
+        era: Era number (1-9, 0 if unknown).
+
+    Returns:
+        dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    regions = STAMP_REGIONS["winner_stamp"]
+    result_base = {"detected": False, "confidence": 0.0,
+                   "position": "artwork_bottom_right"}
+
+    best_match = False
+    best_score = 0.0
+    best_text = ""
+    best_strategy = ""
+    best_method = ""
+
+    for region_name, coords in [("tight", regions["tight"]),
+                                ("wide", regions["wide"])]:
+        crop = _extract_region(img_bgr, *coords)
+        if crop.size == 0:
+            continue
+
+        ocr_results = _ocr_region_multi(crop, scale=3)
+        for text, conf, strategy in ocr_results:
+            is_match, score, method = _is_winner_text(text)
+            tag = f"{region_name}/{strategy}"
+
+            if is_match and score > best_score:
+                best_match = True
+                best_score = score
+                best_text = text
+                best_strategy = tag
+                best_method = method
+            elif not best_match and score > best_score:
+                best_score = score
+                best_text = text
+                best_strategy = tag
+                best_method = method
+
+    if best_match:
+        confidence = min(0.95, 0.70 + (best_score - 70) / 100)
+        logger.debug("Winner stamp detected: %r score=%.1f via=%s method=%s",
+                     best_text, best_score, best_strategy, best_method)
+        return {
+            "detected": True, "confidence": round(confidence, 2),
+            "position": "artwork_bottom_right",
+            "evidence": f"ocr_{best_method}",
+            "ocr_text": best_text, "ocr_score": best_score,
+            "ocr_strategy": best_strategy,
+        }
+
+    logger.debug("Winner stamp not found (best score=%.1f, text=%r)",
                  best_score, best_text)
     return result_base
 
@@ -3135,88 +3799,618 @@ def _check_mcdonalds_holo(
         return result_base
 
 
-def _get_stamps_to_check(card_id: str, set_id: str, era: int) -> list[str]:
+
+# ---------------------------------------------------------------------------
+# League / Championship / Professor stamp detection
+# ---------------------------------------------------------------------------
+
+# Keyword patterns for each league stamp type.  Keys are stamp sub-types,
+# values are lists of (keyword_phrase, min_fuzzy_score) pairs.  We match
+# against OCR text from the full card using both exact substring and fuzzy
+# matching so embossed / foil text with OCR errors still triggers.
+
+_LEAGUE_STAMP_KEYWORDS: dict[str, list[tuple[str, int]]] = {
+    "league": [
+        ("league", 80),
+        ("play pokemon", 75),
+        ("play! pokemon", 75),
+    ],
+    "league_challenge_1st": [
+        ("1st place", 80),
+        ("first place", 80),
+    ],
+    "league_challenge_2nd": [
+        ("2nd place", 80),
+        ("second place", 80),
+    ],
+    "league_challenge_3rd": [
+        ("3rd place", 80),
+        ("third place", 80),
+    ],
+    "league_challenge_4th": [
+        ("4th place", 80),
+        ("fourth place", 80),
+    ],
+    "championship": [
+        ("champion", 80),
+        ("championship", 80),
+        ("regional", 80),
+        ("international", 80),
+    ],
+    "professor": [
+        ("professor", 80),
+        ("professor program", 75),
+    ],
+}
+
+# All league stamp sub-types as a flat set for quick lookup.
+_LEAGUE_STAMP_TYPES = frozenset(_LEAGUE_STAMP_KEYWORDS.keys())
+
+
+def _check_league_stamps(img_bgr: np.ndarray, set_id: str,
+                         era: int) -> dict:
+    """Detect league/championship/professor stamps on a card.
+
+    These stamps can appear anywhere on the card (artwork, text box, borders),
+    so we OCR the full card with multiple preprocessing strategies and scan
+    all extracted text for keyword matches.
+
+    Returns dict compatible with the stamp dispatcher::
+
+        {
+            "detected": True/False,
+            "confidence": float,
+            "position": "full_card",
+            "evidence": str,       # best matching keyword
+            "stamp_type": str,     # sub-type (e.g. "league_challenge_1st")
+            "all_stamps": dict,    # {sub_type: (detected, confidence)}
+        }
+    """
+    from rapidfuzz import fuzz
+
+    result_base = {
+        "detected": False,
+        "confidence": 0.0,
+        "position": "full_card",
+        "evidence": "",
+        "stamp_type": "",
+        "all_stamps": {k: (False, 0.0) for k in _LEAGUE_STAMP_KEYWORDS},
+    }
+
+    try:
+        # OCR the full card with multiple preprocessing strategies.
+        # League stamps are often embossed/foil and hard to read.
+        ocr_hits = _ocr_region_multi(img_bgr, scale=2)
+        if not ocr_hits:
+            return result_base
+
+        # Build a single lowercase text blob for substring matching,
+        # plus keep individual lines for fuzzy matching.
+        all_text = " ".join(t for t, _c, _s in ocr_hits).lower()
+        ocr_lines = [(t.lower(), c) for t, c, _s in ocr_hits]
+
+        best_type = ""
+        best_conf = 0.0
+        best_evidence = ""
+        stamps_found: dict[str, tuple[bool, float]] = {}
+
+        for stamp_type, keywords in _LEAGUE_STAMP_KEYWORDS.items():
+            type_detected = False
+            type_conf = 0.0
+            type_evidence = ""
+
+            for keyword, min_score in keywords:
+                # --- Exact substring match (fast path) ---
+                if keyword in all_text:
+                    # Find the OCR confidence of the line containing match
+                    line_conf = 0.0
+                    for line_text, conf in ocr_lines:
+                        if keyword in line_text:
+                            line_conf = max(line_conf, conf)
+                    match_conf = max(0.85, line_conf)
+                    if match_conf > type_conf:
+                        type_detected = True
+                        type_conf = match_conf
+                        type_evidence = f"exact:{keyword}"
+                    continue
+
+                # --- Fuzzy match against each OCR line ---
+                for line_text, conf in ocr_lines:
+                    if len(line_text) < 3:
+                        continue
+                    score = fuzz.partial_ratio(keyword, line_text)
+                    if score >= min_score:
+                        # Scale confidence by fuzzy score and OCR confidence
+                        match_conf = (score / 100.0) * max(0.5, conf)
+                        if match_conf > type_conf:
+                            type_detected = True
+                            type_conf = match_conf
+                            type_evidence = (f"fuzzy:{keyword}"
+                                             f"(score={score})")
+
+            stamps_found[stamp_type] = (type_detected, round(type_conf, 3))
+
+            if type_detected and type_conf > best_conf:
+                best_conf = type_conf
+                best_type = stamp_type
+                best_evidence = type_evidence
+
+        result_base["all_stamps"] = stamps_found
+
+        if best_type:
+            result_base["detected"] = True
+            result_base["confidence"] = round(best_conf, 2)
+            result_base["evidence"] = best_evidence
+            result_base["stamp_type"] = best_type
+            logger.info(
+                "League stamp detected: %s (conf=%.2f, evidence=%s)",
+                best_type, best_conf, best_evidence,
+            )
+
+        return result_base
+
+    except Exception as e:
+        logger.debug("League stamp check failed: %s", e)
+        return result_base
+
+def _check_peelable_ditto(img_bgr: np.ndarray, set_id: str) -> dict:
+    """Detect Ditto face icon on Pokemon GO peelable cards.
+
+    Pokemon GO (2022, set_id='pgo') has Bidoof, Numel, and Spinarak cards
+    where some copies have a tiny purple Ditto face icon in the bottom-left
+    corner.  Peeling off the sticker front reveals a Ditto card underneath.
+
+    Icon position: bottom-left corner, x:5-15%, y:85-95%.
+    The Ditto face is very small (~3-4mm on a real card) and purple/pink
+    with a simple smiley shape.
+
+    Detection strategy:
+      1. Crop the bottom-left region.
+      2. Upscale for sub-pixel analysis (the icon is tiny).
+      3. Build an HSV mask for purple/pink hues (Ditto's signature color).
+      4. Find contours in the mask and look for a small, roughly circular
+         cluster of purple pixels -- the Ditto face.
+
+    Only applies to the pgo set.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {
+        "detected": False, "confidence": 0.0, "position": "bottom_left",
+    }
+
+    if set_id != "pgo":
+        return result_base
+
+    regions = STAMP_REGIONS["peelable_ditto"]
+    crop = _extract_region(img_bgr, *regions["wide"])
+    if crop.size == 0:
+        return result_base
+
+    h, w = crop.shape[:2]
+    if h < 5 or w < 5:
+        return result_base
+
+    # Upscale small crops so color detection is reliable.
+    # Target at least 100px on the short side.
+    scale = max(1, 100 // min(h, w))
+    if scale > 1:
+        crop = cv2.resize(
+            crop, None, fx=scale, fy=scale,
+            interpolation=cv2.INTER_CUBIC,
+        )
+
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+
+    # Ditto purple/pink sits in two HSV hue ranges:
+    #   - Main purple:  hue 120-160 (OpenCV 0-180 scale), S 30-255, V 60-255
+    #   - Pink wrap:    hue 160-175, S 30-255, V 60-255
+    mask_purple = cv2.inRange(hsv, (120, 30, 60), (175, 255, 255))
+
+    # Also catch lighter lavender tones that may appear under flash/glare.
+    mask_lavender = cv2.inRange(hsv, (110, 20, 100), (145, 180, 255))
+
+    mask = cv2.bitwise_or(mask_purple, mask_lavender)
+
+    # Morphological close to merge nearby purple pixels into a blob.
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    # Find contours in the purple mask.
+    contours, _ = cv2.findContours(
+        mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+    )
+    if not contours:
+        return result_base
+
+    crop_h, crop_w = crop.shape[:2]
+    crop_area = crop_h * crop_w
+
+    best_score = 0.0
+    best_evidence = ""
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        area_frac = area / crop_area
+
+        # The Ditto face icon should be a meaningful fraction of the crop
+        # but not huge.  Expected range: 1-20% of the wide crop area.
+        if area_frac < 0.005 or area_frac > 0.30:
+            continue
+
+        # Check circularity -- the face is roughly round.
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter < 1:
+            continue
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+
+        if circularity < 0.3:
+            continue
+
+        # Compute bounding box aspect ratio (should be roughly square).
+        _, _, bw, bh = cv2.boundingRect(cnt)
+        aspect = min(bw, bh) / max(bw, bh) if max(bw, bh) > 0 else 0
+        if aspect < 0.5:
+            continue
+
+        # Score: weighted combination of circularity and size adequacy.
+        # Ideal size ~5-15% of crop area.
+        size_score = min(area_frac / 0.05, 1.0)
+        circ_score = min(circularity / 0.7, 1.0)
+        score = 0.5 * circ_score + 0.3 * size_score + 0.2 * aspect
+
+        if score > best_score:
+            best_score = score
+            best_evidence = (
+                f"purple_blob area_frac={area_frac:.3f} "
+                f"circ={circularity:.2f} aspect={aspect:.2f}"
+            )
+
+    if best_score < 0.40:
+        return result_base
+
+    # Map raw score to confidence.
+    confidence = min(0.95, 0.50 + best_score * 0.50)
+
+    return {
+        "detected": True,
+        "confidence": round(confidence, 2),
+        "position": "bottom_left",
+        "evidence": best_evidence,
+    }
+
+
+
+# ---------------------------------------------------------------------------
+# Wizards "W" gold foil stamp detection
+# ---------------------------------------------------------------------------
+# Only 7 cards were ever produced with a gold foil Wizards "W" logo stamp
+# on the artwork (1999-2001 WotC promo era).  These are extremely rare
+# promotional variants given out at events.
+#
+# Eligible cards (all from basep -- WotC Black Star Promos):
+#   basep-1   Pikachu
+#   basep-2   Electabuzz
+#   basep-3   Mewtwo
+#   basep-4   Pikachu (movie promo)
+#   basep-6   Arcanine
+#   basep-8   Mew
+#   basep-9   Mew (movie promo)
+
+_W_STAMP_ELIGIBLE_CARDS = frozenset({
+    "basep-1", "basep-2", "basep-3", "basep-4",
+    "basep-6", "basep-8", "basep-9",
+})
+
+# Gold foil HSV range: warm yellow-gold hue, moderate-to-high saturation,
+# high value.  Tuned for the foil stamp under typical scan/photo lighting.
+_W_STAMP_HUE_LO = 15
+_W_STAMP_HUE_HI = 45
+_W_STAMP_SAT_LO = 60
+_W_STAMP_VAL_LO = 150
+
+
+def _check_w_stamp(img_bgr: np.ndarray, set_id: str) -> dict:
+    """Detect Wizards 'W' gold foil stamp on artwork.
+
+    Only 7 cards ever received this stamp (all basep promos).  The stamp
+    is a gold-colored Wizards logo "W" shape on the artwork area.
+
+    Detection approach:
+      1. Crop the artwork region (wide stamp region).
+      2. Threshold for gold-colored pixels in HSV space.
+      3. Find contours in the gold mask and filter by area and aspect ratio.
+      4. Check for the distinctive "W" shape: a contour wider than it is
+         tall with multiple downward-pointing vertices (3 or 5 peaks).
+      5. Require minimum gold pixel density within the bounding box.
+
+    Returns dict with 'detected', 'confidence', 'position', 'evidence'.
+    """
+    result_base = {
+        "detected": False,
+        "confidence": 0.0,
+        "position": "artwork",
+        "evidence": "",
+    }
+
+    # Only basep cards can have this stamp
+    if set_id != "basep":
+        return result_base
+
+    try:
+        # Crop artwork region
+        region = STAMP_REGIONS["w_stamp"]
+        artwork = _extract_region(img_bgr, *region["wide"])
+        h, w = artwork.shape[:2]
+        if h < 20 or w < 20:
+            return result_base
+
+        art_area = h * w
+
+        # Convert to HSV and threshold for gold-colored pixels
+        hsv = cv2.cvtColor(artwork, cv2.COLOR_BGR2HSV)
+        gold_mask = cv2.inRange(
+            hsv,
+            np.array([_W_STAMP_HUE_LO, _W_STAMP_SAT_LO, _W_STAMP_VAL_LO]),
+            np.array([_W_STAMP_HUE_HI, 255, 255]),
+        )
+
+        # Morphological cleanup: close small gaps, remove noise
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        gold_mask = cv2.morphologyEx(gold_mask, cv2.MORPH_CLOSE, kernel)
+        gold_mask = cv2.morphologyEx(gold_mask, cv2.MORPH_OPEN, kernel)
+
+        # Find contours in the gold mask
+        contours, _ = cv2.findContours(
+            gold_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+        )
+        if not contours:
+            return result_base
+
+        # Filter contours by area: stamp should be 0.5%-8% of artwork area
+        min_area = art_area * 0.005
+        max_area = art_area * 0.08
+        candidates = []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if min_area <= area <= max_area:
+                candidates.append(cnt)
+
+        if not candidates:
+            return result_base
+
+        # Evaluate each candidate for "W" shape characteristics
+        best_score = 0.0
+        best_evidence = ""
+
+        for cnt in candidates:
+            x, y, cw, ch = cv2.boundingRect(cnt)
+            if ch == 0 or cw == 0:
+                continue
+
+            aspect = cw / ch
+            # "W" is wider than tall (aspect ratio ~1.2-3.0)
+            if aspect < 1.0 or aspect > 4.0:
+                continue
+
+            # Gold pixel density within the bounding box
+            roi_mask = gold_mask[y:y + ch, x:x + cw]
+            density = np.count_nonzero(roi_mask) / (cw * ch)
+
+            # A solid "W" stamp has moderate density (not a filled rectangle,
+            # not just scattered pixels).  Expect 25%-75%.
+            if density < 0.15 or density > 0.85:
+                continue
+
+            # Approximate the contour and look for the "W" zigzag pattern.
+            # A "W" has 4-6 dominant vertices forming peaks and valleys.
+            epsilon = 0.03 * cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            n_vertices = len(approx)
+
+            # Score components
+            score = 0.0
+
+            # Aspect ratio score: ideal ~1.5-2.5
+            if 1.2 <= aspect <= 3.0:
+                score += 0.25
+            elif 1.0 <= aspect <= 4.0:
+                score += 0.10
+
+            # Density score
+            if 0.25 <= density <= 0.65:
+                score += 0.25
+            elif 0.15 <= density <= 0.75:
+                score += 0.15
+
+            # Vertex count score: "W" typically approximates to 6-12 points
+            if 5 <= n_vertices <= 14:
+                score += 0.25
+            elif 4 <= n_vertices <= 18:
+                score += 0.10
+
+            # Check for multiple valleys (downward peaks) in the contour.
+            # A "W" has 2 valleys along the bottom edge.
+            pts = approx.reshape(-1, 2)
+            # Normalize y-coords relative to bounding box
+            y_norm = (pts[:, 1] - y) / ch
+            # Bottom-half points (y_norm > 0.4) that dip down
+            bottom_pts = pts[y_norm > 0.4]
+            if len(bottom_pts) >= 2:
+                # Count local minima in x-sorted bottom points
+                x_order = bottom_pts[bottom_pts[:, 0].argsort()]
+                if len(x_order) >= 3:
+                    valleys = 0
+                    for i in range(1, len(x_order) - 1):
+                        if (x_order[i, 1] > x_order[i - 1, 1]
+                                and x_order[i, 1] > x_order[i + 1, 1]):
+                            valleys += 1
+                    if valleys >= 1:
+                        score += 0.25
+                    elif valleys == 0 and len(bottom_pts) >= 3:
+                        score += 0.05
+
+            evidence = (
+                f"aspect={aspect:.2f}, density={density:.2f}, "
+                f"vertices={n_vertices}, "
+                f"area_frac={cv2.contourArea(cnt) / art_area:.4f}"
+            )
+
+            if score > best_score:
+                best_score = score
+                best_evidence = evidence
+
+        if best_score < 0.50:
+            return result_base
+
+        # Map score to confidence (0.50-1.00 -> 0.55-0.95)
+        confidence = min(0.95, 0.55 + (best_score - 0.50) * 0.80)
+
+        return {
+            "detected": True,
+            "confidence": round(confidence, 2),
+            "position": "artwork",
+            "evidence": best_evidence,
+        }
+
+    except Exception as e:
+        logger.debug("W stamp check failed: %s", e)
+        return result_base
+
+
+def _get_stamps_to_check(card_id: str, set_id: str, era: int,
+                         fast: bool = False) -> list[str]:
     """Return list of stamp types to check based on era and set.
 
     The key principle: only check stamps that are POSSIBLE for this card's
     era and set.  No point checking for 1st Edition on a Sword & Shield card.
+
+    When ``fast=True``, skip OCR-heavy checks (1st_edition, prerelease,
+    staff_stamp, ex_set_stamp) and holo-pattern analysis (holo_finish,
+    reverse_holo, crosshatch_holo).  1st edition alone takes ~25s (3 OCR
+    passes).  Fast mode runs only cheap pixel-based checks (shadowless).
+    All OCR-based checks are skipped in fast mode.
     """
     checks = []
 
-    # WotC era (1): 1st Edition + Black Star Promo + copyright year
-    if set_id in _FIRST_EDITION_SETS:
-        checks.append("1st_edition")
+    # --- Cheap pixel-based checks (always run) ---
+
+    # World Championship deck detection — border saturation analysis, <1ms
+    # Runs for ALL cards: WC decks exist across many eras/sets
+    checks.append("world_championship")
+
+    # Shadowless (base1 only) — pure pixel gradient analysis, <5ms
     if set_id == "base1":
-        checks.append("copyright_year")
         checks.append("shadowless")
-    if set_id in _BLACK_STAR_PROMO_SETS:
-        checks.append("black_star_promo")
 
-    # EX era (2): set logo stamp on reverse holos + Nintendo promo
-    if set_id in _EX_STAMPED_SETS:
-        checks.append("ex_set_stamp")
-    if set_id == "np":
-        checks.append("black_star_promo")
+    # Special Delivery promo (ID-based, no visual analysis, <1ms)
+    if set_id == "swshp":
+        checks.append("special_delivery")
 
-    # DP/HGSS/BW/XY/SM (era 3-7): promo sets
-    if set_id in _PROMO_SETS:
-        checks.append("promo_stamp")
+    # --- OCR-based checks: skip ALL in fast mode ---
+    if not fast:
+        # WotC era (1): 1st Edition + copyright year + Black Star Promo
+        if set_id in _FIRST_EDITION_SETS:
+            checks.append("1st_edition")
+        if set_id == "base1":
+            checks.append("copyright_year")
+            checks.append("ghost_stamp")
+        if set_id in _BLACK_STAR_PROMO_SETS:
+            checks.append("black_star_promo")
 
-    # SWSH/SV (era 8-9): modern promo pokeball
-    if set_id in _MODERN_PROMO_SETS:
-        checks.append("modern_promo")
+        # Wizards "W" gold foil stamp (basep promos only, 7 eligible cards)
+        if set_id == "basep":
+            bare_id = card_id.split("/")[0]
+            if bare_id in _W_STAMP_ELIGIBLE_CARDS:
+                checks.append("w_stamp")
 
-    # Prerelease stamps: era-gated (text-based for WotC/EX/DP, logo for HGSS+)
-    if set_id in _PRERELEASE_TEXT_SETS or set_id in _PRERELEASE_LOGO_SETS:
-        checks.append("prerelease")
+        # EX era (2): set logo stamp on reverse holos + Nintendo promo
+        if set_id in _EX_STAMPED_SETS:
+            checks.append("ex_set_stamp")
+        if set_id == "np":
+            checks.append("black_star_promo")
 
-    # Staff stamp: check proactively alongside prerelease (era 3+ = DP onward)
-    # Staff stamps only exist on prerelease event cards, but we check
-    # proactively rather than conditionally after prerelease detection to
-    # ensure they appear in stamps_checked for transparency.
-    if era >= 3 or set_id in _PRERELEASE_TEXT_SETS:
-        checks.append("staff_stamp")
+        # DP/HGSS/BW/XY/SM (era 3-7): promo sets
+        if set_id in _PROMO_SETS:
+            checks.append("promo_stamp")
 
-    # === P2: Moderate-impact ===
+        # SWSH/SV (era 8-9): modern promo pokeball
+        if set_id in _MODERN_PROMO_SETS:
+            checks.append("modern_promo")
 
-    # EX-era set logo stamp on reverse holos (already added above for ex_set_stamp)
+        # Toys R Us stamp: XY/SM eras (2016-2018, Generations-Ultra Prism)
+        if era in _TOYS_R_US_ERAS or era == 0:
+            checks.append("toys_r_us")
 
-    # === P3: Holo variants (best-effort, lighting-dependent) ===
+        # Prerelease stamps: era-gated (text-based for WotC/EX/DP, logo for HGSS+)
+        if set_id in _PRERELEASE_TEXT_SETS or set_id in _PRERELEASE_LOGO_SETS:
+            checks.append("prerelease")
 
-    # Holo finish detection (artwork area holographic signal)
-    if era >= 1 or era == 0:
-        checks.append("holo_finish")
+        # Staff stamp: check proactively alongside prerelease (era 3+ = DP onward)
+        if era >= 3 or set_id in _PRERELEASE_TEXT_SETS:
+            checks.append("staff_stamp")
 
-    # Reverse holo detection (body area holographic signal, era 2+ only)
-    if era >= 2 or era == 0:
-        checks.append("reverse_holo")
+        # Winner tournament stamp: same sets as prerelease (event promos)
+        if set_id in _WINNER_STAMP_SETS:
+            checks.append("winner_stamp")
 
-    # === SV-specific stamps ===
+        # === Holo pattern checks ===
 
-    # Build & Battle stamp (SV era SVP promos)
-    if set_id == "svp" and (era >= 8 or era == 0):
-        checks.append("build_battle")
+        # Holo finish detection (artwork area holographic signal)
+        if era >= 1 or era == 0:
+            checks.append("holo_finish")
 
-    # Pokemon Center exclusive stamp (SVP promos, SWSH/SV era)
-    if set_id == "svp":
-        checks.append("pokemon_center")
+        # Reverse holo detection (body area holographic signal, era 2+ only)
+        if era >= 2 or era == 0:
+            checks.append("reverse_holo")
 
-    # === Special error variants ===
+        # DP+ eras (3-9): crosshatch holo (league/tournament promos)
+        if era == 0 or era >= 3:
+            checks.append("crosshatch_holo")
 
-    # Jungle no-symbol error: base2 holos only
-    # Extract variant/rarity from card_id (e.g. "base2-4/holofoil" -> "holofoil")
-    if set_id == "base2":
-        variant = card_id.split("/", 1)[1] if "/" in card_id else ""
-        if "holo" in variant.lower():
-            checks.append("no_symbol_error")
+        # === SV-specific stamps ===
 
-    # DP+ eras (3-9): crosshatch holo (league/tournament promos)
-    if era == 0 or era >= 3:
-        checks.append("crosshatch_holo")
+        # Build & Battle stamp (SV era SVP promos)
+        if set_id == "svp" and (era >= 8 or era == 0):
+            checks.append("build_battle")
 
-    # McDonald's sets: confetti holo detection
-    if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
-        checks.append("mcdonalds_holo")
+        # Pokemon Center exclusive stamp (SVP promos, SWSH/SV era)
+        if set_id == "svp":
+            checks.append("pokemon_center")
+
+        # === Special error variants ===
+
+        # Jungle no-symbol error: base2 holos only
+        if set_id == "base2":
+            variant = card_id.split("/", 1)[1] if "/" in card_id else ""
+            if "holo" in variant.lower():
+                checks.append("no_symbol_error")
+
+        # Build-A-Bear Workshop stamp (XY/SM era, eras 6-7)
+        if era in (6, 7) or era == 0:
+            checks.append("build_a_bear")
+
+        # McDonald's sets: confetti holo detection
+        if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
+            checks.append("mcdonalds_holo")
+
+        # Sequin holo: General Mills cereal promo exclusive (SM/SWSH era)
+        if set_id in _GENERAL_MILLS_SETS:
+            checks.append("sequin_holo")
+
+        # League / Championship / Professor stamps: any era from DP onward
+        # (era 3+).  League promos exist in older eras but are extremely rare
+        # and the crosshatch holo check already flags them.
+        if era >= 3 or era == 0:
+            checks.append("league_stamps")
+
+        # Pokemon GO peelable Ditto face icon (cheap color check, no OCR)
+        if set_id == "pgo":
+            checks.append("peelable_ditto")
+
+        # Pokemon Day event stamp (OCR-based, any promo set SWSH+)
+        if set_id in _MODERN_PROMO_SETS or set_id in _PROMO_SETS:
+            checks.append("pokemon_day")
 
     # Deduplicate while preserving priority order
     seen = set()
@@ -3371,7 +4565,21 @@ def _check_reverse_holo(img_bgr: np.ndarray, set_id: str, era: int
 # Main public API
 # ---------------------------------------------------------------------------
 
-def detect_stamps(image_path: str, card_id: str) -> dict:
+def _build_a_bear_as_dict(img_bgr: np.ndarray, set_id: str,
+                         era: int) -> dict:
+    """Wrap _check_build_a_bear_stamp tuple return into a dict for dispatch."""
+    is_bab, conf = _check_build_a_bear_stamp(img_bgr, set_id, era)
+    return {
+        "detected": is_bab,
+        "confidence": conf,
+        "position": "artwork",
+        "evidence": "build_a_bear_ocr" if is_bab else "",
+        "retailer": "Build-A-Bear" if is_bab else None,
+    }
+
+
+def detect_stamps(image_path: str, card_id: str,
+                  fast: bool = True) -> dict:
     """Detect physical stamps on a card based on its era.
 
     After card identification, this function checks for stamps that are
@@ -3381,6 +4589,10 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
     Args:
         image_path: Path to the card image.
         card_id: Full card identifier (e.g. "base1-4/holofoil").
+        fast: If True (default), skip ALL OCR-based and pattern-analysis
+            checks.  Only runs cheap pixel-based checks (shadowless).
+            OCR checks (1st_edition, promo, copyright_year, prerelease,
+            etc.) take 2-25s each.  Set to False for full analysis.
 
     Returns:
         {
@@ -3394,7 +4606,7 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
     set_id = _extract_set_id(card_id)
     era = _get_era(card_id)
 
-    stamps_to_check = _get_stamps_to_check(card_id, set_id, era)
+    stamps_to_check = _get_stamps_to_check(card_id, set_id, era, fast=fast)
 
     result = {
         "stamps_detected": [],
@@ -3451,7 +4663,9 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
 
     # Dispatch to appropriate checker
     _STAMP_CHECKERS = {
+        "world_championship": lambda img_bgr: _check_world_championship(img_bgr, set_id),
         "1st_edition": lambda img_bgr: _check_1st_edition(img_bgr),
+        "ghost_stamp": lambda img_bgr: _check_ghost_stamp(img_bgr, set_id),
         "ex_set_stamp": lambda img_bgr: _check_ex_set_stamp(img_bgr, set_id),
         "black_star_promo": lambda img_bgr: _check_black_star_promo(img_bgr),
         "modern_promo": lambda img_bgr: _check_modern_promo(img_bgr),
@@ -3460,9 +4674,12 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         "shadowless": lambda img_bgr: _check_shadowless(img_bgr, set_id),
         "pokemon_center": lambda img_bgr: _check_pokemon_center_stamp(img_bgr, set_id, era),
         "retailer_stamp": lambda img_bgr: _check_retailer_stamp(img_bgr, set_id, era),
+        "toys_r_us": lambda img_bgr: _toys_r_us_as_dict(img_bgr, set_id, era),
         "prerelease": lambda img_bgr: _check_prerelease(img_bgr, set_id, era),
         "staff_stamp": lambda img_bgr: _check_staff_stamp(img_bgr, set_id, era),
+        "winner_stamp": lambda img_bgr: _check_winner_stamp(img_bgr, set_id, era),
         "build_battle": lambda img_bgr: _check_build_battle_stamp(img_bgr, set_id, era),
+        "build_a_bear": lambda img_bgr: _build_a_bear_as_dict(img_bgr, set_id, era),
         "holo_finish": _holo_finish_as_dict,
         "reverse_holo": _reverse_holo_as_dict,
         "no_symbol_error": lambda img_bgr: _check_no_symbol_error_as_stamp(
@@ -3471,6 +4688,9 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
         ),
         "crosshatch_holo": lambda img_bgr: _check_crosshatch_holo(img_bgr, set_id, era),
         "mcdonalds_holo": lambda img_bgr: _check_mcdonalds_holo(img_bgr, set_id, era),
+        "league_stamps": lambda img_bgr: _check_league_stamps(img_bgr, set_id, era),
+        "peelable_ditto": lambda img_bgr: _check_peelable_ditto(img_bgr, set_id),
+        "w_stamp": lambda img_bgr: _check_w_stamp(img_bgr, set_id),
     }
 
     for stamp_type in stamps_to_check:
@@ -3503,6 +4723,14 @@ def detect_stamps(image_path: str, card_id: str) -> dict:
                 # Include holo_type for holo_finish / reverse_holo checks
                 if "holo_type" in detail:
                     stamp_info["holo_type"] = detail["holo_type"]
+                # Include warning for world_championship detection
+                if "warning" in detail:
+                    stamp_info["warning"] = detail["warning"]
+                # Include league stamp sub-type and per-type breakdown
+                if "stamp_type" in detail and detail["stamp_type"]:
+                    stamp_info["stamp_type"] = detail["stamp_type"]
+                if "all_stamps" in detail:
+                    stamp_info["all_stamps"] = detail["all_stamps"]
                 result["stamp_details"][stamp_type] = stamp_info
                 logger.info("Stamp detected: %s on %s (conf=%.2f, evidence=%s%s)",
                             stamp_type, card_id, detail["confidence"],
@@ -3838,6 +5066,239 @@ def _check_cosmos_holo(
 
     logger.info(
         "Cosmos holo check for set=%s era=%d: label=%s conf=%.2f "
+        "score=%.3f [%s]",
+        set_id, era, label, confidence, score, ", ".join(evidence_parts),
+    )
+
+    return (label, confidence, details)
+
+
+# ---------------------------------------------------------------------------
+# Sequin holo detection (General Mills cereal promo exclusive, 2017+)
+# ---------------------------------------------------------------------------
+
+# General Mills cereal promo set IDs.  These are the only sets that can
+# have sequin holo -- a sparkly pattern of large, distinct bright dots
+# across the entire card surface, visually chunkier than cosmos holo.
+_GENERAL_MILLS_SETS = frozenset({
+    "sm01",   # Sun & Moon cereal promos (2017)
+    "sm02",   # Guardians Rising cereal promos
+    "sm03",   # Burning Shadows cereal promos
+    "sm04",   # Crimson Invasion cereal promos
+    "sm05",   # Ultra Prism cereal promos
+    "sm06",   # Forbidden Light cereal promos
+    "sm07",   # Celestial Storm cereal promos
+    "sm08",   # Lost Thunder cereal promos
+    "sm09",   # Team Up cereal promos
+    "sm10",   # Unbroken Bonds cereal promos
+    "sm11",   # Unified Minds cereal promos
+    "sm12",   # Cosmic Eclipse cereal promos
+    "swsh01", # Sword & Shield cereal promos
+    "swsh02", # Rebel Clash cereal promos
+    "swsh03", # Darkness Ablaze cereal promos
+    "swsh04", # Vivid Voltage cereal promos
+    "swsh05", # Battle Styles cereal promos
+    "swsh06", # Chilling Reign cereal promos
+    "swsh07", # Evolving Skies cereal promos
+})
+
+
+def _check_sequin_holo(
+    img_bgr: np.ndarray,
+    set_id: str,
+    era: int,
+) -> tuple[str, float, dict]:
+    """Detect sequin holo pattern (cereal promo exclusive).
+
+    Sequin holo is EXCLUSIVE to General Mills cereal promo packs (2017+).
+    The pattern has larger, more distinct bright spots than cosmos holo --
+    sparkly sequin-like dots scattered across the full card surface.
+
+    Detection: blob analysis on the artwork region in HSV space.  Sequin
+    dots are specular highlights (high V, moderate S) that are larger and
+    fewer than cosmos dots.
+
+    IMPORTANT: Sequin holo is probably not detectable through binder
+    sleeves.  The specular highlights are diffused by the plastic, making
+    the dots indistinguishable from general glare.  This detector will
+    return 'unknown' conservatively rather than false-positive.
+
+    Args:
+        img_bgr: Full card image in BGR format.
+        set_id: Set identifier (e.g. "sm03").
+        era: Era number (1-9).
+
+    Returns:
+        (label, confidence, details) where label is 'sequin', 'not_sequin',
+        or 'unknown'.
+    """
+    h, w = img_bgr.shape[:2]
+    x0, y0, x1, y1 = _ARTWORK_REGION
+    art = img_bgr[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w)]
+
+    if art.size == 0 or art.shape[0] < 30 or art.shape[1] < 30:
+        return ("unknown", 0.0, {"error": "artwork_region_too_small"})
+
+    art_h, art_w = art.shape[:2]
+    art_area = art_h * art_w
+
+    # Convert to HSV for specular highlight isolation
+    hsv = cv2.cvtColor(art, cv2.COLOR_BGR2HSV)
+    v_chan = hsv[:, :, 2].astype(np.float32)
+    s_chan = hsv[:, :, 1].astype(np.float32)
+
+    # -------------------------------------------------------------------
+    # Step 1: Isolate specular highlights (high brightness, moderate sat)
+    # -------------------------------------------------------------------
+    # Sequin dots are bright reflective spots: V > 220 and S in 20-180
+    # (not pure white glare which has S~0, not deeply saturated art).
+    p90_v = float(np.percentile(v_chan, 90))
+    bright_thresh = max(220.0, p90_v + 15.0)
+
+    specular_mask = (
+        (v_chan >= bright_thresh) & (s_chan >= 20) & (s_chan <= 180)
+    ).astype(np.uint8) * 255
+
+    # -------------------------------------------------------------------
+    # Step 2: Blob analysis on specular mask
+    # -------------------------------------------------------------------
+    # Find connected components of specular highlights.
+    contours, _ = cv2.findContours(
+        specular_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE,
+    )
+
+    # Sequin dots are larger than cosmos dots but smaller than glare blobs.
+    # Filter by area: sequin dot ~ 0.02-0.5% of artwork area.
+    min_blob_area = max(8, int(art_area * 0.0002))
+    max_blob_area = int(art_area * 0.005)
+
+    blob_areas: list[float] = []
+    blob_circularities: list[float] = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if min_blob_area <= area <= max_blob_area:
+            blob_areas.append(float(area))
+            perimeter = cv2.arcLength(cnt, True)
+            if perimeter > 0:
+                circ = 4.0 * np.pi * area / (perimeter * perimeter)
+                blob_circularities.append(float(circ))
+
+    blob_count = len(blob_areas)
+    blob_density = blob_count / (art_area / 1000.0) if art_area > 0 else 0.0
+
+    if blob_areas:
+        mean_blob_area = float(np.mean(blob_areas))
+        blob_area_cv = float(np.std(blob_areas) / (mean_blob_area + 1e-6))
+    else:
+        mean_blob_area = 0.0
+        blob_area_cv = 1.0
+
+    if blob_circularities:
+        mean_circularity = float(np.mean(blob_circularities))
+    else:
+        mean_circularity = 0.0
+
+    # -------------------------------------------------------------------
+    # Step 3: Spatial distribution -- sequin dots should be spread
+    # across the artwork, not clustered in one region
+    # -------------------------------------------------------------------
+    # Divide artwork into a 3x3 grid; count blobs per cell.
+    grid_counts = np.zeros((3, 3), dtype=int)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if min_blob_area <= area <= max_blob_area:
+            M = cv2.moments(cnt)
+            if M["m00"] > 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+                gi = min(2, cy * 3 // art_h)
+                gj = min(2, cx * 3 // art_w)
+                grid_counts[gi, gj] += 1
+
+    cells_with_blobs = int(np.sum(grid_counts > 0))
+    spatial_coverage = cells_with_blobs / 9.0
+
+    # -------------------------------------------------------------------
+    # Scoring
+    # -------------------------------------------------------------------
+    score = 0.0
+    evidence_parts: list[str] = []
+
+    # Blob count: sequin has moderate count (fewer than cosmos, more than
+    # random glare).  Expect 15-80 blobs in artwork region.
+    if 15 <= blob_count <= 80:
+        score += 0.20
+        evidence_parts.append(f"sequin_blob_count({blob_count})")
+    elif blob_count > 80:
+        # Too many small blobs -- more likely cosmos
+        score -= 0.15
+        evidence_parts.append(f"too_many_blobs({blob_count})")
+    elif blob_count < 5:
+        score -= 0.20
+        evidence_parts.append(f"too_few_blobs({blob_count})")
+
+    # Mean blob area: sequin dots are larger than cosmos dots
+    mean_area_frac = mean_blob_area / art_area if art_area > 0 else 0
+    if 0.0003 <= mean_area_frac <= 0.003:
+        score += 0.20
+        evidence_parts.append(f"sequin_size(frac={mean_area_frac:.5f})")
+    elif mean_area_frac > 0.003:
+        score -= 0.10
+        evidence_parts.append(f"blobs_too_large(frac={mean_area_frac:.5f})")
+
+    # Blob size uniformity: sequin dots are moderately uniform
+    if blob_area_cv < 0.8 and blob_count >= 10:
+        score += 0.15
+        evidence_parts.append(f"uniform_size(cv={blob_area_cv:.2f})")
+
+    # Circularity: sequin dots are roughly circular
+    if mean_circularity > 0.5 and blob_count >= 10:
+        score += 0.15
+        evidence_parts.append(f"circular(mean={mean_circularity:.2f})")
+
+    # Spatial coverage: dots should span most of the artwork
+    if spatial_coverage >= 0.67:
+        score += 0.15
+        evidence_parts.append(f"good_coverage({spatial_coverage:.2f})")
+    elif spatial_coverage < 0.33:
+        score -= 0.15
+        evidence_parts.append(f"poor_coverage({spatial_coverage:.2f})")
+
+    # -------------------------------------------------------------------
+    # Decision
+    # -------------------------------------------------------------------
+    details = {
+        "blob_count": blob_count,
+        "blob_density": round(blob_density, 4),
+        "mean_blob_area": round(mean_blob_area, 1),
+        "mean_area_frac": round(mean_area_frac, 6),
+        "blob_area_cv": round(blob_area_cv, 3),
+        "mean_circularity": round(mean_circularity, 3),
+        "spatial_coverage": round(spatial_coverage, 2),
+        "cells_with_blobs": cells_with_blobs,
+        "bright_thresh": round(bright_thresh, 1),
+        "raw_score": round(score, 3),
+        "evidence": evidence_parts,
+    }
+
+    # Very conservative thresholds.  Through binder sleeves the specular
+    # highlights are diffused, so we almost always return 'unknown'.
+    # Only confident detection on bare/unsleeved cards.
+    if score >= 0.50:
+        label = "sequin"
+        confidence = min(0.80, 0.45 + score)
+    elif score <= -0.20:
+        label = "not_sequin"
+        confidence = min(0.75, 0.45 + abs(score))
+    else:
+        label = "unknown"
+        confidence = 0.25 + abs(score)
+
+    details["label"] = label
+    details["confidence"] = round(confidence, 3)
+
+    logger.info(
+        "Sequin holo check for set=%s era=%d: label=%s conf=%.2f "
         "score=%.3f [%s]",
         set_id, era, label, confidence, score, ", ".join(evidence_parts),
     )
