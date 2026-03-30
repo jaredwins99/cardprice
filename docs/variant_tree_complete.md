@@ -1386,6 +1386,7 @@ Applicable sets:   swsh10 (Astral Radiance), swsh11 (Lost Origin),
                    swsh12 (Silver Tempest)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- name OCR reads "Radiant" prefix
 ```
 
 **Visual signature**: Name starts with "Radiant". Card has a rainbow foil
@@ -1400,6 +1401,7 @@ Detection region:  Full card -- shiny color palette
 Applicable sets:   swsh45sv (Shining Fates Shiny Vault)
 TCGCSV subtype:    YES -- separate products (SV-numbered)
 Price impact:      $5-300+ (Shiny Charizard VMAX)
+Detection feasibility: Detectable -- DINOv2 matches distinct shiny artwork
 ```
 
 **Visual signature**: Pokemon depicted in shiny/alternate color palette.
@@ -1414,6 +1416,7 @@ Detection region:  Full card surface -- Ditto card hidden underneath
 Applicable sets:   pgo (Pokemon GO)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $3-20
+Detection feasibility: Not detectable -- requires physical peeling
 ```
 
 **Visual signature**: Normal-looking cards that have a peelable top layer.
@@ -1431,6 +1434,7 @@ Detection region:  Full card -- distinctive 25th anniversary border
 Applicable sets:   cel25c
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-100 (Classic Charizard, Classic Umbreon)
+Detection feasibility: Detectable -- DINOv2 matches distinct border + artwork
 ```
 
 **Visual signature**: Reprints of iconic cards from past eras with a distinctive
@@ -1445,6 +1449,7 @@ Detection region:  Artwork area
 Applicable sets:   mcd21 (McDonald's 2021), mcd22 (McDonald's 2022)
 TCGCSV subtype:    YES -- "Holofoil"
 Price impact:      Holo: $3-15, Non-holo: $1-5
+Detection feasibility: Not detectable -- confetti holo invisible through sleeves
 ```
 
 **Visual signature**: Confetti-shaped holographic pattern (small triangles,
@@ -1459,6 +1464,7 @@ Detection region:  Border/text regions
 Applicable sets:   swsh1-swsh12
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      1.2x-2x over Normal
+Detection feasibility: Detectable -- hf_decorr method
 ```
 
 **Visual signature**: Upward-facing chevrons containing the Pokemon's type symbol,
@@ -1474,6 +1480,7 @@ Detection region:  [0.55, 0.30, 0.95, 0.58] (artwork bottom-right)
 Applicable sets:   Various SWSH sets (one per set)
 TCGCSV subtype:    YES -- separate products
 Price impact:      Prerelease: $3-20, Staff: $10-100+
+Detection feasibility: Maybe -- stamp OCR works but text is small and subtle
 ```
 
 **Visual signature**: SWSH+ era prerelease cards come from "Build & Battle" boxes.
@@ -1495,6 +1502,7 @@ Detection region:  Name bar -- "ex" suffix (lowercase)
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- separate products
 Price impact:      $2-200+
+Detection feasibility: Detectable -- name OCR reads "ex" suffix
 ```
 
 **Visual signature**: Card name ends in lowercase "ex" (e.g., "Charizard ex").
@@ -1509,6 +1517,7 @@ Detection region:  Rarity symbols: ~[0.75, 0.92, 0.95, 0.98]
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- separate products (double black star rarity)
 Price impact:      $2-20
+Detection feasibility: Not detectable -- rarity symbols too small at binder resolution
 ```
 
 **Visual signature**: Two black star symbols in the card number/rarity area.
@@ -1523,6 +1532,7 @@ Detection region:  Edge strips: outer 5%
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-100+
+Detection feasibility: Detectable -- edge strip saturation analysis
 ```
 
 **Visual signature**: Single gold star rarity symbol. Full art illustration
@@ -1541,6 +1551,7 @@ Detection region:  Edge strips: outer 5%
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- separate products
 Price impact:      $20-500+
+Detection feasibility: Detectable -- edge strip analysis + DINOv2
 ```
 
 **Visual signature**: Double gold star rarity symbol. Premium full art with
@@ -1556,6 +1567,7 @@ Detection region:  Full card -- gold borders and accents
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- separate products (different from standard gold)
 Price impact:      $10-200+
+Detection feasibility: Detectable -- HSV gold color analysis
 ```
 
 **Visual signature**: Triple gold star rarity. Full art with gilded/gold borders
@@ -1571,6 +1583,7 @@ Detection region:  ACE SPEC marking on card
 Applicable sets:   sv4 (Paradox Rift) onward
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50
+Detection feasibility: Detectable -- DINOv2 matches distinct gold border design
 ```
 
 **Visual signature**: Distinctive gold ACE SPEC border/marking. Only one ACE SPEC
@@ -1584,6 +1597,7 @@ Detection region:  Full card -- shiny color palette
 Applicable sets:   sv4pt5 (Paldean Fates), sv8pt5 (future shiny sets)
 TCGCSV subtype:    YES -- separate products
 Price impact:      $3-200+
+Detection feasibility: Detectable -- DINOv2 matches distinct shiny artwork
 ```
 
 **Visual signature**: Pokemon depicted in shiny/alternate color palette.
@@ -1597,6 +1611,7 @@ Detection region:  Full card -- crystalline border effect
 Applicable sets:   sv6 (Twilight Masquerade) onward
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-100+
+Detection feasibility: Detectable -- DINOv2 matches crystalline border design
 ```
 
 **Visual signature**: Card has a crystalline/gem-like border treatment reflecting
@@ -1611,6 +1626,7 @@ Detection region:  Name bar -- trainer name prefix
 Applicable sets:   sv7 (Stellar Crown) onward
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-50+
+Detection feasibility: Detectable -- name OCR reads trainer prefix
 ```
 
 **Visual signature**: Card name includes trainer prefix (similar to Gym era but
@@ -1627,6 +1643,7 @@ Detection region:  Border/text regions
 Applicable sets:   sv1-sv10+
 TCGCSV subtype:    YES -- "Reverse Holofoil"
 Price impact:      1.2x-2x over Normal
+Detection feasibility: Detectable -- hf_decorr method
 ```
 
 **Visual signature**: Each Pokemon type has its own unique reverse holo pattern:
@@ -1651,6 +1668,7 @@ Detection region:  [0.55, 0.30, 0.95, 0.58]
 Applicable sets:   Various SV sets
 TCGCSV subtype:    YES -- separate products
 Price impact:      $3-20
+Detection feasibility: Maybe -- stamp OCR works but text is small
 ```
 
 Same detection as SWSH era Build & Battle stamps.
@@ -1663,6 +1681,7 @@ Detection region:  Artwork area -- Pokemon Center logo stamp
 Applicable sets:   Select svp promos
 TCGCSV subtype:    YES -- separate products
 Price impact:      $5-30 premium over regular promo
+Detection feasibility: Maybe -- logo stamp may be OCR-readable at good resolution
 ```
 
 **Visual signature**: Pokemon Center logo stamp overlaid on card artwork.
@@ -1670,6 +1689,541 @@ Similar in style to EX-era set stamps but with the Pokemon Center branding.
 
 **Detection method**: OCR for "POKEMON CENTER" text or template matching for
 the Pokemon Center logo.
+
+---
+
+## CROSS-ERA: Obscure Stamps, Promos, and Special Variants
+
+These variants span multiple eras or are so niche they do not fit cleanly into a
+single era section. Many are event exclusives, retailer promos, or manufacturing
+curiosities. Included here for completeness because they affect pricing and
+occasionally appear in binder scans.
+
+### X.1 Ghost Stamp (Base Set Pikachu Zap! Theme Deck)
+
+```
+Variant:           Partial/smudged 1st Edition stamp
+Detection region:  [0.02, 0.44, 0.24, 0.65] (same as 1st Edition stamp)
+Applicable sets:   base1 ONLY (cards from the Zap! theme deck, primarily Pikachu #58)
+TCGCSV subtype:    NO -- not a separate product; priced by collectors as a curiosity
+Price impact:      $20-100+ for ghost stamp Pikachu (collector premium)
+Detection feasibility: Not detectable -- stamp is extremely faint, needs close-up
+```
+
+**Visual signature**: A faint, partially-printed 1st Edition stamp that appears
+as a "ghost" impression on the card. The stamp ink was not fully applied during
+printing, leaving a very light grey or barely visible outline of the 1st Edition
+circle and "1" numeral. Found on cards from the Zap! theme deck print run of
+Base Set, where the printing plates still carried residual ink from the 1st
+Edition run.
+
+**Detection method**: Not feasible from binder scans. The ghost stamp is typically
+only visible under specific lighting conditions or magnification. Even close-up
+photography may miss it. Requires physical inspection with a loupe or oblique
+lighting.
+
+**Historical context**: When WotC transitioned from 1st Edition to Unlimited
+printing of Base Set, the stamp die was not fully cleaned. Early Unlimited cards
+from the Zap! deck retained a faint ghost impression. This is distinct from
+Shadowless, which lacks the stamp entirely.
+
+### X.2 No-Symbol Jungle Error (base2) -- Holofoil Specifics
+
+Note: The base error is documented in ERA 1 section 1.8. This section adds detail
+about the holofoil-specific no-symbol errors which carry higher premiums.
+
+```
+Variant:           Holofoil cards missing Jungle set symbol
+Detection region:  Set symbol area: [0.42, 0.86, 0.62, 0.97]
+Applicable sets:   base2 (Jungle) -- holo rares only
+TCGCSV subtype:    NO -- same product
+Price impact:      $50-300+ for holo no-symbol (Flareon, Jolteon, Vaporeon most valuable)
+Detection feasibility: Maybe -- symbol absence detectable if resolution is adequate
+```
+
+**Visual signature**: The Jungle set symbol (a stylized leaf/palm tree) is
+completely absent from the lower-right area of the card where it should appear.
+On holofoil versions this is particularly notable because the holographic pattern
+continues uninterrupted through the symbol area.
+
+**Known affected holos**: Flareon, Jolteon, Vaporeon, Electrode, Kangaskhan,
+Mr. Mime, Nidoqueen, Pidgeot, Pinsir, Scyther, Snorlax, Venomoth, Victreebel,
+Vileplume, Wigglytuff, Clefable.
+
+**Detection method**: Template matching or contour analysis on the set symbol
+region. If no symbol shape is detected in [0.42, 0.86, 0.62, 0.97] and the card
+is identified as base2, flag as potential no-symbol error. Accuracy depends on
+binder scan resolution -- the symbol region is small (~20x15 pixels at typical
+binder resolution).
+
+### X.3 Crosshatch Holo Pattern
+
+```
+Variant:           Crosshatch holographic foil pattern on artwork
+Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
+Applicable sets:   League promos across multiple eras (WotC through BW)
+                   Tournament prize cards
+                   Select theme deck holos (HGSS era)
+TCGCSV subtype:    Sometimes -- some crosshatch promos are separate products
+Price impact:      $5-50 for league promos; $20-200+ for tournament versions
+Detection feasibility: Not detectable -- holo pattern invisible through binder sleeves
+```
+
+**Visual signature**: Instead of the standard "star" or "cosmos" holographic
+pattern, crosshatch holos have a geometric grid/lattice pattern of intersecting
+diagonal lines across the holographic foil. The pattern creates a woven or
+basketweave appearance. Three main eras of crosshatch:
+
+1. **WotC League crosshatch** (1999-2003): Used on Pokemon League season prizes.
+   Cards like Erika, Misty, Blaine trainer cards with crosshatch holo treatment.
+2. **Nintendo/EX League crosshatch** (2003-2007): League season reward cards with
+   the crosshatch pattern. Includes some POP Series cards.
+3. **HGSS crosshatch** (2010-2011): HeartGold SoulSilver theme deck holos used
+   a crosshatch pattern instead of cosmos. Also used on Play! Pokemon league
+   promo cards.
+
+**Detection method**: Not implemented and unlikely to work from binder scans.
+The crosshatch pattern, like other holo patterns, is invisible through plastic
+binder sleeves. Would require direct card photography with angled lighting.
+Could potentially be confirmed via DB lookup if the card is identified as a
+specific league promo product.
+
+### X.4 Sequin Holo Pattern (General Mills Cereal Promos)
+
+```
+Variant:           Sequin-shaped holographic foil pattern
+Detection region:  Artwork area: [0.10, 0.10, 0.90, 0.55]
+Applicable sets:   General Mills cereal promos (2019-2022)
+                   Specific product codes: included in sm-era and swsh-era promo sets
+TCGCSV subtype:    YES -- separate products (cereal promo cards)
+Price impact:      $5-30 (some cereal promos are surprisingly collectible)
+Detection feasibility: Not detectable -- holo pattern invisible through sleeves
+```
+
+**Visual signature**: Unique holographic pattern consisting of small circular
+"sequin" shapes scattered across the foil, creating a polka-dot-like sparkle
+effect. Distinct from cosmos (random sparkles), confetti (mixed shapes), and
+standard parallel-line holo patterns.
+
+**Context**: General Mills partnered with The Pokemon Company to include promo
+cards in cereal boxes (Cinnamon Toast Crunch, Lucky Charms, etc.). Cards
+feature the sequin holo pattern exclusive to this distribution channel. Three
+series were released (2019, 2021, 2022), each containing ~20 cards.
+
+**Detection method**: Not feasible from binder scans. The card itself may be
+identifiable as a cereal promo via DINOv2 matching if the specific promo card
+artwork is in the reference database.
+
+### X.5 W Gold Stamp (Wizards of the Coast Gold Stamp Promos)
+
+```
+Variant:           Gold Wizards "W" logo stamp on card artwork
+Detection region:  [0.55, 0.35, 0.85, 0.55] (artwork center-right area)
+Applicable sets:   basep (WotC Black Star Promos) -- 7 specific cards only
+TCGCSV subtype:    YES -- separate products from unstamped versions
+Price impact:      $30-200+ depending on card
+Detection feasibility: Maybe -- gold stamp may be visible at good resolution
+```
+
+**Visual signature**: A gold metallic "W" logo (the Wizards of the Coast emblem)
+stamped onto the card artwork. The stamp is approximately 8-12mm in diameter,
+gold/metallic foil, positioned in the center-right area of the illustration.
+
+**Affected cards** (7 total):
+1. Pikachu (WotC promo #1) -- W stamp version
+2. Electabuzz (WotC promo #2) -- W stamp version
+3. Mewtwo (WotC promo #3) -- W stamp version
+4. Pikachu (WotC promo #4, Ivy) -- W stamp version
+5. Dragonite (WotC promo #5) -- W stamp version
+6. Arcanine (WotC promo #6) -- W stamp version
+7. Jigglypuff (WotC promo #7) -- W stamp version
+
+**Historical context**: Given out at Wizards of the Coast official events and
+conventions (GenCon, E3) in 1999-2000. The W stamp distinguishes event
+distributions from mail-order or retail promo distributions of the same cards.
+
+**Detection method**: Gold stamp detection via color analysis in artwork region.
+The metallic gold W stands out against most artwork backgrounds. OCR unlikely
+to read the stylized logo. Template matching against a reference W stamp image
+would be more reliable. At binder resolution, the stamp is approximately 5-8
+pixels across, making detection marginal.
+
+### X.6 Winner Stamp (Tournament Prize Cards)
+
+```
+Variant:           "WINNER" text stamp on card artwork
+Detection region:  [0.55, 0.25, 0.95, 0.50] (artwork right side)
+Applicable sets:   Multiple eras -- three distinct Winner stamp styles
+TCGCSV subtype:    YES -- separate products
+Price impact:      $50-500+ depending on era and card
+Detection feasibility: Maybe -- stamp text may be OCR-readable at good resolution
+```
+
+**Visual signature**: Gold or black "WINNER" text stamped on the card artwork.
+Three eras of Winner stamps:
+
+1. **WotC era Winner** (1999-2002): Large black "WINNER" text on WotC promo cards.
+   Given to tournament winners at DCI-sanctioned events. Cards include
+   Venusaur, Charizard, Blastoise Base Set promos. The text is bold, centered
+   in the artwork area. Approximately 15mm wide.
+
+2. **EX/DP era Winner** (2003-2009): Smaller gold "WINNER" foil stamp, typically
+   positioned in the bottom-right of artwork. Used on prerelease and league
+   prize cards. More subtle than WotC era.
+
+3. **Modern era Winner** (2011-present): Small gold "WINNER" stamp used on
+   Build & Battle / prerelease cards. Positioned similarly to the Staff stamp
+   but says "WINNER" instead. Very limited distribution -- only given to
+   tournament winners at official prerelease events.
+
+**Detection method**: OCR on artwork region for "WINNER" text. The WotC era
+stamp is large enough to be readable at binder resolution. Later eras have
+smaller stamps that may require higher resolution. Fuzzy matching with
+threshold 0.70 to handle OCR garbling.
+
+### X.7 Toys R Us Stamp (Store Event Promos)
+
+```
+Variant:           Toys R Us logo stamp on card artwork
+Detection region:  [0.55, 0.30, 0.90, 0.55] (artwork bottom-right)
+Applicable sets:   smp, xyp (select promo cards from 2016-2018)
+TCGCSV subtype:    YES -- separate products
+Price impact:      $10-50 premium over unstamped version
+Detection feasibility: Maybe -- logo stamp visible at good resolution
+```
+
+**Visual signature**: The Toys R Us logo (stylized backwards "R" and company
+name) stamped in gold or silver foil on the card artwork. Used on promo cards
+distributed exclusively at Toys R Us store events, including:
+- Pokemon Day events at Toys R Us stores
+- Holiday season promo giveaways
+- New set release day events
+
+**Affected cards**: Approximately 15-20 promo cards across 2016-2018, including
+Pikachu, Eevee evolution promos, and starter Pokemon promos.
+
+**Historical context**: Toys R Us closed all US stores in 2018, making these
+stamped promos increasingly collectible. The stamps are no longer being produced.
+
+**Detection method**: Logo template matching in artwork region. The Toys R Us
+logo is distinctive but small at binder resolution (~8-12 pixels across).
+OCR would not recognize the logo. DINOv2 matching could work if the stamped
+version is a distinct product in the reference database.
+
+### X.8 Build-A-Bear Stamp (Stuffed Animal Package Promos)
+
+```
+Variant:           Build-A-Bear Workshop logo stamp on card
+Detection region:  [0.50, 0.30, 0.90, 0.55] (artwork area)
+Applicable sets:   swshp, svp (select promo cards, 2021-present)
+TCGCSV subtype:    YES -- separate products
+Price impact:      $10-40 premium
+Detection feasibility: Maybe -- logo stamp visible at good resolution
+```
+
+**Visual signature**: Build-A-Bear Workshop paw print logo and/or text stamped
+on the card, typically in gold foil. Cards distributed exclusively with
+Build-A-Bear stuffed Pokemon plushies.
+
+**Known affected cards**: Pikachu, Eevee, various starter Pokemon, and seasonal
+holiday promos. Each plush comes with a unique promo card featuring the stamp.
+
+**Detection method**: Logo template matching or OCR for "BUILD-A-BEAR" text.
+The stamp is relatively small and may not be distinguishable from artwork
+details at binder resolution. DINOv2 matching preferred if the stamped
+version is in the reference database.
+
+### X.9 Pokemon Day Stamp (Annual Event Promos)
+
+```
+Variant:           Pokemon Day event stamp on promo cards
+Detection region:  [0.55, 0.30, 0.90, 0.55] (artwork bottom-right)
+Applicable sets:   Various promo sets (smp, swshp, svp)
+TCGCSV subtype:    YES -- separate products when stamped version exists
+Price impact:      $5-30 premium
+Detection feasibility: Maybe -- stamp text may be OCR-readable
+```
+
+**Visual signature**: "POKEMON DAY" text stamp, sometimes with the year, applied
+in gold or silver foil to the card artwork. Pokemon Day is celebrated on
+February 27 annually (the date the original games launched in Japan in 1996).
+
+**Distribution**: Given out at participating retailers and Pokemon Center
+locations on or around February 27. Some Pokemon Day promos also distributed
+at special events.
+
+**Known affected cards**: Typically one or two promo cards per year, often
+featuring Pikachu or the current generation's mascot Pokemon.
+
+**Detection method**: OCR on artwork region for "POKEMON DAY" text. The stamp
+text is typically clean and high-contrast gold on artwork, making OCR feasible
+at decent resolution. At binder scan resolution, results are marginal.
+
+### X.10 Futsal Stamp (UK Futsal Tournament Pikachu)
+
+```
+Variant:           Futsal tournament stamp on Pikachu promo
+Detection region:  [0.50, 0.30, 0.90, 0.55] (artwork area)
+Applicable sets:   swshp (Sword & Shield promos) -- 5 cards total
+TCGCSV subtype:    YES -- separate products
+Price impact:      $20-100+ (UK exclusive, limited distribution)
+Detection feasibility: Maybe -- stamp/logo visible at good resolution
+```
+
+**Visual signature**: Futsal tournament branding stamped or printed on the card.
+Five Pikachu promo cards were created for the UK Pokemon Futsal Collection
+(2021), each depicting Pikachu performing different football/futsal moves. The
+cards feature unique artwork with futsal theming and a Futsal Collection logo.
+
+**Affected cards**:
+1. Pikachu On the Ball (SWSH039)
+2. Pikachu Libre (SWSH062)
+3. Pikachu V (SWSH063)
+4. Pikachu VMAX (SWSH062) -- alternate
+5. Eevee On the Ball (SWSH064)
+
+**Historical context**: Created for a joint promotion between The Pokemon
+Company and the English Football Association (FA) to promote youth futsal.
+Distributed at participating football centres in England. Very limited
+geographic distribution makes these cards relatively scarce globally.
+
+**Detection method**: DINOv2 matching against the specific Futsal promo reference
+images. The artwork is unique to these promos so DINOv2 should distinguish
+them from other Pikachu cards reliably.
+
+### X.11 League Stamps (Play! Pokemon League Promos)
+
+```
+Variant:           Play! Pokemon league event stamps on promo cards
+Detection region:  [0.55, 0.25, 0.95, 0.55] (artwork right side)
+Applicable sets:   Multiple eras (EX through SV)
+TCGCSV subtype:    YES -- league promos are separate products
+Price impact:      $3-30 for league promos; $10-50 for League Challenge stamps
+Detection feasibility: Maybe -- stamp visible at good resolution but often subtle
+```
+
+**Visual signature**: League-related stamps come in several flavors:
+
+1. **Play! Pokemon logo stamp**: Small Play! Pokemon Poke Ball logo stamped on
+   the card artwork. Found on cards distributed as league season rewards.
+   Stamp is typically 5-8mm, gold or silver foil.
+
+2. **League Challenge stamp**: "LEAGUE CHALLENGE" text stamp on promo cards
+   given to top finishers at League Challenge events (the lowest tier of
+   official Play! Pokemon competitive events). Text is small but legible
+   under magnification.
+
+3. **League Cup stamp**: "LEAGUE CUP" text stamp on promo cards given to
+   League Cup event participants and top finishers. Similar in style and
+   position to League Challenge stamps.
+
+4. **Season stamp**: Some league promos include the season name or year in
+   the stamp (e.g., "2023 LEAGUE" or season-specific branding).
+
+**Detection method**: OCR on artwork region for "LEAGUE" text. The stamps are
+small and often low-contrast against busy artwork backgrounds, making OCR
+unreliable at binder resolution. DINOv2 matching against specific league
+promo reference images is more reliable when the promo is in the database.
+
+### X.12 Championship Stamps (Regional/International/Worlds)
+
+```
+Variant:           Championship event stamps on promo and prize cards
+Detection region:  [0.50, 0.20, 0.95, 0.55] (artwork upper-right to center-right)
+Applicable sets:   Championship-specific promos across all modern eras
+TCGCSV subtype:    YES -- separate products
+Price impact:      Regional: $10-50; International: $20-100; Worlds: $50-500+
+Detection feasibility: Maybe -- stamp text/logo may be OCR-readable
+```
+
+**Visual signature**: Three tiers of championship stamps, each with distinctive
+branding:
+
+1. **Regional Championship stamp**: Regional Championships logo and/or
+   "REGIONAL CHAMPIONSHIPS" text. Given to participants at Regional
+   Championship events. Stamp includes the regional event branding,
+   sometimes with the host city name.
+
+2. **International Championship stamp**: "INTERNATIONAL CHAMPIONSHIPS" text
+   with continent-specific branding (NAIC, EUIC, LAIC, OAIC). Distributed
+   at International Championship events. Higher prestige and lower print
+   runs than Regional stamps.
+
+3. **World Championship stamp**: "WORLD CHAMPIONSHIPS" text with the year
+   and host city. The most prestigious stamp. Given to World Championship
+   participants. Extremely limited quantities. Often on exclusive promo
+   cards not available elsewhere.
+
+**Detection method**: OCR on artwork region for "CHAMPIONSHIP" or "WORLDS" text.
+Championship stamps tend to be larger and more prominent than league stamps,
+improving OCR accuracy. DINOv2 matching works when the specific championship
+promo is in the reference database.
+
+### X.13 Professor Program Stamp (Certified Judge Promos)
+
+```
+Variant:           Professor Program stamp on promo cards
+Detection region:  [0.55, 0.30, 0.90, 0.55] (artwork bottom-right)
+Applicable sets:   Professor-specific promos across DP through SV eras
+TCGCSV subtype:    YES -- separate products
+Price impact:      $10-100+ (limited to certified judges/professors)
+Detection feasibility: Maybe -- stamp text may be OCR-readable
+```
+
+**Visual signature**: "PROFESSOR" or "PROFESSOR PROGRAM" text stamp, sometimes
+with the Professor Program mortarboard hat logo. Applied in gold foil to promo
+cards distributed exclusively to certified Pokemon TCG Professors (judges and
+organizers who passed the Professor certification exam).
+
+**Distribution**: Only available to Professor Program members. Cards distributed
+quarterly or at special events. Some professors receive exclusive full art or
+holofoil versions of existing cards.
+
+**Known affected cards**: Various trainer and Pokemon promo cards across multiple
+eras. Professor Program promos are often stamped versions of existing promo
+cards, making the stamp the only visual distinguisher.
+
+**Detection method**: OCR for "PROFESSOR" text in artwork region. The stamp is
+typically clean and well-defined, potentially readable at binder resolution
+depending on artwork contrast. DINOv2 matching if the stamped version is a
+distinct reference image.
+
+### X.14 World Championship Deck Cards (Grey Border Reproductions)
+
+```
+Variant:           Non-tournament-legal reproductions with grey/silver borders
+Detection region:  Border region: outer 6% on all sides
+Applicable sets:   World Championship Deck products (annual releases, 2004-present)
+TCGCSV subtype:    YES -- separate products (different product line)
+Price impact:      $1-10 (much cheaper than real versions; non-playable)
+Detection feasibility: Detectable -- grey border is a strong, obvious visual signal
+```
+
+**Visual signature**: World Championship deck cards are reproductions of the
+winning decks from each year's World Championship. They have several distinctive
+features:
+
+1. **Grey/silver border**: Instead of the standard yellow border (or era-appropriate
+   border color), WC deck cards have a distinctive grey/silver border. This is
+   the most obvious visual difference and is clearly visible at binder resolution.
+
+2. **Player signature**: The card back features the winning player's name and
+   signature printed on it (non-standard card back).
+
+3. **Non-holo**: Even if the original card was holofoil, WC deck reproductions
+   are typically printed without holographic treatment.
+
+4. **"NOT TOURNAMENT LEGAL" text**: Some versions include this text on the card.
+
+**Detection method**: Border color analysis. Standard Pokemon cards have a yellow
+(WotC/EX era), silver (DP era), or colored border. WC deck cards have a distinctly
+different grey tone. HSV analysis of the border strips: WC deck borders have
+saturation < 20 and value in the 140-180 range (medium grey), whereas standard
+borders have higher saturation or different value ranges.
+
+Implementation:
+- Extract the 4 border strips (outer 6%)
+- Measure mean saturation and value in HSV space
+- If mean_saturation < 20 and 120 < mean_value < 190, flag as WC deck
+- Cross-reference with card name to confirm (WC deck cards match real card names)
+
+### X.15 Peelable Ditto -- Extended Notes
+
+Note: Base entry is at 9.9. These are additional details on the specific cards
+and detection challenges.
+
+The Pokemon GO set (pgo) contains 18 common cards that have a hidden Ditto
+underneath a peelable layer:
+
+**Affected card numbers**: Caterpie, Seedot, Bidoof, Numel, Spinarak,
+Ditto (the revealed card). The top card appears completely normal in all
+respects. There is no visual indicator on the top surface that distinguishes
+a Ditto-underneath card from a normal card.
+
+**Physical tells** (none visible in scans):
+- Slightly thicker card stock (peelable layer adds ~0.1mm)
+- Edge inspection may show a thin seam where the peel layer meets card edge
+- Both tells require physical handling
+
+**Pricing note**: The Ditto versions are priced as separate products in TCGCSV.
+When the top card is still sealed (unpeeled), it is priced as the face card.
+Once peeled, it becomes a Ditto card with its own pricing. This is fundamentally
+a physical variant that cannot be detected from any form of photography.
+
+### X.16 Special Delivery Stamp (Pokemon Center Online Exclusives)
+
+```
+Variant:           "Special Delivery" stamp/branding on exclusive promo cards
+Detection region:  Name bar area: [0.06, 0.02, 0.94, 0.10] (name includes "Special Delivery")
+                   Artwork: full card -- unique artwork showing Pokemon as mail carrier
+Applicable sets:   swshp, svp (Pokemon Center online exclusive promos)
+TCGCSV subtype:    YES -- separate products
+Price impact:      $20-200+ (Special Delivery Charizard: $100-300)
+Detection feasibility: Detectable -- name OCR reads "Special Delivery" prefix
+```
+
+**Visual signature**: "Special Delivery" appears in the card name (e.g., "Special
+Delivery Pikachu", "Special Delivery Charizard", "Special Delivery Bidoof").
+The artwork depicts the Pokemon wearing a mail carrier outfit or surrounded by
+packages/letters. Distinctive art style unlike any regular set card.
+
+**Known affected cards**:
+1. Special Delivery Pikachu (SWSH074) -- first in series, highly sought after
+2. Special Delivery Charizard (SWSH075) -- highest value
+3. Special Delivery Bidoof (SWSH188) -- fan favorite
+4. Special Delivery Greninja -- SV era addition
+
+**Distribution**: Exclusively available through the Pokemon Center online store
+as a free bonus card with qualifying purchases (typically $20+ orders). Limited
+to one per customer per promotion period. High demand creates significant
+secondary market premiums.
+
+**Detection method**: Name OCR reads "Special Delivery" prefix. These cards
+have completely unique artwork, so DINOv2 matching against reference images
+is highly reliable. The mail carrier costume/theme is visually distinctive
+even at binder resolution.
+
+---
+
+## Detection Feasibility Summary
+
+Quick reference table for all variant types and their binder scan detectability.
+
+| Variant Type                  | Feasibility     | Method / Notes                                              |
+|-------------------------------|-----------------|-------------------------------------------------------------|
+| 1st Edition stamp             | Maybe           | OCR ~85%, small stamp at binder resolution                  |
+| Shadowless                    | Maybe           | Edge gradient analysis, sleeve edges interfere              |
+| Holofoil (standard)           | Not detectable  | Holo shimmer invisible through binder sleeves               |
+| Reverse Holofoil              | Detectable      | hf_decorr >= 0.055 on name bar, 100% accuracy              |
+| Full Art                      | Detectable      | Edge strip saturation/hue analysis                          |
+| Gold                          | Detectable      | HSV gold hue >40% coverage                                 |
+| Rainbow Rare                  | Detectable      | Multi-hue saturation across 4+/6 segments                   |
+| Prerelease stamp              | Maybe           | OCR works but garbling common                               |
+| Staff stamp                   | Maybe           | OCR for "STAFF" text                                        |
+| EX set stamp (ex7-ex16)       | Maybe           | Stamp OCR 68.8% accuracy                                   |
+| Name-based variants           | Detectable      | OCR reads ex/GX/V/VMAX/VSTAR/LV.X suffixes                 |
+| Holo swirl                    | Not detectable  | Requires angled lighting                                    |
+| Cracked ice / cosmos holo     | Not detectable  | Holo pattern distinction invisible through sleeves          |
+| Crosshatch holo               | Not detectable  | Holo pattern invisible through sleeves                      |
+| Sequin holo                   | Not detectable  | Holo pattern invisible through sleeves                      |
+| Red cheeks Pikachu            | Maybe           | Color difference subtle but measurable                      |
+| Error cards (HP, symbol)      | Not detectable  | Text/symbols too small at binder resolution                 |
+| No-symbol Jungle error        | Maybe           | Symbol absence detectable at adequate resolution            |
+| Copyright date                | Not detectable  | Copyright text too small                                    |
+| Ghost stamp                   | Not detectable  | Stamp extremely faint, needs close-up                       |
+| W gold stamp                  | Maybe           | Gold stamp may be visible at good resolution                |
+| Winner stamp                  | Maybe           | WotC era large enough; later eras marginal                  |
+| Toys R Us stamp               | Maybe           | Logo small at binder resolution                             |
+| Build-A-Bear stamp            | Maybe           | Logo small at binder resolution                             |
+| Pokemon Day stamp             | Maybe           | Text stamp may be OCR-readable                              |
+| Futsal promos                 | Detectable      | Unique artwork, DINOv2 matches                              |
+| League stamps                 | Maybe           | Small stamps, often low-contrast                            |
+| Championship stamps           | Maybe           | Larger stamps, OCR may work                                 |
+| Professor Program stamp       | Maybe           | Text stamp, depends on contrast                             |
+| World Championship deck       | Detectable      | Grey border is obvious visual signal                        |
+| Peelable Ditto                | Not detectable  | Requires physical peeling                                   |
+| Special Delivery               | Detectable      | Name OCR reads "Special Delivery" prefix                    |
+| Dot codes (e-Card)            | Maybe           | Visible but not needed for pricing                          |
 
 ---
 
