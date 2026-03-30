@@ -483,6 +483,100 @@ def _has_dark_circular_blob(region_bgr: np.ndarray,
     return False
 
 
+def _has_promo_star_shape(region_bgr: np.ndarray,
+                          upscale: int = 3,
+                          min_area: int = 60,
+                          max_area: int = 600,
+                          max_solidity: float = 0.45) -> tuple[bool, float, dict]:
+    """Check if a region contains a dark star shape (promo stamp indicator).
+
+    Promo stars have low solidity (~0.25-0.40) due to concavities between
+    star points.  Normal set symbols and text are more solid (>0.55).
+
+    Uses multi-threshold binarization to handle varying card backgrounds.
+
+    Args:
+        region_bgr: BGR image of the region to check.
+        upscale: Upscale factor for better contour detection on small crops.
+        min_area: Minimum contour area (at upscaled resolution).
+        max_area: Maximum contour area (at upscaled resolution).
+        max_solidity: Maximum solidity to qualify as a star shape.
+
+    Returns:
+        (found, confidence, details) where:
+          - found: True if a promo-star-shaped dark blob was detected.
+          - confidence: 0.0-0.90 based on how star-like the shape is.
+          - details: dict with 'solidity', 'circularity', 'area' of best match.
+    """
+    if region_bgr.size == 0:
+        return False, 0.0, {}
+
+    try:
+        region_up = cv2.resize(region_bgr, None, fx=upscale, fy=upscale,
+                               interpolation=cv2.INTER_CUBIC)
+        gray = cv2.cvtColor(region_up, cv2.COLOR_BGR2GRAY)
+
+        best_match: tuple[float, float, float, float] | None = None
+
+        for dark_thresh in [80, 100, 120]:
+            _, dark_mask = cv2.threshold(gray, dark_thresh, 255,
+                                         cv2.THRESH_BINARY_INV)
+            contours, _ = cv2.findContours(dark_mask, cv2.RETR_EXTERNAL,
+                                           cv2.CHAIN_APPROX_SIMPLE)
+
+            # Tighter solidity at higher thresholds to reduce false positives
+            thresh_max_sol = max_solidity if dark_thresh <= 80 else min(max_solidity, 0.42)
+
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area < min_area or area > max_area:
+                    continue
+
+                perimeter = cv2.arcLength(cnt, True)
+                if perimeter == 0:
+                    continue
+
+                hull = cv2.convexHull(cnt)
+                hull_area = cv2.contourArea(hull)
+                if hull_area == 0:
+                    continue
+
+                solidity = area / hull_area
+                circularity = 4 * np.pi * area / (perimeter ** 2)
+
+                if solidity >= thresh_max_sol:
+                    continue  # Too solid — not a star shape
+
+                # Confidence based on solidity range
+                if solidity < 0.30:
+                    conf = 0.90
+                elif solidity < 0.38:
+                    conf = 0.80
+                else:
+                    conf = 0.65
+
+                if best_match is None or conf > best_match[3]:
+                    best_match = (solidity, circularity, area, conf)
+
+            # Good match at low threshold → skip higher thresholds
+            if best_match is not None and best_match[3] >= 0.80:
+                break
+
+        if best_match is not None:
+            sol, circ, area, conf = best_match
+            logger.debug("Promo star shape: solidity=%.3f, circularity=%.3f, "
+                         "area=%.0f, confidence=%.2f", sol, circ, area, conf)
+            return True, conf, {
+                "solidity": round(sol, 3),
+                "circularity": round(circ, 3),
+                "area": round(area, 0),
+            }
+    except Exception as e:
+        logger.debug("Promo star shape check failed: %s", e)
+
+    return False, 0.0, {}
+
+
 def _has_dark_circle_hough(region_bgr: np.ndarray) -> bool:
     """Detect dark circles using HoughCircles."""
     try:
@@ -1057,17 +1151,29 @@ def _check_black_star_promo(img_bgr: np.ndarray) -> dict:
             "ocr_text": ocr_text,
         }
 
-    # Look for a dark star shape (approximated as blob with moderate circularity)
-    # Stars have lower circularity than circles (~0.3-0.5) but higher area
-    has_blob = _has_dark_circular_blob(
-        wide, min_area_frac=0.02, max_area_frac=0.40, min_circularity=0.25,
-    )
-    if has_blob:
+    # Look for a dark star shape using solidity-based detection.
+    # Stars have low solidity (~0.25-0.40) due to concavities between points.
+    found, conf, details = _has_promo_star_shape(wide)
+    if found:
         return {
-            "detected": True, "confidence": 0.60,
+            "detected": True, "confidence": conf,
             "position": "bottom_right",
-            "evidence": "dark_star_blob",
+            "evidence": "star_shape",
+            **details,
         }
+
+    # Also try the WotC-specific region near the set symbol area (right side
+    # of artwork, where WotC black star promos display a prominent star).
+    wotc_star_region = _extract_region(img_bgr, 0.76, 0.44, 0.98, 0.60)
+    if wotc_star_region.size > 0:
+        found2, conf2, details2 = _has_promo_star_shape(wotc_star_region)
+        if found2:
+            return {
+                "detected": True, "confidence": conf2,
+                "position": "artwork_right",
+                "evidence": "wotc_star_shape",
+                **details2,
+            }
 
     return result_base
 
@@ -1353,7 +1459,41 @@ def _check_shadowless(img_bgr: np.ndarray, set_id: str) -> dict:
         "avg_delta": round(avg_delta, 1),
     }
 
-    # Decision thresholds:
+    # Sanity check: negative deltas mean the outer strip is darker than
+    # the inner strip, which indicates background contamination (binder
+    # page, dark sleeve, etc.) bleeding into the crop -- not a shadowless
+    # signal.  Reject if either individual delta is significantly negative
+    # or if either side shows a clear shadow (large positive delta).
+    if right_delta < -5 or bottom_delta < -5:
+        logger.debug(
+            "Shadowless rejected: negative delta (background contamination) "
+            "avg_delta=%.1f (right=%.1f, bottom=%.1f)",
+            avg_delta, right_delta, bottom_delta,
+        )
+        return {
+            "detected": False, "confidence": 0.0,
+            "position": "right_edge",
+            "evidence": "background_contamination",
+            **diagnostics,
+        }
+
+    # If either edge individually shows a moderate-to-clear shadow (>8),
+    # the card is unlimited.  A truly shadowless card has *both* edges
+    # uniformly bright -- one shadowed edge is enough to reject.
+    if right_delta > 8 or bottom_delta > 8:
+        logger.debug(
+            "Unlimited (one edge has clear shadow): "
+            "avg_delta=%.1f (right=%.1f, bottom=%.1f)",
+            avg_delta, right_delta, bottom_delta,
+        )
+        return {
+            "detected": False, "confidence": 0.0,
+            "position": "right_edge",
+            "evidence": "shadow_present_one_edge",
+            **diagnostics,
+        }
+
+    # Decision thresholds (both deltas are non-negative and <=15):
     # avg_delta < 5  => shadowless (uniform border, no shadow)
     # avg_delta > 15 => unlimited (clear shadow present)
     # 5-15 => ambiguous
@@ -1442,16 +1582,28 @@ def _check_promo_stamp(img_bgr: np.ndarray) -> dict:
                 "ocr_text": br_ocr,
             }
 
-    # Check for dark star/blob shapes
-    has_blob = _has_dark_circular_blob(
-        wide, min_area_frac=0.02, max_area_frac=0.40, min_circularity=0.25,
-    )
-    if has_blob:
+    # Check for dark star shape in bottom-left (SM/SWSH/SV promos)
+    found, conf, details = _has_promo_star_shape(wide)
+    if found:
         return {
-            "detected": True, "confidence": 0.55,
+            "detected": True, "confidence": conf,
             "position": "bottom_left",
-            "evidence": "dark_promo_blob",
+            "evidence": "star_shape",
+            **details,
         }
+
+    # Check bottom-right for star shape (DP/HGSS/BW/XY promos have the
+    # star next to the card number in the bottom-right area).
+    br_star_region = _extract_region(img_bgr, 0.70, 0.86, 0.99, 0.98)
+    if br_star_region.size > 0:
+        found2, conf2, details2 = _has_promo_star_shape(br_star_region)
+        if found2:
+            return {
+                "detected": True, "confidence": conf2,
+                "position": "bottom_right",
+                "evidence": "star_shape_br",
+                **details2,
+            }
 
     return result_base
 

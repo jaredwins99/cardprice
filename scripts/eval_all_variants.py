@@ -231,11 +231,10 @@ def run_evaluation():
                     s["fp_cards"].append(f"{card['name']} ({gt_key}) conf={conf}")
                 # else: TN (expected=False, detected=False) -- correct rejection
 
-        # Progress
-        if (i + 1) % 10 == 0 or i == len(cards) - 1:
-            print(f"  [{i+1}/{len(cards)}] {card['name']:25s} "
-                  f"stamps={list(stamps_detected) or 'none':40s} "
-                  f"{elapsed:.2f}s")
+        # Progress - every card, flush immediately
+        det_str = ", ".join(stamps_detected) if stamps_detected else "none"
+        print(f"  [{i+1:3d}/{len(cards)}] {card['name']:25s} "
+              f"{elapsed:5.1f}s  stamps: {det_str}", flush=True)
 
     # --- Print summary report ---
     print("\n" + "=" * 80)
