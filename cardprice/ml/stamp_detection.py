@@ -5313,3 +5313,400 @@ def _check_sequin_holo(
     )
 
     return (label, confidence, details)
+
+
+# ---------------------------------------------------------------------------
+# detect_all_variants: Complete conditional detection tree
+# ---------------------------------------------------------------------------
+
+def detect_all_variants(image_path: str, card_id: str,
+                        fast: bool = False) -> dict:
+    """Run ALL applicable variant detections based on card era and set.
+
+    This is the single entry point for the complete variant detection tree.
+    Each check is gated on the card's era, set, and properties so we never
+    waste time on impossible variants (e.g. 1st Edition on SV cards).
+
+    The conditional tree::
+
+        ALL CARDS:
+        |-- World Championship deck (grey borders) -> flag reproduction, STOP
+        |
+        |-- WotC Base Set (base1):
+        |   |-- 1st Edition stamp
+        |   |   |-- Grey stamp sub-variant [if 1st ed found]
+        |   |   +-- Thick/thin stamp sub-variant [if 1st ed found]
+        |   |-- Ghost stamp (partial 1st ed impression)
+        |   |-- Shadowless vs Unlimited (border shadow gradient)
+        |   +-- Copyright year (1999 vs 1999-2000)
+        |
+        |-- WotC Jungle (base2):
+        |   |-- 1st Edition stamp
+        |   +-- No-symbol error (holos only)
+        |
+        |-- WotC Fossil/Rocket (base3, base5):
+        |   +-- 1st Edition stamp
+        |
+        |-- WotC Gym (gym1, gym2):
+        |   +-- 1st Edition stamp
+        |
+        |-- WotC Neo (neo1-neo4):
+        |   +-- 1st Edition stamp
+        |
+        |-- EX era ex7-ex16:
+        |   +-- EX set logo stamp (reverse holo confirmation)
+        |
+        |-- Prerelease/Staff (era-gated):
+        |   |-- WotC/EX/DP text-based prerelease
+        |   |-- HGSS+ logo-based prerelease
+        |   +-- Staff stamp [era 3+ or prerelease-eligible]
+        |
+        |-- Winner tournament stamp (prerelease-eligible sets)
+        |
+        |-- WotC promos (basep):
+        |   |-- W gold stamp (7 specific cards)
+        |   +-- Black star promo
+        |
+        |-- Nintendo promos (np):
+        |   +-- Black star promo
+        |
+        |-- DP-SM promos (dpp, hsp, bwp, xyp, smp):
+        |   +-- Promo stamp
+        |
+        |-- SWSH/SV Promos (swshp/svp):
+        |   |-- Modern promo pokeball
+        |   |-- Build & Battle stamp
+        |   +-- Pokemon Center stamp (svp only)
+        |
+        |-- Retailer exclusives:
+        |   |-- Toys R Us stamp (XY/SM, eras 6-7)
+        |   +-- Build-A-Bear stamp (XY/SM, eras 6-7)
+        |
+        |-- McDonald's sets (mcd*):
+        |   +-- Confetti holo pattern
+        |
+        |-- Pokemon GO (pgo):
+        |   +-- Peelable Ditto face icon
+        |
+        |-- League/tournament (era 3+):
+        |   +-- League/Championship/Professor stamps + crosshatch holo
+        |
+        |-- Holo pattern analysis:
+        |   |-- Holo finish (artwork shimmer, all eras)
+        |   |-- Reverse holo (body shimmer, era 2+)
+        |   +-- Cracked ice holo (theme deck, era 4+)
+
+    Args:
+        image_path: Path to the card image file.
+        card_id: Full card identifier (e.g. "base1-4/holofoil").
+        fast: If True, only run cheap pixel-based checks (world championship,
+            shadowless).  Skip all OCR and pattern analysis.
+
+    Returns:
+        dict with keys:
+            stamps_detected: list[str] -- detected stamp/variant types
+            stamp_details: dict[str, dict] -- per-stamp detection details
+            stamps_checked: list[str] -- all checks that were run
+            variant_flags: dict -- high-level variant flags for pipeline use
+    """
+    set_id = _extract_set_id(card_id)
+    era = _get_era(card_id)
+    variant_suffix = card_id.split("/", 1)[1] if "/" in card_id else ""
+
+    result: dict = {
+        "stamps_detected": [],
+        "stamp_details": {},
+        "stamps_checked": [],
+        "variant_flags": {},
+    }
+
+    # Load image once
+    img = cv2.imread(str(image_path))
+    if img is None:
+        logger.warning("detect_all_variants: could not read image: %s",
+                       image_path)
+        return result
+
+    # ----- helper: run a single check and record results -----
+    def _run(name: str, checker_fn, *args, **kwargs) -> dict | None:
+        """Execute one detection check.  Records in result dict.
+
+        Returns the raw detail dict if detected, else None.
+        """
+        result["stamps_checked"].append(name)
+        try:
+            detail = checker_fn(*args, **kwargs)
+        except Exception as e:
+            logger.warning("Check %s failed for %s: %s", name, card_id, e)
+            return None
+
+        if not detail.get("detected"):
+            logger.debug("Not detected: %s on %s", name, card_id)
+            return None
+
+        result["stamps_detected"].append(name)
+        info: dict = {
+            "confidence": detail["confidence"],
+            "position": detail.get("position", "unknown"),
+            "evidence": detail.get("evidence", ""),
+        }
+        # Preserve extra fields from specific detectors
+        for key in ("variant", "retailer", "stamp_thickness",
+                    "thickness_confidence", "holo_type", "warning",
+                    "ink_color", "ink_color_confidence", "ocr_text",
+                    "stamp_type", "all_stamps"):
+            if key in detail:
+                info[key] = detail[key]
+        result["stamp_details"][name] = info
+        logger.info("Detected: %s on %s (conf=%.2f, evidence=%s)",
+                    name, card_id, detail["confidence"],
+                    detail.get("evidence", ""))
+        return detail
+
+    # ===========================================================
+    # TIER 0: Cheap pixel checks -- always run, even in fast mode
+    # ===========================================================
+
+    # World Championship deck (grey/silver borders) -- <1ms
+    wc = _run("world_championship", _check_world_championship, img, set_id)
+    if wc:
+        result["variant_flags"]["is_reproduction"] = True
+        # WC decks are reproductions with no collectible variants; stop here
+        return result
+
+    # Shadowless (base1 only) -- border gradient, <5ms
+    if set_id == "base1":
+        if _run("shadowless", _check_shadowless, img, set_id):
+            result["variant_flags"]["shadowless"] = True
+
+    # In fast mode, return after cheap pixel checks only
+    if fast:
+        return result
+
+    # ===========================================================
+    # TIER 1: WotC era stamp checks
+    # ===========================================================
+
+    # --- 1st Edition stamp (base1-base5, gym1-2, neo1-4) ---
+    if set_id in _FIRST_EDITION_SETS:
+        ed = _run("1st_edition", _check_1st_edition, img)
+        if ed:
+            result["variant_flags"]["1st_edition"] = True
+
+            # Conditional sub-variants (only when 1st ed stamp found):
+
+            # Grey stamp (faded ink, mostly Team Rocket era)
+            regions = STAMP_REGIONS["1st_edition"]
+            stamp_crop = _extract_region(img, *regions["tight"])
+            ink_color, ink_conf = _check_grey_stamp(img, stamp_crop)
+            ed_info = result["stamp_details"]["1st_edition"]
+            ed_info["ink_color"] = ink_color
+            ed_info["ink_color_confidence"] = ink_conf
+            if ink_color == "grey":
+                result["stamps_detected"].append("grey_stamp")
+                result["stamp_details"]["grey_stamp"] = {
+                    "confidence": ink_conf,
+                    "position": ed_info.get("position", "left"),
+                    "evidence": "ink_darkness_analysis",
+                    "parent_stamp": "1st_edition",
+                }
+                result["variant_flags"]["grey_stamp"] = True
+
+    # Ghost stamp: partial 1st ed impression (base1 only)
+    if set_id == "base1":
+        _run("ghost_stamp", _check_ghost_stamp, img, set_id)
+
+    # Copyright year: 1999 vs 1999-2000 (base1 only)
+    if set_id == "base1":
+        cr = _run("copyright_year", _check_copyright_year, img, set_id)
+        if cr and cr.get("variant") == "4th_print":
+            result["variant_flags"]["4th_print"] = True
+
+    # Jungle no-symbol error (base2 holos only)
+    if set_id == "base2" and "holo" in variant_suffix.lower():
+        if _run("no_symbol_error", _check_no_symbol_error_as_stamp,
+                img, set_id, variant_suffix):
+            result["variant_flags"]["no_symbol_error"] = True
+
+    # ===========================================================
+    # TIER 2: EX era stamp checks
+    # ===========================================================
+
+    # EX set logo stamp on reverse holos (ex7-ex16 only)
+    if set_id in _EX_STAMPED_SETS:
+        if _run("ex_set_stamp", _check_ex_set_stamp, img, set_id):
+            result["variant_flags"]["ex_stamped_reverse"] = True
+
+    # ===========================================================
+    # TIER 3: Prerelease, Staff, and Winner stamps (era-gated)
+    # ===========================================================
+
+    prerelease_found = False
+
+    # Prerelease text stamp: WotC/EX/DP sets
+    if set_id in _PRERELEASE_TEXT_SETS:
+        if _run("prerelease", _check_prerelease, img, set_id, era):
+            prerelease_found = True
+            result["variant_flags"]["prerelease"] = True
+
+    # Prerelease logo stamp: HGSS+ sets
+    elif set_id in _PRERELEASE_LOGO_SETS:
+        if _run("prerelease", _check_prerelease, img, set_id, era):
+            prerelease_found = True
+            result["variant_flags"]["prerelease"] = True
+
+    # Staff stamp: DP onward (era 3+) or prerelease-eligible WotC/EX sets
+    if (era >= 3 or era == 0 or set_id in _PRERELEASE_TEXT_SETS
+            or prerelease_found):
+        if _run("staff_stamp", _check_staff_stamp, img, set_id, era):
+            result["variant_flags"]["staff"] = True
+
+    # Winner tournament stamp: prerelease-eligible + 1st ed sets
+    if set_id in _WINNER_STAMP_SETS:
+        if _run("winner_stamp", _check_winner_stamp, img, set_id, era):
+            result["variant_flags"]["winner"] = True
+
+    # ===========================================================
+    # TIER 4: Promo set checks
+    # ===========================================================
+
+    # WotC Black Star Promos (basep)
+    if set_id == "basep":
+        _run("black_star_promo", _check_black_star_promo, img)
+
+        # W gold stamp: extremely rare, only 7 eligible cards
+        bare_id = card_id.split("/")[0]
+        if bare_id in _W_STAMP_ELIGIBLE_CARDS:
+            if _run("w_stamp", _check_w_stamp, img, set_id):
+                result["variant_flags"]["w_stamp"] = True
+
+    # Nintendo Black Star Promos (np, EX era)
+    if set_id == "np":
+        _run("black_star_promo", _check_black_star_promo, img)
+
+    # DP-SM era promo sets (dpp, hsp, bwp, xyp, smp)
+    if set_id in _PROMO_SETS:
+        _run("promo_stamp", _check_promo_stamp, img)
+
+    # SWSH/SV era modern promo sets (swshp, svp)
+    if set_id in _MODERN_PROMO_SETS:
+        _run("modern_promo", _check_modern_promo, img)
+
+        # Build & Battle stamp (SWSH/SV promo cards from B&B boxes)
+        _run("build_battle", _check_build_battle_stamp, img, set_id, era)
+
+        # Pokemon Center exclusive stamp (svp only)
+        if set_id == "svp":
+            _run("pokemon_center", _check_pokemon_center_stamp,
+                 img, set_id, era)
+
+    # ===========================================================
+    # TIER 5: Retailer exclusives
+    # ===========================================================
+
+    # Toys R Us stamp (XY/SM eras, 2016-2018)
+    if era in _TOYS_R_US_ERAS or era == 0:
+        if _run("toys_r_us", _toys_r_us_as_dict, img, set_id, era):
+            result["variant_flags"]["toys_r_us"] = True
+
+    # Build-A-Bear Workshop stamp (XY/SM eras, eras 6-7)
+    if era in (6, 7) or era == 0:
+        if _run("build_a_bear", _build_a_bear_as_dict, img, set_id, era):
+            result["variant_flags"]["build_a_bear"] = True
+
+    # ===========================================================
+    # TIER 6: Special product variants
+    # ===========================================================
+
+    # McDonald's confetti holo
+    if set_id in _MCDONALDS_SETS or set_id.startswith("mcd"):
+        if _run("mcdonalds_holo", _check_mcdonalds_holo, img, set_id, era):
+            result["variant_flags"]["mcdonalds_holo"] = True
+
+    # Pokemon GO peelable Ditto icon
+    if set_id == "pgo":
+        if _run("peelable_ditto", _check_peelable_ditto, img, set_id):
+            result["variant_flags"]["peelable_ditto"] = True
+
+    # ===========================================================
+    # TIER 7: League / tournament stamps (era 3+)
+    # ===========================================================
+
+    if era >= 3 or era == 0:
+        if _run("league_stamps", _check_league_stamps, img, set_id, era):
+            result["variant_flags"]["league_stamp"] = True
+
+        # Crosshatch holo pattern (league/tournament promo exclusive)
+        if _run("crosshatch_holo", _check_crosshatch_holo,
+                img, set_id, era):
+            result["variant_flags"]["crosshatch_holo"] = True
+
+    # ===========================================================
+    # TIER 8: Holo pattern analysis (most expensive, run last)
+    # ===========================================================
+
+    # Shared cache to avoid duplicate expensive analysis
+    _holo_cache: dict = {}
+
+    # --- Holo finish (artwork shimmer) -- all eras ---
+    def _hf_check(img_bgr):
+        if "hf" not in _holo_cache:
+            finish, conf = _check_holo_finish(img_bgr, set_id, era)
+            _holo_cache["hf"] = (finish, conf)
+        finish, conf = _holo_cache["hf"]
+        return {
+            "detected": finish == "holofoil",
+            "confidence": conf,
+            "position": "artwork",
+            "evidence": "holo_detector",
+            "holo_type": finish,
+        }
+
+    if _run("holo_finish", _hf_check, img):
+        result["variant_flags"]["holofoil"] = True
+
+    # --- Reverse holo (body shimmer) -- era 2+ only ---
+    if era >= _REVERSE_HOLO_MIN_ERA or era == 0:
+        def _rh_check(img_bgr):
+            if "rh" not in _holo_cache:
+                label, conf = _check_reverse_holo(img_bgr, set_id, era)
+                _holo_cache["rh"] = (label, conf)
+            label, conf = _holo_cache["rh"]
+            return {
+                "detected": label == "reverse_holo",
+                "confidence": conf,
+                "position": "body",
+                "evidence": "reverse_holo_detector",
+                "holo_type": label,
+            }
+
+        if _run("reverse_holo", _rh_check, img):
+            result["variant_flags"]["reverse_holofoil"] = True
+
+    # --- Cracked ice holo (theme deck, era 4+) ---
+    if era >= _CRACKED_ICE_MIN_ERA or era == 0:
+        def _ci_check(img_bgr):
+            detected, conf = _check_cracked_ice_holo(img_bgr, set_id, era)
+            return {
+                "detected": detected,
+                "confidence": conf,
+                "position": "artwork",
+                "evidence": "cracked_ice_pattern",
+            }
+
+        if _run("cracked_ice_holo", _ci_check, img):
+            result["variant_flags"]["cracked_ice_holo"] = True
+
+    # ===========================================================
+    # Summary
+    # ===========================================================
+
+    n_checked = len(result["stamps_checked"])
+    n_found = len(result["stamps_detected"])
+    logger.info(
+        "detect_all_variants for %s (era=%d, set=%s): %d/%d detected [%s]",
+        card_id, era, set_id, n_found, n_checked,
+        ", ".join(result["stamps_detected"]) if n_found else "none",
+    )
+
+    return result

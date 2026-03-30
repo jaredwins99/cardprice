@@ -475,36 +475,40 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         if stamp_result is not None:
             result["stamp_result"] = stamp_result
 
-        # --- Era-gated stamp detection pipeline ---
-        # After identification, check for physical stamps based on the card's
-        # era and set.  Each stamp type is checked in its fixed region.
+        # --- Era-gated variant detection pipeline ---
+        # After identification, run the complete conditional detection tree.
+        # In fast mode (default), only cheap pixel checks run (shadowless,
+        # world championship).  Full mode adds OCR + holo pattern analysis.
         try:
-            from cardprice.ml.stamp_detection import detect_stamps
-            stamp_pipeline_result = detect_stamps(image_path, card_id, fast=True)
+            from cardprice.ml.stamp_detection import detect_all_variants
+            stamp_pipeline_result = detect_all_variants(
+                image_path, card_id, fast=True)
+            flags = stamp_pipeline_result.get("variant_flags", {})
+
             if stamp_pipeline_result["stamps_detected"]:
                 result["stamps_detected"] = stamp_pipeline_result["stamps_detected"]
                 result["stamp_details"] = stamp_pipeline_result["stamp_details"]
-                checks_run.append("stamp_detection_pipeline")
+                checks_run.append("variant_detection_pipeline")
 
                 # If 1st Edition stamp detected and variant wasn't already
                 # set to 1st_edition, update it (stamp pipeline is authoritative)
-                if "1st_edition" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("1st_edition"):
                     first_ed_conf = stamp_pipeline_result["stamp_details"]["1st_edition"]["confidence"]
                     if variant != "1st_edition" and first_ed_conf >= 0.70:
                         logger.info(
-                            "stamp pipeline: overriding variant %s -> 1st_edition "
-                            "(conf=%.2f) for %s",
+                            "variant pipeline: overriding variant %s -> "
+                            "1st_edition (conf=%.2f) for %s",
                             variant, first_ed_conf, card_id,
                         )
                         result["detected_variant"] = "1st_edition"
                         result["variant_confidence"] = first_ed_conf
 
                 # If EX set stamp detected, ensure variant is reverse_holofoil
-                if "ex_set_stamp" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("ex_stamped_reverse"):
                     ex_conf = stamp_pipeline_result["stamp_details"]["ex_set_stamp"]["confidence"]
                     if variant != "reverse_holofoil" and ex_conf >= 0.75:
                         logger.info(
-                            "stamp pipeline: overriding variant %s -> "
+                            "variant pipeline: overriding variant %s -> "
                             "reverse_holofoil (EX stamp, conf=%.2f) for %s",
                             variant, ex_conf, card_id,
                         )
@@ -512,11 +516,11 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["variant_confidence"] = ex_conf
 
                 # If reverse_holo detected, set variant to reverse_holofoil
-                if "reverse_holo" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("reverse_holofoil"):
                     rh_conf = stamp_pipeline_result["stamp_details"]["reverse_holo"]["confidence"]
                     if variant not in ("reverse_holofoil", "1st_edition") and rh_conf >= 0.60:
                         logger.info(
-                            "stamp pipeline: overriding variant %s -> "
+                            "variant pipeline: overriding variant %s -> "
                             "reverse_holofoil (reverse holo, conf=%.2f) for %s",
                             variant, rh_conf, card_id,
                         )
@@ -524,11 +528,11 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["variant_confidence"] = rh_conf
 
                 # If holo_finish detected, set variant to holofoil
-                if "holo_finish" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("holofoil"):
                     hf_conf = stamp_pipeline_result["stamp_details"]["holo_finish"]["confidence"]
                     if variant not in ("holofoil", "1st_edition", "reverse_holofoil") and hf_conf >= 0.60:
                         logger.info(
-                            "stamp pipeline: overriding variant %s -> "
+                            "variant pipeline: overriding variant %s -> "
                             "holofoil (holo finish, conf=%.2f) for %s",
                             variant, hf_conf, card_id,
                         )
@@ -536,26 +540,31 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["variant_confidence"] = hf_conf
 
                 # If prerelease stamp detected, record it on the result
-                if "prerelease" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("prerelease"):
                     pr_conf = stamp_pipeline_result["stamp_details"]["prerelease"]["confidence"]
                     result["prerelease_detected"] = True
                     result["prerelease_confidence"] = pr_conf
 
                 # If staff stamp detected, record it on the result
-                if "staff_stamp" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("staff"):
                     st_conf = stamp_pipeline_result["stamp_details"]["staff_stamp"]["confidence"]
                     result["staff_stamp_detected"] = True
                     result["staff_stamp_confidence"] = st_conf
 
                 # If shadowless detected, record it on the result
-                if "shadowless" in stamp_pipeline_result["stamps_detected"]:
+                if flags.get("shadowless"):
                     sh_conf = stamp_pipeline_result["stamp_details"]["shadowless"]["confidence"]
                     result["shadowless_detected"] = True
                     result["shadowless_confidence"] = sh_conf
 
+                # World Championship reproduction warning
+                if flags.get("is_reproduction"):
+                    result["is_reproduction"] = True
+
             result["stamps_checked"] = stamp_pipeline_result["stamps_checked"]
+            result["variant_flags"] = flags
         except Exception as e:
-            logger.debug("stamp detection pipeline failed: %s", e)
+            logger.debug("variant detection pipeline failed: %s", e)
     except Exception as e:
         logger.debug("variant detection failed: %s", e)
 
