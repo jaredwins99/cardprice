@@ -1077,22 +1077,39 @@ def _check_grey_stamp(img_bgr: np.ndarray, stamp_region_crop: np.ndarray
     return (lean, confidence)
 
 
-def _check_ex_set_stamp(img_bgr: np.ndarray, set_id: str) -> dict:
-    """Check for EX-era set logo stamp on artwork.
+def _check_ex_set_stamp(img_bgr: np.ndarray, set_id: str,
+                        card_id: str | None = None) -> dict:
+    """Check for EX-era set logo stamp via DINOv2 region comparison.
+
+    Crops the stamp region (bottom-right of artwork) from both the scan
+    and the clean reference image.  Computes DINOv2 CLS embedding
+    similarity.  Stamped cards show lower similarity because the foil
+    stamp overlay changes the region visually.
+
+    Falls back to the old OCR-based approach if no reference image is
+    available or if DINOv2 extraction fails.
 
     Returns dict with 'detected', 'confidence', 'position', 'evidence'.
     """
+    result_base = {"detected": False, "confidence": 0.0,
+                   "position": "artwork_bottom_right"}
+
+    # --- DINOv2-based detection (primary) ---
+    if card_id:
+        dino_result = _check_ex_stamp_dino(img_bgr, card_id, set_id)
+        if dino_result is not None:
+            return dino_result
+
+    # --- OCR fallback (legacy) ---
     regions = STAMP_REGIONS["ex_set_stamp"]
 
     stamp_region = _extract_region(img_bgr, *regions["wide"])
     if stamp_region.size == 0:
-        return {"detected": False, "confidence": 0.0,
-                "position": "artwork_bottom_right"}
+        return result_base
 
     ocr_text = _ocr_region(stamp_region)
     if not ocr_text:
-        return {"detected": False, "confidence": 0.0,
-                "position": "artwork_bottom_right"}
+        return result_base
 
     logger.debug("EX stamp OCR: %r (set=%s)", ocr_text, set_id)
 
@@ -1119,8 +1136,209 @@ def _check_ex_set_stamp(img_bgr: np.ndarray, set_id: str) -> dict:
             "ocr_text": ocr_text, "matched_words": found_words,
         }
 
-    return {"detected": False, "confidence": 0.0,
-            "position": "artwork_bottom_right"}
+    return result_base
+
+
+# Threshold for DINOv2 differential stamp detection.
+# The score is (control_sim - stamp_sim): how much MORE the stamp region
+# differs from reference compared to the control region.
+# Stamped cards have high differential (stamp overlay changes one region
+# but not the other).  Normal cards have near-zero differential.
+#
+# Calibrated on ex15 Dragon Frontiers (9 cards, 4 stamped, 5 normal):
+#   Stamped range:  0.1178 - 0.3584 (mean 0.1979)
+#   Normal range:  -0.0237 - 0.0699 (mean 0.0362)
+#   Gap: 0.0479 (clean separation between 0.0699 and 0.1178)
+#   Threshold at 0.09 = midpoint of gap.
+_EX_STAMP_DINO_DIFF_THRESHOLD = 0.09
+
+
+def _check_ex_stamp_dino(img_bgr: np.ndarray, card_id: str,
+                         set_id: str) -> dict | None:
+    """Detect EX-era set stamp via DINOv2 differential region comparison.
+
+    Compares TWO regions between the scan and reference:
+      1. Stamp region (bottom-right artwork, where the stamp appears)
+      2. Control region (top-left artwork, stamp-free on all cards)
+
+    The differential (control_sim - stamp_sim) isolates the stamp effect
+    from overall scan-vs-reference domain gap (lighting, angle, quality).
+    Stamped cards show a large differential; normal cards show near-zero.
+
+    Parameters
+    ----------
+    img_bgr : np.ndarray
+        Scanned card image in BGR format.
+    card_id : str
+        Full card identifier (e.g. "ex15-26/normal").
+    set_id : str
+        Set identifier (e.g. "ex15").
+
+    Returns
+    -------
+    dict or None
+        Detection result dict if the check ran successfully, or None
+        if it could not run (no reference image, model failure, etc.)
+        so that the caller can fall back to OCR.
+    """
+    from cardprice.ml.ref_matcher import get_reference_image_path
+
+    # Find reference image
+    ref_path = get_reference_image_path(card_id)
+    if ref_path is None:
+        logger.debug("EX stamp DINO: no reference image for %s", card_id)
+        return None  # fall back to OCR
+
+    try:
+        ref_img = cv2.imread(str(ref_path))
+        if ref_img is None:
+            logger.debug("EX stamp DINO: could not read ref image %s",
+                         ref_path)
+            return None
+
+        # Stamp region: bottom-right of artwork area
+        stamp_region = (0.55, 0.35, 0.90, 0.55)
+        # Control region: top-center of artwork (never has a stamp)
+        control_region = (0.10, 0.10, 0.55, 0.35)
+
+        # Crop stamp region from both
+        scan_stamp = _extract_region(img_bgr, *stamp_region)
+        ref_stamp = _extract_region(ref_img, *stamp_region)
+        if scan_stamp.size == 0 or ref_stamp.size == 0:
+            return None
+
+        # Crop control region from both
+        scan_ctrl = _extract_region(img_bgr, *control_region)
+        ref_ctrl = _extract_region(ref_img, *control_region)
+        if scan_ctrl.size == 0 or ref_ctrl.size == 0:
+            return None
+
+        # Compute similarities for both regions in one batch
+        stamp_sim, ctrl_sim = _dino_crop_similarity_batch(
+            [scan_stamp, scan_ctrl],
+            [ref_stamp, ref_ctrl],
+        )
+
+        # Differential: how much stamp region differs more than control
+        diff = ctrl_sim - stamp_sim
+
+        logger.debug(
+            "EX stamp DINO: %s stamp_sim=%.4f ctrl_sim=%.4f "
+            "diff=%.4f (threshold=%.2f)",
+            card_id, stamp_sim, ctrl_sim, diff,
+            _EX_STAMP_DINO_DIFF_THRESHOLD,
+        )
+
+        is_stamped = diff > _EX_STAMP_DINO_DIFF_THRESHOLD
+
+        if is_stamped:
+            margin = diff - _EX_STAMP_DINO_DIFF_THRESHOLD
+            conf = min(0.70 + margin * 3.0, 0.99)
+            return {
+                "detected": True,
+                "confidence": conf,
+                "position": "artwork_bottom_right",
+                "evidence": "dino_differential_comparison",
+                "stamp_similarity": stamp_sim,
+                "control_similarity": ctrl_sim,
+                "differential": diff,
+                "threshold": _EX_STAMP_DINO_DIFF_THRESHOLD,
+            }
+        else:
+            return {
+                "detected": False,
+                "confidence": 0.0,
+                "position": "artwork_bottom_right",
+                "evidence": "dino_differential_comparison",
+                "stamp_similarity": stamp_sim,
+                "control_similarity": ctrl_sim,
+                "differential": diff,
+                "threshold": _EX_STAMP_DINO_DIFF_THRESHOLD,
+            }
+
+    except Exception as e:
+        logger.warning("EX stamp DINO failed for %s: %s", card_id, e)
+        return None  # fall back to OCR
+
+
+def _dino_crop_similarity(crop1_bgr: np.ndarray,
+                          crop2_bgr: np.ndarray) -> float:
+    """Compute DINOv2 CLS embedding similarity between two BGR crops.
+
+    Reuses the globally cached DINOv2 model from dino_matcher.
+    Both crops are resized to 224x224, normalized, and passed through
+    the model.  Returns the dot product of L2-normalized CLS tokens.
+
+    Parameters
+    ----------
+    crop1_bgr, crop2_bgr : np.ndarray
+        BGR image crops (any size, will be resized to 224x224).
+
+    Returns
+    -------
+    float
+        Cosine similarity in [-1, 1].  Higher means more similar.
+    """
+    sims = _dino_crop_similarity_batch([crop1_bgr], [crop2_bgr])
+    return sims[0]
+
+
+def _dino_crop_similarity_batch(
+    crops_a: list[np.ndarray],
+    crops_b: list[np.ndarray],
+) -> list[float]:
+    """Compute DINOv2 CLS similarity for multiple crop pairs in one pass.
+
+    Parameters
+    ----------
+    crops_a, crops_b : list[np.ndarray]
+        Lists of BGR image crops.  crops_a[i] is compared with crops_b[i].
+        Must be the same length.
+
+    Returns
+    -------
+    list[float]
+        Cosine similarities, one per pair.
+    """
+    import torch
+    from PIL import Image
+    from cardprice.ml.dino_matcher import _load_model, _get_transform
+
+    assert len(crops_a) == len(crops_b), "Crop lists must be same length"
+    n = len(crops_a)
+    if n == 0:
+        return []
+
+    model, device = _load_model()
+    transform = _get_transform()
+
+    # Convert all crops to tensors: interleave a[0], b[0], a[1], b[1], ...
+    tensors = []
+    for i in range(n):
+        pil_a = Image.fromarray(cv2.cvtColor(crops_a[i], cv2.COLOR_BGR2RGB))
+        pil_b = Image.fromarray(cv2.cvtColor(crops_b[i], cv2.COLOR_BGR2RGB))
+        tensors.append(transform(pil_a))
+        tensors.append(transform(pil_b))
+
+    batch = torch.stack(tensors).to(device)  # (2*n, 3, 224, 224)
+
+    with torch.no_grad():
+        embeddings = model(batch)  # (2*n, 768) CLS tokens
+
+    embs = embeddings.cpu().numpy().astype(np.float32)
+
+    # L2-normalize all
+    norms = np.linalg.norm(embs, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    embs /= norms
+
+    # Compute pairwise similarities
+    similarities = []
+    for i in range(n):
+        sim = float(np.dot(embs[2 * i], embs[2 * i + 1]))
+        similarities.append(sim)
+
+    return similarities
 
 
 def _check_black_star_promo(img_bgr: np.ndarray) -> dict:
@@ -4842,7 +5060,7 @@ def detect_stamps(image_path: str, card_id: str,
         "world_championship": lambda img_bgr: _check_world_championship(img_bgr, set_id),
         "1st_edition": lambda img_bgr: _check_1st_edition(img_bgr),
         "ghost_stamp": lambda img_bgr: _check_ghost_stamp(img_bgr, set_id),
-        "ex_set_stamp": lambda img_bgr: _check_ex_set_stamp(img_bgr, set_id),
+        "ex_set_stamp": lambda img_bgr: _check_ex_set_stamp(img_bgr, set_id, card_id),
         "black_star_promo": lambda img_bgr: _check_black_star_promo(img_bgr),
         "modern_promo": lambda img_bgr: _check_modern_promo(img_bgr),
         "promo_stamp": lambda img_bgr: _check_promo_stamp(img_bgr),
@@ -5704,7 +5922,7 @@ def detect_all_variants(image_path: str, card_id: str,
 
     # EX set logo stamp on reverse holos (ex7-ex16 only)
     if set_id in _EX_STAMPED_SETS:
-        if _run("ex_set_stamp", _check_ex_set_stamp, img, set_id):
+        if _run("ex_set_stamp", _check_ex_set_stamp, img, set_id, card_id):
             result["variant_flags"]["ex_stamped_reverse"] = True
 
     # ===========================================================
