@@ -911,6 +911,137 @@ def _check_1st_edition(img_bgr: np.ndarray) -> dict:
     return {"detected": False, "confidence": 0.0, "position": "left"}
 
 
+# ---------------------------------------------------------------------------
+# DINOv2 differential 1st Edition detection
+# ---------------------------------------------------------------------------
+# Threshold for DINOv2 differential 1st Edition stamp detection.
+# The score is (control_sim - stamp_sim): how much MORE the stamp region
+# differs from reference compared to the control region.
+# 1st Edition cards have high differential (stamp changes one region
+# but not the other).  Unlimited cards have near-zero differential.
+#
+# Calibrated on synthesized 1st Edition stamps across 50 WotC cards
+# (base1-neo4, 5 per set):
+#   1st Edition range:  0.1609 - 0.5704 (mean 0.3330)
+#   Unlimited range:    0.0047 - 0.0954 (mean 0.0213)
+#   Gap: 0.0655 (clean separation between 0.0954 and 0.1609)
+#   Threshold at 0.10 gives 100% accuracy (midpoint ~0.128).
+_1ST_ED_DINO_DIFF_THRESHOLD = 0.10
+
+# 1st Edition stamp region: left side, between artwork and text box
+_1ST_ED_STAMP_REGION = (0.03, 0.53, 0.15, 0.67)
+# Control region: artwork center (never has a stamp on any edition)
+_1ST_ED_CONTROL_REGION = (0.15, 0.15, 0.85, 0.45)
+
+
+def _check_1st_edition_dino(img_bgr: np.ndarray, card_id: str,
+                             set_id: str) -> dict | None:
+    """Detect 1st Edition stamp via DINOv2 differential region comparison.
+
+    Compares TWO regions between the scan and its unlimited reference image:
+      1. Stamp region (left side, below artwork -- where the stamp appears)
+      2. Control region (artwork center -- stamp-free on all editions)
+
+    The differential (control_sim - stamp_sim) isolates the stamp effect
+    from overall scan-vs-reference domain gap (lighting, angle, quality).
+    1st Edition cards show a large differential; unlimited cards show
+    near-zero.
+
+    This complements the OCR-based _check_1st_edition: it works even when
+    the stamp text is too small or blurry for OCR, and provides a
+    confidence score based on the magnitude of visual difference.
+
+    Parameters
+    ----------
+    img_bgr : np.ndarray
+        Scanned card image in BGR format.
+    card_id : str
+        Full card identifier (e.g. "base1-4/normal").
+    set_id : str
+        Set identifier (e.g. "base1").
+
+    Returns
+    -------
+    dict or None
+        Detection result dict if the check ran successfully, or None
+        if it could not run (no reference image, model failure, etc.)
+        so that the caller can fall back to OCR.
+    """
+    from cardprice.ml.ref_matcher import get_reference_image_path
+
+    # Find reference image (always the unlimited/normal variant)
+    ref_path = get_reference_image_path(card_id)
+    if ref_path is None:
+        logger.debug("1st ed DINO: no reference image for %s", card_id)
+        return None  # fall back to OCR
+
+    try:
+        ref_img = cv2.imread(str(ref_path))
+        if ref_img is None:
+            logger.debug("1st ed DINO: could not read ref image %s", ref_path)
+            return None
+
+        # Crop stamp region from both scan and reference
+        scan_stamp = _extract_region(img_bgr, *_1ST_ED_STAMP_REGION)
+        ref_stamp = _extract_region(ref_img, *_1ST_ED_STAMP_REGION)
+        if scan_stamp.size == 0 or ref_stamp.size == 0:
+            return None
+
+        # Crop control region from both
+        scan_ctrl = _extract_region(img_bgr, *_1ST_ED_CONTROL_REGION)
+        ref_ctrl = _extract_region(ref_img, *_1ST_ED_CONTROL_REGION)
+        if scan_ctrl.size == 0 or ref_ctrl.size == 0:
+            return None
+
+        # Compute similarities for both regions in one batch
+        stamp_sim, ctrl_sim = _dino_crop_similarity_batch(
+            [scan_stamp, scan_ctrl],
+            [ref_stamp, ref_ctrl],
+        )
+
+        # Differential: how much stamp region differs more than control
+        diff = ctrl_sim - stamp_sim
+
+        logger.debug(
+            "1st ed DINO: %s stamp_sim=%.4f ctrl_sim=%.4f "
+            "diff=%.4f (threshold=%.2f)",
+            card_id, stamp_sim, ctrl_sim, diff,
+            _1ST_ED_DINO_DIFF_THRESHOLD,
+        )
+
+        is_1st_ed = diff > _1ST_ED_DINO_DIFF_THRESHOLD
+
+        if is_1st_ed:
+            margin = diff - _1ST_ED_DINO_DIFF_THRESHOLD
+            # Scale confidence: threshold+0.00 => 0.70, threshold+0.10 => 1.0
+            conf = min(0.70 + margin * 3.0, 0.99)
+            return {
+                "detected": True,
+                "confidence": conf,
+                "position": "left",
+                "evidence": "dino_differential_comparison",
+                "stamp_similarity": stamp_sim,
+                "control_similarity": ctrl_sim,
+                "differential": diff,
+                "threshold": _1ST_ED_DINO_DIFF_THRESHOLD,
+            }
+        else:
+            return {
+                "detected": False,
+                "confidence": 0.0,
+                "position": "left",
+                "evidence": "dino_differential_comparison",
+                "stamp_similarity": stamp_sim,
+                "control_similarity": ctrl_sim,
+                "differential": diff,
+                "threshold": _1ST_ED_DINO_DIFF_THRESHOLD,
+            }
+
+    except Exception as e:
+        logger.warning("1st ed DINO failed for %s: %s", card_id, e)
+        return None  # fall back to OCR
+
+
 def _check_ghost_stamp(img_bgr: np.ndarray, set_id: str) -> dict:
     """Detect partially printed 1st Edition 'ghost' stamp.
 
@@ -5059,6 +5190,7 @@ def detect_stamps(image_path: str, card_id: str,
     _STAMP_CHECKERS = {
         "world_championship": lambda img_bgr: _check_world_championship(img_bgr, set_id),
         "1st_edition": lambda img_bgr: _check_1st_edition(img_bgr),
+        "1st_edition_dino": lambda img_bgr: _check_1st_edition_dino(img_bgr, card_id, set_id),
         "ghost_stamp": lambda img_bgr: _check_ghost_stamp(img_bgr, set_id),
         "ex_set_stamp": lambda img_bgr: _check_ex_set_stamp(img_bgr, set_id, card_id),
         "black_star_promo": lambda img_bgr: _check_black_star_promo(img_bgr),
@@ -5878,6 +6010,37 @@ def detect_all_variants(image_path: str, card_id: str,
     # --- 1st Edition stamp (base1-base5, gym1-2, neo1-4) ---
     if set_id in _FIRST_EDITION_SETS:
         ed = _run("1st_edition", _check_1st_edition, img)
+
+        # DINOv2 fallback: if OCR missed the stamp, try visual comparison
+        if not ed and card_id:
+            dino_result = _check_1st_edition_dino(img, card_id, set_id)
+            if dino_result is not None:
+                if dino_result["detected"]:
+                    # DINOv2 detected a stamp that OCR missed
+                    ed = dino_result
+                    result["stamps_detected"].append("1st_edition")
+                    result["stamp_details"]["1st_edition"] = {
+                        "confidence": dino_result["confidence"],
+                        "position": dino_result["position"],
+                        "evidence": dino_result["evidence"],
+                        "stamp_similarity": dino_result["stamp_similarity"],
+                        "control_similarity": dino_result["control_similarity"],
+                        "differential": dino_result["differential"],
+                    }
+                    logger.info(
+                        "1st ed DINO fallback detected stamp on %s "
+                        "(diff=%.4f, threshold=%.2f)",
+                        card_id, dino_result["differential"],
+                        dino_result["threshold"],
+                    )
+                else:
+                    # Store DINO result for debugging even when not detected
+                    result["stamp_details"].setdefault("1st_edition_dino", {
+                        "differential": dino_result["differential"],
+                        "stamp_similarity": dino_result["stamp_similarity"],
+                        "control_similarity": dino_result["control_similarity"],
+                    })
+
         if ed:
             result["variant_flags"]["1st_edition"] = True
 
