@@ -178,7 +178,7 @@ def _build_ground_truth() -> list[dict]:
 
 def _run_detectors(cards: list[dict]) -> list[dict]:
     """Run variant_detector and stamp_detection on each card."""
-    from cardprice.ml.variant_detector import detect_variant, detect_variant_detailed
+    from cardprice.ml.variant_detector import detect_variant_detailed
     from cardprice.ml.stamp_detection import detect_stamps
     from cardprice.ml.era_detector import get_card_era
 
@@ -200,19 +200,14 @@ def _run_detectors(cards: list[dict]) -> list[dict]:
         print(f"  [{i+1:3d}/{total}] {name:30s} ({card_id or 'no-id':30s}) ...",
               end="", flush=True)
 
-        # Run variant_detector
-        try:
-            variant_result = detect_variant(img_path, era=era,
-                                            card_id=card_id or None)
-        except Exception as e:
-            variant_result = f"ERROR:{e}"
-
-        # Run detailed variant analysis
+        # Run detailed variant analysis (includes variant result)
         try:
             detail = detect_variant_detailed(img_path, era=era,
                                              card_id=card_id or None)
+            variant_result = detail.get("variant", "normal")
         except Exception as e:
             detail = {"variant": f"ERROR:{e}"}
+            variant_result = f"ERROR:{e}"
 
         # Run stamp_detection
         stamp_result = {"stamps_detected": [], "stamp_details": {},
@@ -385,7 +380,7 @@ def _print_report(results: list[dict], metrics: dict):
                 extra = ""
                 for sk, sv in sd.items():
                     extra += f" stamp:{sk}(conf={sv.get('confidence',0):.2f})"
-                print(f"    [OK]   {r['name']:28s} ({r.get('card_id','?'):24s})"
+                print(f"    [OK]   {r['name']:28s} ({(r.get('card_id') or '?'):24s})"
                       f" {r['page']}/{r['slot']}{extra}")
 
         if m["fn_cards"]:
@@ -393,7 +388,7 @@ def _print_report(results: list[dict], metrics: dict):
             for r in m["fn_cards"]:
                 vr = r.get("variant_detector_result", "?")
                 stamps = r.get("stamp_result", {}).get("stamps_detected", [])
-                print(f"    [MISS] {r['name']:28s} ({r.get('card_id','?'):24s})"
+                print(f"    [MISS] {r['name']:28s} ({(r.get('card_id') or '?'):24s})"
                       f" {r['page']}/{r['slot']}"
                       f" variant_det={vr} stamps={stamps}")
 
@@ -406,7 +401,7 @@ def _print_report(results: list[dict], metrics: dict):
                 extra = ""
                 for sk, sv in sd.items():
                     extra += f" stamp:{sk}(conf={sv.get('confidence',0):.2f})"
-                print(f"    [FP]   {r['name']:28s} ({r.get('card_id','?'):24s})"
+                print(f"    [FP]   {r['name']:28s} ({(r.get('card_id') or '?'):24s})"
                       f" gt={r['gt_variants'] or 'normal'}"
                       f" variant_det={vr} stamps={stamps}{extra}")
 
@@ -437,7 +432,7 @@ def _print_report(results: list[dict], metrics: dict):
         print(f"\nIncorrect ({len(wrong)}):")
         for r in wrong:
             vr = r.get("variant_detector_result", "normal")
-            print(f"  {r['name']:28s} ({r.get('card_id','?'):24s})"
+            print(f"  {r['name']:28s} ({(r.get('card_id') or '?'):24s})"
                   f" gt={r['gt_variants'] or 'normal'} detected={vr}")
 
 

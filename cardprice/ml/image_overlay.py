@@ -55,6 +55,10 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (30, 30, 30, 255),
         "border": (218, 165, 32),
         "icon_fn": "_draw_1st_edition_icon",
+        # Left side, just below artwork frame
+        "stamp_pos": (0.06, 0.58),
+        "stamp_text": "1ST EDITION",
+        "stamp_rotation": 0,
     },
     "reverse_holo": {
         "label": "RH",
@@ -80,6 +84,10 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (255, 215, 0, 255),        # gold star on black
         "border": (40, 40, 40),
         "icon_fn": "_draw_star_icon",
+        # Replaces set symbol, bottom-right area
+        "stamp_pos": (0.78, 0.89),
+        "stamp_icon": "_draw_star_icon",
+        "stamp_rotation": 0,
     },
     "black_star_promo": {
         "label": "",
@@ -87,6 +95,9 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (255, 215, 0, 255),
         "border": (40, 40, 40),
         "icon_fn": "_draw_star_icon",
+        "stamp_pos": (0.78, 0.89),
+        "stamp_icon": "_draw_star_icon",
+        "stamp_rotation": 0,
     },
     "promo_stamp": {
         "label": "",
@@ -94,6 +105,9 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (255, 215, 0, 255),
         "border": (40, 40, 40),
         "icon_fn": "_draw_star_icon",
+        "stamp_pos": (0.78, 0.89),
+        "stamp_icon": "_draw_star_icon",
+        "stamp_rotation": 0,
     },
     "modern_promo": {
         "label": "",
@@ -101,30 +115,49 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (255, 215, 0, 255),
         "border": (40, 40, 40),
         "icon_fn": "_draw_star_icon",
+        "stamp_pos": (0.78, 0.89),
+        "stamp_icon": "_draw_star_icon",
+        "stamp_rotation": 0,
     },
     "stamped": {
         "label": "STAMP",
         "bg": (128, 60, 180, 220),       # purple
         "fg": (255, 255, 255, 255),
         "border": (128, 60, 180),
+        # Center of card text area
+        "stamp_pos": (0.50, 0.62),
+        "stamp_text": "STAMPED",
+        "stamp_rotation": -15,
     },
     "ex_set_stamp": {
         "label": "EX",
         "bg": (128, 60, 180, 220),
         "fg": (255, 255, 255, 255),
         "border": (128, 60, 180),
+        # Center of card, over text area
+        "stamp_pos": (0.50, 0.60),
+        "stamp_text": "EX STAMP",
+        "stamp_rotation": -15,
     },
     "prerelease": {
         "label": "PR",
         "bg": (40, 100, 200, 220),       # blue
         "fg": (255, 255, 255, 255),
         "border": (40, 100, 200),
+        # Bottom-right of artwork area
+        "stamp_pos": (0.72, 0.50),
+        "stamp_text": "PRERELEASE",
+        "stamp_rotation": -20,
     },
     "staff": {
         "label": "STAFF",
         "bg": (218, 165, 32, 230),       # gold bg
         "fg": (30, 60, 140, 255),        # blue text
         "border": (218, 165, 32),
+        # Same position as prerelease but with STAFF text
+        "stamp_pos": (0.72, 0.50),
+        "stamp_text": "STAFF",
+        "stamp_rotation": -20,
     },
     "shadowless": {
         "label": "SL",
@@ -137,6 +170,9 @@ _VARIANT_STYLES: dict[str, dict] = {
         "bg": (140, 140, 140, 200),
         "fg": (255, 255, 255, 255),
         "border": (140, 140, 140),
+        "stamp_pos": (0.50, 0.62),
+        "stamp_text": "GREY\nSTAMP",
+        "stamp_rotation": -10,
     },
     "pokemon_center": {
         "label": "PC",
@@ -144,12 +180,18 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (255, 255, 255, 255),
         "border": (200, 30, 30),
         "icon_fn": "_draw_pokeball_icon",
+        "stamp_pos": (0.50, 0.62),
+        "stamp_icon": "_draw_pokeball_icon",
+        "stamp_rotation": 0,
     },
     "build_battle": {
         "label": "B&B",
         "bg": (200, 40, 40, 220),        # red
         "fg": (255, 255, 255, 255),
         "border": (200, 40, 40),
+        "stamp_pos": (0.72, 0.50),
+        "stamp_text": "BUILD &\nBATTLE",
+        "stamp_rotation": -15,
     },
     "full_art": {
         "label": "FA",
@@ -274,6 +316,103 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 # Core overlay renderer
 # ---------------------------------------------------------------------------
 
+def _draw_positioned_stamp(
+    overlay: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    style: dict,
+    card_w: int,
+    card_h: int,
+    border_w: int,
+) -> None:
+    """Draw a stamp/watermark at its real position on the card.
+
+    Uses stamp_pos (fractional x, y on the card), stamp_text or stamp_icon,
+    and optional stamp_rotation.  Renders as a semi-transparent watermark
+    so the card art remains visible underneath.
+    """
+    fx, fy = style["stamp_pos"]
+    rotation = style.get("stamp_rotation", 0)
+    bg = style["bg"]
+    fg = style["fg"]
+
+    # Position relative to the card image (offset by border)
+    cx = int(fx * card_w) + border_w
+    cy = int(fy * card_h) + border_w
+
+    stamp_text = style.get("stamp_text")
+    stamp_icon_key = style.get("stamp_icon")
+
+    if stamp_text:
+        # Text stamp — rendered as a rotated watermark
+        font_size = max(12, int(card_h * 0.045))
+        font = _get_font(font_size)
+
+        # Render text onto a temporary image for rotation
+        # Generous canvas to avoid clipping after rotation
+        tmp_size = int(card_w * 0.6)
+        tmp = Image.new("RGBA", (tmp_size, tmp_size), (0, 0, 0, 0))
+        tmp_draw = ImageDraw.Draw(tmp)
+        tcx, tcy = tmp_size // 2, tmp_size // 2
+
+        # Measure text for background pill
+        lines = stamp_text.split("\n")
+        line_height = font_size + 4
+        total_text_h = line_height * len(lines)
+        max_text_w = 0
+        for line in lines:
+            tb = font.getbbox(line)
+            max_text_w = max(max_text_w, tb[2] - tb[0])
+
+        pad = int(font_size * 0.5)
+        pill_x0 = tcx - max_text_w // 2 - pad
+        pill_y0 = tcy - total_text_h // 2 - pad
+        pill_x1 = tcx + max_text_w // 2 + pad
+        pill_y1 = tcy + total_text_h // 2 + pad
+        pill_r = int(font_size * 0.4)
+
+        # Semi-transparent background
+        stamp_bg = (bg[0], bg[1], bg[2], min(bg[3], 180))
+        tmp_draw.rounded_rectangle(
+            [pill_x0, pill_y0, pill_x1, pill_y1],
+            radius=pill_r, fill=stamp_bg,
+        )
+        # Border
+        stamp_outline = (fg[0], fg[1], fg[2], 120)
+        tmp_draw.rounded_rectangle(
+            [pill_x0, pill_y0, pill_x1, pill_y1],
+            radius=pill_r, outline=stamp_outline,
+            width=max(1, font_size // 12),
+        )
+
+        # Draw text lines centered
+        for i, line in enumerate(lines):
+            ly = tcy - total_text_h // 2 + i * line_height + line_height // 2
+            tmp_draw.text((tcx, ly), line, fill=fg, font=font, anchor="mm")
+
+        if rotation:
+            tmp = tmp.rotate(rotation, resample=Image.BICUBIC, expand=False)
+
+        # Paste onto overlay centered at (cx, cy)
+        paste_x = cx - tmp_size // 2
+        paste_y = cy - tmp_size // 2
+        overlay.paste(tmp, (paste_x, paste_y), tmp)
+
+    elif stamp_icon_key:
+        # Icon stamp (promo star, pokeball, etc.)
+        icon_fn = _ICON_FNS.get(stamp_icon_key)
+        if icon_fn:
+            icon_r = max(8, int(card_h * 0.04))
+            # Draw a circular background
+            stamp_bg = (bg[0], bg[1], bg[2], min(bg[3], 180))
+            draw.ellipse(
+                [cx - icon_r - 4, cy - icon_r - 4,
+                 cx + icon_r + 4, cy + icon_r + 4],
+                fill=stamp_bg,
+            )
+            icon_fn(draw, (cx - icon_r, cy - icon_r,
+                           cx + icon_r, cy + icon_r), fg)
+
+
 def overlay_variant_indicator(
     image_source: Union[str, bytes, Image.Image],
     variants: Sequence[str],
@@ -335,73 +474,81 @@ def overlay_variant_indicator(
         )
 
     # ------------------------------------------------------------------
-    # 2. Badge overlays (bottom-right, stacked upward)
+    # 2. Positioned stamp overlays on the card image itself
     # ------------------------------------------------------------------
     overlay = Image.new("RGBA", bordered.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
     bimg_w, bimg_h = bordered.size
-    badge_h = max(16, int(h * badge_scale))
-    pad_x = int(badge_h * 0.45)
-    pad_y = int(badge_h * 0.18)
-    badge_r = badge_h // 3
-    font_size = int(badge_h * 0.48)
-    icon_size = int(badge_h * 0.55)
-    font = _get_font(font_size)
     margin = int(bimg_w * 0.03)
 
-    y_cursor = bimg_h - margin  # bottom edge start
+    # Variants with stamp_pos get rendered at their real card position.
+    # Variants without stamp_pos get a small corner badge (bottom-right).
+    badge_variants = []
 
-    for variant in reversed(active):  # stack bottom-up
+    for variant in active:
         style = _VARIANT_STYLES.get(variant, _DEFAULT_STYLE)
-        label = style.get("label") or variant.upper().replace("_", " ")
-        bg = style["bg"]
-        fg = style["fg"]
 
-        icon_fn_key = style.get("icon_fn")
-        icon_fn = _ICON_FNS.get(icon_fn_key) if icon_fn_key else None
+        if "stamp_pos" in style:
+            _draw_positioned_stamp(overlay, draw, style, w, h, bw)
+        else:
+            badge_variants.append(variant)
 
-        # Measure content width
-        text_w = 0
-        if label:
-            tb = font.getbbox(label)
-            text_w = tb[2] - tb[0]
-        content_w = text_w
-        if icon_fn:
-            content_w += icon_size + (int(pad_x * 0.35) if label else 0)
+    # Corner badges for variants without positioned stamps (holo, reverse, etc.)
+    if badge_variants:
+        badge_h = max(16, int(h * badge_scale))
+        pad_x = int(badge_h * 0.45)
+        pad_y = int(badge_h * 0.18)
+        badge_r = badge_h // 3
+        font_size = int(badge_h * 0.48)
+        icon_size = int(badge_h * 0.55)
+        font = _get_font(font_size)
 
-        total_w = content_w + 2 * pad_x
-        total_h = max(badge_h, font_size + 2 * pad_y + 4)
+        y_cursor = bimg_h - margin
 
-        x1 = bimg_w - margin
-        x0 = x1 - total_w
-        y1 = y_cursor
-        y0 = y1 - total_h
+        for variant in reversed(badge_variants):
+            style = _VARIANT_STYLES.get(variant, _DEFAULT_STYLE)
+            label = style.get("label") or variant.upper().replace("_", " ")
+            bg = style["bg"]
+            fg = style["fg"]
 
-        # Badge background
-        draw.rounded_rectangle([x0, y0, x1, y1], radius=badge_r, fill=bg)
+            icon_fn_key = style.get("icon_fn")
+            icon_fn = _ICON_FNS.get(icon_fn_key) if icon_fn_key else None
 
-        # Subtle outline for definition against busy card art
-        outline_a = (min(255, fg[0]), min(255, fg[1]), min(255, fg[2]), 80)
-        draw.rounded_rectangle(
-            [x0, y0, x1, y1], radius=badge_r,
-            outline=outline_a, width=max(1, badge_h // 22),
-        )
-
-        # Draw icon + label
-        cx = x0 + pad_x
-        cy = (y0 + y1) // 2
-
-        if icon_fn:
-            iy0 = cy - icon_size // 2
-            icon_fn(draw, (cx, iy0, cx + icon_size, iy0 + icon_size), fg)
+            text_w = 0
             if label:
-                cx += icon_size + int(pad_x * 0.35)
+                tb = font.getbbox(label)
+                text_w = tb[2] - tb[0]
+            content_w = text_w
+            if icon_fn:
+                content_w += icon_size + (int(pad_x * 0.35) if label else 0)
 
-        if label:
-            draw.text((cx, cy), label, fill=fg, font=font, anchor="lm")
+            total_w = content_w + 2 * pad_x
+            total_h = max(badge_h, font_size + 2 * pad_y + 4)
 
-        y_cursor = y0 - int(margin * 0.4)
+            x1 = bimg_w - margin
+            x0 = x1 - total_w
+            y1 = y_cursor
+            y0 = y1 - total_h
+
+            draw.rounded_rectangle([x0, y0, x1, y1], radius=badge_r, fill=bg)
+            outline_a = (min(255, fg[0]), min(255, fg[1]), min(255, fg[2]), 80)
+            draw.rounded_rectangle(
+                [x0, y0, x1, y1], radius=badge_r,
+                outline=outline_a, width=max(1, badge_h // 22),
+            )
+
+            cx = x0 + pad_x
+            cy = (y0 + y1) // 2
+            if icon_fn:
+                iy0 = cy - icon_size // 2
+                icon_fn(draw, (cx, iy0, cx + icon_size, iy0 + icon_size), fg)
+                if label:
+                    cx += icon_size + int(pad_x * 0.35)
+            if label:
+                draw.text((cx, cy), label, fill=fg, font=font, anchor="lm")
+
+            y_cursor = y0 - int(margin * 0.4)
 
     result = Image.alpha_composite(bordered, overlay).convert("RGB")
 

@@ -26,13 +26,8 @@ Endpoints:
     GET  /cart/clear -> Clear the entire shopping cart
     GET  /card-image/<card_id> -> Serve local card reference image (PNG)
     GET  /card-image-variant/<card_id>?variants=... -> Card image with variant overlays
-    GET  /slide-scan -> Slide-scan camera UI (individual card capture)
+    GET  /slide-scan-v7 -> Auto-snap slide scanner UI
     POST /slide-scan/identify -> Identify individually captured card images
-    GET  /video-scan -> Video-based slide-scan UI (record video, server extracts)
-    POST /video-scan/extract -> Upload row video, extract card images server-side
-    POST /slide-scan/video   -> Upload slide video, extract + identify cards
-    GET  /scanner    -> Scanner camera UI (9-card grid capture)
-    POST /scanner/identify -> Identify individually captured card images (no auto-crop)
     GET  /condition  -> Condition assessment capture UI (4-angle wizard)
     GET  /condition/camera -> Live camera overlay UI for condition capture
     GET  /condition/camera/<card_id> -> Per-card camera UI with card identity pre-filled
@@ -509,11 +504,10 @@ input[type=file] { display: none; }
 <body>
 <h1>Pokemon Card Scanner</h1>
 <div style="display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;">
-    <a href="/slide-scan" style="flex:1;display:block;background:#e94560;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Slide Scan</a>
-    <a href="/video-scan" style="flex:1;display:block;background:#e67e22;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Video Scan</a>
-    <a href="/scanner" style="flex:1;display:block;background:#2ecc71;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Scanner</a>
+    <a href="/slide-scan-v7" style="flex:1;display:block;background:#e94560;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Slide Scan</a>
     <a href="/condition/camera" style="flex:1;display:block;background:#9b59b6;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Grade Condition</a>
     <a href="/inventory/view" style="flex:1;display:block;background:#4ecca3;color:#1a1a2e;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Inventory</a>
+    <a href="/page-scanner" style="flex:1;display:block;background:#3498db;color:#fff;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Page Scanner</a>
 </div>
 <div class="qr-section" id="qrSection">
     <p>Scan QR code to open on your phone</p>
@@ -1378,7 +1372,7 @@ def _parse_multipart_named(body, content_type):
     return result
 
 
-def _local_image_url(card_id, ocr_raw=None):
+def _local_image_url(card_id, ocr_raw=None, variant=None):
     """Return local /card-image/ URL for a card_id if the image file exists.
 
     card_id format: "ex14-94/normal" or "bw5-107" (with or without variant).
@@ -1386,6 +1380,9 @@ def _local_image_url(card_id, ocr_raw=None):
 
     If ocr_raw contains "[JP]" and a Japanese reference image exists for this
     card_id, returns a /jp-card-image/ URL instead.
+
+    If variant is set to a non-normal value, returns a /card-image-variant/
+    URL so the overlay system renders stamp/badge indicators on the image.
     """
     if not card_id:
         return None
@@ -1406,6 +1403,9 @@ def _local_image_url(card_id, ocr_raw=None):
     set_id = base_id[:last_dash]
     image_path = CARD_IMAGES_DIR / set_id / f"{base_id}_normal.png"
     if image_path.is_file():
+        if variant and variant != "normal":
+            from urllib.parse import quote
+            return f"/card-image-variant/{quote(base_id)}?variants={quote(variant)}"
         return f"/card-image/{base_id}/normal"
     return None
 
@@ -1731,21 +1731,12 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/camera-diag":
             from cardprice.camera_diag import CAMERA_DIAG_HTML
             self._send_html(CAMERA_DIAG_HTML)
+        elif self.path == "/page-scanner":
+            from cardprice.page_scanner import PAGE_SCANNER_HTML
+            self._send_html(PAGE_SCANNER_HTML)
         elif self.path == "/slide-scan-v7":
             from cardprice.slide_scan_v7 import SLIDE_SCAN_V7_HTML
             self._send_html(SLIDE_SCAN_V7_HTML)
-        elif self.path == "/slide-scan-v6":
-            from cardprice.slide_scan_v6 import SLIDE_SCAN_V6_HTML
-            self._send_html(SLIDE_SCAN_V6_HTML)
-        elif self.path == "/slide-scan":
-            from cardprice.slide_scan_ui import SLIDE_SCAN_HTML
-            self._send_html(SLIDE_SCAN_HTML)
-        elif self.path == "/scanner":
-            from cardprice.scanner_camera_ui import SCANNER_HTML
-            self._send_html(SCANNER_HTML)
-        elif self.path == "/video-scan":
-            from cardprice.video_scan_ui import VIDEO_SCAN_HTML
-            self._send_html(VIDEO_SCAN_HTML)
         elif self.path == "/tunnel-url":
             tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
             url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
@@ -1790,16 +1781,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_training_save()
         elif self.path == "/condition/assess":
             self._handle_condition_assess()
-        elif self.path in ("/slide-scan", "/slide-scan/identify") or self.path.startswith("/slide-scan/identify?") or self.path.startswith("/slide-scan?"):
+        elif self.path == "/slide-scan/identify" or self.path.startswith("/slide-scan/identify?"):
             self._handle_slide_scan_identify()
-        elif self.path == "/video-scan/extract" or self.path.startswith("/video-scan/extract?"):
-            self._handle_video_extract()
-        elif self.path == "/slide-scan/video" or self.path.startswith("/slide-scan/video?"):
-            self._handle_slide_scan_video()
-        elif self.path == "/slide-scan/fast" or self.path.startswith("/slide-scan/fast?"):
-            self._handle_slide_scan_fast()
-        elif self.path == "/scanner/identify" or self.path.startswith("/scanner/identify?"):
-            self._handle_scanner_identify()
         elif self.path.startswith("/condition/photo/"):
             self._handle_condition_photo()
         else:
@@ -1928,7 +1911,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                     "variant_price": None,
                     "set_name": None,
                     "image_url": None,
-                    "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
+                    "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw"), variant=detected_variant),
                     "phash": phash_hex,
                     "detected_variant": detected_variant,
                     "variant_confidence": result.get("variant_confidence"),
@@ -2462,7 +2445,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw"), variant=detected_variant),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                     }
 
@@ -2668,7 +2651,7 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "set_name": None,
                         "image_url": None,
                         "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
+                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw"), variant=detected_variant),
                         "segment_image_url": f"/segment-image/{seg_rel}",
                     }
 
@@ -2736,909 +2719,6 @@ class ScanHandler(BaseHTTPRequestHandler):
             import torch
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-    def _handle_scanner_identify(self):
-        """Handle scanner: receive individual card images, identify each.
-
-        POST /scanner/identify
-        Multipart form data with fields card_0 through card_8 (each a JPEG).
-        No segmentation or auto-crop — cards already extracted by scanner UI.
-
-        Query parameters:
-            variants=true  — run variant detection (default true)
-            variants=false — skip variant detection
-
-        Returns same JSON format as /scan-page for UI compatibility.
-        """
-        from urllib.parse import urlparse, parse_qs
-        parsed = urlparse(self.path)
-        qs = parse_qs(parsed.query)
-        detect_variants = qs.get("variants", ["true"])[0].lower() in ("true", "1", "yes")
-
-        content_type = self.headers.get("Content-Type", "")
-        if "multipart/form-data" not in content_type:
-            self.send_error(400, "Expected multipart/form-data")
-            return
-
-        raw_length = self.headers.get("Content-Length")
-        if raw_length is None:
-            self.send_error(411, "Content-Length required")
-            return
-        try:
-            length = int(raw_length)
-        except (ValueError, TypeError):
-            self.send_error(400, "Invalid Content-Length")
-            return
-        if length <= 0:
-            self.send_error(400, "Empty request body")
-            return
-        if length > MAX_UPLOAD_BYTES:
-            self.send_error(413, "Upload too large (max 20 MB)")
-            return
-
-        body = self.rfile.read(length)
-        fields = _parse_multipart_named(body, content_type)
-        if not fields:
-            self.send_error(400, "No card images uploaded")
-            return
-
-        # Extract card images from card_0 through card_8
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        cards_dir = UPLOAD_DIR / f"scanner_{timestamp}_cards"
-        cards_dir.mkdir(parents=True, exist_ok=True)
-
-        card_images = {}  # position -> path
-        num_cols = 3
-        for field_name, (filename, file_data) in fields.items():
-            if not field_name.startswith("card_"):
-                continue
-            suffix = field_name.split("card_", 1)[1]
-            try:
-                if suffix.startswith("r") and "_c" in suffix:
-                    parts = suffix.split("_c")
-                    r = int(parts[0][1:])
-                    c = int(parts[1])
-                    pos = r * num_cols + c
-                else:
-                    pos = int(suffix)
-            except (ValueError, IndexError):
-                continue
-            if not file_data or len(file_data) < 100:
-                continue
-            save_path = cards_dir / f"card_{pos:02d}.jpg"
-            save_path.write_bytes(file_data)
-            card_images[pos] = str(save_path)
-
-        if not card_images:
-            self.send_error(400, "No valid card images found")
-            return
-
-        logger.info("Scanner: received %d card images in %s",
-                     len(card_images), cards_dir)
-
-        # Sort by position for consistent ordering
-        sorted_positions = sorted(card_images.keys())
-        card_paths = [card_images[p] for p in sorted_positions]
-
-        # Identify cards using identify_page_v2 (no segmentation needed)
-        cards = []
-        try:
-            from cardprice.ml import identify_page_v2 as identify_page
-            from cardprice.db.session import SessionLocal
-            from sqlalchemy import text as sql_text
-
-            with SessionLocal() as session:
-                page_results = identify_page(card_paths, session=session,
-                                             detect_variants=detect_variants)
-
-                for idx, (pos, result) in enumerate(zip(sorted_positions, page_results)):
-                    row = pos // num_cols
-                    col = pos % num_cols
-
-                    seg_rel = str(Path(card_images[pos]).relative_to(UPLOAD_DIR))
-                    detected_variant = result.get("detected_variant", "normal")
-
-                    card_data = {
-                        "position": pos,
-                        "row": row,
-                        "col": col,
-                        "card_id": result["card_id"],
-                        "confidence": result["confidence"],
-                        "method": result["method"],
-                        "detected_variant": detected_variant,
-                        "variant_confidence": result.get("variant_confidence"),
-                        "stamps_detected": result.get("stamps_detected", []),
-                        "stamp_details": result.get("stamp_details", {}),
-                        "card_name": None,
-                        "market_price": None,
-                        "variant_price": None,
-                        "set_name": None,
-                        "image_url": None,
-                        "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
-                        "segment_image_url": f"/segment-image/{seg_rel}",
-                    }
-
-                    if result["card_id"]:
-                        row_db = session.execute(
-                            sql_text(_PRICE_LOOKUP_SQL),
-                            {"cid": result["card_id"]},
-                        ).fetchone()
-                        if row_db:
-                            card_data["card_name"] = row_db.name
-                            card_data["set_name"] = row_db.set_name
-                            card_data["market_price"] = (
-                                float(row_db.market_price) if row_db.market_price else None
-                            )
-                            card_data["image_url"] = row_db.image_small
-                            if row_db.tcg_product_id:
-                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
-
-                            if detected_variant != "normal":
-                                vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
-                                if vprice:
-                                    card_data["variant_price"] = vprice
-
-                            price_for_conditions = card_data["variant_price"] or card_data["market_price"]
-                            if price_for_conditions:
-                                card_data["condition_prices"] = _build_condition_prices(
-                                    price_for_conditions,
-                                    tcg_product_id=row_db.tcg_product_id,
-                                    variant=detected_variant,
-                                )
-
-                    cards.append(card_data)
-
-        except Exception as e:
-            logger.error("Scanner identification error: %s", e, exc_info=True)
-            try:
-                import gc
-                gc.collect()
-            except Exception:
-                pass
-            self._send_json({"error": str(e), "cards": []}, status=500)
-            return
-
-        total_value = sum(
-            (c["variant_price"] or c["market_price"])
-            for c in cards
-            if (c["variant_price"] or c["market_price"])
-        )
-        total_mp = sum(
-            (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
-            for c in cards
-        )
-        self._send_json({
-            "status": "ok",
-            "scan_type": "scanner",
-            "cards": cards,
-            "total_cards": len(cards),
-            "total_value": round(total_value, 2),
-            "total_mp": round(total_mp, 2),
-        })
-
-        try:
-            import gc
-            gc.collect()
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-    def _handle_video_extract(self):
-        """Extract card images from a slide-across video of a binder row.
-
-        POST /video-scan/extract
-        Multipart form data with fields:
-            video: the video file (webm or mp4)
-            num_cards: number of cards to extract (default 3)
-            row: row number (0, 1, 2) for labeling
-
-        Returns JSON: { cards: [ { index, image_data }, ... ] }
-        where image_data is base64-encoded JPEG.
-        """
-        import base64
-
-        content_type = self.headers.get("Content-Type", "")
-        if "multipart/form-data" not in content_type:
-            self.send_error(400, "Expected multipart/form-data")
-            return
-
-        raw_length = self.headers.get("Content-Length")
-        if raw_length is None:
-            self.send_error(411, "Content-Length required")
-            return
-        try:
-            length = int(raw_length)
-        except (ValueError, TypeError):
-            self.send_error(400, "Invalid Content-Length")
-            return
-        if length <= 0:
-            self.send_error(400, "Empty request body")
-            return
-        if length > MAX_UPLOAD_BYTES:
-            self.send_error(413, "Upload too large (max 20 MB)")
-            return
-
-        body = self.rfile.read(length)
-        fields = _parse_multipart_named(body, content_type)
-        if not fields:
-            self.send_error(400, "No fields in upload")
-            return
-
-        # Extract video file
-        video_data = None
-        video_ext = "webm"
-        for field_name, (filename, file_data) in fields.items():
-            if field_name == "video" and file_data and len(file_data) > 100:
-                video_data = file_data
-                if filename and filename.endswith(".mp4"):
-                    video_ext = "mp4"
-                break
-
-        if video_data is None:
-            self._send_json({"error": "No video file uploaded"}, status=400)
-            return
-
-        # Parse optional fields
-        num_cards = 3
-        row = 0
-        for field_name, (filename, file_data) in fields.items():
-            if field_name == "num_cards":
-                try:
-                    num_cards = int(file_data.decode("utf-8", errors="ignore").strip())
-                except (ValueError, AttributeError):
-                    pass
-            elif field_name == "row":
-                try:
-                    row = int(file_data.decode("utf-8", errors="ignore").strip())
-                except (ValueError, AttributeError):
-                    pass
-
-        # Save video to disk
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        video_dir = UPLOAD_DIR / f"video_{timestamp}_row{row}"
-        video_dir.mkdir(parents=True, exist_ok=True)
-        video_path = video_dir / f"row_{row}.{video_ext}"
-        video_path.write_bytes(video_data)
-
-        logger.info(
-            "Video scan: received %d bytes, row=%d, num_cards=%d, saved to %s",
-            len(video_data), row, num_cards, video_path,
-        )
-
-        # Extract cards
-        try:
-            from cardprice.ml.video_card_extractor import extract_cards_from_video
-
-            card_paths = extract_cards_from_video(
-                str(video_path),
-                num_cards=num_cards,
-                output_dir=str(video_dir / "cards"),
-            )
-
-            # Build response with base64-encoded images
-            cards = []
-            for i, card_path in enumerate(card_paths):
-                with open(card_path, "rb") as f:
-                    img_bytes = f.read()
-                cards.append({
-                    "index": i,
-                    "image_data": base64.b64encode(img_bytes).decode("ascii"),
-                    "image_url": f"/data/inbox/{Path(card_path).relative_to(UPLOAD_DIR)}",
-                })
-
-            logger.info("Video scan: extracted %d cards from row %d", len(cards), row)
-            self._send_json({
-                "status": "ok",
-                "cards": cards,
-                "video_path": str(video_path),
-            })
-
-        except Exception as e:
-            logger.error("Video extraction error: %s", e, exc_info=True)
-            self._send_json({"error": str(e), "cards": []}, status=500)
-
-    def _handle_slide_scan_video(self):
-        """Extract cards from a slide-across video, then identify each card.
-
-        POST /slide-scan/video
-        Multipart form data with fields:
-            video: the video file (webm or mp4)
-            num_cards: number of cards to extract (default 3)
-            row: row number (0, 1, 2) for labeling
-            strategy: detection strategy - "auto", "gutter", or "brightness"
-
-        Query parameters:
-            variants=true  -- run variant detection (default true)
-
-        Returns same JSON format as /slide-scan/identify for UI compatibility.
-        """
-        from urllib.parse import urlparse, parse_qs
-
-        parsed = urlparse(self.path)
-        qs = parse_qs(parsed.query)
-        detect_variants = qs.get("variants", ["true"])[0].lower() in ("true", "1", "yes")
-
-        content_type = self.headers.get("Content-Type", "")
-        if "multipart/form-data" not in content_type:
-            self.send_error(400, "Expected multipart/form-data")
-            return
-
-        raw_length = self.headers.get("Content-Length")
-        if raw_length is None:
-            self.send_error(411, "Content-Length required")
-            return
-        try:
-            length = int(raw_length)
-        except (ValueError, TypeError):
-            self.send_error(400, "Invalid Content-Length")
-            return
-        if length <= 0:
-            self.send_error(400, "Empty request body")
-            return
-        if length > MAX_UPLOAD_BYTES:
-            self.send_error(413, "Upload too large (max 20 MB)")
-            return
-
-        body = self.rfile.read(length)
-        fields = _parse_multipart_named(body, content_type)
-        if not fields:
-            self.send_error(400, "No fields in upload")
-            return
-
-        # Extract video file
-        video_data = None
-        video_ext = "webm"
-        for field_name, (filename, file_data) in fields.items():
-            if field_name == "video" and file_data and len(file_data) > 100:
-                video_data = file_data
-                if filename and filename.endswith(".mp4"):
-                    video_ext = "mp4"
-                break
-
-        if video_data is None:
-            self._send_json({"error": "No video file uploaded"}, status=400)
-            return
-
-        # Parse optional fields
-        num_cards = 3
-        row = 0
-        strategy = "auto"
-        for field_name, (filename, file_data) in fields.items():
-            if field_name == "num_cards":
-                try:
-                    num_cards = int(file_data.decode("utf-8", errors="ignore").strip())
-                except (ValueError, AttributeError):
-                    pass
-            elif field_name == "row":
-                try:
-                    row = int(file_data.decode("utf-8", errors="ignore").strip())
-                except (ValueError, AttributeError):
-                    pass
-            elif field_name == "strategy":
-                try:
-                    s = file_data.decode("utf-8", errors="ignore").strip()
-                    if s in ("auto", "gutter", "brightness"):
-                        strategy = s
-                except (ValueError, AttributeError):
-                    pass
-
-        # Save video to disk
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        video_dir = UPLOAD_DIR / f"video_{timestamp}_row{row}"
-        video_dir.mkdir(parents=True, exist_ok=True)
-        video_path = video_dir / f"row_{row}.{video_ext}"
-        video_path.write_bytes(video_data)
-
-        logger.info(
-            "Slide-scan video: received %d bytes, row=%d, num_cards=%d, "
-            "strategy=%s, saved to %s",
-            len(video_data), row, num_cards, strategy, video_path,
-        )
-
-        try:
-            from cardprice.ml.video_card_extractor import extract_cards_from_video
-
-            # Step 1: Extract card images from video
-            extraction_results = extract_cards_from_video(
-                str(video_path),
-                num_cards=num_cards,
-                output_dir=str(video_dir / "cards"),
-                strategy=strategy,
-            )
-
-            card_paths = [r["path"] for r in extraction_results]
-
-            # Step 2: Auto-crop each extracted card (same as slide-scan)
-            for idx, path in enumerate(list(card_paths)):
-                try:
-                    cropped = _autocrop_card(path)
-                    if cropped != path:
-                        card_paths[idx] = cropped
-                except Exception as e:
-                    logger.warning("Auto-crop failed for %s: %s", path, e)
-
-            # Step 3: Identify cards using the full pipeline
-            from cardprice.ml import identify_page_v2 as identify_page
-            from cardprice.db.session import SessionLocal
-            from sqlalchemy import text as sql_text
-
-            cards = []
-            with SessionLocal() as session:
-                page_results = identify_page(
-                    card_paths, session=session,
-                    detect_variants=detect_variants,
-                )
-
-                for idx, result in enumerate(page_results):
-                    num_cols = 3
-                    pos = row * num_cols + idx
-                    col = idx
-
-                    seg_rel = str(Path(card_paths[idx]).relative_to(UPLOAD_DIR))
-                    detected_variant = result.get("detected_variant", "normal")
-
-                    card_data = {
-                        "position": pos,
-                        "row": row,
-                        "col": col,
-                        "card_id": result["card_id"],
-                        "confidence": result["confidence"],
-                        "method": result["method"],
-                        "detected_variant": detected_variant,
-                        "variant_confidence": result.get("variant_confidence"),
-                        "stamps_detected": result.get("stamps_detected", []),
-                        "stamp_details": result.get("stamp_details", {}),
-                        "card_name": None,
-                        "market_price": None,
-                        "variant_price": None,
-                        "set_name": None,
-                        "image_url": None,
-                        "tcgplayer_url": None,
-                        "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
-                        "segment_image_url": f"/segment-image/{seg_rel}",
-                        "video_frame": extraction_results[idx]["frame_number"],
-                        "extraction_confidence": extraction_results[idx]["confidence"],
-                    }
-
-                    if result["card_id"]:
-                        row_db = session.execute(
-                            sql_text(_PRICE_LOOKUP_SQL),
-                            {"cid": result["card_id"]},
-                        ).fetchone()
-                        if row_db:
-                            card_data["card_name"] = row_db.name
-                            card_data["set_name"] = row_db.set_name
-                            card_data["market_price"] = (
-                                float(row_db.market_price) if row_db.market_price else None
-                            )
-                            card_data["image_url"] = row_db.image_small
-                            if row_db.tcg_product_id:
-                                card_data["tcgplayer_url"] = (
-                                    f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
-                                )
-
-                            if detected_variant != "normal":
-                                vprice = _lookup_variant_price(
-                                    session, result["card_id"], detected_variant,
-                                )
-                                if vprice:
-                                    card_data["variant_price"] = vprice
-
-                            price_for_conditions = (
-                                card_data["variant_price"] or card_data["market_price"]
-                            )
-                            if price_for_conditions:
-                                card_data["condition_prices"] = _build_condition_prices(
-                                    price_for_conditions,
-                                    tcg_product_id=row_db.tcg_product_id,
-                                    variant=detected_variant,
-                                )
-
-                    cards.append(card_data)
-
-            total_value = sum(
-                (c["variant_price"] or c["market_price"])
-                for c in cards
-                if (c["variant_price"] or c["market_price"])
-            )
-            total_mp = sum(
-                (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
-                for c in cards
-            )
-            self._send_json({
-                "status": "ok",
-                "scan_type": "slide_scan_video",
-                "cards": cards,
-                "total_cards": len(cards),
-                "total_value": round(total_value, 2),
-                "total_mp": round(total_mp, 2),
-                "video_path": str(video_path),
-            })
-
-        except Exception as e:
-            logger.error("Slide-scan video error: %s", e, exc_info=True)
-            self._send_json({"error": str(e), "cards": []}, status=500)
-
-        try:
-            import gc
-            gc.collect()
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-    def _handle_slide_scan_fast(self):
-        """Fast slide-scan: OCR-only identification, falls back to full pipeline.
-
-        POST /slide-scan/fast
-        Multipart form data with fields card_0 through card_8 (each a JPEG).
-
-        For each card:
-          1. Run RapidOCR on top 30% (name + HP) — ~200ms
-          2. Query DB: name ILIKE + hp match
-          3. If exactly 1 result -> done (~300ms)
-          4. If 2-5 results -> try card number OCR to disambiguate
-          5. If still ambiguous -> fall back to full identify_card_v2
-
-        Returns same JSON format as /slide-scan/identify for UI compatibility.
-        """
-        import time as _time
-        from urllib.parse import urlparse, parse_qs
-
-        t_start = _time.monotonic()
-
-        parsed = urlparse(self.path)
-        qs = parse_qs(parsed.query)
-        detect_variants = qs.get("variants", ["true"])[0].lower() in ("true", "1", "yes")
-
-        content_type = self.headers.get("Content-Type", "")
-        if "multipart/form-data" not in content_type:
-            self.send_error(400, "Expected multipart/form-data")
-            return
-
-        raw_length = self.headers.get("Content-Length")
-        if raw_length is None:
-            self.send_error(411, "Content-Length required")
-            return
-        try:
-            length = int(raw_length)
-        except (ValueError, TypeError):
-            self.send_error(400, "Invalid Content-Length")
-            return
-        if length <= 0:
-            self.send_error(400, "Empty request body")
-            return
-        if length > MAX_UPLOAD_BYTES:
-            self.send_error(413, "Upload too large (max 20 MB)")
-            return
-
-        body = self.rfile.read(length)
-        fields = _parse_multipart_named(body, content_type)
-        if not fields:
-            self.send_error(400, "No card images uploaded")
-            return
-
-        # Extract card images from card_0 through card_8
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        cards_dir = UPLOAD_DIR / f"fast_{timestamp}_cards"
-        cards_dir.mkdir(parents=True, exist_ok=True)
-
-        card_images = {}  # position -> path
-        num_cols = 3
-        for field_name, (filename, file_data) in fields.items():
-            if not field_name.startswith("card_"):
-                continue
-            suffix = field_name.split("card_", 1)[1]
-            try:
-                if suffix.startswith("r") and "_c" in suffix:
-                    parts = suffix.split("_c")
-                    r = int(parts[0][1:])
-                    c = int(parts[1])
-                    pos = r * num_cols + c
-                else:
-                    pos = int(suffix)
-            except (ValueError, IndexError):
-                continue
-            if not file_data or len(file_data) < 100:
-                continue
-            save_path = cards_dir / f"card_{pos:02d}.jpg"
-            save_path.write_bytes(file_data)
-            card_images[pos] = str(save_path)
-
-        if not card_images:
-            self.send_error(400, "No valid card images found")
-            return
-
-        logger.info("Fast slide-scan: received %d card images in %s",
-                     len(card_images), cards_dir)
-
-        # Auto-crop each card
-        for pos, path in list(card_images.items()):
-            try:
-                cropped = _autocrop_card(path)
-                if cropped != path:
-                    card_images[pos] = cropped
-            except Exception as e:
-                logger.warning("Auto-crop failed for %s: %s", path, e)
-
-        sorted_positions = sorted(card_images.keys())
-
-        # --- Fast identification pass ---
-        try:
-            from cardprice.ml import (
-                _run_name_and_hp, _ocr_card_number,
-                _get_candidates_from_db, identify_card_v2,
-            )
-            from cardprice.db.session import SessionLocal
-            from sqlalchemy import text as sql_text
-            from concurrent.futures import ThreadPoolExecutor
-
-            # Phase 1: parallel OCR for name+HP on all cards
-            def _ocr_one(pos):
-                path = card_images[pos]
-                try:
-                    name, conf, raw, hp = _run_name_and_hp(path, _hold_lock=False)
-                    return pos, name, conf, raw, hp
-                except Exception as e:
-                    logger.warning("Fast OCR failed for pos %d: %s", pos, e)
-                    return pos, None, 0.0, None, None
-
-            # Initialize OCR engine before parallel work
-            from cardprice.ml.ocr_matcher import get_rapid_engine as _ensure_rapid
-            _ensure_rapid()
-
-            ocr_results = {}
-            with ThreadPoolExecutor(max_workers=3) as pool:
-                futures = {pool.submit(_ocr_one, p): p for p in sorted_positions}
-                for fut in futures:
-                    pos, name, conf, raw, hp = fut.result()
-                    ocr_results[pos] = (name, conf, raw, hp)
-
-            # Phase 2: DB lookup + disambiguation
-            cards = []
-            fallback_positions = []  # positions needing full pipeline
-
-            with SessionLocal() as session:
-                for pos in sorted_positions:
-                    name, conf, raw, hp = ocr_results[pos]
-
-                    card_id = None
-                    method = "fast_ocr"
-                    id_confidence = 0.0
-
-                    if name and conf >= 0.60:
-                        # Query DB with name + HP
-                        candidates = _get_candidates_from_db(
-                            name, hp=int(hp) if hp else None, session=session,
-                        )
-
-                        if len(candidates) == 1:
-                            card_id = candidates[0]
-                            id_confidence = min(conf, 0.95)
-                            method = "fast_name_hp"
-                            logger.info("Fast: pos %d -> %s (name=%r, hp=%s, 1 match)",
-                                        pos, card_id, name, hp)
-                        elif 2 <= len(candidates) <= 5:
-                            # Try card number OCR to disambiguate
-                            card_num, set_total = _ocr_card_number(card_images[pos])
-                            if card_num:
-                                # Match card number against candidates
-                                for cid in candidates:
-                                    # card_id format: "setid-NUM/variant"
-                                    base = cid.split("/")[0] if "/" in cid else cid
-                                    last_dash = base.rfind("-")
-                                    if last_dash > 0:
-                                        cid_num = base[last_dash + 1:]
-                                        if cid_num.lstrip("0") == card_num.lstrip("0"):
-                                            card_id = cid
-                                            id_confidence = min(conf, 0.90)
-                                            method = "fast_name_hp_num"
-                                            logger.info("Fast: pos %d -> %s (disambiguated by card# %s/%s)",
-                                                        pos, card_id, card_num, set_total)
-                                            break
-
-                            if not card_id:
-                                # Still ambiguous -> fall back
-                                logger.info("Fast: pos %d ambiguous (%d candidates for %r hp=%s), falling back",
-                                            pos, len(candidates), name, hp)
-                                fallback_positions.append(pos)
-                        elif len(candidates) > 5:
-                            logger.info("Fast: pos %d too many candidates (%d for %r hp=%s), falling back",
-                                        pos, len(candidates), name, hp)
-                            fallback_positions.append(pos)
-                        else:
-                            # 0 candidates
-                            logger.info("Fast: pos %d no DB match for %r hp=%s, falling back",
-                                        pos, name, hp)
-                            fallback_positions.append(pos)
-                    else:
-                        logger.info("Fast: pos %d OCR failed (name=%r, conf=%.2f), falling back",
-                                    pos, name, conf)
-                        fallback_positions.append(pos)
-
-                    if card_id:
-                        # Build card data directly
-                        row = pos // num_cols
-                        col = pos % num_cols
-                        seg_rel = str(Path(card_images[pos]).relative_to(UPLOAD_DIR))
-
-                        card_data = {
-                            "position": pos,
-                            "row": row,
-                            "col": col,
-                            "card_id": card_id,
-                            "confidence": id_confidence,
-                            "method": method,
-                            "detected_variant": "normal",
-                            "variant_confidence": None,
-                            "stamps_detected": [],
-                            "stamp_details": {},
-                            "card_name": None,
-                            "market_price": None,
-                            "variant_price": None,
-                            "set_name": None,
-                            "image_url": None,
-                            "tcgplayer_url": None,
-                            "local_image_url": _local_image_url(card_id),
-                            "segment_image_url": f"/segment-image/{seg_rel}",
-                        }
-
-                        # Look up card details + price
-                        row_db = session.execute(
-                            sql_text(_PRICE_LOOKUP_SQL),
-                            {"cid": card_id},
-                        ).fetchone()
-                        if row_db:
-                            card_data["card_name"] = row_db.name
-                            card_data["set_name"] = row_db.set_name
-                            card_data["market_price"] = (
-                                float(row_db.market_price) if row_db.market_price else None
-                            )
-                            card_data["image_url"] = row_db.image_small
-                            if row_db.tcg_product_id:
-                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
-
-                            price_for_conditions = card_data["market_price"]
-                            if price_for_conditions:
-                                card_data["condition_prices"] = _build_condition_prices(
-                                    price_for_conditions,
-                                    tcg_product_id=row_db.tcg_product_id,
-                                    variant="normal",
-                                )
-
-                        cards.append(card_data)
-
-                # Phase 3: run full pipeline on fallback cards
-                if fallback_positions:
-                    logger.info("Fast: %d/%d cards need full pipeline: %s",
-                                len(fallback_positions), len(sorted_positions), fallback_positions)
-
-                    fallback_paths = [card_images[p] for p in fallback_positions]
-
-                    # Use identify_card_v2 for each fallback card (with precomputed OCR)
-                    for fb_pos, fb_path in zip(fallback_positions, fallback_paths):
-                        fb_name, fb_conf, fb_raw, fb_hp = ocr_results[fb_pos]
-                        precomputed = None
-                        if fb_name or fb_hp:
-                            precomputed = {
-                                "ocr_name": fb_name,
-                                "ocr_conf": fb_conf,
-                                "ocr_raw": fb_raw,
-                                "hp_value": fb_hp,
-                            }
-
-                        result = identify_card_v2(
-                            fb_path, session=session,
-                            _precomputed_ocr=precomputed,
-                            detect_variants=detect_variants,
-                        )
-
-                        row = fb_pos // num_cols
-                        col = fb_pos % num_cols
-                        seg_rel = str(Path(card_images[fb_pos]).relative_to(UPLOAD_DIR))
-                        detected_variant = result.get("detected_variant", "normal")
-
-                        card_data = {
-                            "position": fb_pos,
-                            "row": row,
-                            "col": col,
-                            "card_id": result["card_id"],
-                            "confidence": result["confidence"],
-                            "method": result["method"],
-                            "detected_variant": detected_variant,
-                            "variant_confidence": result.get("variant_confidence"),
-                            "stamps_detected": result.get("stamps_detected", []),
-                            "stamp_details": result.get("stamp_details", {}),
-                            "card_name": None,
-                            "market_price": None,
-                            "variant_price": None,
-                            "set_name": None,
-                            "image_url": None,
-                            "tcgplayer_url": None,
-                            "local_image_url": _local_image_url(result["card_id"], ocr_raw=result.get("raw_response", {}).get("ocr_raw")),
-                            "segment_image_url": f"/segment-image/{seg_rel}",
-                        }
-
-                        if result["card_id"]:
-                            row_db = session.execute(
-                                sql_text(_PRICE_LOOKUP_SQL),
-                                {"cid": result["card_id"]},
-                            ).fetchone()
-                            if row_db:
-                                card_data["card_name"] = row_db.name
-                                card_data["set_name"] = row_db.set_name
-                                card_data["market_price"] = (
-                                    float(row_db.market_price) if row_db.market_price else None
-                                )
-                                card_data["image_url"] = row_db.image_small
-                                if row_db.tcg_product_id:
-                                    card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
-
-                                if detected_variant != "normal":
-                                    vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
-                                    if vprice:
-                                        card_data["variant_price"] = vprice
-
-                                price_for_conditions = card_data["variant_price"] or card_data["market_price"]
-                                if price_for_conditions:
-                                    card_data["condition_prices"] = _build_condition_prices(
-                                        price_for_conditions,
-                                        tcg_product_id=row_db.tcg_product_id,
-                                        variant=detected_variant,
-                                    )
-
-                        cards.append(card_data)
-
-            # Sort cards by position for consistent ordering
-            cards.sort(key=lambda c: c["position"])
-
-        except Exception as e:
-            logger.error("Fast slide-scan error: %s", e, exc_info=True)
-            try:
-                import gc
-                gc.collect()
-            except Exception:
-                pass
-            self._send_json({"error": str(e), "cards": []}, status=500)
-            return
-
-        elapsed = _time.monotonic() - t_start
-        fast_count = sum(1 for c in cards if c["method"].startswith("fast_"))
-        fallback_count = len(cards) - fast_count
-
-        total_value = sum(
-            (c.get("variant_price") or c.get("market_price") or 0)
-            for c in cards
-        )
-        total_mp = sum(
-            (c.get("condition_prices", {}) or {}).get("MP", {}).get("price", 0) or 0
-            for c in cards
-        )
-
-        logger.info("Fast slide-scan: %d cards in %.1fs (fast=%d, fallback=%d)",
-                     len(cards), elapsed, fast_count, fallback_count)
-
-        self._send_json({
-            "status": "ok",
-            "scan_type": "slide_scan_fast",
-            "cards": cards,
-            "total_cards": len(cards),
-            "total_value": round(total_value, 2),
-            "total_mp": round(total_mp, 2),
-            "fast_count": fast_count,
-            "fallback_count": fallback_count,
-            "elapsed_seconds": round(elapsed, 2),
-        })
-
-        try:
-            import gc
-            gc.collect()
         except Exception:
             pass
 
@@ -5633,13 +4713,13 @@ def warmup():
     # --- 3. DINOv2 + dummy inference ---
 
     def _warmup_dinov2():
-        from cardprice.ml.dino_matcher import _load_model, _transform
+        from cardprice.ml.dino_matcher import _load_model, _get_transform
         import torch
         from PIL import Image
         model, device = _load_model()
         # Run a dummy inference to trigger CUDA/JIT warmup
         dummy_img = Image.new("RGB", (224, 224), color=(128, 128, 128))
-        tensor = _transform(dummy_img).unsqueeze(0).to(device)
+        tensor = _get_transform()(dummy_img).unsqueeze(0).to(device)
         with torch.no_grad():
             model(tensor)
 
@@ -5772,8 +4852,7 @@ def run_server(host="0.0.0.0", port=8888):
                             tunnel_file.write_text(tunnel_url)
                             print(f"\n{'='*60}")
                             print(f"  HTTPS tunnel: {tunnel_url}")
-                            print(f"  Slide scan:   {tunnel_url}/slide-scan")
-                            print(f"  Scanner:      {tunnel_url}/scanner")
+                            print(f"  Slide scan:   {tunnel_url}/slide-scan-v7")
                             print(f"{'='*60}\n")
             except Exception as e:
                 logger.warning("Cloudflare tunnel failed: %s", e)

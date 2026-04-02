@@ -6,9 +6,9 @@ Extracts text-based features that help narrow card identification:
   - Weakness/resistance info (bottom strip)
   - Card name (top-left area)
 
-Uses EasyOCR (neural network) as primary OCR engine -- much better on
-binder-sleeve photos than tesseract.  Falls back to pytesseract if
-easyocr is not installed.
+Uses RapidOCR (ONNX Runtime) as primary OCR engine -- fast and low
+memory (~100MB vs EasyOCR's ~800MB).  Falls back to pytesseract if
+rapidocr-onnxruntime is not installed.
 
 Preprocessing: Otsu thresholding + 4x upscale gives the best results
 on both clean reference images and binder-sleeve segments.
@@ -46,17 +46,17 @@ _BOTTOM_REGION = {"x1": 0.0, "y1": 0.83, "x2": 1.0, "y2": 0.95}
 
 
 # ---------------------------------------------------------------------------
-# Shared EasyOCR reader (from ocr_matcher to avoid ~500MB duplicate)
+# Shared RapidOCR engine (replaces EasyOCR — saves ~800MB RAM, 15s warmup)
 # ---------------------------------------------------------------------------
 
 
-def _get_easyocr_reader():
-    """Get the shared EasyOCR reader from ocr_matcher."""
+def _get_rapid_engine():
+    """Get the shared RapidOCR engine singleton from ocr_matcher."""
     try:
-        from cardprice.ml.ocr_matcher import get_easyocr_reader
-        return get_easyocr_reader()
+        from cardprice.ml.ocr_matcher import get_rapid_engine
+        return get_rapid_engine()
     except ImportError:
-        logger.warning("easyocr not installed; will fall back to pytesseract")
+        logger.warning("rapidocr-onnxruntime not installed; will fall back to pytesseract")
         return None
 
 
@@ -112,15 +112,24 @@ def _preprocess_clahe(crop: np.ndarray, upscale: int = 4) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def _ocr_easyocr(crop: np.ndarray) -> list[tuple[str, float]]:
-    """Run EasyOCR on a BGR crop.  Returns list of (text, confidence)."""
-    reader = _get_easyocr_reader()
-    if reader is None:
+    """Run RapidOCR on a BGR crop.  Returns list of (text, confidence).
+
+    Named _ocr_easyocr for backward compatibility — now uses RapidOCR
+    internally (saves ~800MB RAM and 15s warmup).
+    """
+    engine = _get_rapid_engine()
+    if engine is None:
         return []
     try:
-        results = reader.readtext(crop, batch_size=8)
-        return [(r[1], float(r[2])) for r in results]
+        # RapidOCR expects 3-channel BGR input
+        if len(crop.shape) == 2:
+            crop = cv2.cvtColor(crop, cv2.COLOR_GRAY2BGR)
+        result, _ = engine(crop)
+        if not result:
+            return []
+        return [(text, float(conf)) for _box, text, conf in result]
     except Exception as e:
-        logger.warning("EasyOCR failed: %s", e)
+        logger.warning("RapidOCR (hp_detector) failed: %s", e)
         return []
 
 

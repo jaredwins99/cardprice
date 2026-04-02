@@ -291,6 +291,14 @@ def _find_card_contours(image: np.ndarray,
     handle varied lighting, glare, and contrast conditions typical of
     binder page photos taken with phone cameras.
 
+    Performance optimizations:
+    - Downscales the image for contour detection (contour shapes are
+      scale-invariant; full resolution is only needed for final extraction).
+    - Strategies are grouped into phases; early exit skips expensive
+      strategies (bilateral filter, extra CLAHE) when enough cards are
+      already found.
+    - Contour coordinates are scaled back to original resolution.
+
     The strategies are grouped into several categories:
     - Multiple Canny edge detections with different blur kernels and
       thresholds (sensitive vs conservative)
@@ -311,14 +319,28 @@ def _find_card_contours(image: np.ndarray,
     Returns:
         List of 4-point contour arrays, one per detected card.
     """
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    h, w = gray.shape[:2]
+    gray_full = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    h, w = gray_full.shape[:2]
+
+    # --- Downscale for contour detection ---
+    # Contour shapes are scale-invariant; 2000px max dimension is sufficient
+    # for detecting card rectangles.  This reduces pixel count by ~4x for
+    # typical 4032x3024 phone photos, speeding up every CV operation.
+    _DETECT_MAX_DIM = 2000
+    if max(h, w) > _DETECT_MAX_DIM:
+        detect_scale = _DETECT_MAX_DIM / max(h, w)
+        gray = cv2.resize(gray_full, None, fx=detect_scale, fy=detect_scale,
+                          interpolation=cv2.INTER_AREA)
+    else:
+        detect_scale = 1.0
+        gray = gray_full
+    dh, dw = gray.shape[:2]
 
     # Pad image so cards touching edges get closed contours.
     # Use BORDER_REPLICATE to avoid creating artificial edges from black borders.
-    pad = int(max(h, w) * 0.02)  # 2% of image dimension
+    pad = int(max(dh, dw) * 0.02)  # 2% of detection image dimension
     gray = cv2.copyMakeBorder(gray, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
-    image_area = h * w  # use original area for size thresholds
+    image_area = dh * dw  # use detection-scale area for size thresholds
 
     candidates = []  # list of (cx, cy, area, approx)
 
@@ -345,122 +367,150 @@ def _find_card_contours(image: np.ndarray,
             area = cv2.contourArea(cnt)
             candidates.append((cx, cy, area, approx))
 
+    def _dedup_unique_count() -> int:
+        """Count unique card detections after deduplication (for early exit)."""
+        dedup_r = max(dw, dh) * 0.10
+        temp = sorted(candidates, key=lambda c: c[2], reverse=True)
+        centers: list[tuple[int, int]] = []
+        for cx, cy, _, _ in temp:
+            too_close = False
+            for kx, ky in centers:
+                if abs(cx - kx) < dedup_r and abs(cy - ky) < dedup_r:
+                    too_close = True
+                    break
+            if not too_close:
+                centers.append((cx, cy))
+        return len(centers)
+
     # Reusable kernels
     kernel_3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     kernel_5 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 
-    # --- Strategy 1: Canny with wider blur (robust to noise) ---
+    # Precompute blurred images used by multiple strategies
+    blurred_3 = cv2.GaussianBlur(gray, (3, 3), 0)
+    blurred_5 = cv2.GaussianBlur(gray, (5, 5), 0)
     blurred_7 = cv2.GaussianBlur(gray, (7, 7), 0)
+
+    # ========== Phase 1: Fast Canny strategies ==========
+    # These are the cheapest and catch most cards in well-lit photos.
+
+    # Strategy 1: Canny with wider blur (robust to noise)
     edges = cv2.Canny(blurred_7, 20, 80)
     edges = cv2.dilate(edges, kernel_5, iterations=2)
     _add_candidates(edges)
 
-    # --- Strategy 2: Canny with narrow blur, high thresholds (sharp edges) ---
-    blurred_3 = cv2.GaussianBlur(gray, (3, 3), 0)
+    # Strategy 2: Canny with narrow blur, high thresholds (sharp edges)
     edges = cv2.Canny(blurred_3, 50, 150)
     edges = cv2.dilate(edges, kernel_5, iterations=2)
     _add_candidates(edges)
 
-    # --- Strategy 3: Canny with narrow blur, low thresholds (sensitive) ---
-    edges = cv2.Canny(blurred_3, 15, 60)
-    edges = cv2.dilate(edges, kernel_3, iterations=1)
-    _add_candidates(edges)
-
-    # --- Strategy 4: Original Canny (moderate params) ---
-    blurred_5 = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Strategy 3: Original Canny (moderate params)
     edges = cv2.Canny(blurred_5, 30, 100)
     edges = cv2.dilate(edges, kernel_3, iterations=1)
     _add_candidates(edges)
 
-    # --- Strategy 5+: CLAHE contrast enhancement + Canny ---
-    # CLAHE normalizes local contrast, helping with uneven binder page lighting.
-    # Multiple clip limits and tile sizes provide robustness across different
-    # lighting conditions and card contrasts.
-    for clip_limit, tile_size in [(3.0, 8), (4.0, 8), (2.0, 8),
-                                  (4.0, 16), (3.0, 16)]:
-        clahe = cv2.createCLAHE(clipLimit=clip_limit,
-                                tileGridSize=(tile_size, tile_size))
-        enhanced = clahe.apply(gray)
-        enh_blurred = cv2.GaussianBlur(enhanced, (7, 7), 0)
-        for canny_lo, canny_hi in [(20, 80), (30, 100), (15, 60)]:
-            edges = cv2.Canny(enh_blurred, canny_lo, canny_hi)
-            edges = cv2.dilate(edges, kernel_3, iterations=1)
+    # Early exit: skip remaining strategies if we already have enough cards
+    if _dedup_unique_count() >= expected_count:
+        logger.debug("Phase 1 early exit: found >= %d cards", expected_count)
+    else:
+        # ========== Phase 2: Sensitive Canny + CLAHE + adaptive threshold ==========
+
+        # Strategy 4: Canny with narrow blur, low thresholds (sensitive)
+        edges = cv2.Canny(blurred_3, 15, 60)
+        edges = cv2.dilate(edges, kernel_3, iterations=1)
+        _add_candidates(edges)
+
+        # CLAHE contrast enhancement + Canny (handles uneven lighting)
+        for clip_limit, tile_size in [(3.0, 8), (4.0, 8), (2.0, 8),
+                                      (4.0, 16), (3.0, 16)]:
+            clahe = cv2.createCLAHE(clipLimit=clip_limit,
+                                    tileGridSize=(tile_size, tile_size))
+            enhanced = clahe.apply(gray)
+            enh_blurred = cv2.GaussianBlur(enhanced, (7, 7), 0)
+            for canny_lo, canny_hi in [(20, 80), (30, 100), (15, 60)]:
+                edges = cv2.Canny(enh_blurred, canny_lo, canny_hi)
+                edges = cv2.dilate(edges, kernel_3, iterations=1)
+                _add_candidates(edges)
+
+        # Adaptive thresholding (robust to uneven lighting)
+        for block_size, C, close_k, close_i in [(51, 5, 5, 1), (51, 5, 7, 2)]:
+            thresh = cv2.adaptiveThreshold(
+                blurred_5, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY_INV, block_size, C
+            )
+            k = cv2.getStructuringElement(cv2.MORPH_RECT, (close_k, close_k))
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, k, iterations=close_i)
+            _add_candidates(thresh)
+
+        # Adaptive thresholding variants
+        for blur_k, block_size, C, close_k, close_i in [
+            (7, 51, 8, 7, 2),
+            (7, 51, 5, 5, 2),
+            (7, 61, 5, 5, 2),
+        ]:
+            thresh = cv2.adaptiveThreshold(
+                cv2.GaussianBlur(gray, (blur_k, blur_k), 0), 255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY_INV, block_size, C
+            )
+            k = cv2.getStructuringElement(cv2.MORPH_RECT, (close_k, close_k))
+            thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, k, iterations=close_i)
+            _add_candidates(thresh)
+
+        # Otsu thresholding (simple global threshold)
+        _, thresh_otsu = cv2.threshold(blurred_5, 0, 255,
+                                       cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        thresh_otsu = cv2.morphologyEx(thresh_otsu, cv2.MORPH_CLOSE, kernel_5)
+        _add_candidates(thresh_otsu)
+
+        # Early exit before expensive strategies
+        if _dedup_unique_count() >= expected_count:
+            logger.debug("Phase 2 early exit: found >= %d cards", expected_count)
+        else:
+            # ========== Phase 3: Expensive strategies (bilateral, morphological) ==========
+            # These are slow but handle difficult lighting/contrast conditions.
+
+            # Bilateral filter + Canny (edge-preserving smooth)
+            bilateral = cv2.bilateralFilter(gray, 11, 75, 75)
+            edges = cv2.Canny(bilateral, 20, 80)
+            edges = cv2.dilate(edges, kernel_5, iterations=2)
             _add_candidates(edges)
 
-    # --- Strategy 8-9: Adaptive thresholding (robust to uneven lighting) ---
-    for block_size, C, close_k, close_i in [(51, 5, 5, 1), (51, 5, 7, 2)]:
-        thresh = cv2.adaptiveThreshold(
-            blurred_5, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, block_size, C
-        )
-        k = cv2.getStructuringElement(cv2.MORPH_RECT, (close_k, close_k))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, k, iterations=close_i)
-        _add_candidates(thresh)
+            bilateral_strong = cv2.bilateralFilter(gray, 15, 100, 100)
+            edges = cv2.Canny(bilateral_strong, 15, 60)
+            edges = cv2.dilate(edges, kernel_5, iterations=2)
+            _add_candidates(edges)
 
-    # --- Strategy 10-12: Adaptive thresholding variants ---
-    # These wider-block and higher-C adaptive thresholds detect card
-    # boundaries that other strategies miss in challenging lighting.
-    for blur_k, block_size, C, close_k, close_i in [
-        (7, 51, 8, 7, 2),   # wider blur, higher C
-        (7, 51, 5, 5, 2),   # wider blur, moderate C, heavy closing
-        (7, 61, 5, 5, 2),   # even wider block size
-    ]:
-        thresh = cv2.adaptiveThreshold(
-            cv2.GaussianBlur(gray, (blur_k, blur_k), 0), 255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, block_size, C
-        )
-        k = cv2.getStructuringElement(cv2.MORPH_RECT, (close_k, close_k))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, k, iterations=close_i)
-        _add_candidates(thresh)
+            # Morphological gradient (dilation - erosion)
+            gradient = cv2.morphologyEx(blurred_5, cv2.MORPH_GRADIENT, kernel_5)
+            _, edges = cv2.threshold(gradient, 20, 255, cv2.THRESH_BINARY)
+            edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_5, iterations=2)
+            _add_candidates(edges)
 
-    # --- Strategy 13: Otsu thresholding (simple global threshold) ---
-    _, thresh_otsu = cv2.threshold(blurred_5, 0, 255,
-                                   cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    thresh_otsu = cv2.morphologyEx(thresh_otsu, cv2.MORPH_CLOSE, kernel_5)
-    _add_candidates(thresh_otsu)
+            # Canny with extra dilation for large blur
+            for blur_k in (9, 11):
+                blurred_wide = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+                edges = cv2.Canny(blurred_wide, 20, 80)
+                edges = cv2.dilate(edges, kernel_5, iterations=2)
+                _add_candidates(edges)
 
-    # --- Bilateral filter + Canny (edge-preserving smooth) ---
-    bilateral = cv2.bilateralFilter(gray, 11, 75, 75)
-    edges = cv2.Canny(bilateral, 20, 80)
-    edges = cv2.dilate(edges, kernel_5, iterations=2)
-    _add_candidates(edges)
+            # Canny with dilate-then-erode (closes gaps, restores edge width)
+            for blur_k, lo, hi in [(5, 20, 80), (7, 15, 60)]:
+                blurred_de = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
+                edges = cv2.Canny(blurred_de, lo, hi)
+                edges = cv2.dilate(edges, kernel_5, iterations=2)
+                edges = cv2.erode(edges, kernel_5, iterations=1)
+                _add_candidates(edges)
 
-    bilateral_strong = cv2.bilateralFilter(gray, 15, 100, 100)
-    edges = cv2.Canny(bilateral_strong, 15, 60)
-    edges = cv2.dilate(edges, kernel_5, iterations=2)
-    _add_candidates(edges)
-
-    # --- Morphological gradient (dilation - erosion) ---
-    gradient = cv2.morphologyEx(blurred_5, cv2.MORPH_GRADIENT, kernel_5)
-    _, edges = cv2.threshold(gradient, 20, 255, cv2.THRESH_BINARY)
-    edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel_5, iterations=2)
-    _add_candidates(edges)
-
-    # --- Canny with extra dilation for large blur ---
-    for blur_k in (9, 11):
-        blurred_wide = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
-        edges = cv2.Canny(blurred_wide, 20, 80)
-        edges = cv2.dilate(edges, kernel_5, iterations=2)
-        _add_candidates(edges)
-
-    # --- Canny with dilate-then-erode (closes gaps, restores edge width) ---
-    for blur_k, lo, hi in [(5, 20, 80), (7, 15, 60)]:
-        blurred_de = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
-        edges = cv2.Canny(blurred_de, lo, hi)
-        edges = cv2.dilate(edges, kernel_5, iterations=2)
-        edges = cv2.erode(edges, kernel_5, iterations=1)
-        _add_candidates(edges)
-
-    # --- Extra Canny variant with wider dilation ---
-    edges = cv2.Canny(blurred_5, 10, 50)
-    edges = cv2.dilate(edges, kernel_5, iterations=2)
-    _add_candidates(edges)
+            # Extra Canny variant with wider dilation
+            edges = cv2.Canny(blurred_5, 10, 50)
+            edges = cv2.dilate(edges, kernel_5, iterations=2)
+            _add_candidates(edges)
 
     # Deduplicate overlapping detections: if two contour centers are within
     # dedup_radius, keep only the one with the larger area.  This prevents
     # inner card art frames from being detected as separate cards.
-    dedup_radius = max(w, h) * 0.10  # ~10% of image dimension
+    dedup_radius = max(dw, dh) * 0.10  # ~10% of detection image dimension
     # Sort largest first so the biggest contour wins
     candidates.sort(key=lambda c: c[2], reverse=True)
     kept: list[np.ndarray] = []
@@ -477,9 +527,11 @@ def _find_card_contours(image: np.ndarray,
             kept_centers.append((cx, cy))
             kept_areas.append(area)
 
-    # Subtract padding offset so coordinates map back to original image
+    # Map coordinates back to original image: undo padding, then undo downscale
+    inv_scale = 1.0 / detect_scale
     for i, approx in enumerate(kept):
-        kept[i] = approx - pad
+        scaled = ((approx - pad) * inv_scale).astype(np.int32)
+        kept[i] = scaled
 
     n_before_filter = len(kept)
 
@@ -488,13 +540,15 @@ def _find_card_contours(image: np.ndarray,
     # If we found more than expected, remove contours whose area deviates
     # most from the median.  False positives (inner art frames, binder
     # hardware) are typically much smaller than real cards.
-    if len(kept) > expected_count and len(kept_areas) >= 3:
-        sorted_areas = sorted(kept_areas)
+    # Scale areas back to original image space for consistent thresholds.
+    kept_areas_orig = [a * inv_scale * inv_scale for a in kept_areas]
+    if len(kept) > expected_count and len(kept_areas_orig) >= 3:
+        sorted_areas = sorted(kept_areas_orig)
         median_area = sorted_areas[len(sorted_areas) // 2]
 
         # Compute deviation from median for each contour
         deviations = []
-        for i, area in enumerate(kept_areas):
+        for i, area in enumerate(kept_areas_orig):
             dev = abs(area - median_area) / median_area
             deviations.append((dev, i))
 
@@ -511,14 +565,14 @@ def _find_card_contours(image: np.ndarray,
                 to_remove.add(idx)
                 logger.debug("Area filter: removing contour %d "
                              "(area=%.0f, median=%.0f, dev=%.2f)",
-                             idx, kept_areas[idx], median_area, dev)
+                             idx, kept_areas_orig[idx], median_area, dev)
 
         if to_remove:
             kept = [c for i, c in enumerate(kept) if i not in to_remove]
 
     logger.info("Found %d card-shaped contours (before dedup: %d, "
-                "before area filter: %d)",
-                len(kept), len(candidates), n_before_filter)
+                "before area filter: %d, detect_scale: %.2f)",
+                len(kept), len(candidates), n_before_filter, detect_scale)
     return kept
 
 

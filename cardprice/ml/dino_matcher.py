@@ -11,36 +11,45 @@ import pickle
 from pathlib import Path
 from typing import Optional
 
-import faiss
 import numpy as np
-import torch
-from PIL import Image
-from torchvision import transforms
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Global model cache
+# Global model cache (lazy-loaded to reduce startup memory)
 # ---------------------------------------------------------------------------
-_model: Optional[torch.nn.Module] = None
-_device: Optional[torch.device] = None
+_model = None
+_device = None
 
 # ImageNet normalization stats
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD = [0.229, 0.224, 0.225]
 
-_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
-])
+# Lazy-loaded transform (requires torchvision)
+_transform = None
 
 
-def _load_model() -> tuple[torch.nn.Module, torch.device]:
+def _get_transform():
+    """Lazy-load the torchvision transform (avoids importing torch at module level)."""
+    global _transform
+    if _transform is None:
+        from torchvision import transforms
+        _transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=_IMAGENET_MEAN, std=_IMAGENET_STD),
+        ])
+    return _transform
+
+
+def _load_model():
     """Load DINOv2 ViT-B/14 and cache it globally.
 
     Returns the model and the device it lives on.
+    Imports torch lazily to avoid loading ~800MB at module import time.
     """
+    import torch
+
     global _model, _device
     if _model is not None:
         return _model, _device
@@ -73,10 +82,14 @@ def extract_embedding(image_path: str | Path) -> np.ndarray:
     np.ndarray
         768-dimensional float32 vector, L2-normalized.
     """
+    import torch
+    from PIL import Image
+
     model, device = _load_model()
+    transform = _get_transform()
 
     img = Image.open(image_path).convert("RGB")
-    tensor = _transform(img).unsqueeze(0).to(device)  # (1, 3, 224, 224)
+    tensor = transform(img).unsqueeze(0).to(device)  # (1, 3, 224, 224)
 
     with torch.no_grad():
         embedding = model(tensor)  # (1, 768) CLS token
@@ -96,17 +109,21 @@ def extract_embedding_batch(image_paths: list[str | Path]) -> list[np.ndarray]:
 
     Batches all images into a single GPU forward pass for efficiency.
     """
+    import torch
+    from PIL import Image
+
     if not image_paths:
         return []
 
     model, device = _load_model()
+    transform = _get_transform()
 
     tensors = []
     valid_indices = []
     for i, p in enumerate(image_paths):
         try:
             img = Image.open(p).convert("RGB")
-            tensors.append(_transform(img))
+            tensors.append(transform(img))
             valid_indices.append(i)
         except Exception:
             logger.warning("Batch embed: failed to load %s", p)
@@ -213,6 +230,7 @@ def build_reference_index(
     )
 
     # Build FAISS IndexFlatIP (inner-product == cosine on L2-normed vectors)
+    import faiss
     matrix = np.stack(embeddings).astype(np.float32)  # (N, 768)
     dim = matrix.shape[1]
     index = faiss.IndexFlatIP(dim)
@@ -282,6 +300,7 @@ def identify_card(
         if not os.path.exists(mapping_path):
             raise FileNotFoundError(f"Card-ID mapping not found: {mapping_path}")
 
+        import faiss
         index = faiss.read_index(index_path)
         with open(mapping_path, "rb") as f:
             card_ids = pickle.load(f)
@@ -365,6 +384,7 @@ class MatchPipeline:
             return ""
 
         try:
+            from PIL import Image
             img = Image.open(image_path).convert("RGB")
             return pytesseract.image_to_string(img).strip()
         except Exception:

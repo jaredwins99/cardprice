@@ -337,11 +337,11 @@ def _detect_ocr_backend() -> str:
     if _ocr_backend is not None:
         return _ocr_backend
 
-    # Try EasyOCR first (much better accuracy on card photos)
+    # Prefer RapidOCR (fast ONNX Runtime, low memory)
     try:
-        import easyocr  # noqa: F401
-        _ocr_backend = "easyocr"
-        logger.info("OCR backend: easyocr")
+        from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+        _ocr_backend = "rapidocr"
+        logger.info("OCR backend: rapidocr")
         return _ocr_backend
     except ImportError:
         pass
@@ -357,7 +357,7 @@ def _detect_ocr_backend() -> str:
         pass
 
     _ocr_backend = "none"
-    logger.warning("No OCR backend available. Install easyocr or pytesseract+tesseract.")
+    logger.warning("No OCR backend available. Install rapidocr-onnxruntime or pytesseract+tesseract.")
     return _ocr_backend
 
 
@@ -683,8 +683,8 @@ def extract_card_number(image_path: str | Path) -> tuple[str | None, str | None,
         preprocessed_variants = _preprocess_number_region(crop)
 
         for variant in preprocessed_variants:
-            if backend == "easyocr":
-                texts = _ocr_easyocr_all_from_image(variant)
+            if backend == "rapidocr":
+                texts = _ocr_rapidocr_all_from_image(variant)
                 for text, conf in texts:
                     all_results.append((text, conf))
             elif backend == "tesseract":
@@ -705,32 +705,43 @@ def extract_card_number(image_path: str | Path) -> tuple[str | None, str | None,
     return _parse_card_number(all_results)
 
 
-def _ocr_easyocr_all_from_image(image: Image.Image) -> list[tuple[str, float]]:
-    """Run EasyOCR on a PIL Image and return all text fragments.
+def _ocr_rapidocr_all_from_image(image: Image.Image) -> list[tuple[str, float]]:
+    """Run RapidOCR on a PIL Image and return all text fragments.
 
-    Similar to _ocr_easyocr_all but takes an Image object instead of
-    reading from a file path. Uses lowered detection thresholds to catch
-    faint text in the card number region.
+    Replacement for _ocr_easyocr_all_from_image. Uses RapidOCR (ONNX Runtime)
+    which loads in ~1s and uses ~100MB RAM vs EasyOCR's ~16s and ~800MB.
     """
-    global _easyocr_reader
     import numpy as np
+    import cv2
 
-    if _easyocr_reader is None:
-        import easyocr
-        _easyocr_reader = easyocr.Reader(["en"], gpu=True)
-
+    engine = get_rapid_engine()
     img_array = np.array(image)
-    results = _easyocr_reader.readtext(
-        img_array, detail=1, paragraph=False,
-        text_threshold=0.3,
-        low_text=0.3,
-        batch_size=8,
-    )
 
-    if not results:
+    # RapidOCR expects BGR 3-channel input
+    if len(img_array.shape) == 2:
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_GRAY2BGR)
+    elif img_array.shape[2] == 4:
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGBA2BGR)
+    else:
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+
+    try:
+        result, _ = engine(img_bgr)
+    except Exception:
         return []
 
-    return [(r[1].strip(), float(r[2])) for r in results if r[1].strip()]
+    if not result:
+        return []
+
+    return [(text.strip(), float(conf)) for _box, text, conf in result if text.strip()]
+
+
+def _ocr_easyocr_all_from_image(image: Image.Image) -> list[tuple[str, float]]:
+    """DEPRECATED: Use _ocr_rapidocr_all_from_image instead.
+
+    Kept for backward compatibility with external callers.
+    """
+    return _ocr_rapidocr_all_from_image(image)
 
 
 def _parse_card_number(
@@ -958,27 +969,34 @@ def extract_card_name(image_path: str | Path) -> tuple[str, float]:
     Returns
     -------
     tuple of (str, float)
-        Extracted text and OCR confidence (0-1). Confidence is approximate
-        for Tesseract and comes from EasyOCR's native confidence.
+        Extracted text and OCR confidence (0-1).
     """
     backend = _detect_ocr_backend()
     if backend == "none":
         raise RuntimeError(
-            "No OCR backend available. Install easyocr or tesseract + pytesseract."
+            "No OCR backend available. Install rapidocr-onnxruntime or tesseract + pytesseract."
         )
 
     crop = _crop_name_region(image_path)
 
-    if backend == "easyocr":
-        # EasyOCR works best on raw color images (research-validated)
-        text, conf = _ocr_easyocr(crop, use_raw=True)
-        if not text or len(text) < 2:
-            # Retry with a wider crop (top 25%) in case name is cut off
-            img = Image.open(image_path)
-            w, h = img.size
-            wider_crop = img.crop((int(w * 0.03), 0, int(w * 0.97), int(h * 0.25)))
-            text, conf = _ocr_easyocr(wider_crop, use_raw=True)
-        return text, conf
+    if backend == "rapidocr":
+        # RapidOCR on raw color image
+        texts = _ocr_rapidocr_all_from_image(crop)
+        if texts:
+            # Return highest-confidence fragment
+            texts.sort(key=lambda t: t[1], reverse=True)
+            text, conf = texts[0]
+            if text and len(text) >= 2:
+                return text, conf
+        # Retry with a wider crop (top 25%) in case name is cut off
+        img = Image.open(image_path)
+        w, h = img.size
+        wider_crop = img.crop((int(w * 0.03), 0, int(w * 0.97), int(h * 0.25)))
+        texts = _ocr_rapidocr_all_from_image(wider_crop)
+        if texts:
+            texts.sort(key=lambda t: t[1], reverse=True)
+            return texts[0]
+        return "", 0.0
     elif backend == "tesseract":
         import pytesseract
         processed = _preprocess_for_ocr(crop)
@@ -1015,20 +1033,20 @@ def extract_card_name_all_fragments(image_path: str | Path) -> list[tuple[str, f
         All text fragments with confidence, in reading order.
     """
     backend = _detect_ocr_backend()
-    if backend != "easyocr":
+    if backend not in ("rapidocr", "easyocr"):
         # Fallback: wrap single result from extract_card_name
         text, conf = extract_card_name(image_path)
         return [(text, conf)] if text else []
 
     crop = _crop_name_region(image_path)
-    fragments = _ocr_easyocr_all(crop)
+    fragments = _ocr_rapidocr_all_from_image(crop)
 
     if not fragments or all(len(t) < 2 for t, _ in fragments):
         # Retry with wider crop
         img = Image.open(image_path)
         w, h = img.size
         wider_crop = img.crop((int(w * 0.03), 0, int(w * 0.97), int(h * 0.25)))
-        fragments = _ocr_easyocr_all(wider_crop)
+        fragments = _ocr_rapidocr_all_from_image(wider_crop)
 
     return fragments
 
@@ -1673,13 +1691,11 @@ def detect_pokemon_name(
         if debug:
             print(f"  RapidOCR failed: {_paddle_err}")
 
-    # --- Fall back to EasyOCR if RapidOCR found nothing ---
+    # --- RapidOCR retry with additional crops if first pass found nothing ---
+    # Previously fell back to EasyOCR (~500MB GPU RAM). Now retry with RapidOCR
+    # using CLAHE preprocessing and different crop regions to avoid OOM.
     if not any(c > 0.5 for _, c, _ in raw_candidates):
-        # Ensure EasyOCR reader is loaded
-        global _easyocr_reader
-        if _easyocr_reader is None:
-            import easyocr
-            _easyocr_reader = easyocr.Reader(["en"], gpu=True)
+        rapid_engine = get_rapid_engine()
 
         for top_pct, bot_pct, left_pct, right_pct, label in crop_specs:
             y1 = int(h * top_pct / 100)
@@ -1694,16 +1710,16 @@ def detect_pokemon_name(
             # Upscale 3x -- FSRCNN 2x then cubic 1.5x for sharper text edges
             crop_up = upscale_for_ocr(crop, scale=3)
 
-            # Run EasyOCR on color image with lowered thresholds
-            results = _easyocr_reader.readtext(
-                crop_up, detail=1, paragraph=False,
-                text_threshold=0.3, low_text=0.3,
-                batch_size=8,
-            )
-            for _bbox, text, conf in results:
-                text = text.strip()
-                if len(text) >= 2:
-                    raw_candidates.append((text, float(conf), label))
+            # Run RapidOCR on color image (replaces EasyOCR to save ~500MB)
+            try:
+                result, _ = rapid_engine(crop_up)
+                if result:
+                    for _bbox, text, conf in result:
+                        text = text.strip()
+                        if len(text) >= 2:
+                            raw_candidates.append((text, float(conf), f"rapid_{label}"))
+            except Exception:
+                pass
 
             # Early exit: if we found a high-confidence text (>0.95) with
             # 5+ alpha chars, we likely have the full name and don't need more crops
@@ -1725,20 +1741,19 @@ def detect_pokemon_name(
         clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
         enhanced = clahe.apply(gray)
 
-        # Ensure EasyOCR reader for CLAHE fallback
-        if _easyocr_reader is None:
-            import easyocr
-            _easyocr_reader = easyocr.Reader(["en"], gpu=True)
-
-        results = _easyocr_reader.readtext(
-            enhanced, detail=1, paragraph=False,
-            text_threshold=0.3, low_text=0.3,
-            batch_size=8,
-        )
-        for _bbox, text, conf in results:
-            text = text.strip()
-            if len(text) >= 2:
-                raw_candidates.append((text, float(conf), "clahe25"))
+        # Run RapidOCR on CLAHE-enhanced grayscale (replaces EasyOCR)
+        try:
+            rapid_engine = get_rapid_engine()
+            # RapidOCR expects 3-channel input
+            enhanced_bgr = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+            result, _ = rapid_engine(enhanced_bgr)
+            if result:
+                for _bbox, text, conf in result:
+                    text = text.strip()
+                    if len(text) >= 2:
+                        raw_candidates.append((text, float(conf), "rapid_clahe25"))
+        except Exception:
+            pass
 
     if debug:
         print(f"  Raw OCR candidates: {raw_candidates}")

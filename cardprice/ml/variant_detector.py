@@ -2389,7 +2389,8 @@ def _check_gold_rare(img_bgr: np.ndarray, era: int = 0) -> tuple[str | None, flo
 
 
 def detect_variant(image_path: str | Path, era: int = 0,
-                   card_id: str | None = None) -> str:
+                   card_id: str | None = None,
+                   fast: bool = False) -> str:
     """Detect the variant of a Pokemon card from a photo.
 
     Args:
@@ -2397,6 +2398,9 @@ def detect_variant(image_path: str | Path, era: int = 0,
         era: Era number (1-9) for era-gated checks.  0 = unknown (no gating).
         card_id: Optional card identifier (e.g. "base1-4").  When the card
             belongs to base1, shadowless detection is enabled.
+        fast: If True, skip OCR-heavy checks (1st edition, EX stamp, promo
+            stamp).  These are handled separately by the stamp detection
+            pipeline.  Saves ~7-25s per card on WotC/EX-era sets.
 
     Returns:
         One of: "normal", "holofoil", "reverse_holofoil", "1st_edition",
@@ -2404,7 +2408,9 @@ def detect_variant(image_path: str | Path, era: int = 0,
 
     Detection priority:
       1. 1st Edition stamp (highest priority -- overrides all others).
+         Skipped when fast=True (deferred to stamp_detection pipeline).
       1b. EX-era stamped reverse holo (ex7-ex16, returns "reverse_holofoil").
+         Skipped when fast=True.
       1c. Promo stamp (black star symbol on promo set cards).
       2. Gold / rainbow rare (era >= 7 only, checked early since gold
          cards also trigger holo/full-art detectors).
@@ -2427,31 +2433,26 @@ def detect_variant(image_path: str | Path, era: int = 0,
     set_prefix = (card_id or "").split("-")[0] if card_id else ""
 
     # --- 1st Edition check (highest priority, era-gated) ---
-    # Only check for 1st Edition stamp on known WotC sets that actually had
-    # 1st Edition print runs.  When era/card_id is unknown (era=0, no card_id),
-    # require high-confidence OCR (>= 0.85) to avoid false positives from
-    # random "1" digits in attack text or HP values.
-    if set_prefix in FIRST_EDITION_SETS:
-        stamp_detected, stamp_conf = _check_1st_edition(img)
-        if stamp_detected:
-            logger.info("Detected variant: 1st_edition for %s (conf=%.2f)",
-                        image_path, stamp_conf)
-            return "1st_edition"
-    elif not set_prefix:
-        # Unknown card: only trust high-confidence OCR detections
-        stamp_detected, stamp_conf = _check_1st_edition(img)
-        if stamp_detected and stamp_conf >= 0.85:
-            logger.info("Detected variant: 1st_edition for %s (conf=%.2f, unknown card)",
-                        image_path, stamp_conf)
-            return "1st_edition"
+    # Uses OCR (~7-25s).  In fast mode, skip entirely — the stamp_detection
+    # pipeline handles 1st edition detection separately.
+    if not fast:
+        if set_prefix in FIRST_EDITION_SETS:
+            stamp_detected, stamp_conf = _check_1st_edition(img)
+            if stamp_detected:
+                logger.info("Detected variant: 1st_edition for %s (conf=%.2f)",
+                            image_path, stamp_conf)
+                return "1st_edition"
+        elif not set_prefix:
+            # Unknown card: only trust high-confidence OCR detections
+            stamp_detected, stamp_conf = _check_1st_edition(img)
+            if stamp_detected and stamp_conf >= 0.85:
+                logger.info("Detected variant: 1st_edition for %s (conf=%.2f, unknown card)",
+                            image_path, stamp_conf)
+                return "1st_edition"
 
     # --- EX-era stamped reverse holo check (ex7-ex16 only) ---
-    # Stamped cards have a set logo overlaid on the artwork. This is a
-    # sub-type of reverse_holofoil but visually distinct.  We detect
-    # the stamp text via OCR on the artwork bottom-right region.
-    # Note: for pricing purposes, stamped = reverse_holofoil (same TCGCSV
-    # subtype), but we report it for collection tracking.
-    if set_prefix in STAMPED_SETS:
+    # Uses OCR (~3-7s).  In fast mode, skip — handled by stamp_detection.
+    if not fast and set_prefix in STAMPED_SETS:
         stamped_detected, stamped_conf = _check_stamped(img, set_id=set_prefix)
         if stamped_detected:
             logger.info("Detected EX-era stamp for %s (conf=%.2f), "
