@@ -1507,11 +1507,32 @@ def get_rapid_engine():
 
     Uses rapidocr_onnxruntime which bundles PP-OCRv4 models via ONNX Runtime.
     Much faster and more stable than PaddleOCR (no MKL crashes, no SIGSEGV).
+
+    Sets intra_op_num_threads=1 so each ONNX session uses exactly 1 CPU core.
+    This allows ThreadPoolExecutor(9) to achieve true 9-way parallelism instead
+    of 9 sessions × 16 threads = 144 threads fighting over 16 cores.
     """
     global _rapid_engine, _paddle_det, _paddle_rec
     if _rapid_engine is None:
+        # Monkey-patch ONNX Runtime to use 1 thread per session BEFORE
+        # RapidOCR creates its sessions. This is the single biggest parallelism
+        # win: without it, each ONNX call uses ALL cores, causing massive
+        # contention when running multiple OCR calls in parallel.
+        import onnxruntime as _ort
+        _orig_so_init = _ort.SessionOptions.__init__
+        def _patched_so_init(self, *args, **kwargs):
+            _orig_so_init(self, *args, **kwargs)
+            self.intra_op_num_threads = 1
+            self.inter_op_num_threads = 1
+            self.execution_mode = _ort.ExecutionMode.ORT_SEQUENTIAL
+        _ort.SessionOptions.__init__ = _patched_so_init
+
         from rapidocr_onnxruntime import RapidOCR
         _rapid_engine = RapidOCR()
+
+        # Restore original to avoid affecting other ONNX sessions (e.g. DINOv2)
+        _ort.SessionOptions.__init__ = _orig_so_init
+
         # Set compat aliases so modules importing _paddle_det/_paddle_rec get
         # a non-None value (they should migrate to get_rapid_engine() later)
         _paddle_det = _rapid_engine

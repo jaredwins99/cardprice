@@ -5111,6 +5111,46 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     return fallback
 
 
+def _name_ocr_worker(image_path: str) -> dict:
+    """Run name+HP OCR for one card. Used by identify_page_v2 batch pipeline.
+
+    Skips the Japanese OCR fallback (18s/card) — it almost never helps and
+    destroys batch throughput. Japanese cards are handled in pass 3 reranking
+    when page context is available.
+    """
+    result = {}
+
+    # Skip card backs
+    try:
+        from cardprice.ml.card_segmenter import is_card_back as _is_cb
+        if _is_cb(image_path):
+            return {"ocr_name": None, "ocr_conf": 0.0, "ocr_raw": None,
+                    "hp_value": None, "is_card_back": True}
+    except Exception:
+        pass
+
+    try:
+        # Run English OCR only — no Japanese fallback.
+        name, conf, raw, hp = _paddle_ocr_name_and_hp(image_path)
+        if name and len(name) >= 2:
+            result["ocr_name"] = name
+            result["ocr_conf"] = conf
+            result["ocr_raw"] = raw
+            result["hp_value"] = hp
+        else:
+            result["ocr_name"] = None
+            result["ocr_conf"] = 0.0
+            result["ocr_raw"] = raw
+            result["hp_value"] = hp
+    except Exception:
+        result["ocr_name"] = None
+        result["ocr_conf"] = 0.0
+        result["ocr_raw"] = None
+        result["hp_value"] = None
+
+    return result
+
+
 def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None):
     """Worker function for ProcessPoolExecutor — runs in a separate process.
 
@@ -5270,62 +5310,42 @@ def identify_page_v2(card_image_paths, session=None,
         from cardprice.ml.ocr_matcher import get_rapid_engine as _ensure_rapid
         _ensure_rapid()
 
-        def _name_ocr_one(i, path):
-            """Run name OCR for a single card."""
-            ocr_data = {}
+        def _name_ocr_one_postprocess(i, path, ocr_data):
+            """Postprocess OCR result from worker process: store + dispatch attacks."""
+            if not ocr_data:
+                ocr_data = {"ocr_name": None, "ocr_conf": 0.0, "ocr_raw": None, "hp_value": None}
+            precomputed[i] = ocr_data
 
-            # Skip OCR for card backs — saves ~10-50s per card back
-            # (avoids triggering Japanese PaddleOCR subprocess fallback)
-            if _is_card_back(str(path)):
-                ocr_data["ocr_name"] = None
-                ocr_data["ocr_conf"] = 0.0
-                ocr_data["ocr_raw"] = None
-                ocr_data["hp_value"] = None
-                ocr_data["is_card_back"] = True
-                precomputed[i] = ocr_data
-                attack_results[i] = []  # no attacks on card backs
+            if ocr_data.get("is_card_back"):
+                attack_results[i] = []
                 logger.info("identify_page_v2: skipping OCR for card %d (card back)", i)
                 return
 
-            try:
-                name, conf, raw, hp = _run_name_and_hp(str(path), _hold_lock=False)
-                ocr_data["ocr_name"] = name
-                ocr_data["ocr_conf"] = conf
-                ocr_data["ocr_raw"] = raw
-                ocr_data["hp_value"] = hp
-            except Exception as e:
-                logger.warning("identify_page_v2: OCR card %d failed: %s", i, e)
-            precomputed[i] = ocr_data
-
-            # Dispatch attack OCR immediately if needed
+            # Dispatch attack OCR if name not confident enough
             ocr_name = ocr_data.get("ocr_name")
             ocr_conf = ocr_data.get("ocr_conf", 0)
-            # Skip attack OCR when name is confident enough.
-            need_attacks = not ocr_name or ocr_conf < 0.85
-            if need_attacks:
+            if not ocr_name or ocr_conf < 0.85:
                 _submit_attack_ocr(i, path)
             else:
-                # Set to empty list (not None) so downstream knows attack OCR
-                # was intentionally skipped.  None means "not precomputed" and
-                # would cause _score_candidates_combined to re-run attack OCR
-                # inline (defeating the lazy skip).
                 attack_results[i] = []
                 logger.info("identify_page_v2: skipping attack OCR for card %d "
                             "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
 
-        # Run name OCR in parallel — RapidOCR (ONNX Runtime) is thread-safe.
-        # 3 workers balances throughput vs CPU contention (diminishing returns
-        # past 2-3 threads on CPU-bound ONNX inference).
-        with ThreadPoolExecutor(max_workers=3) as name_pool:
-            name_futures = [
-                name_pool.submit(_name_ocr_one, i, path)
+        # Run name OCR in parallel threads. ONNX Runtime releases the GIL
+        # during inference, giving ~30% speedup. The big win is skipping the
+        # 18s/card Japanese OCR fallback in _name_ocr_worker.
+        with ThreadPoolExecutor(max_workers=min(n_cards, 9)) as name_pool:
+            futures = {
+                name_pool.submit(_name_ocr_worker, str(path)): i
                 for i, path in enumerate(card_image_paths)
-            ]
-            for fut in as_completed(name_futures):
+            }
+            for fut in as_completed(futures):
+                i = futures[fut]
                 try:
-                    fut.result()
+                    ocr_data = fut.result()
+                    _name_ocr_one_postprocess(i, card_image_paths[i], ocr_data)
                 except Exception as e:
-                    logger.warning("identify_page_v2: name OCR thread failed: %s", e)
+                    logger.warning("identify_page_v2: name OCR thread %d failed: %s", i, e)
 
         logger.info("identify_page_v2: name OCR thread done in %.1fs",
                      _time.time() - t0)

@@ -70,7 +70,7 @@ except:
     print('')
 " 2>/dev/null || echo "")
 
-    if echo "$FILE_PATH" | grep -qE '(server\.py|slide_scan_v7\.py)'; then
+    if echo "$FILE_PATH" | grep -qE '(server\.py|slide_scan_v7\.py|page_scanner\.py)'; then
         MODE="server"
     elif echo "$FILE_PATH" | grep -qE 'cardprice/ml/.*\.py$'; then
         MODE="ml"
@@ -93,7 +93,7 @@ if [[ "$MODE" == "server" ]]; then
     # Test key GET endpoints with expected content
     check_endpoint "/" "<!DOCTYPE html\|<html\|upload\|scan" "GET / (home page)"
     check_endpoint "/slide-scan-v7" "<!DOCTYPE html\|<html\|slide\|camera\|video" "GET /slide-scan-v7"
-    check_endpoint "/scanner" "<!DOCTYPE html\|<html\|scanner\|camera\|capture" "GET /scanner"
+    check_endpoint "/page-scanner" "<!DOCTYPE html\|<html\|scanner\|camera\|capture" "GET /page-scanner"
     check_endpoint "/stats" "total_scans\|scan_count\|method" "GET /stats (JSON)"
     check_endpoint "/inventory" "" "GET /inventory"
     check_endpoint "/history" "" "GET /history"
