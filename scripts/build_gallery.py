@@ -12,7 +12,7 @@ from PIL import Image
 SRC = Path("/home/godli/cardprice/data/condition_training/ground_truth_variants")
 DST = Path("/home/godli/cardprice/data/ground_truth_gallery")
 MAX_WIDTH = 400
-MAX_PER_VARIANT = 20
+MAX_PER_VARIANT = 999
 
 # Map source dirs to gallery dirs (curated subset, readable names)
 VARIANT_MAP = {
@@ -39,7 +39,7 @@ VARIANT_MAP = {
 
 # Files to skip (not actual card images, or metadata)
 SKIP_FILES = {"labels.json", "labels.jsonl", ".DS_Store"}
-SKIP_PREFIXES = ("comparison_",)  # skip only side-by-side comparison images
+SKIP_PREFIXES = ()  # include everything
 
 
 def resize_image(src_path: Path, dst_path: Path):
