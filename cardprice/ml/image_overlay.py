@@ -34,9 +34,33 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Sequence, Union
 
+import json
+
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Stamp set name lookup (card_id → set name for EX-era stamp overlay)
+# ---------------------------------------------------------------------------
+_STAMP_MAP = None
+
+def _get_stamp_set_name(card_id: str) -> str | None:
+    """Get the set name for stamp overlay from card_id (e.g. 'ex15-72/normal' → 'Dragon Frontiers')."""
+    global _STAMP_MAP
+    if _STAMP_MAP is None:
+        p = Path(__file__).resolve().parent.parent.parent / "data" / "stamp_logos" / "stamp_map.json"
+        try:
+            _STAMP_MAP = json.loads(p.read_text())
+        except Exception:
+            _STAMP_MAP = {}
+    set_id = card_id.split("-")[0] if card_id else ""
+    entry = _STAMP_MAP.get(set_id)
+    if isinstance(entry, dict):
+        return entry.get("name", entry.get("full_name"))
+    elif isinstance(entry, str):
+        return entry
+    return None
 
 # ---------------------------------------------------------------------------
 # Variant visual definitions
@@ -134,10 +158,12 @@ _VARIANT_STYLES: dict[str, dict] = {
         "bg": (128, 60, 180, 220),
         "fg": (255, 255, 255, 255),
         "border": (128, 60, 180),
-        # Center of card, over text area
-        "stamp_pos": (0.50, 0.60),
-        "stamp_text": "EX STAMP",
+        # Bottom-right of artwork area — stamp text is set dynamically
+        # from card_id via _get_stamp_set_name()
+        "stamp_pos": (0.65, 0.48),
+        "stamp_text": "STAMPED",
         "stamp_rotation": -15,
+        "use_set_name": True,  # flag: replace stamp_text with actual set name
     },
     "prerelease": {
         "label": "PR",
@@ -323,12 +349,13 @@ def _draw_positioned_stamp(
     card_w: int,
     card_h: int,
     border_w: int,
+    card_id: str | None = None,
 ) -> None:
     """Draw a stamp/watermark at its real position on the card.
 
     Uses stamp_pos (fractional x, y on the card), stamp_text or stamp_icon,
-    and optional stamp_rotation.  Renders as a semi-transparent watermark
-    so the card art remains visible underneath.
+    and optional stamp_rotation.  For EX-era stamps with a logo PNG file,
+    pastes the actual set logo image.
     """
     fx, fy = style["stamp_pos"]
     rotation = style.get("stamp_rotation", 0)
@@ -338,6 +365,29 @@ def _draw_positioned_stamp(
     # Position relative to the card image (offset by border)
     cx = int(fx * card_w) + border_w
     cy = int(fy * card_h) + border_w
+
+    # Try to use actual logo image for EX-era stamps
+    if style.get("use_set_name") and card_id:
+        set_id = card_id.split("-")[0] if card_id else ""
+        logo_path = Path(__file__).resolve().parent.parent.parent / "data" / "stamp_logos" / f"{set_id}.png"
+        if logo_path.exists():
+            try:
+                logo = Image.open(logo_path).convert("RGBA")
+                # Scale logo to ~12% of card height
+                logo_h = max(20, int(card_h * 0.12))
+                logo_w = int(logo.width * logo_h / logo.height)
+                logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
+                # Make semi-transparent
+                alpha = logo.split()[3]
+                alpha = alpha.point(lambda p: int(p * 0.6))
+                logo.putalpha(alpha)
+                # Paste at position
+                paste_x = cx - logo_w // 2
+                paste_y = cy - logo_h // 2
+                overlay.paste(logo, (paste_x, paste_y), logo)
+                return
+            except Exception as e:
+                logger.warning("Failed to load stamp logo %s: %s", logo_path, e)
 
     stamp_text = style.get("stamp_text")
     stamp_icon_key = style.get("stamp_icon")
@@ -417,6 +467,7 @@ def overlay_variant_indicator(
     image_source: Union[str, bytes, Image.Image],
     variants: Sequence[str],
     *,
+    card_id: str | None = None,
     badge_scale: float = 0.14,
     border_width_frac: float = 0.012,
 ) -> bytes:
@@ -490,7 +541,13 @@ def overlay_variant_indicator(
         style = _VARIANT_STYLES.get(variant, _DEFAULT_STYLE)
 
         if "stamp_pos" in style:
-            _draw_positioned_stamp(overlay, draw, style, w, h, bw)
+            # For EX-era stamps, replace generic text with actual set name
+            if style.get("use_set_name") and card_id:
+                set_name = _get_stamp_set_name(card_id)
+                if set_name:
+                    style = dict(style)
+                    style["stamp_text"] = set_name.upper()
+            _draw_positioned_stamp(overlay, draw, style, w, h, bw, card_id=card_id)
         else:
             badge_variants.append(variant)
 
@@ -561,7 +618,7 @@ def overlay_variant_indicator(
 # Legacy API (retained for backward compatibility with existing call-sites)
 # ---------------------------------------------------------------------------
 
-def apply_variant_overlay(image_data: bytes, variants: list[str]) -> bytes:
+def apply_variant_overlay(image_data: bytes, variants: list[str], card_id: str | None = None) -> bytes:
     """Apply variant indicator badges to a card image.
 
     Legacy wrapper around :func:`overlay_variant_indicator`.  Accepts raw
@@ -570,7 +627,7 @@ def apply_variant_overlay(image_data: bytes, variants: list[str]) -> bytes:
     if not variants:
         return image_data
     try:
-        return overlay_variant_indicator(image_data, variants)
+        return overlay_variant_indicator(image_data, variants, card_id=card_id)
     except Exception:
         logger.warning("overlay_variant_indicator failed, returning original", exc_info=True)
         return image_data

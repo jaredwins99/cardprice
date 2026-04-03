@@ -506,6 +506,12 @@ input[type=file] { display: none; }
 <div style="display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;">
     <a href="/inventory/view" style="flex:1;display:block;background:#4ecca3;color:#1a1a2e;padding:12px 8px;border-radius:8px;text-decoration:none;text-align:center;font-size:13px;font-weight:700;">Inventory</a>
 </div>
+<style>
+.cond-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr auto 1fr;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px;}
+.cond-cell{text-align:center;background:rgba(255,255,255,0.04);border-radius:3px;padding:2px 0;}
+.cond-cell span{opacity:0.5;font-size:7px;display:block;}
+.cond-main{grid-column:1/3;text-align:center;font-size:14px;font-weight:700;padding:3px 0;}
+</style>
 <div class="qr-section" id="qrSection">
     <p>Scan QR code to open on your phone</p>
     <canvas id="qrCanvas"></canvas>
@@ -517,30 +523,17 @@ input[type=file] { display: none; }
 <div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #4ecca3;">
 <h3 style="color:#4ecca3;margin:0 0 10px;font-size:18px;">My Inventory</h3>
 <div style="display:flex;gap:8px;">
-    <label class="upload-btn" for="invCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#4ecca3;color:#1a1a2e;">Take Photo</label>
-    <label class="upload-btn" for="invGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #4ecca3;color:#4ecca3;">Gallery</label>
+    <label class="upload-btn" for="invCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#4ecca3;color:#1a1a2e;">Scan Single</label>
+    <label class="upload-btn" for="invGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #4ecca3;color:#4ecca3;">Gallery Single</label>
 </div>
 <input type="file" id="invCamera" accept="image/*" capture="environment">
 <input type="file" id="invGallery" accept="image/*">
 <div style="display:flex;gap:8px;margin:8px 0 0;">
     <label class="upload-btn" for="invPageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#3a9d7e;color:#fff;">Scan Page</label>
-    <label class="upload-btn" for="invPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3a9d7e;color:#3a9d7e;">Page Gallery</label>
+    <label class="upload-btn" for="invPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3a9d7e;color:#3a9d7e;">Gallery Page</label>
 </div>
 <input type="file" id="invPageCamera" accept="image/*" capture="environment">
 <input type="file" id="invPageGallery" accept="image/*">
-<div class="toggle-row" style="margin:8px 0 0;background:#0f3460;padding:8px 10px;">
-    <label for="invContinuous" style="font-size:12px;">Continuous scan</label>
-    <div class="toggle-switch">
-        <input type="checkbox" id="invContinuous" onchange="toggleContinuous('inv')">
-        <span class="toggle-slider"></span>
-    </div>
-</div>
-<div id="invContinuousInfo" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="color:#4ecca3;font-size:14px;">Scanned: <strong id="invContinuousCount">0</strong></span>
-        <button onclick="stopContinuous('inv')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop</button>
-    </div>
-</div>
 <img id="invPreview" class="section-preview">
 <div class="spinner" id="invSpinner">
     <div class="scan-spinner-wrap">
@@ -572,9 +565,6 @@ input[type=file] { display: none; }
         <button class="btn-inv" onclick="addAllPage('inv')">Add All to Inventory</button>
     </div>
 </div>
-<div style="text-align:center;margin:10px 0 0;">
-    <a href="/inventory/view" style="color:#4ecca3;font-size:13px;text-decoration:none;">Browse Inventory</a>
-</div>
 </div>
 
 <!-- ===== DIVIDER ===== -->
@@ -584,30 +574,17 @@ input[type=file] { display: none; }
 <div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #3498db;">
 <h3 style="color:#3498db;margin:0 0 10px;font-size:18px;">Shopping Cart</h3>
 <div style="display:flex;gap:8px;">
-    <label class="upload-btn" for="cartCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#3498db;color:#fff;">Take Photo</label>
-    <label class="upload-btn" for="cartGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3498db;color:#3498db;">Gallery</label>
+    <label class="upload-btn" for="cartCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#3498db;color:#fff;">Scan Single</label>
+    <label class="upload-btn" for="cartGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #3498db;color:#3498db;">Gallery Single</label>
 </div>
 <input type="file" id="cartCamera" accept="image/*" capture="environment">
 <input type="file" id="cartGallery" accept="image/*">
 <div style="display:flex;gap:8px;margin:8px 0 0;">
     <label class="upload-btn" for="cartPageCamera" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#2980b9;color:#fff;">Scan Page</label>
-    <label class="upload-btn" for="cartPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #2980b9;color:#2980b9;">Page Gallery</label>
+    <label class="upload-btn" for="cartPageGallery" style="flex:1;margin:0;padding:14px 10px;font-size:16px;background:#0f3460;border:2px solid #2980b9;color:#2980b9;">Gallery Page</label>
 </div>
 <input type="file" id="cartPageCamera" accept="image/*" capture="environment">
 <input type="file" id="cartPageGallery" accept="image/*">
-<div class="toggle-row" style="margin:8px 0 0;background:#0f3460;padding:8px 10px;">
-    <label for="cartContinuous" style="font-size:12px;">Continuous scan</label>
-    <div class="toggle-switch">
-        <input type="checkbox" id="cartContinuous" onchange="toggleContinuous('cart')">
-        <span class="toggle-slider"></span>
-    </div>
-</div>
-<div id="cartContinuousInfo" style="display:none;background:#0a1a3a;border-radius:8px;padding:10px 12px;margin:8px 0 0;">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-        <span style="color:#3498db;font-size:14px;">Scanned: <strong id="cartContinuousCount">0</strong></span>
-        <button onclick="stopContinuous('cart')" style="padding:6px 14px;background:#e94560;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;">Stop</button>
-    </div>
-</div>
 <img id="cartPreview" class="section-preview">
 <div class="spinner" id="cartSpinner">
     <div class="scan-spinner-wrap">
@@ -1177,10 +1154,11 @@ function handlePageFile(file, sec) {
     singleResult.classList.remove('show');
     var fd = new FormData();
     fd.append('image', file);
-    fetch('/scan-page?variants=false', {method: 'POST', body: fd})
+    fetch('/scan-page?variants=true', {method: 'POST', body: fd})
         .then(function(r) { return r.json(); })
         .then(function(data) {
             stopScanTimer(sec);
+            var elapsedSec = document.getElementById(sec + 'ScanTimer').textContent;
             spinner.classList.remove('show');
             pageResult.classList.add('show');
             if (data.error) {
@@ -1220,18 +1198,24 @@ function handlePageFile(file, sec) {
                 } else {
                     html += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nameText + '</div>';
                 }
-                if (displayPrice) {
-                    html += '<div style="font-size:16px;font-weight:bold;color:' + accentColor + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
-                } else {
-                    html += '<div style="font-size:13px;color:#666;">No price</div>';
-                }
-                if (c.condition_prices || c.market_price) {
-                    var cpRows = [['LP','MP'],['HP','DMG']];
-                    for (var cri = 0; cri < cpRows.length; cri++) {
+                if (c.condition_prices || displayPrice) {
+                    var cp = c.condition_prices || {};
+                    var mpInfo = cp['MP'];
+                    var mpPrice = mpInfo && mpInfo.price != null ? mpInfo.price : (displayPrice ? parseFloat(displayPrice) * 0.8 : null);
+                    if (mpPrice != null) {
+                        html += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + mpPrice.toFixed(2) + '</div>';
+                    } else if (displayPrice) {
+                        html += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+                    } else {
+                        html += '<div style="font-size:13px;color:#666;">No price</div>';
+                    }
+                    // 2x2 grid: LP top-left, HP top-right, NM bottom-left, DMG bottom-right
+                    var corners = [['LP','HP'],['NM','DMG']];
+                    for (var cri = 0; cri < corners.length; cri++) {
                     html += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:' + (cri === 0 ? '2' : '1') + 'px;">';
-                    for (var cci = 0; cci < cpRows[cri].length; cci++) {
-                        var ccond = cpRows[cri][cci];
-                        var cinfo = c.condition_prices && c.condition_prices[ccond];
+                    for (var cci = 0; cci < corners[cri].length; cci++) {
+                        var ccond = corners[cri][cci];
+                        var cinfo = cp[ccond];
                         var cclr = cinfo && cinfo.price != null ? condColors[ccond] : '#555';
                         var cval = cinfo && cinfo.price != null ? '$' + cinfo.price.toFixed(cinfo.price >= 10 ? 0 : 2) : '\u2014';
                         var cestStyle = (cinfo && cinfo.estimated) ? 'font-style:italic;opacity:0.7;' : '';
@@ -1239,6 +1223,10 @@ function handlePageFile(file, sec) {
                     }
                     html += '</div>';
                     }
+                } else if (displayPrice) {
+                    html += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+                } else {
+                    html += '<div style="font-size:13px;color:#666;">No price</div>';
                 }
                 html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
                 html += '</div></div>';
@@ -1254,9 +1242,15 @@ function handlePageFile(file, sec) {
                     }
                 }
             }
-            var totalText = cards.length + ' cards \u2014 NM: $' + total.toFixed(2);
-            if (condTotals.MP > 0) totalText += ' \u00b7 MP: $' + condTotals.MP.toFixed(2);
-            document.getElementById(sec + 'PageTotal').textContent = totalText;
+            var identifiedCount = cards.filter(function(c) { return c.card_id && c.confidence >= 0.5; }).length;
+            var totalEl = document.getElementById(sec + 'PageTotal');
+            totalEl.innerHTML = '<span style="color:#3498db;">' + identifiedCount + '</span>' +
+                '<span style="color:#888;"> cards in </span>' +
+                '<span style="color:#3498db;">' + elapsedSec + '</span>' +
+                '<span style="color:#888;"> \u2014 </span>' +
+                '<span style="color:' + condColors['MP'] + ';">MP: $' + (condTotals.MP > 0 ? condTotals.MP.toFixed(2) : (total * 0.8).toFixed(2)) + '</span>' +
+                '<span style="color:#888;"> \u00b7 </span>' +
+                '<span style="color:' + condColors['NM'] + ';">NM: $' + total.toFixed(2) + '</span>';
             document.getElementById(sec + 'PageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
             // Show "Add All" button if cards have IDs
             var hasCards = cards.some(function(c) { return c.card_id; });
@@ -4632,7 +4626,7 @@ class ScanHandler(BaseHTTPRequestHandler):
         # Apply overlay
         from cardprice.ml.image_overlay import apply_variant_overlay
         base_data = ref_path.read_bytes()
-        overlaid_data = apply_variant_overlay(base_data, variant_list)
+        overlaid_data = apply_variant_overlay(base_data, variant_list, card_id=card_id)
 
         # Cache the result (limit cache size to prevent unbounded memory growth)
         if len(ScanHandler._variant_image_cache) < 500:

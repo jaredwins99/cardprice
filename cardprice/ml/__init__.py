@@ -4076,6 +4076,63 @@ def _score_candidates_combined(
         return []
     dino_scores = {cid: score for cid, score in dino_results}
 
+    # For Trainer/Supporter/Item cards, re-score using artwork-only crop.
+    # Full-card DINOv2 is unreliable for trainers because text dominates and
+    # artwork is small (~25% of card area). Cropping to artwork region gives
+    # DINOv2 the distinctive visual signal it needs.
+    if len(candidate_card_ids) >= 2:
+        try:
+            from sqlalchemy import text as sa_text
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import Session as _Sess
+            _eng = create_engine("postgresql+psycopg2://godli@/cardprice")
+            with _Sess(_eng) as _s:
+                cid_list = [c.split("/")[0] if "/" in c else c for c in candidate_card_ids]
+                rows = _s.execute(
+                    sa_text("SELECT DISTINCT supertype FROM dim_cards WHERE card_id = ANY(:ids)"),
+                    {"ids": [c + "/normal" if "/" not in c else c for c in candidate_card_ids]}
+                ).fetchall()
+                supertypes = {r[0] for r in rows}
+
+            if supertypes == {"Trainer"}:
+                # All candidates are trainers — use artwork crop for DINOv2
+                import cv2
+                from cardprice.ml.dino_matcher import extract_embedding as _extract_emb
+                from cardprice.ml.ref_matcher import get_reference_image_path
+                import tempfile, numpy as np
+
+                img = cv2.imread(str(image_path))
+                if img is not None:
+                    h, w = img.shape[:2]
+                    # Trainer artwork region: ~15-55% vertically, 10-90% horizontally
+                    art_crop = img[int(h*0.15):int(h*0.55), int(w*0.10):int(w*0.90)]
+                    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                    cv2.imwrite(tmp.name, art_crop)
+                    q_art = _extract_emb(tmp.name)
+                    os.unlink(tmp.name)
+
+                    art_scores = {}
+                    for cid in candidate_card_ids:
+                        ref_path = get_reference_image_path(cid)
+                        if ref_path:
+                            ref_img = cv2.imread(str(ref_path))
+                            if ref_img is not None:
+                                rh, rw = ref_img.shape[:2]
+                                ref_crop = ref_img[int(rh*0.15):int(rh*0.55), int(rw*0.10):int(rw*0.90)]
+                                tmp2 = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                                cv2.imwrite(tmp2.name, ref_crop)
+                                r_art = _extract_emb(tmp2.name)
+                                os.unlink(tmp2.name)
+                                art_scores[cid] = float(np.dot(q_art, r_art))
+
+                    if art_scores:
+                        logger.info("v2 combined: Trainer artwork DINOv2: %s",
+                                    {c: f"{s:.3f}" for c, s in sorted(art_scores.items(), key=lambda x: -x[1])})
+                        # Use artwork scores instead of full-card scores
+                        dino_scores = art_scores
+        except Exception as e:
+            logger.warning("v2 combined: Trainer artwork crop failed: %s", e)
+
     # Attack OCR — use pre-computed if available, else run RapidOCR (not EasyOCR,
     # which loads ~500MB of models and pushes RSS over 4GB)
     if precomputed_attacks is not None:
@@ -4748,13 +4805,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
         # Multiple candidates: combined DINOv2 + attack scoring
         elif len(candidates) >= 2:
-            # When OCR confidence is high, skip inline attack OCR to save
-            # time.  Pass empty list (not None) so _score_candidates_combined
-            # uses pure DINOv2 instead of running attack OCR from scratch.
+            # Always use attack OCR for disambiguation between same-name candidates.
+            # DINOv2 alone can't reliably distinguish printings of the same card
+            # (scores differ by <0.05). Attacks uniquely identify the set printing.
             effective_attacks = _precomputed_attacks
-            if effective_attacks is None and ocr_conf >= 0.90:
-                effective_attacks = []
-                logger.info("v2: skipping inline attack OCR (ocr_conf=%.2f >= 0.90)", ocr_conf)
             combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=effective_attacks, type_detected=use_type, type_confidence=color_conf)
             if combined_results:
                 best_cid, best_score, best_detail = combined_results[0]
@@ -4783,9 +4837,13 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     # is almost certainly correct so even low DINOv2 scores
                     # (WotC cards in orange sleeves) should be accepted.
                     if ocr_conf >= 0.90:
-                        effective_threshold = min(effective_threshold, 0.35)
+                        # Very high OCR conf — name is almost certainly correct.
+                        # Accept the best candidate regardless of DINOv2 score.
+                        # Stamped/sleeved cards can have very low DINOv2 similarity
+                        # to clean reference images (e.g. 0.31 for Buffer Piece).
+                        effective_threshold = 0.0
                     else:
-                        effective_threshold = min(effective_threshold, 0.40)
+                        effective_threshold = min(effective_threshold, 0.35)
                     logger.info("v2: high OCR conf %.2f -> lowered threshold to %.2f",
                                 ocr_conf, effective_threshold)
                 if gap >= 0.04:
@@ -5473,20 +5531,18 @@ def identify_page_v2(card_image_paths, session=None,
                 t_id_elapsed, t_id_elapsed / n_cards)
 
     # -----------------------------------------------------------------------
-    # Pass 2: Page context reranking
+    # Page context reranking DISABLED.
+    # Cards on a binder page are independent — any card from any era/set can
+    # appear. Page context actively caused wrong matches (e.g. Buffer Piece
+    # from ex15 pushed to pl4, Golem from ex12 misidentified because ex12
+    # wasn't in detected page sets). Each card must be identified on its own
+    # signals: OCR name, DINOv2 visual similarity, attack text.
     # -----------------------------------------------------------------------
-    RERUN_THRESHOLD = 0.85  # re-examine cards below this confidence
-
-    ctx = identify_page_context(results)
-    logger.info(
-        "identify_page_v2: page context: sets=%s, era=%s, confidence=%.2f",
-        ctx.get("likely_sets", [])[:3], ctx.get("era"), ctx.get("confidence", 0),
-    )
-
-    # Only apply page context if it's strong enough
-    if not ctx.get("likely_sets") or ctx.get("confidence", 0) < 0.50:
-        logger.info("identify_page_v2: page context too weak, skipping pass 2")
-        return results
+    n_identified = sum(1 for r in results if r.get("confidence", 0) >= 0.5)
+    avg_conf = sum(r.get("confidence", 0) for r in results) / max(n_cards, 1)
+    logger.info("identify_page_v2: %d/%d identified, avg confidence=%.3f",
+                n_identified, n_cards, avg_conf)
+    return results
 
     ctx_sets = set(ctx.get("likely_sets", []))
 

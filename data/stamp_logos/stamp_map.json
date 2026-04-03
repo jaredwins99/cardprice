@@ -1,0 +1,82 @@
+{
+  "ex1": {
+    "name": "Ruby & Sapphire",
+    "full_name": "EX Ruby & Sapphire",
+    "symbol_file": "ex1.png"
+  },
+  "ex2": {
+    "name": "Sandstorm",
+    "full_name": "EX Sandstorm",
+    "symbol_file": "ex2.png"
+  },
+  "ex3": {
+    "name": "Dragon",
+    "full_name": "EX Dragon",
+    "symbol_file": "ex3.png"
+  },
+  "ex4": {
+    "name": "Team Magma vs Team Aqua",
+    "full_name": "EX Team Magma vs Team Aqua",
+    "symbol_file": "ex4.png"
+  },
+  "ex5": {
+    "name": "Hidden Legends",
+    "full_name": "EX Hidden Legends",
+    "symbol_file": "ex5.png"
+  },
+  "ex6": {
+    "name": "FireRed & LeafGreen",
+    "full_name": "EX FireRed & LeafGreen",
+    "symbol_file": "ex6.png"
+  },
+  "ex7": {
+    "name": "Team Rocket Returns",
+    "full_name": "EX Team Rocket Returns",
+    "symbol_file": "ex7.png"
+  },
+  "ex8": {
+    "name": "Deoxys",
+    "full_name": "EX Deoxys",
+    "symbol_file": "ex8.png"
+  },
+  "ex9": {
+    "name": "Emerald",
+    "full_name": "EX Emerald",
+    "symbol_file": "ex9.png"
+  },
+  "ex10": {
+    "name": "Unseen Forces",
+    "full_name": "EX Unseen Forces",
+    "symbol_file": "ex10.png"
+  },
+  "ex11": {
+    "name": "Delta Species",
+    "full_name": "EX Delta Species",
+    "symbol_file": "ex11.png"
+  },
+  "ex12": {
+    "name": "Legend Maker",
+    "full_name": "EX Legend Maker",
+    "symbol_file": "ex12.png"
+  },
+  "ex13": {
+    "name": "Holon Phantoms",
+    "full_name": "EX Holon Phantoms",
+    "symbol_file": "ex13.png"
+  },
+  "ex14": {
+    "name": "Crystal Guardians",
+    "full_name": "EX Crystal Guardians",
+    "symbol_file": "ex14.png"
+  },
+  "ex15": {
+    "name": "Dragon Frontiers",
+    "full_name": "EX Dragon Frontiers",
+    "symbol_file": "ex15.png"
+  },
+  "ex16": {
+    "name": "Power Keepers",
+    "full_name": "EX Power Keepers",
+    "symbol_file": "ex16.png"
+  }
+}

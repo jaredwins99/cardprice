@@ -42,8 +42,8 @@ CARD_OUTPUT_H = 1530  # ~8% vertical padding over exact card ratio to avoid clip
 # hue variance (the colour is almost monochromatic).
 #
 # Tested on 18 card segments from two binder pages: zero false positives.
-_CARD_BACK_ORANGE_FRAC_MIN = 0.92   # fraction of center pixels that are orange
-_CARD_BACK_HUE_STD_MAX = 5.0        # max hue standard deviation (card backs ~0.8)
+_CARD_BACK_ORANGE_FRAC_MIN = 0.98   # fraction of center pixels that are orange (was 0.92 — too aggressive)
+_CARD_BACK_HUE_STD_MAX = 2.0        # max hue standard deviation (card backs ~0.8, fronts 3+)
 _CARD_BACK_SAT_MEAN_MIN = 140       # min mean saturation (card backs ~225)
 _CARD_BACK_CENTER_MARGIN = 0.20     # crop 20% from each edge to avoid sleeve edges
 
@@ -101,11 +101,34 @@ def is_card_back(image_or_path, *, debug: bool = False) -> bool:
 
     sat_mean = float(sat.mean())
 
-    is_back = (
+    # Primary colour check
+    colour_match = (
         orange_frac >= _CARD_BACK_ORANGE_FRAC_MIN
         and hue_std <= _CARD_BACK_HUE_STD_MAX
         and sat_mean >= _CARD_BACK_SAT_MEAN_MIN
     )
+
+    # Secondary edge-detail check: real card fronts have text/artwork that
+    # creates strong edges even when the border is orange (e.g. e-Reader Onix
+    # on an orange binder). Card backs are smooth with very low edge density.
+    # This prevents false positives on orange-bordered cards.
+    if colour_match:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Check top 30% for text (name, HP) and center for artwork
+        top_region = gray[:int(h_img * 0.30), :]
+        edges = cv2.Canny(top_region, 50, 150)
+        edge_density = float(edges.sum() / 255) / max(edges.size, 1)
+        # Card fronts have edge density > 0.01 (text, borders, artwork)
+        # Card backs have edge density < 0.005 (smooth gradient)
+        # Gap: fronts ~0.02+, backs ~0.004
+        has_detail = edge_density > 0.01
+        if has_detail:
+            logger.info("Card back colour match but has text edges (density=%.3f) -> NOT card back",
+                        edge_density)
+    else:
+        has_detail = False
+
+    is_back = colour_match and not has_detail
 
     if is_back:
         logger.info("Card back detected: orange=%.3f hue_std=%.1f sat_mean=%.0f",
