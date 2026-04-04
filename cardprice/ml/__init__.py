@@ -572,7 +572,7 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                     if "stamps_checked" in result:
                         result["stamps_checked"].append("ex_set_stamp_fast")
 
-                    if is_stamped and ex_conf >= 0.75:
+                    if is_stamped and ex_conf >= 0.99:
                         logger.info(
                             "fast EX stamp: detected stamp on %s (conf=%.2f)",
                             card_id, ex_conf,
@@ -5291,6 +5291,46 @@ def _name_ocr_worker(image_path: str) -> dict:
         result["ocr_raw"] = None
         result["hp_value"] = None
 
+    # Stamp text OCR: crop bottom-right of artwork where stamps appear.
+    # Binary signal: if OCR finds readable text there, the card is stamped.
+    # Regular cards have artwork (no text) in this region.
+    # Stamped cards have the set name (e.g. "POWER KEEPERS") as text.
+    # This runs on the same ONNX engine, same thread — negligible overhead.
+    try:
+        import cv2
+        img = cv2.imread(str(image_path))
+        if img is not None:
+            h, w = img.shape[:2]
+            # Stamp region: bottom-right of artwork (y: 35-55%, x: 55-90%)
+            stamp_crop = img[int(h*0.35):int(h*0.55), int(w*0.55):int(w*0.90)]
+            # Upscale 3x for better OCR on small text
+            stamp_up = cv2.resize(stamp_crop, (stamp_crop.shape[1]*3, stamp_crop.shape[0]*3))
+            from cardprice.ml.ocr_matcher import get_rapid_engine as _get_re
+            stamp_result, _ = _get_re()(stamp_up)
+            if stamp_result:
+                # Filter out artist credits and other non-stamp text
+                _NON_STAMP = {"illus", "arita", "sugimori", "nishida", "imakuni",
+                              "komiya", "tokiya", "mitsuhiro", "atsuko", "ken",
+                              "kagemaru", "himeno", "masakazu", "ryo", "kouki",
+                              "saya", "planeta", "cr.", "5ban", "graphics"}
+                texts = []
+                for _, t, c in stamp_result:
+                    if float(c) < 0.4 or len(t.strip()) < 3:
+                        continue
+                    # Skip if any word matches artist name
+                    words = t.lower().split()
+                    if any(w.strip(".,") in _NON_STAMP for w in words):
+                        continue
+                    # Skip if looks like artist credit (contains "illus" anywhere)
+                    if "illus" in t.lower() or "ilus" in t.lower():
+                        continue
+                    texts.append(t)
+                if texts:
+                    result["has_stamp_text"] = True
+                    result["stamp_texts"] = texts
+    except Exception:
+        pass
+
     return result
 
 
@@ -5684,12 +5724,25 @@ def identify_page_v2(card_image_paths, session=None,
     # -----------------------------------------------------------------------
 
     # -----------------------------------------------------------------------
-    # EX set stamp detection: only trust _apply_variant_detection results.
-    # The stamp pipeline (detect_all_variants) uses DINOv2 differential
-    # comparison to detect whether a specific card is stamped. We do NOT
-    # blanket-mark all cards from ex7-ex16 — a page can have both stamped
-    # (reverse holo) and non-stamped (normal) cards from the same set.
+    # Stamp detection via OCR: if the name OCR worker found text in the
+    # stamp region (bottom-right of artwork), and the card is from an
+    # EX stamped set (ex7-ex16), mark it as ex_set_stamp.
+    # Binary: text found in stamp region = stamped. No text = not stamped.
     # -----------------------------------------------------------------------
+    _STAMPED_EX_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
+                        "ex12", "ex13", "ex14", "ex15", "ex16"}
+    for i, result in enumerate(results):
+        ocr_data = precomputed[i] or {}
+        if not ocr_data.get("has_stamp_text"):
+            continue
+        card_id = result.get("card_id")
+        if not card_id:
+            continue
+        set_id = card_id.split("-")[0]
+        if set_id in _STAMPED_EX_SETS:
+            result["detected_variant"] = "ex_set_stamp"
+            result["variant_confidence"] = 0.85
+            result["stamp_ocr_texts"] = ocr_data.get("stamp_texts", [])
 
     n_identified = sum(1 for r in results if r.get("confidence", 0) >= 0.5)
     avg_conf = sum(r.get("confidence", 0) for r in results) / max(n_cards, 1)
