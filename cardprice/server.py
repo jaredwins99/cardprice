@@ -64,6 +64,7 @@ PENDING_DIR.mkdir(parents=True, exist_ok=True)
 
 CARD_IMAGES_DIR = Path("data/card_images")
 JP_CARD_IMAGES_DIR = Path("data/card_images_jp")
+CARD_IMAGES_VARIANTS_DIR = Path("data/card_images_variants")
 
 # Reverse mapping: english card_id -> japanese image path (relative)
 _jp_image_index = {}  # type: dict[str, str]
@@ -82,6 +83,33 @@ def _load_jp_image_index():
         logger.warning("Failed to load JP card mapping: %s", e)
 
 _load_jp_image_index()
+
+# Variant image index: card_id -> {variant_type: image_path}
+# Maps detected variants to actual downloaded variant reference images.
+_variant_image_index = {}  # type: dict[str, dict[str, str]]
+
+# Map detected_variant values to variant image index keys
+_DETECTED_VARIANT_TO_IMAGE_KEY = {
+    "ex_set_stamp": "stamped",
+    "stamped": "stamped",
+    "holofoil": "holofoil",
+    "reverse_holofoil": "reverse_holo",
+}
+
+def _load_variant_image_index():
+    """Load variant image index from data/variant_image_index.json."""
+    index_path = Path("data/variant_image_index.json")
+    if not index_path.is_file():
+        return
+    try:
+        data = json.loads(index_path.read_text())
+        for card_id, variants in data.items():
+            _variant_image_index[card_id] = variants
+        logger.info("Loaded variant image index: %d cards", len(_variant_image_index))
+    except Exception as e:
+        logger.warning("Failed to load variant image index: %s", e)
+
+_load_variant_image_index()
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
@@ -883,7 +911,8 @@ function showResult(data, sec) {
     } else {
         cpDiv.style.display = 'none';
     }
-    document.getElementById(sec + 'CardConf').textContent =
+    document.getElementById(sec + 'CardConf').innerHTML =
+        (data.elapsed_seconds ? '<span style="color:#3498db;">' + data.elapsed_seconds + 's</span> — ' : '') +
         (data.confidence ? (data.confidence * 100).toFixed(0) + '% confidence' : '') +
         (data.method ? ' via ' + data.method : '');
     document.getElementById(sec + 'CardMeta').textContent = data.card_id || '';
@@ -1401,14 +1430,27 @@ def _local_image_url(card_id, ocr_raw=None, variant=None):
     return None
 
 
-def _ref_image_path(card_id):
+def _ref_image_path(card_id, variant=None):
     """Return the Path to the local reference image for a card_id, or None.
 
-    Looks for the normal-variant PNG in data/card_images/<set_id>/.
+    If variant is specified and a real variant image exists in the variant
+    image index (data/card_images_variants/), returns that path.
+    Otherwise falls back to the normal-variant PNG in data/card_images/<set_id>/.
     """
     if not card_id:
         return None
     base_id = card_id.split("/")[0] if "/" in card_id else card_id
+
+    # Check for variant image if a variant type is specified
+    if variant and variant != "normal":
+        image_key = _DETECTED_VARIANT_TO_IMAGE_KEY.get(variant)
+        if image_key and base_id in _variant_image_index:
+            vpath_str = _variant_image_index[base_id].get(image_key)
+            if vpath_str:
+                vpath = Path(vpath_str)
+                if vpath.is_file():
+                    return vpath
+
     last_dash = base_id.rfind("-")
     if last_dash <= 0:
         return None
@@ -1884,6 +1926,8 @@ class ScanHandler(BaseHTTPRequestHandler):
 
         # Run identification (v2 pipeline — same as scan-page)
         try:
+            import time as _time
+            _t_start = _time.time()
             from cardprice.ml import identify_card_v2
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
@@ -1893,10 +1937,48 @@ class ScanHandler(BaseHTTPRequestHandler):
 
                 detected_variant = result.get("detected_variant", "normal")
 
+                # Stamp text OCR for EX-era cards (same as page pipeline)
+                _STAMPED_EX_SETS = {"ex7","ex8","ex9","ex10","ex11",
+                                    "ex12","ex13","ex14","ex15","ex16"}
+                if result.get("card_id") and detected_variant in (None, "normal"):
+                    _set_id = result["card_id"].split("-")[0]
+                    if _set_id in _STAMPED_EX_SETS:
+                        try:
+                            import cv2
+                            from cardprice.ml.ocr_matcher import get_rapid_engine
+                            _img = cv2.imread(str(save_path))
+                            if _img is not None:
+                                _h, _w = _img.shape[:2]
+                                _crop = _img[int(_h*0.35):int(_h*0.55), int(_w*0.55):int(_w*0.90)]
+                                _up = cv2.resize(_crop, (_crop.shape[1]*3, _crop.shape[0]*3))
+                                _sr, _ = get_rapid_engine()(_up)
+                                if _sr:
+                                    _NON_STAMP = {"illus","arita","sugimori","nishida","imakuni",
+                                                  "komiya","tokiya","mitsuhiro","atsuko","ken",
+                                                  "kagemaru","himeno","masakazu","ryo","kouki",
+                                                  "saya","planeta","cr.","5ban","graphics"}
+                                    _texts = []
+                                    for _, _t, _c in _sr:
+                                        if float(_c) < 0.4 or len(_t.strip()) < 3:
+                                            continue
+                                        if any(w.strip(".,").lower() in _NON_STAMP for w in _t.split()):
+                                            continue
+                                        if "illus" in _t.lower() or "ilus" in _t.lower():
+                                            continue
+                                        _texts.append(_t)
+                                    if _texts:
+                                        detected_variant = "ex_set_stamp"
+                                        result["detected_variant"] = "ex_set_stamp"
+                        except Exception:
+                            pass
+
+                _elapsed = round(_time.time() - _t_start, 1)
+
                 response = {
                     "card_id": result["card_id"],
                     "confidence": result["confidence"],
                     "method": result["method"],
+                    "elapsed_seconds": _elapsed,
                     "card_name": None,
                     "market_price": None,
                     "variant_price": None,

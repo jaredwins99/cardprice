@@ -159,7 +159,7 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (30, 30, 30, 255),
         "border": (218, 165, 32),            # gold
         # Bottom-right of artwork area — stylized logo pasted here
-        "stamp_pos": (0.78, 0.42),
+        "stamp_pos": (0.78, 0.45),
         "use_set_logo": True,  # paste stylized set logo image
     },
     "prerelease": {
