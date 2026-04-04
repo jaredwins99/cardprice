@@ -4120,6 +4120,53 @@ def _score_candidates_combined(
     dino_results = _dino_dot_product_against_refs(image_path, candidate_card_ids, query_embedding=query_embedding)
     if not dino_results:
         return []
+
+    # For Trainer/Supporter/Item cards: re-score using artwork-only crop.
+    # Full-card DINOv2 is unreliable for Trainers — text dominates (60% of card)
+    # and orange binder tint confuses embeddings. Artwork crop eliminates wrong
+    # matches (e.g. blue pl4 Buffer Piece vs green ex15 Buffer Piece).
+    # Detect Trainer cards: they have no attacks in structured_attacks.json
+    _structured = _load_structured_attacks()
+    _all_trainer = len(candidate_card_ids) >= 2 and all(
+        not _structured.get(c.split("/")[0], {}).get("attacks")
+        for c in candidate_card_ids
+    )
+    if _all_trainer:
+        try:
+            import cv2, tempfile
+            import numpy as np
+            from cardprice.ml.dino_matcher import extract_embedding as _dino_emb
+            from cardprice.ml.ref_matcher import get_reference_image_path
+
+            img = cv2.imread(str(image_path))
+            if img is not None:
+                h, w = img.shape[:2]
+                art = img[int(h*0.15):int(h*0.55), int(w*0.10):int(w*0.90)]
+                tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                cv2.imwrite(tmp.name, art)
+                q_art = _dino_emb(tmp.name)
+                os.unlink(tmp.name)
+
+                art_scores = {}
+                for cid in candidate_card_ids:
+                    ref = get_reference_image_path(cid)
+                    if ref:
+                        ref_img = cv2.imread(str(ref))
+                        if ref_img is not None:
+                            rh, rw = ref_img.shape[:2]
+                            ref_art = ref_img[int(rh*0.15):int(rh*0.55), int(rw*0.10):int(rw*0.90)]
+                            tmp2 = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                            cv2.imwrite(tmp2.name, ref_art)
+                            r_art = _dino_emb(tmp2.name)
+                            os.unlink(tmp2.name)
+                            art_scores[cid] = float(np.dot(q_art, r_art))
+
+                if art_scores:
+                    dino_results = sorted(art_scores.items(), key=lambda x: -x[1])
+                    logger.info("v2 combined: Trainer artwork DINOv2: %s",
+                                {c: f"{s:.3f}" for c, s in dino_results})
+        except Exception as e:
+            logger.warning("v2 combined: Trainer artwork crop failed: %s", e)
     dino_scores = {cid: score for cid, score in dino_results}
 
     # Trainer artwork DINOv2 re-scoring removed — added DB query + N DINOv2
