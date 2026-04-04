@@ -24,6 +24,7 @@ _REF_IMAGE_DIR = Path("data/card_images")
 # Pre-computed reference embeddings
 _REF_EMBEDDINGS_PATH = Path("data/ref_embeddings.pkl")
 _ref_embeddings: Optional[dict[str, np.ndarray]] = None
+_ref_embeddings_lock = __import__("threading").Lock()
 
 # JSON fallback for card names when DB is unavailable
 _CARD_NAMES_JSON = Path(__file__).resolve().parent.parent.parent / "data" / "card_names.json"
@@ -70,20 +71,25 @@ def _load_ref_embeddings() -> dict[str, np.ndarray]:
     if _ref_embeddings is not None:
         return _ref_embeddings
 
-    if not _REF_EMBEDDINGS_PATH.is_file():
-        logger.warning(
-            "Pre-computed embeddings not found at %s — will compute on the fly. "
-            "Run 'python scripts/build_ref_embeddings.py' to pre-compute.",
-            _REF_EMBEDDINGS_PATH,
-        )
-        _ref_embeddings = {}
-        return _ref_embeddings
+    with _ref_embeddings_lock:
+        # Double-check after acquiring lock
+        if _ref_embeddings is not None:
+            return _ref_embeddings
 
-    logger.info("Loading pre-computed reference embeddings from %s ...", _REF_EMBEDDINGS_PATH)
-    with open(_REF_EMBEDDINGS_PATH, "rb") as f:
-        _ref_embeddings = pickle.load(f)
-    logger.info("Loaded %d pre-computed embeddings.", len(_ref_embeddings))
-    return _ref_embeddings
+        if not _REF_EMBEDDINGS_PATH.is_file():
+            logger.warning(
+                "Pre-computed embeddings not found at %s — will compute on the fly. "
+                "Run 'python scripts/build_ref_embeddings.py' to pre-compute.",
+                _REF_EMBEDDINGS_PATH,
+            )
+            _ref_embeddings = {}
+            return _ref_embeddings
+
+        logger.info("Loading pre-computed reference embeddings from %s ...", _REF_EMBEDDINGS_PATH)
+        with open(_REF_EMBEDDINGS_PATH, "rb") as f:
+            _ref_embeddings = pickle.load(f)
+        logger.info("Loaded %d pre-computed embeddings.", len(_ref_embeddings))
+        return _ref_embeddings
 
 
 # ---------------------------------------------------------------------------

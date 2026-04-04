@@ -2456,10 +2456,9 @@ def detect_variant(image_path: str | Path, era: int = 0,
         stamped_detected, stamped_conf = _check_stamped(img, set_id=set_prefix)
         if stamped_detected:
             logger.info("Detected EX-era stamp for %s (conf=%.2f), "
-                        "reporting as reverse_holofoil",
+                        "reporting as ex_set_stamp",
                         image_path, stamped_conf)
-            # Stamped reverse holos are priced as reverse_holofoil
-            return "reverse_holofoil"
+            return "ex_set_stamp"
 
     # --- Promo stamp check (all eras) ---
     # Promo cards have a black star symbol replacing the normal set symbol.
@@ -2691,7 +2690,7 @@ def detect_variant_detailed(image_path: str | Path, era: int = 0,
     if has_stamp:
         variant = "1st_edition"
     elif has_ex_stamp:
-        variant = "reverse_holofoil"  # stamped is a sub-type of reverse_holofoil for pricing
+        variant = "ex_set_stamp"
     elif is_promo:
         variant = "promo"
     elif gold_rare_result is not None:

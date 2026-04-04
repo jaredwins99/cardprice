@@ -380,6 +380,18 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         confidence = 1.0  # placeholder; detect_variant doesn't return confidence
         checks_run.append("variant_detector")
 
+        # The base OpenCV holo detector is unreliable for reverse_holofoil on
+        # binder scans (warm lighting, color casts → false positives).
+        # Downgrade to "normal" here; the stamp_detection pipeline will set
+        # reverse_holofoil only when DINOv2 evidence is strong (conf >= 0.90).
+        if variant == "reverse_holofoil":
+            logger.debug(
+                "base detector returned reverse_holofoil for %s, "
+                "downgrading to normal (unreliable on binder scans)",
+                card_id,
+            )
+            variant = "normal"
+
         # --- Stamp classifier DISABLED ---
         # The stamp_classifier (edge_ratio based) is unreliable: it returns
         # inverted results (stamped cards = False, non-stamped = True).
@@ -446,15 +458,11 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         # world championship).  Full mode adds OCR + holo pattern analysis.
         try:
             from cardprice.ml.stamp_detection import detect_all_variants
-            # Only run expensive DINOv2 stamp detection (fast=False) for
-            # EX-era sets (ex7-ex16) where stamped reverse holos exist.
-            # All other sets use fast=True (cheap pixel checks only).
-            _STAMPED_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
-                             "ex12", "ex13", "ex14", "ex15", "ex16"}
-            set_id = card_id.split("-")[0]
-            use_fast = set_id not in _STAMPED_SETS
+            # Always use fast=True — expensive DINOv2 stamp detection for
+            # EX-era sets should be pre-computed in batch, not run sequentially
+            # after identification (adds 2-8s per EX card).
             stamp_pipeline_result = detect_all_variants(
-                image_path, card_id, fast=use_fast)
+                image_path, card_id, fast=True)
             flags = stamp_pipeline_result.get("variant_flags", {})
 
             if stamp_pipeline_result["stamps_detected"]:
@@ -489,9 +497,11 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["variant_confidence"] = ex_conf
 
                 # If reverse_holo detected, set variant to reverse_holofoil
+                # Require very high confidence (0.90) to avoid false positives
+                # on binder scans from warm lighting / color casts.
                 if flags.get("reverse_holofoil"):
                     rh_conf = stamp_pipeline_result["stamp_details"]["reverse_holo"]["confidence"]
-                    if variant not in ("reverse_holofoil", "1st_edition") and result.get("detected_variant") != "ex_set_stamp" and rh_conf >= 0.60:
+                    if variant not in ("reverse_holofoil", "1st_edition") and result.get("detected_variant") != "ex_set_stamp" and rh_conf >= 0.90:
                         logger.info(
                             "variant pipeline: overriding variant %s -> "
                             "reverse_holofoil (reverse holo, conf=%.2f) for %s",
@@ -3102,6 +3112,60 @@ def _paddle_ocr_name_and_hp(image_path: str):
         hp_value = _parse_hp_from_texts(hp_texts)
 
     # ------------------------------------------------------------------
+    # Raw OCR HP supplement: if preprocessing garbled the HP text (e.g.
+    # "70HP" → "TOHPO"), run raw (unprocessed) OCR on the full top 25%
+    # to recover the HP value.  Only runs when HP was NOT found from
+    # preprocessed passes.  This is cheap (~30ms) and fixes misidentification
+    # when all Ariados/Golem/etc variants compete without an HP filter.
+    # ------------------------------------------------------------------
+    if hp_value is None:
+        from cardprice.ml.hp_detector import _normalize_ocr_digits as _norm_digits
+        y2_hp = int(h * 0.25)
+        x1_hp = int(w * 0.03)
+        x2_hp = int(w * 0.97)
+        crop_hp = img[0:y2_hp, x1_hp:x2_hp]
+        crop_hp_h, crop_hp_w = crop_hp.shape[:2]
+        result_hp_raw, _ = rapid_engine(crop_hp)
+        if result_hp_raw:
+            hp_raw_texts = []
+            for box, text, conf in result_hp_raw:
+                conf = float(conf)
+                if not text or conf < 0.3:
+                    continue
+                text = text.strip()
+                text_upper = text.upper()
+                hp_match = re.search(r'HP\s*(\d{2,3})', text_upper)
+                if not hp_match:
+                    hp_match = re.search(r'(\d{2,3})\s*HP', text_upper)
+                if hp_match:
+                    hp_raw_texts.append((text, conf))
+                else:
+                    # Check with OCR digit normalization
+                    norm = _norm_digits(text_upper)
+                    hp_match_n = re.search(r'HP\s*(\d{2,3})', norm)
+                    if not hp_match_n:
+                        hp_match_n = re.search(r'(\d{2,3})\s*HP', norm)
+                    if hp_match_n:
+                        hp_raw_texts.append((text, conf))
+                    else:
+                        # Pure digits on right side in HP range
+                        digits_only = re.fullmatch(r'\d{2,3}', text.strip())
+                        if digits_only:
+                            # Compute position to check if right-side
+                            pts_hp = np.array(box, dtype=np.float32)
+                            x_hp, _, bw_hp, _ = cv2.boundingRect(pts_hp)
+                            cx_hp = (x_hp + bw_hp / 2) / crop_hp_w
+                            card_x_hp = 0.03 + cx_hp * 0.94
+                            if card_x_hp > 0.50:
+                                val = int(text.strip())
+                                if _is_valid_hp(val):
+                                    hp_raw_texts.append((text.strip(), conf))
+            if hp_raw_texts:
+                hp_value = _parse_hp_from_texts(hp_raw_texts)
+                if hp_value is not None:
+                    logger.info("Raw OCR HP supplement found HP=%d", hp_value)
+
+    # ------------------------------------------------------------------
     # Fuzzy-match name candidates (same logic as detect_pokemon_name)
     # ------------------------------------------------------------------
     # Clean and filter
@@ -4058,62 +4122,9 @@ def _score_candidates_combined(
         return []
     dino_scores = {cid: score for cid, score in dino_results}
 
-    # For Trainer/Supporter/Item cards, re-score using artwork-only crop.
-    # Full-card DINOv2 is unreliable for trainers because text dominates and
-    # artwork is small (~25% of card area). Cropping to artwork region gives
-    # DINOv2 the distinctive visual signal it needs.
-    if len(candidate_card_ids) >= 2:
-        try:
-            from sqlalchemy import text as sa_text
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import Session as _Sess
-            _eng = create_engine("postgresql+psycopg2://godli@/cardprice")
-            with _Sess(_eng) as _s:
-                cid_list = [c.split("/")[0] if "/" in c else c for c in candidate_card_ids]
-                rows = _s.execute(
-                    sa_text("SELECT DISTINCT supertype FROM dim_cards WHERE card_id = ANY(:ids)"),
-                    {"ids": [c + "/normal" if "/" not in c else c for c in candidate_card_ids]}
-                ).fetchall()
-                supertypes = {r[0] for r in rows}
-
-            if supertypes == {"Trainer"}:
-                # All candidates are trainers — use artwork crop for DINOv2
-                import cv2
-                from cardprice.ml.dino_matcher import extract_embedding as _extract_emb
-                from cardprice.ml.ref_matcher import get_reference_image_path
-                import tempfile, numpy as np
-
-                img = cv2.imread(str(image_path))
-                if img is not None:
-                    h, w = img.shape[:2]
-                    # Trainer artwork region: ~15-55% vertically, 10-90% horizontally
-                    art_crop = img[int(h*0.15):int(h*0.55), int(w*0.10):int(w*0.90)]
-                    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                    cv2.imwrite(tmp.name, art_crop)
-                    q_art = _extract_emb(tmp.name)
-                    os.unlink(tmp.name)
-
-                    art_scores = {}
-                    for cid in candidate_card_ids:
-                        ref_path = get_reference_image_path(cid)
-                        if ref_path:
-                            ref_img = cv2.imread(str(ref_path))
-                            if ref_img is not None:
-                                rh, rw = ref_img.shape[:2]
-                                ref_crop = ref_img[int(rh*0.15):int(rh*0.55), int(rw*0.10):int(rw*0.90)]
-                                tmp2 = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-                                cv2.imwrite(tmp2.name, ref_crop)
-                                r_art = _extract_emb(tmp2.name)
-                                os.unlink(tmp2.name)
-                                art_scores[cid] = float(np.dot(q_art, r_art))
-
-                    if art_scores:
-                        logger.info("v2 combined: Trainer artwork DINOv2: %s",
-                                    {c: f"{s:.3f}" for c, s in sorted(art_scores.items(), key=lambda x: -x[1])})
-                        # Use artwork scores instead of full-card scores
-                        dino_scores = art_scores
-        except Exception as e:
-            logger.warning("v2 combined: Trainer artwork crop failed: %s", e)
+    # Trainer artwork DINOv2 re-scoring removed — added DB query + N DINOv2
+    # inferences per trainer card for marginal benefit. Full-card DINOv2 with
+    # attack OCR scoring is sufficient.
 
     # Attack OCR — use pre-computed if available, else run RapidOCR (not EasyOCR,
     # which loads ~500MB of models and pushes RSS over 4GB)
@@ -5317,6 +5328,7 @@ def identify_page_v2(card_image_paths, session=None,
     attack_results = [None] * n_cards  # None = not computed, [] = computed but empty
     dino_embeddings = [None] * n_cards
     clip_embeddings = [None] * n_cards
+    stamp_texts = {}  # card_idx -> list of OCR text strings found in stamp region
 
     # Shared pool for attack OCR — tasks are submitted by the name OCR
     # thread as soon as each card's name confidence is known.
@@ -5422,6 +5434,54 @@ def identify_page_v2(card_image_paths, session=None,
         logger.info("identify_page_v2: color detect thread done in %.1fs",
                      _time.time() - t0)
 
+    def _batch_stamp_ocr():
+        """Thread 4: Quick stamp text OCR on artwork region for all cards.
+
+        Crops the bottom-right of the artwork area where EX-era set stamps
+        appear (~55-90% x, 35-55% y) and runs RapidOCR to detect any text.
+        A non-empty result is a strong signal that a stamp is present.
+
+        This runs in parallel with name OCR and DINOv2 — adds zero latency.
+        Results are consumed after identification to set variant=ex_set_stamp
+        for cards from stamped sets (ex7-ex16).
+        """
+        import cv2 as _cv2_stamp
+        t0 = _time.time()
+        try:
+            from cardprice.ml.ocr_matcher import get_rapid_engine
+            _stamp_engine = get_rapid_engine()
+        except Exception as e:
+            logger.warning("identify_page_v2: stamp OCR engine init failed: %s", e)
+            return
+
+        for i, path in enumerate(card_image_paths):
+            try:
+                img = _cv2_stamp.imread(str(path))
+                if img is None:
+                    continue
+                h, w = img.shape[:2]
+                # Crop artwork bottom-right where EX stamps appear
+                stamp_crop = img[int(h * 0.35):int(h * 0.55),
+                                 int(w * 0.55):int(w * 0.90)]
+                # Upscale 3x for better OCR on small stamp text
+                stamp_up = _cv2_stamp.resize(
+                    stamp_crop,
+                    (stamp_crop.shape[1] * 3, stamp_crop.shape[0] * 3),
+                    interpolation=_cv2_stamp.INTER_CUBIC,
+                )
+                result, _ = _stamp_engine(stamp_up)
+                if result:
+                    texts = [text for _, text, conf in result
+                             if float(conf) > 0.3]
+                    if texts:
+                        stamp_texts[i] = texts
+            except Exception as e:
+                logger.debug("identify_page_v2: stamp OCR card %d failed: %s",
+                             i, e)
+
+        logger.info("identify_page_v2: stamp OCR thread done in %.1fs (%d/%d with text)",
+                     _time.time() - t0, len(stamp_texts), n_cards)
+
     def _batch_embeddings():
         """Thread 2: DINOv2 batch embeddings (GPU, single forward pass)."""
         t0 = _time.time()
@@ -5453,16 +5513,18 @@ def identify_page_v2(card_image_paths, session=None,
                     pass
         logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
 
-    # Run three main threads in parallel:
+    # Run four main threads in parallel:
     #   - Name OCR (CPU, 3 parallel threads via internal pool)
     #   - DINOv2 batch (GPU, single forward pass)
     #   - Color detection (CPU, parallel across cards)
+    #   - Stamp text OCR (CPU, RapidOCR on artwork region)
     # Attack OCR tasks are dispatched by name OCR threads into _attack_pool.
+    # Stamp OCR is now piggybacked in _name_ocr_worker (same thread),
+    # so only 3 parallel threads needed.
     with ThreadPoolExecutor(max_workers=3) as precomp_pool:
         f_name = precomp_pool.submit(_batch_name_ocr)
         f_dino = precomp_pool.submit(_batch_embeddings)
         f_color = precomp_pool.submit(_batch_color_detect)
-        # Wait for the three main threads
         for f in [f_name, f_dino, f_color]:
             f.result()
 
@@ -5513,68 +5575,12 @@ def identify_page_v2(card_image_paths, session=None,
                 t_id_elapsed, t_id_elapsed / n_cards)
 
     # -----------------------------------------------------------------------
-    # Pass 2: Japanese OCR retry for unidentified cards.
-    # The batch OCR worker skips Japanese OCR (18s/card) for speed. Now
-    # re-run only the unidentified cards through the full _run_name_and_hp
-    # which includes _try_japanese_ocr fallback, then re-identify.
+    # Japanese OCR retry DISABLED in batch pipeline.
+    # _try_japanese_ocr takes 18s/card and only helps for actual Japanese
+    # cards. English cards that fail OCR (blurry Lileep, Buffer Piece) get
+    # no benefit — they waste 40+ seconds. Japanese cards should be handled
+    # via single-card scan (identify_card_v2 with full _run_name_and_hp).
     # -----------------------------------------------------------------------
-    unidentified_indices = [
-        i for i, r in enumerate(results)
-        if r.get("method") == "unidentified" or (
-            r.get("confidence", 0) < 0.5 and r.get("card_id") is None
-        )
-    ]
-    if unidentified_indices:
-        logger.info(
-            "identify_page_v2 pass2: %d unidentified cards — trying Japanese OCR",
-            len(unidentified_indices),
-        )
-        for i in unidentified_indices:
-            path = str(card_image_paths[i])
-            try:
-                jp_name, jp_conf, jp_raw, jp_hp = _run_name_and_hp(path)
-                if not jp_name or jp_conf < 0.5:
-                    continue
-                logger.info(
-                    "identify_page_v2 pass2: card %d Japanese OCR found name=%r (conf=%.2f)",
-                    i, jp_name, jp_conf,
-                )
-                # Build new precomputed OCR with Japanese result
-                jp_ocr = dict(precomputed[i])
-                jp_ocr["ocr_name"] = jp_name
-                jp_ocr["ocr_conf"] = jp_conf
-                jp_ocr["ocr_raw"] = jp_raw
-                if jp_hp is not None:
-                    jp_ocr["hp_value"] = jp_hp
-
-                # Evict cache so identify_card_v2 re-runs
-                try:
-                    _path_hash = hashlib.md5(Path(path).read_bytes()).hexdigest()
-                    _scan_cache.pop(f"v2_{_path_hash}", None)
-                except Exception:
-                    pass
-
-                rerun = identify_card_v2(
-                    path, session=session,
-                    _precomputed_ocr=jp_ocr,
-                    _precomputed_dino_embedding=dino_embeddings[i],
-                    _precomputed_attacks=attack_results[i],
-                    detect_variants=detect_variants,
-                )
-                if (rerun.get("card_id") and
-                        rerun.get("confidence", 0) > results[i].get("confidence", 0)):
-                    old_cid = results[i].get("card_id")
-                    results[i] = rerun
-                    rerun["explanation"] = (
-                        (rerun.get("explanation") or "")
-                        + f" (pass2: Japanese OCR retry, was {old_cid})"
-                    )
-                    logger.info(
-                        "identify_page_v2 pass2: card %d identified as %s via Japanese OCR",
-                        i, rerun.get("card_id"),
-                    )
-            except Exception as e:
-                logger.warning("identify_page_v2 pass2: card %d Japanese OCR failed: %s", i, e)
 
     # -----------------------------------------------------------------------
     # Page context reranking DISABLED.
@@ -5584,6 +5590,28 @@ def identify_page_v2(card_image_paths, session=None,
     # wasn't in detected page sets). Each card must be identified on its own
     # signals: OCR name, DINOv2 visual similarity, attack text.
     # -----------------------------------------------------------------------
+
+    # -----------------------------------------------------------------------
+    # Apply parallel stamp OCR results: for cards from stamped EX sets
+    # (ex7-ex16), if stamp text was detected in the artwork region during
+    # pre-computation, set variant to ex_set_stamp. This replaces the slow
+    # DINOv2 differential comparison that previously ran per-card.
+    # -----------------------------------------------------------------------
+    # Mark cards from stamped EX sets (ex7-ex16) as ex_set_stamp.
+    # These sets always have the set name stamped on reverse holo cards.
+    # The variant overlay renders the gold set name text on the reference image.
+    # This is O(1) per card — just a set membership check, no extra OCR/ML.
+    _STAMPED_EX_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
+                        "ex12", "ex13", "ex14", "ex15", "ex16"}
+    for i, result in enumerate(results):
+        card_id = result.get("card_id")
+        if not card_id:
+            continue
+        set_id = card_id.split("-")[0]
+        if set_id in _STAMPED_EX_SETS and result.get("detected_variant") in (None, "normal"):
+            result["detected_variant"] = "ex_set_stamp"
+            result["variant_confidence"] = 0.80
+
     n_identified = sum(1 for r in results if r.get("confidence", 0) >= 0.5)
     avg_conf = sum(r.get("confidence", 0) for r in results) / max(n_cards, 1)
     logger.info("identify_page_v2: %d/%d identified, avg confidence=%.3f",

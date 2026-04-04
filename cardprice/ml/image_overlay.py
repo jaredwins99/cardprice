@@ -155,12 +155,11 @@ _VARIANT_STYLES: dict[str, dict] = {
     },
     "ex_set_stamp": {
         "label": "EX",
-        "bg": (128, 60, 180, 220),
+        "bg": (218, 165, 32, 220),          # gold
         "fg": (255, 255, 255, 255),
-        "border": (128, 60, 180),
-        # Bottom-right of artwork area — stamp text is set dynamically
-        # from card_id via _get_stamp_set_name()
-        "stamp_pos": (0.65, 0.48),
+        "border": (218, 165, 32),            # gold
+        # Bottom-right of artwork area — real stamp position
+        "stamp_pos": (0.82, 0.50),
         "stamp_text": "STAMPED",
         "stamp_rotation": -15,
         "use_set_name": True,  # flag: replace stamp_text with actual set name
@@ -366,28 +365,30 @@ def _draw_positioned_stamp(
     cx = int(fx * card_w) + border_w
     cy = int(fy * card_h) + border_w
 
-    # Try to use actual logo image for EX-era stamps
+    # For EX-era stamps, render the SET NAME as gold text on the artwork
+    # (e.g., "POWER KEEPERS", "DRAGON FRONTIERS"). This matches how real
+    # stamped reverse holo cards look — the set name is printed in gold foil
+    # on the bottom-right of the artwork area.
     if style.get("use_set_name") and card_id:
-        set_id = card_id.split("-")[0] if card_id else ""
-        logo_path = Path(__file__).resolve().parent.parent.parent / "data" / "stamp_logos" / f"{set_id}.png"
-        if logo_path.exists():
-            try:
-                logo = Image.open(logo_path).convert("RGBA")
-                # Scale logo to ~12% of card height
-                logo_h = max(30, int(card_h * 0.18))
-                logo_w = int(logo.width * logo_h / logo.height)
-                logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-                # Semi-transparent but visible
-                alpha = logo.split()[3]
-                alpha = alpha.point(lambda p: int(p * 0.7))
-                logo.putalpha(alpha)
-                # Paste at position
-                paste_x = cx - logo_w // 2
-                paste_y = cy - logo_h // 2
-                overlay.paste(logo, (paste_x, paste_y), logo)
-                return
-            except Exception as e:
-                logger.warning("Failed to load stamp logo %s: %s", logo_path, e)
+        set_name = _get_stamp_set_name(card_id)
+        if set_name:
+            stamp_font_size = max(8, int(card_h * 0.028))
+            stamp_font = _get_font(stamp_font_size)
+            text = set_name.upper()
+            gold = (218, 165, 32, 140)  # semi-transparent gold
+
+            # Render rotated text
+            tmp_size = int(card_w * 0.5)
+            tmp = Image.new("RGBA", (tmp_size, tmp_size), (0, 0, 0, 0))
+            tmp_draw = ImageDraw.Draw(tmp)
+            tcx, tcy = tmp_size // 2, tmp_size // 2
+            tmp_draw.text((tcx, tcy), text, fill=gold, font=stamp_font, anchor="mm")
+            tmp = tmp.rotate(-20, resample=Image.BICUBIC, expand=False)
+
+            paste_x = cx - tmp_size // 2
+            paste_y = cy - tmp_size // 2
+            overlay.paste(tmp, (paste_x, paste_y), tmp)
+            return
 
     stamp_text = style.get("stamp_text")
     stamp_icon_key = style.get("stamp_icon")
