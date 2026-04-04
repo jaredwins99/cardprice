@@ -99,3 +99,4 @@ data/tcgcsv_orphan_products.json
 !data/eval/binder_eval.json
 !data/dp_level_map.json
 !data/card_attacks.json
+data/card_images_variants/
