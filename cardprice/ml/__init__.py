@@ -546,6 +546,51 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
 
             result["stamps_checked"] = stamp_pipeline_result["stamps_checked"]
             result["variant_flags"] = flags
+
+            # --- Fast EX stamp detection (ex7-ex16) ---
+            # The full pipeline skips ex_set_stamp in fast mode (2-8s per card).
+            # Use precomputed reference embeddings for ~100-200ms detection.
+            _EX_STAMPED_SETS = frozenset({
+                "ex7", "ex8", "ex9", "ex10", "ex11",
+                "ex12", "ex13", "ex14", "ex15", "ex16",
+            })
+            set_id = card_id.split("-")[0] if "-" in card_id.split("/")[0] else card_id.split("/")[0]
+            # Extract set_id properly: "ex15-26/normal" -> "ex15"
+            card_portion = card_id.split("/")[0]
+            last_dash = card_portion.rfind("-")
+            if last_dash != -1:
+                set_id = card_portion[:last_dash]
+            else:
+                set_id = card_portion
+
+            if set_id in _EX_STAMPED_SETS:
+                try:
+                    from cardprice.ml.stamp_detection import check_ex_stamp_fast
+                    is_stamped, ex_conf = check_ex_stamp_fast(
+                        str(image_path), card_id)
+                    checks_run.append("ex_stamp_fast")
+                    if "stamps_checked" in result:
+                        result["stamps_checked"].append("ex_set_stamp_fast")
+
+                    if is_stamped and ex_conf >= 0.75:
+                        logger.info(
+                            "fast EX stamp: detected stamp on %s (conf=%.2f)",
+                            card_id, ex_conf,
+                        )
+                        flags["ex_stamped_reverse"] = True
+                        result["variant_flags"] = flags
+                        result.setdefault("stamps_detected", []).append("ex_set_stamp")
+                        result.setdefault("stamp_details", {})["ex_set_stamp"] = {
+                            "detected": True,
+                            "confidence": ex_conf,
+                            "position": "artwork_bottom_right",
+                            "evidence": "dino_differential_fast",
+                        }
+                        result["detected_variant"] = "ex_set_stamp"
+                        result["variant_confidence"] = ex_conf
+                except Exception as e:
+                    logger.debug("fast EX stamp check failed: %s", e)
+
         except Exception as e:
             logger.debug("variant detection pipeline failed: %s", e)
     except Exception as e:
@@ -5639,25 +5684,12 @@ def identify_page_v2(card_image_paths, session=None,
     # -----------------------------------------------------------------------
 
     # -----------------------------------------------------------------------
-    # Apply parallel stamp OCR results: for cards from stamped EX sets
-    # (ex7-ex16), if stamp text was detected in the artwork region during
-    # pre-computation, set variant to ex_set_stamp. This replaces the slow
-    # DINOv2 differential comparison that previously ran per-card.
+    # EX set stamp detection: only trust _apply_variant_detection results.
+    # The stamp pipeline (detect_all_variants) uses DINOv2 differential
+    # comparison to detect whether a specific card is stamped. We do NOT
+    # blanket-mark all cards from ex7-ex16 — a page can have both stamped
+    # (reverse holo) and non-stamped (normal) cards from the same set.
     # -----------------------------------------------------------------------
-    # Mark cards from stamped EX sets (ex7-ex16) as ex_set_stamp.
-    # These sets always have the set name stamped on reverse holo cards.
-    # The variant overlay renders the gold set name text on the reference image.
-    # This is O(1) per card — just a set membership check, no extra OCR/ML.
-    _STAMPED_EX_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
-                        "ex12", "ex13", "ex14", "ex15", "ex16"}
-    for i, result in enumerate(results):
-        card_id = result.get("card_id")
-        if not card_id:
-            continue
-        set_id = card_id.split("-")[0]
-        if set_id in _STAMPED_EX_SETS and result.get("detected_variant") in (None, "normal"):
-            result["detected_variant"] = "ex_set_stamp"
-            result["variant_confidence"] = 0.80
 
     n_identified = sum(1 for r in results if r.get("confidence", 0) >= 0.5)
     avg_conf = sum(r.get("confidence", 0) for r in results) / max(n_cards, 1)

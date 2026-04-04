@@ -154,15 +154,13 @@ _VARIANT_STYLES: dict[str, dict] = {
         "stamp_rotation": -15,
     },
     "ex_set_stamp": {
-        "label": "EX",
+        "label": "Stamped",
         "bg": (218, 165, 32, 220),          # gold
-        "fg": (255, 255, 255, 255),
+        "fg": (30, 30, 30, 255),
         "border": (218, 165, 32),            # gold
-        # Bottom-right of artwork area — real stamp position
-        "stamp_pos": (0.82, 0.50),
-        "stamp_text": "STAMPED",
-        "stamp_rotation": -15,
-        "use_set_name": True,  # flag: replace stamp_text with actual set name
+        # Bottom-right of artwork area — stylized logo pasted here
+        "stamp_pos": (0.78, 0.42),
+        "use_set_logo": True,  # paste stylized set logo image
     },
     "prerelease": {
         "label": "PR",
@@ -365,12 +363,10 @@ def _draw_positioned_stamp(
     cx = int(fx * card_w) + border_w
     cy = int(fy * card_h) + border_w
 
-    # For EX-era stamps: overlay the official stylized set name logo in gold.
-    # These are the actual logo designs used on real stamped reverse holo cards,
-    # rendered as gold/monochrome foil in the bottom-right of the artwork area.
-    if style.get("use_set_name") and card_id:
+    # Paste the stylized set logo (e.g. "POWER KEEPERS") in the bottom-right
+    # of the artwork area, exactly where it appears on real stamped cards.
+    if style.get("use_set_logo") and card_id:
         set_id = card_id.split("-")[0] if card_id else ""
-        # Map set_id to stylized logo filename
         _STYLIZED_LOGOS = {
             "ex1": "ex01_ruby_sapphire_logo.png", "ex2": "ex02_sandstorm_logo.png",
             "ex3": "ex03_dragon_logo.png", "ex4": "ex04_team_magma_vs_team_aqua_logo.png",
@@ -388,31 +384,23 @@ def _draw_positioned_stamp(
             if logo_path.exists():
                 try:
                     logo = Image.open(logo_path).convert("RGBA")
-                    # Scale to fit ~25% of card width, maintaining aspect ratio
-                    target_w = int(card_w * 0.25)
+                    # Scale to ~20% of card width
+                    target_w = int(card_w * 0.20)
                     scale = target_w / logo.width
                     target_h = int(logo.height * scale)
                     logo = logo.resize((target_w, target_h), Image.LANCZOS)
-                    # Tint to gold monochrome (like real foil stamp)
-                    r, g, b, a = logo.split()
-                    # Convert to grayscale luminance, then apply gold tint
-                    import numpy as np
-                    arr = np.array(logo)
-                    gray = (0.299 * arr[:,:,0] + 0.587 * arr[:,:,1] + 0.114 * arr[:,:,2]).astype(np.uint8)
-                    gold_arr = np.zeros_like(arr)
-                    gold_arr[:,:,0] = (gray * 218 / 255).astype(np.uint8)  # R
-                    gold_arr[:,:,1] = (gray * 185 / 255).astype(np.uint8)  # G
-                    gold_arr[:,:,2] = (gray * 52 / 255).astype(np.uint8)   # B
-                    gold_arr[:,:,3] = (arr[:,:,3] * 0.6).astype(np.uint8)  # alpha at 60%
-                    logo = Image.fromarray(gold_arr, 'RGBA')
-                    # Paste at stamp position (bottom-right of artwork)
+                    # 90% opacity
+                    a = logo.split()[3]
+                    a = a.point(lambda p: int(p * 0.90))
+                    logo.putalpha(a)
+                    # Paste at position — bottom-right of artwork box
                     paste_x = cx - target_w // 2
                     paste_y = cy - target_h // 2
                     overlay.paste(logo, (paste_x, paste_y), logo)
                     return
                 except Exception as e:
-                    logger.warning("Failed to load stylized stamp logo %s: %s", logo_path, e)
-        return  # skip if no logo found — no overlay is better than wrong overlay
+                    logger.warning("Failed to load stylized logo %s: %s", logo_path, e)
+        return
 
     stamp_text = style.get("stamp_text")
     stamp_icon_key = style.get("stamp_icon")

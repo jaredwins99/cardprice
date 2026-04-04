@@ -31,6 +31,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import pickle
 from pathlib import Path
 
 import cv2
@@ -1390,6 +1391,156 @@ def _check_ex_stamp_dino(img_bgr: np.ndarray, card_id: str,
     except Exception as e:
         logger.warning("EX stamp DINO failed for %s: %s", card_id, e)
         return None  # fall back to OCR
+
+
+# ---------------------------------------------------------------------------
+# Fast EX stamp detection using precomputed reference embeddings
+# ---------------------------------------------------------------------------
+
+_ref_stamp_embeddings: dict | None = None
+_ref_stamp_embeddings_lock = __import__("threading").Lock()
+_REF_STAMP_EMBEDDINGS_PATH = Path("data/ref_stamp_embeddings.pkl")
+
+
+def _load_ref_stamp_embeddings() -> dict:
+    """Lazy-load precomputed stamp region embeddings (thread-safe).
+
+    Returns dict of card_id -> {"stamp": np.array(768), "control": np.array(768)}.
+    """
+    global _ref_stamp_embeddings
+    if _ref_stamp_embeddings is not None:
+        return _ref_stamp_embeddings
+
+    with _ref_stamp_embeddings_lock:
+        if _ref_stamp_embeddings is not None:
+            return _ref_stamp_embeddings
+
+        if not _REF_STAMP_EMBEDDINGS_PATH.is_file():
+            logger.warning(
+                "Precomputed stamp embeddings not found at %s. "
+                "Run 'python scripts/build_ref_stamp_embeddings.py' to generate.",
+                _REF_STAMP_EMBEDDINGS_PATH,
+            )
+            _ref_stamp_embeddings = {}
+            return _ref_stamp_embeddings
+
+        logger.info("Loading precomputed stamp embeddings from %s ...",
+                     _REF_STAMP_EMBEDDINGS_PATH)
+        with open(_REF_STAMP_EMBEDDINGS_PATH, "rb") as f:
+            _ref_stamp_embeddings = pickle.load(f)
+        logger.info("Loaded %d precomputed stamp embeddings.",
+                     len(_ref_stamp_embeddings))
+        return _ref_stamp_embeddings
+
+
+def check_ex_stamp_fast(image_path: str, card_id: str) -> tuple[bool, float]:
+    """Fast EX stamp detection using precomputed reference embeddings.
+
+    Only computes 2 DINOv2 crops from the scan image (~100-200ms),
+    comparing against precomputed reference stamp+control embeddings.
+
+    The differential (control_sim - stamp_sim) isolates the stamp effect:
+    stamped cards show large differential, normal cards show near-zero.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the scanned card image.
+    card_id : str
+        Full card identifier (e.g. "ex15-26/normal").
+
+    Returns
+    -------
+    tuple[bool, float]
+        (is_stamped, confidence). confidence > 0 when stamped.
+    """
+    precomputed = _load_ref_stamp_embeddings()
+
+    # Look up precomputed reference embeddings
+    ref_data = precomputed.get(card_id)
+    if ref_data is None:
+        # Try without variant suffix (e.g. "ex15-26/normal" -> "ex15-26/normal")
+        # The cache keys might use a different variant
+        base_id = card_id.rsplit("/", 1)[0]
+        for suffix in ("normal", "holofoil", "reverse_holofoil"):
+            ref_data = precomputed.get(f"{base_id}/{suffix}")
+            if ref_data is not None:
+                break
+
+    if ref_data is None:
+        logger.debug("check_ex_stamp_fast: no precomputed embeddings for %s",
+                      card_id)
+        return False, 0.0
+
+    ref_stamp_emb = ref_data["stamp"]
+    ref_ctrl_emb = ref_data["control"]
+
+    try:
+        # Crop stamp + control regions from the scan image
+        img_bgr = cv2.imread(str(image_path))
+        if img_bgr is None:
+            return False, 0.0
+
+        stamp_region = (0.55, 0.35, 0.90, 0.55)
+        control_region = (0.10, 0.10, 0.55, 0.35)
+
+        scan_stamp = _extract_region(img_bgr, *stamp_region)
+        scan_ctrl = _extract_region(img_bgr, *control_region)
+        if scan_stamp.size == 0 or scan_ctrl.size == 0:
+            return False, 0.0
+
+        # Batch DINOv2 forward pass on 2 scan crops
+        import torch
+        from PIL import Image
+        from cardprice.ml.dino_matcher import _load_model, _get_transform
+
+        model, device = _load_model()
+        transform = _get_transform()
+
+        pil_stamp = Image.fromarray(cv2.cvtColor(scan_stamp, cv2.COLOR_BGR2RGB))
+        pil_ctrl = Image.fromarray(cv2.cvtColor(scan_ctrl, cv2.COLOR_BGR2RGB))
+
+        batch = torch.stack([transform(pil_stamp), transform(pil_ctrl)]).to(device)
+
+        with torch.no_grad():
+            embs = model(batch)  # (2, 768)
+
+        embs_np = embs.cpu().numpy().astype(np.float32)
+
+        # L2-normalize
+        norms = np.linalg.norm(embs_np, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        embs_np /= norms
+
+        scan_stamp_emb = embs_np[0]
+        scan_ctrl_emb = embs_np[1]
+
+        # Compare against precomputed reference
+        stamp_sim = float(np.dot(scan_stamp_emb, ref_stamp_emb))
+        ctrl_sim = float(np.dot(scan_ctrl_emb, ref_ctrl_emb))
+
+        diff = ctrl_sim - stamp_sim
+
+        logger.debug(
+            "check_ex_stamp_fast: %s stamp_sim=%.4f ctrl_sim=%.4f "
+            "diff=%.4f (threshold=%.2f)",
+            card_id, stamp_sim, ctrl_sim, diff,
+            _EX_STAMP_DINO_DIFF_THRESHOLD,
+        )
+
+        is_stamped = diff > _EX_STAMP_DINO_DIFF_THRESHOLD
+
+        if is_stamped:
+            margin = diff - _EX_STAMP_DINO_DIFF_THRESHOLD
+            conf = min(0.70 + margin * 3.0, 0.99)
+        else:
+            conf = 0.0
+
+        return is_stamped, conf
+
+    except Exception as e:
+        logger.warning("check_ex_stamp_fast failed for %s: %s", card_id, e)
+        return False, 0.0
 
 
 def _dino_crop_similarity(crop1_bgr: np.ndarray,
