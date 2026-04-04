@@ -4663,7 +4663,7 @@ class ScanHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(img_data)
 
-    # Cache for variant overlay images: (card_id, frozenset(variants)) -> PNG bytes
+    # Cache for variant overlay images: (card_id, frozenset(variants)) -> (bytes, content_type)
     _variant_image_cache = {}
 
     def _send_card_image_variant(self, card_id, variants_str):
@@ -4691,28 +4691,53 @@ class ScanHandler(BaseHTTPRequestHandler):
         cache_key = (card_id, frozenset(variant_list))
         cached = ScanHandler._variant_image_cache.get(cache_key)
         if cached:
+            cached_data, cached_ctype = cached
             self.send_response(200)
-            self.send_header("Content-Type", "image/png")
-            self.send_header("Content-Length", str(len(cached)))
+            self.send_header("Content-Type", cached_ctype)
+            self.send_header("Content-Length", str(len(cached_data)))
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            self.wfile.write(cached)
+            self.wfile.write(cached_data)
             return
 
-        # Find the base reference image
+        # Check if an actual variant reference image exists (downloaded photo
+        # of the real stamped/holo/reverse-holo card).  If so, serve it
+        # directly instead of applying an overlay to the normal image.
+        primary_variant = variant_list[0] if variant_list else None
+        variant_ref = _ref_image_path(card_id, variant=primary_variant)
+        if variant_ref and variant_ref != _ref_image_path(card_id):
+            # We have a real variant image — serve it directly
+            img_data = variant_ref.read_bytes()
+            ext = variant_ref.suffix.lower()
+            content_type = {
+                ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                ".png": "image/png", ".webp": "image/webp",
+            }.get(ext, "image/jpeg")
+            # Cache the raw bytes + content type under the same key
+            if len(ScanHandler._variant_image_cache) < 500:
+                ScanHandler._variant_image_cache[cache_key] = (img_data, content_type)
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(img_data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(img_data)
+            return
+
+        # Find the base reference image (normal variant)
         ref_path = _ref_image_path(card_id)
         if not ref_path:
             self.send_error(404, f"No reference image for {card_id}")
             return
 
-        # Apply overlay
+        # No real variant image — apply overlay badges to the normal image
         from cardprice.ml.image_overlay import apply_variant_overlay
         base_data = ref_path.read_bytes()
         overlaid_data = apply_variant_overlay(base_data, variant_list, card_id=card_id)
 
         # Cache the result (limit cache size to prevent unbounded memory growth)
         if len(ScanHandler._variant_image_cache) < 500:
-            ScanHandler._variant_image_cache[cache_key] = overlaid_data
+            ScanHandler._variant_image_cache[cache_key] = (overlaid_data, "image/png")
 
         self.send_response(200)
         self.send_header("Content-Type", "image/png")

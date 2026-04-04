@@ -1,0 +1,509 @@
+{
+  "base1-1": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Alakazam_1.png"
+  },
+  "base1-10": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Mewtwo_10.png"
+  },
+  "base1-11": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Nidoking_11.png"
+  },
+  "base1-12": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Ninetales_12.png"
+  },
+  "base1-13": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Poliwrath_13.png"
+  },
+  "base1-14": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Raichu_14.png"
+  },
+  "base1-15": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Venusaur_15.png"
+  },
+  "base1-16": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Zapdos_16.png"
+  },
+  "base1-2": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Blastoise_2.png"
+  },
+  "base1-3": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Chansey_3.png"
+  },
+  "base1-4": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Charizard_4.png"
+  },
+  "base1-5": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Clefairy_5.png"
+  },
+  "base1-6": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Gyarados_6.png"
+  },
+  "base1-7": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Hitmonchan_7.png"
+  },
+  "base1-8": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Machamp_8.png"
+  },
+  "base1-9": {
+    "holofoil": "data/card_images_variants/holofoil/base_set/Magneton_9.png"
+  },
+  "ex1-1": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Aggron_1.png"
+  },
+  "ex1-10": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Mightyena_10.png"
+  },
+  "ex1-100": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Magmar-EX_100.png"
+  },
+  "ex1-101": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Mewtwo-EX_101.png"
+  },
+  "ex1-102": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Scyther-EX_102.png"
+  },
+  "ex1-103": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Sneasel-EX_103.png"
+  },
+  "ex1-11": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Sceptile_11.png"
+  },
+  "ex1-12": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Slaking_12.png"
+  },
+  "ex1-2": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Beautifly_2.png"
+  },
+  "ex1-3": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Blaziken_3.png"
+  },
+  "ex1-4": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Camerupt_4.png"
+  },
+  "ex1-5": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Delcatty_5.png"
+  },
+  "ex1-6": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Dustox_6.png"
+  },
+  "ex1-7": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Gardevoir_7.png"
+  },
+  "ex1-8": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Hariyama_8.png"
+  },
+  "ex1-9": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Manectric_9.png"
+  },
+  "ex1-96": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Chansey-EX_96.png"
+  },
+  "ex1-97": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Electabuzz-EX_97.png"
+  },
+  "ex1-98": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Hitmonchan-EX_98.png"
+  },
+  "ex1-99": {
+    "holofoil": "data/card_images_variants/holofoil/ex_ruby_sapphire/Lapras-EX_99.png"
+  },
+  "ex11-18": {
+    "stamped": "data/card_images_variants/stamped/ex11/vaporeon_18_113_psa.jpg"
+  },
+  "ex11-36": {
+    "stamped": "data/card_images_variants/stamped/ex11/ditto_bulbasaur_36_113_cgc_front.webp"
+  },
+  "ex11-39": {
+    "stamped": "data/card_images_variants/stamped/ex11/kirlia_39_113_front.png"
+  },
+  "ex11-70": {
+    "stamped": "data/card_images_variants/stamped/ex11/holons_magnemite_70_113_front.png"
+  },
+  "ex11-72": {
+    "stamped": "data/card_images_variants/stamped/ex11/koffing_72_113_cgc_front.jpg"
+  },
+  "ex11-94": {
+    "stamped": "data/card_images_variants/stamped/ex11/holon_research_tower_94_113.png"
+  },
+  "ex12-10": {
+    "stamped": "data/card_images_variants/stamped/ex12/mew_10_92_ebay_scan2.jpg"
+  },
+  "ex12-15": {
+    "stamped": "data/card_images_variants/stamped/ex12/absol_15_92_cgc10_ebay.jpg"
+  },
+  "ex12-2": {
+    "stamped": "data/card_images_variants/stamped/ex12/aggron_2_92_ebay.jpg"
+  },
+  "ex12-35": {
+    "stamped": "data/card_images_variants/stamped/ex12/haunter_35_92_cgc_front.jpg"
+  },
+  "ex12-45": {
+    "stamped": "data/card_images_variants/stamped/ex12/tentacruel_45_92_cgc_front.jpg"
+  },
+  "ex12-5": {
+    "stamped": "data/card_images_variants/stamped/ex12/gengar_5_92_front.jpg"
+  },
+  "ex13-13": {
+    "stamped": "data/card_images_variants/stamped/ex13/omastar_13_110_ebay.jpg"
+  },
+  "ex13-27": {
+    "stamped": "data/card_images_variants/stamped/ex13/regice_27_110.png"
+  },
+  "ex13-29": {
+    "stamped": "data/card_images_variants/stamped/ex13/registeel_29_110_cgc_front.jpg"
+  },
+  "ex13-41": {
+    "stamped": "data/card_images_variants/stamped/ex13/exeggutor_41_110.png"
+  },
+  "ex13-5": {
+    "stamped": "data/card_images_variants/stamped/ex13/deoxys_5_110_cgc10.jpg"
+  },
+  "ex13-53": {
+    "stamped": "data/card_images_variants/stamped/ex13/sharpedo_53_110_ebay.jpg"
+  },
+  "ex13-57": {
+    "stamped": "data/card_images_variants/stamped/ex13/anorith_57_110_cgc_front.jpg"
+  },
+  "ex13-66": {
+    "stamped": "data/card_images_variants/stamped/ex13/horsea_66_110.png"
+  },
+  "ex13-8": {
+    "stamped": "data/card_images_variants/stamped/ex13/gyarados_8_110.png"
+  },
+  "ex14-2": {
+    "stamped": "data/card_images_variants/stamped/ex14/blastoise_2_stamped.jpg"
+  },
+  "ex14-20": {
+    "stamped": "data/card_images_variants/stamped/ex14/grumpig_20_stamped.jpg"
+  },
+  "ex14-28": {
+    "stamped": "data/card_images_variants/stamped/ex14/venusaur_28_stamped.jpg"
+  },
+  "ex14-31": {
+    "stamped": "data/card_images_variants/stamped/ex14/combusken_31_stamped.png"
+  },
+  "ex14-35": {
+    "stamped": "data/card_images_variants/stamped/ex14/ivysaur_35_stamped.jpg"
+  },
+  "ex14-4": {
+    "stamped": "data/card_images_variants/stamped/ex14/charizard_4_stamped.jpg"
+  },
+  "ex14-63": {
+    "stamped": "data/card_images_variants/stamped/ex14/squirtle_63_stamped.jpg"
+  },
+  "ex14-64": {
+    "stamped": "data/card_images_variants/stamped/ex14/squirtle_64_stamped.jpg"
+  },
+  "ex14-66": {
+    "stamped": "data/card_images_variants/stamped/ex14/torchic_66_stamped.jpg"
+  },
+  "ex14-68": {
+    "stamped": "data/card_images_variants/stamped/ex14/treecko_68_stamped.jpg"
+  },
+  "ex15-1": {
+    "stamped": "data/card_images_variants/stamped/ex15/ampharos_1_stamped.jpg"
+  },
+  "ex15-10": {
+    "stamped": "data/card_images_variants/stamped/ex15/snorlax_10_stamped.jpg"
+  },
+  "ex15-12": {
+    "stamped": "data/card_images_variants/stamped/ex15/typhlosion_12_stamped.png"
+  },
+  "ex15-26": {
+    "stamped": "data/card_images_variants/stamped/ex15/bayleef_26_stamped.png"
+  },
+  "ex15-37": {
+    "stamped": "data/card_images_variants/stamped/ex15/seadra_37_stamped.png"
+  },
+  "ex15-41": {
+    "stamped": "data/card_images_variants/stamped/ex15/togepi_41_stamped.jpg"
+  },
+  "ex15-45": {
+    "stamped": "data/card_images_variants/stamped/ex15/cyndaquil_45_stamped.jpg"
+  },
+  "ex15-56": {
+    "stamped": "data/card_images_variants/stamped/ex15/nidoran_56_stamped.jpg"
+  },
+  "ex15-7": {
+    "stamped": "data/card_images_variants/stamped/ex15/nidoqueen_7_stamped.png"
+  },
+  "ex15-9": {
+    "stamped": "data/card_images_variants/stamped/ex15/pinsir_9_stamped.png"
+  },
+  "ex16-1": {
+    "stamped": "data/card_images_variants/stamped/ex16/aggron_1_stamped.jpg"
+  },
+  "ex16-10": {
+    "stamped": "data/card_images_variants/stamped/ex16/kabutops_10_stamped.jpg"
+  },
+  "ex16-19": {
+    "stamped": "data/card_images_variants/stamped/ex16/ninetales_19_stamped.jpg"
+  },
+  "ex16-2": {
+    "stamped": "data/card_images_variants/stamped/ex16/altaria_2_stamped.jpg"
+  },
+  "ex16-21": {
+    "stamped": "data/card_images_variants/stamped/ex16/pichu_21_stamped.jpg"
+  },
+  "ex16-22": {
+    "stamped": "data/card_images_variants/stamped/ex16/sableye_22_stamped.jpg"
+  },
+  "ex16-34": {
+    "stamped": "data/card_images_variants/stamped/ex16/medicham_34_stamped.png"
+  },
+  "ex16-37": {
+    "stamped": "data/card_images_variants/stamped/ex16/sealeo_37_stamped.jpg"
+  },
+  "ex16-50": {
+    "stamped": "data/card_images_variants/stamped/ex16/duskull_50_stamped.png"
+  },
+  "ex16-6": {
+    "stamped": "data/card_images_variants/stamped/ex16/charizard_6_stamped.jpg"
+  },
+  "ex16-89": {
+    "stamped": "data/card_images_variants/stamped/ex16/multi_energy_89_stamped.jpg"
+  },
+  "ex2-100": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Wailord-EX_100.png"
+  },
+  "ex2-94": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Aerodactyl-EX_94.png"
+  },
+  "ex2-95": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Aggron-EX_95.png"
+  },
+  "ex2-96": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Gardevoir-EX_96.png"
+  },
+  "ex2-97": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Kabutops-EX_97.png"
+  },
+  "ex2-98": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Raichu-EX_98.png"
+  },
+  "ex2-99": {
+    "holofoil": "data/card_images_variants/holofoil/ex_sandstorm/Typhlosion-EX_99.png"
+  },
+  "ex3-89": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Ampharos-EX_89.png"
+  },
+  "ex3-90": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Dragonite-EX_90.png"
+  },
+  "ex3-91": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Golem-EX_91.png"
+  },
+  "ex3-92": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Kingdra-EX_92.png"
+  },
+  "ex3-93": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Latias-EX_93.png"
+  },
+  "ex3-94": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Latios-EX_94.png"
+  },
+  "ex3-95": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Magcargo-EX_95.png"
+  },
+  "ex3-96": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Muk-EX_96.png"
+  },
+  "ex3-97": {
+    "holofoil": "data/card_images_variants/holofoil/ex_dragon/Rayquaza-EX_97.png"
+  },
+  "gym1-1": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Blaines-Moltres_1.png"
+  },
+  "gym1-10": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Mistys-Tentacruel_10.png"
+  },
+  "gym1-11": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Rockets-Hitmonchan_11.png"
+  },
+  "gym1-12": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Rockets-Moltres_12.png"
+  },
+  "gym1-13": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Rockets-Scyther_13.png"
+  },
+  "gym1-14": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Sabrinas-Gengar_14.png"
+  },
+  "gym1-2": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Brocks-Rhydon_2.png"
+  },
+  "gym1-3": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Erikas-Clefable_3.png"
+  },
+  "gym1-4": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Erikas-Dragonair_4.png"
+  },
+  "gym1-5": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Erikas-Vileplume_5.png"
+  },
+  "gym1-6": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Lt-Surges-Electabuzz_6.png"
+  },
+  "gym1-7": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Lt-Surges-Fearow_7.png"
+  },
+  "gym1-8": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Lt-Surges-Magneton_8.png"
+  },
+  "gym1-9": {
+    "holofoil": "data/card_images_variants/holofoil/gym_heroes/Mistys-Seadra_9.png"
+  },
+  "gym2-1": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Blaines-Arcanine_1.png"
+  },
+  "gym2-10": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Kogas-Ditto_10.png"
+  },
+  "gym2-11": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Lt-Surges-Raichu_11.png"
+  },
+  "gym2-12": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Mistys-Golduck_12.png"
+  },
+  "gym2-13": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Mistys-Gyarados_13.png"
+  },
+  "gym2-14": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Rockets-Mewtwo_14.png"
+  },
+  "gym2-15": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Rockets-Zapdos_15.png"
+  },
+  "gym2-16": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Sabrinas-Alakazam_16.png"
+  },
+  "gym2-2": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Blaines-Charizard_2.png"
+  },
+  "gym2-3": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Brocks-Ninetales_3.png"
+  },
+  "gym2-4": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Erikas-Venusaur_4.png"
+  },
+  "gym2-5": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Giovannis-Gyarados_5.png"
+  },
+  "gym2-6": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Giovannis-Machamp_6.png"
+  },
+  "gym2-7": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Giovannis-Nidoking_7.png"
+  },
+  "gym2-8": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Giovannis-Persian_8.png"
+  },
+  "gym2-9": {
+    "holofoil": "data/card_images_variants/holofoil/gym_challenge/Kogas-Beedrill_9.png"
+  },
+  "neo1-1": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Ampharos_1.png"
+  },
+  "neo1-10": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Meganium_10.png"
+  },
+  "neo1-11": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Meganium_11.png"
+  },
+  "neo1-12": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Pichu_12.png"
+  },
+  "neo1-13": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Skarmory_13.png"
+  },
+  "neo1-14": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Slowking_14.png"
+  },
+  "neo1-15": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Steelix_15.png"
+  },
+  "neo1-16": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Togetic_16.png"
+  },
+  "neo1-17": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Typhlosion_17.png"
+  },
+  "neo1-18": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Typhlosion_18.png"
+  },
+  "neo1-2": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Azumarill_2.png"
+  },
+  "neo1-3": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Bellossom_3.png"
+  },
+  "neo1-4": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Feraligatr_4.png"
+  },
+  "neo1-5": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Feraligatr_5.png"
+  },
+  "neo1-6": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Heracross_6.png"
+  },
+  "neo1-7": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Jumpluff_7.png"
+  },
+  "neo1-8": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Kingdra_8.png"
+  },
+  "neo1-9": {
+    "holofoil": "data/card_images_variants/holofoil/neo_genesis/Lugia_9.png"
+  },
+  "neo2-1": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Espeon_1.png"
+  },
+  "neo2-10": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Scizor_10.png"
+  },
+  "neo2-11": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Smeargle_11.png"
+  },
+  "neo2-12": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Tyranitar_12.png"
+  },
+  "neo2-13": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Umbreon_13.png"
+  },
+  "neo2-14": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Unown-A_14.png"
+  },
+  "neo2-15": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Ursaring_15.png"
+  },
+  "neo2-16": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Wobbuffet_16.png"
+  },
+  "neo2-17": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Yanma_17.png"
+  },
+  "neo2-2": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Forretress_2.png"
+  },
+  "neo2-3": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Hitmontop_3.png"
+  },
+  "neo2-4": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Houndoom_4.png"
+  },
+  "neo2-5": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Houndour_5.png"
+  },
+  "neo2-6": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Kabutops_6.png"
+  },
+  "neo2-7": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Magnemite_7.png"
+  },
+  "neo2-8": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Politoed_8.png"
+  },
+  "neo2-9": {
+    "holofoil": "data/card_images_variants/holofoil/neo_discovery/Poliwrath_9.png"
+  }
+}
