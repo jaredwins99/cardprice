@@ -374,12 +374,12 @@ def _draw_positioned_stamp(
             try:
                 logo = Image.open(logo_path).convert("RGBA")
                 # Scale logo to ~12% of card height
-                logo_h = max(20, int(card_h * 0.12))
+                logo_h = max(30, int(card_h * 0.18))
                 logo_w = int(logo.width * logo_h / logo.height)
                 logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-                # Make semi-transparent
+                # Semi-transparent but visible
                 alpha = logo.split()[3]
-                alpha = alpha.point(lambda p: int(p * 0.6))
+                alpha = alpha.point(lambda p: int(p * 0.7))
                 logo.putalpha(alpha)
                 # Paste at position
                 paste_x = cx - logo_w // 2

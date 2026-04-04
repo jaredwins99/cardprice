@@ -314,8 +314,8 @@ _ERA_VARIANT_ALLOWED = {
         "unlimited", "unlimited_holofoil",
         "shadowless", "shadowless_holofoil",
     },
-    # Era 2: EX era (2003-2007) — No 1st Edition. Reverse holo standard.
-    2: {"normal", "holofoil", "reverse_holofoil"},
+    # Era 2: EX era (2003-2007) — No 1st Edition. Reverse holo + stamped.
+    2: {"normal", "holofoil", "reverse_holofoil", "ex_set_stamp"},
     # Era 3: Diamond & Pearl / Platinum (2007-2010)
     3: {"normal", "holofoil", "reverse_holofoil"},
     # Era 4: HeartGold SoulSilver (2010-2011)
@@ -380,45 +380,12 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         confidence = 1.0  # placeholder; detect_variant doesn't return confidence
         checks_run.append("variant_detector")
 
-        # --- Stamp classifier: run for stamped-eligible sets ---
-        stamp_result = None
-        if has_specialized and any(
-            v in ("reverse_holofoil",) for v in possible_variants
-        ):
-            # Check if this is a stamped-eligible set (EX era ex7-ex16)
-            try:
-                from cardprice.ml.variant_tree import is_stamped_set
-                bare_id = card_id.split("/")[0]
-                set_id = bare_id.rsplit("-", 1)[0] if "-" in bare_id else bare_id
-                if is_stamped_set(set_id):
-                    try:
-                        from cardprice.ml.stamp_classifier import classify_stamp_region
-                        stamp_result = classify_stamp_region(
-                            image_path, card_id=card_id, set_id=set_id
-                        )
-                        checks_run.append("stamp_classifier")
-                        if stamp_result.get("stamped"):
-                            # Stamp classifier says stamped — override to
-                            # reverse_holofoil (stamped cards are priced as
-                            # reverse holo) and use classifier confidence.
-                            variant = "reverse_holofoil"
-                            confidence = stamp_result["confidence"]
-                            logger.info(
-                                "stamp classifier: stamped=True (conf=%.3f, "
-                                "method=%s) for %s, overriding variant to "
-                                "reverse_holofoil",
-                                confidence,
-                                stamp_result.get("method", "unknown"),
-                                card_id,
-                            )
-                    except FileNotFoundError:
-                        logger.debug(
-                            "stamp classifier model not found, skipping"
-                        )
-                    except Exception as e:
-                        logger.debug("stamp classifier failed: %s", e)
-            except Exception as e:
-                logger.debug("stamped set check failed: %s", e)
+        # --- Stamp classifier DISABLED ---
+        # The stamp_classifier (edge_ratio based) is unreliable: it returns
+        # inverted results (stamped cards = False, non-stamped = True).
+        # Stamp detection needs a better approach (e.g. DINOv2 differential
+        # comparison against reference, or direct stamp region OCR).
+        # For now, variant detection for EX-era stamps is not automated.
 
         # --- 1st Edition detection ---
         # Already handled inside detect_variant() for eligible sets,
@@ -472,8 +439,6 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         result["detected_variant"] = variant
         result["variant_confidence"] = confidence
         result["variant_checks_run"] = checks_run
-        if stamp_result is not None:
-            result["stamp_result"] = stamp_result
 
         # --- Era-gated variant detection pipeline ---
         # After identification, run the complete conditional detection tree.
@@ -481,8 +446,15 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
         # world championship).  Full mode adds OCR + holo pattern analysis.
         try:
             from cardprice.ml.stamp_detection import detect_all_variants
+            # Only run expensive DINOv2 stamp detection (fast=False) for
+            # EX-era sets (ex7-ex16) where stamped reverse holos exist.
+            # All other sets use fast=True (cheap pixel checks only).
+            _STAMPED_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
+                             "ex12", "ex13", "ex14", "ex15", "ex16"}
+            set_id = card_id.split("-")[0]
+            use_fast = set_id not in _STAMPED_SETS
             stamp_pipeline_result = detect_all_variants(
-                image_path, card_id, fast=True)
+                image_path, card_id, fast=use_fast)
             flags = stamp_pipeline_result.get("variant_flags", {})
 
             if stamp_pipeline_result["stamps_detected"]:
@@ -503,22 +475,23 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                         result["detected_variant"] = "1st_edition"
                         result["variant_confidence"] = first_ed_conf
 
-                # If EX set stamp detected, ensure variant is reverse_holofoil
+                # If EX set stamp detected, set variant to ex_set_stamp
+                # (triggers logo overlay in image_overlay.py)
                 if flags.get("ex_stamped_reverse"):
                     ex_conf = stamp_pipeline_result["stamp_details"]["ex_set_stamp"]["confidence"]
-                    if variant != "reverse_holofoil" and ex_conf >= 0.75:
+                    if ex_conf >= 0.75:
                         logger.info(
                             "variant pipeline: overriding variant %s -> "
-                            "reverse_holofoil (EX stamp, conf=%.2f) for %s",
+                            "ex_set_stamp (EX stamp, conf=%.2f) for %s",
                             variant, ex_conf, card_id,
                         )
-                        result["detected_variant"] = "reverse_holofoil"
+                        result["detected_variant"] = "ex_set_stamp"
                         result["variant_confidence"] = ex_conf
 
                 # If reverse_holo detected, set variant to reverse_holofoil
                 if flags.get("reverse_holofoil"):
                     rh_conf = stamp_pipeline_result["stamp_details"]["reverse_holo"]["confidence"]
-                    if variant not in ("reverse_holofoil", "1st_edition") and rh_conf >= 0.60:
+                    if variant not in ("reverse_holofoil", "1st_edition") and result.get("detected_variant") != "ex_set_stamp" and rh_conf >= 0.60:
                         logger.info(
                             "variant pipeline: overriding variant %s -> "
                             "reverse_holofoil (reverse holo, conf=%.2f) for %s",
@@ -2921,7 +2894,12 @@ def _paddle_ocr_name_and_hp(image_path: str):
                        "stagei", "stageii", "trainer", "supporter",
                        "pokemon", "item", "energy", "stage i pokemon",
                        "stage ii pokemon", "stadium", "tool",
-                       "troingo", "trainer", "trainor"}
+                       "troingo", "trainor",
+                       # OCR misspellings of TRAINER (garbled text that
+                       # fuzzy-matches translations like German "Turner"→Clay)
+                       "traner", "tralner", "traiher", "tralher",
+                       "tpaner", "tpainer", "traher", "traner",
+                       "pokémon", "pokemon tool"}
 
     # Each detected text: (text, confidence, x_center_frac, y_center_frac, width_frac, height_frac, method)
     all_detections = []
@@ -3138,8 +3116,12 @@ def _paddle_ocr_name_and_hp(image_path: str):
         is_possessive_frag = bool(re.search(r"[''\u2019][sS]$", cleaned))
         if alpha_count / len(cleaned) < 0.7 and not is_possessive_frag:
             continue
-        # Skip non-name words
-        if cleaned.lower() in _NON_NAME_WORDS:
+        # Skip non-name words (exact match + fuzzy for OCR garbling)
+        cl = cleaned.lower()
+        if cl in _NON_NAME_WORDS:
+            continue
+        # Fuzzy check: "TRANER" → "trainer" at 83%, catch all OCR garbling
+        if any(fuzz.ratio(cl, nw) >= 75 for nw in ("trainer", "supporter", "stadium", "pokemon", "energy")):
             continue
         # Skip "Evolves from X" text — always names the pre-evolution, not the card
         if re.match(r"(?i)evolves?\s+from\s+", cleaned):
@@ -5529,6 +5511,70 @@ def identify_page_v2(card_image_paths, session=None,
     t_id_elapsed = _time.time() - t_id_start
     logger.info("identify_page_v2: parallel identification done in %.1fs (%.1fs/card)",
                 t_id_elapsed, t_id_elapsed / n_cards)
+
+    # -----------------------------------------------------------------------
+    # Pass 2: Japanese OCR retry for unidentified cards.
+    # The batch OCR worker skips Japanese OCR (18s/card) for speed. Now
+    # re-run only the unidentified cards through the full _run_name_and_hp
+    # which includes _try_japanese_ocr fallback, then re-identify.
+    # -----------------------------------------------------------------------
+    unidentified_indices = [
+        i for i, r in enumerate(results)
+        if r.get("method") == "unidentified" or (
+            r.get("confidence", 0) < 0.5 and r.get("card_id") is None
+        )
+    ]
+    if unidentified_indices:
+        logger.info(
+            "identify_page_v2 pass2: %d unidentified cards — trying Japanese OCR",
+            len(unidentified_indices),
+        )
+        for i in unidentified_indices:
+            path = str(card_image_paths[i])
+            try:
+                jp_name, jp_conf, jp_raw, jp_hp = _run_name_and_hp(path)
+                if not jp_name or jp_conf < 0.5:
+                    continue
+                logger.info(
+                    "identify_page_v2 pass2: card %d Japanese OCR found name=%r (conf=%.2f)",
+                    i, jp_name, jp_conf,
+                )
+                # Build new precomputed OCR with Japanese result
+                jp_ocr = dict(precomputed[i])
+                jp_ocr["ocr_name"] = jp_name
+                jp_ocr["ocr_conf"] = jp_conf
+                jp_ocr["ocr_raw"] = jp_raw
+                if jp_hp is not None:
+                    jp_ocr["hp_value"] = jp_hp
+
+                # Evict cache so identify_card_v2 re-runs
+                try:
+                    _path_hash = hashlib.md5(Path(path).read_bytes()).hexdigest()
+                    _scan_cache.pop(f"v2_{_path_hash}", None)
+                except Exception:
+                    pass
+
+                rerun = identify_card_v2(
+                    path, session=session,
+                    _precomputed_ocr=jp_ocr,
+                    _precomputed_dino_embedding=dino_embeddings[i],
+                    _precomputed_attacks=attack_results[i],
+                    detect_variants=detect_variants,
+                )
+                if (rerun.get("card_id") and
+                        rerun.get("confidence", 0) > results[i].get("confidence", 0)):
+                    old_cid = results[i].get("card_id")
+                    results[i] = rerun
+                    rerun["explanation"] = (
+                        (rerun.get("explanation") or "")
+                        + f" (pass2: Japanese OCR retry, was {old_cid})"
+                    )
+                    logger.info(
+                        "identify_page_v2 pass2: card %d identified as %s via Japanese OCR",
+                        i, rerun.get("card_id"),
+                    )
+            except Exception as e:
+                logger.warning("identify_page_v2 pass2: card %d Japanese OCR failed: %s", i, e)
 
     # -----------------------------------------------------------------------
     # Page context reranking DISABLED.

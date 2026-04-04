@@ -1882,14 +1882,14 @@ class ScanHandler(BaseHTTPRequestHandler):
                 self._send_json(cached_response)
                 return
 
-        # Run identification
+        # Run identification (v2 pipeline — same as scan-page)
         try:
-            from cardprice.ml import identify_card
+            from cardprice.ml import identify_card_v2
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
-                result = identify_card(str(save_path), session=session)
+                result = identify_card_v2(str(save_path), session=session, detect_variants=True)
 
                 detected_variant = result.get("detected_variant", "normal")
 
@@ -2236,12 +2236,12 @@ class ScanHandler(BaseHTTPRequestHandler):
 
         # Run identification
         try:
-            from cardprice.ml import identify_card
+            from cardprice.ml import identify_card_v2
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
-                result = identify_card(str(save_path), session=session)
+                result = identify_card_v2(str(save_path), session=session)
 
                 response = {
                     "card_id": result["card_id"],
@@ -3248,10 +3248,10 @@ class ScanHandler(BaseHTTPRequestHandler):
         card_id = supplied_card_id
         if not card_id:
             try:
-                from cardprice.ml import identify_card
+                from cardprice.ml import identify_card_v2
                 from cardprice.db.session import SessionLocal
                 with SessionLocal() as session:
-                    id_result = identify_card(front_path, session=session)
+                    id_result = identify_card_v2(front_path, session=session, detect_variants=False)
                     card_id = id_result.get("card_id")
                     if card_id:
                         response["card_id"] = card_id
@@ -3618,9 +3618,9 @@ class ScanHandler(BaseHTTPRequestHandler):
 
             if not card_id:
                 # Auto-identify from the front image
-                from cardprice.ml import identify_card
+                from cardprice.ml import identify_card_v2
                 with SessionLocal() as session:
-                    id_result = identify_card(front_path, session=session)
+                    id_result = identify_card_v2(front_path, session=session, detect_variants=False)
                     card_id = id_result.get("card_id")
                     if card_id:
                         response["card_id"] = card_id
