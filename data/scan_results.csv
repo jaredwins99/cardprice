@@ -1,0 +1,118 @@
+timestamp,page_id,position,card_id_predicted,card_name,confidence,method,ocr_name,ocr_conf,variant_detected,variant_correct,is_correct
+2026-04-06T19:52:10+00:00,page_20260305_094228_cards,0,ex15-44/normal,Chikorita,0.9814,v2_ref_match,Chikorita,0.9814,normal,,False
+2026-04-06T19:52:11+00:00,page_20260305_094228_cards,1,ex15-26/normal,Bayleef,0.9731,v2_ref_match,Bayleef,0.9731,normal,,True
+2026-04-06T19:52:14+00:00,page_20260305_094228_cards,2,ex15-4/normal,Hop,0.8206793753306071,v2_attack_fallback,Hop,,normal,,True
+2026-04-06T19:52:15+00:00,page_20260305_094228_cards,3,ex15-67/normal,Totodile,0.7283,v2_ref_match,Totodile,0.7283,normal,,True
+2026-04-06T19:52:16+00:00,page_20260305_094228_cards,4,ex15-27/normal,Croconaw,0.9823,v2_ref_match,Croconaw,0.9823,normal,,True
+2026-04-06T19:52:18+00:00,page_20260305_094228_cards,5,ex15-2/normal,Feraligatr,0.9042,v2_ref_match,Feraligatr,0.9042,normal,,True
+2026-04-06T19:52:18+00:00,page_20260305_094228_cards,6,ex15-45/normal,Cyndaquil,0.9698,v2_ref_match,Cyndaquil,0.9698,normal,,True
+2026-04-06T19:52:19+00:00,page_20260305_094228_cards,7,ex15-36/normal,Quilava,0.9665,v2_ref_match,Quilava,0.9665,normal,,True
+2026-04-06T19:52:20+00:00,page_20260305_094228_cards,8,ex15-12/normal,Typhlosion,0.9854,v2_ref_match,Typhlosion,0.9854,normal,,True
+2026-04-06T19:52:23+00:00,page_20260307_014406_cards,0,ecard2-84/normal,Horsea,0.772,v2_ref_match,Horsea,0.772,normal,,False
+2026-04-06T19:52:26+00:00,page_20260307_014406_cards,1,gym1-86/normal,Misty's Horsea,0.7807,v2_ref_match,Misty's Horsea,0.7807,normal,,True
+2026-04-06T19:52:27+00:00,page_20260307_014406_cards,2,gym1-9/normal,Misty's Seadra,0.8868,v2_single_candidate,Misty's Seadra,0.8868,normal,,True
+2026-04-06T19:52:28+00:00,page_20260307_014406_cards,3,gym1-89/normal,Misty's Shellder,0.9836,v2_single_candidate,Misty's Shellder,0.9836,normal,,True
+2026-04-06T19:52:29+00:00,page_20260307_014406_cards,4,gym1-123/normal,Misty's Duel,0.9571,v2_single_candidate,Misty's Duel,0.9571,normal,,True
+2026-04-06T19:52:30+00:00,page_20260307_014406_cards,5,gym1-55/normal,Misty's Seaking,0.984,v2_single_candidate,Misty's Seaking,0.984,normal,,True
+2026-04-06T19:52:31+00:00,page_20260307_014406_cards,6,gym1-90/normal,Misty's Staryu,0.9702,v2_ref_match,Misty's Staryu,0.9702,normal,,
+2026-04-06T19:52:32+00:00,page_20260307_014406_cards,7,gym1-87/normal,Misty's Poliwag,0.9828,v2_ref_match,Misty's Poliwag,0.9828,normal,,True
+2026-04-06T19:52:33+00:00,page_20260307_014406_cards,8,gym1-10/normal,Misty's Tentacruel,0.9707,v2_single_candidate,Misty's Tentacruel,0.9707,normal,,True
+2026-04-06T19:52:34+00:00,page_20260307_015320_cards,0,base1-26/normal,Dratini,0.9678,v2_ref_match,Dratini,0.9678,normal,,True
+2026-04-06T19:52:35+00:00,page_20260307_015320_cards,1,base5-33/normal,Dark Dragonair,0.9791,v2_ref_match,Dark Dragonair,0.9791,normal,,True
+2026-04-06T19:52:37+00:00,page_20260307_015320_cards,2,base5-22/normal,Dark Dragonite,0.9428,v2_ref_match,Dark Dragonite,0.9428,normal,,True
+2026-04-06T19:52:38+00:00,page_20260307_015320_cards,3,base4-26/normal,Kangaskhan,0.9822,v2_ref_match,Kangaskhan,0.9822,normal,,True
+2026-04-06T19:52:39+00:00,page_20260307_015320_cards,4,neo4-22/normal,Light Dragonair,0.9602,v2_single_candidate,Light Dragonair,0.9602,normal,,True
+2026-04-06T19:52:40+00:00,page_20260307_015320_cards,5,basep-5/normal,Dragonite,0.9789,v2_single_candidate,Dragonite,0.9789,normal,,True
+2026-04-06T19:52:41+00:00,page_20260307_015320_cards,6,neo3-42/normal,Chinchou,0.9574,v2_ref_match,Chinchou,0.9574,normal,,True
+2026-04-06T19:52:42+00:00,page_20260307_015320_cards,7,neo1-38/normal,Lanturn,0.9803,v2_single_candidate,Lanturn,0.9803,normal,,True
+2026-04-06T19:52:43+00:00,page_20260307_015320_cards,8,ecard2-20/normal,Lanturn,0.9013,v2_ref_match,Lanturn,0.9013,normal,,True
+2026-04-06T19:52:45+00:00,page_20260307_020047_cards,0,neo4-61/normal,Cyndaquil,0.981,v2_ref_match,Cyndaquil,0.981,normal,,True
+2026-04-06T19:52:46+00:00,page_20260307_020047_cards,1,neo1-57/normal,Cyndaquil,0.9831,v2_ref_match,Cyndaquil,0.9831,normal,,True
+2026-04-06T19:52:47+00:00,page_20260307_020047_cards,2,neo1-17/normal,Typhlosion,0.9847,v2_ref_match,Typhlosion,0.9847,normal,,True
+2026-04-06T19:52:49+00:00,page_20260307_020047_cards,3,gym1-65/normal,Blaine's Vulpix,0.9538,v2_ref_match,Blaine's Vulpix,0.9538,normal,,True
+2026-04-06T19:52:50+00:00,page_20260307_020047_cards,4,gym2-21/normal,Blaine's Ninetales,0.9863,v2_single_candidate,Blaine's Ninetales,0.9863,normal,,True
+2026-04-06T19:52:50+00:00,page_20260307_020047_cards,5,basep-34/normal,Entei,0.9716,v2_ref_match,Entei,0.9716,normal,,True
+2026-04-06T19:52:58+00:00,page_20260307_020047_cards,6,,,0.44567009806632996,unidentified,,,normal,,
+2026-04-06T19:53:00+00:00,page_20260307_020047_cards,7,xy7-90/normal,Machamp-EX,0.946,v2_ref_match,Machamp-EX,0.946,normal,,True
+2026-04-06T19:53:01+00:00,page_20260307_020047_cards,8,base3-1/normal,Aerodactyl,0.8973,v2_ref_match,Aerodactyl,0.8973,normal,,True
+2026-04-06T19:53:02+00:00,page_20260307_120653_cards,0,base3-54/normal,Shellder,0.9703,v2_single_candidate,Shellder,0.9703,normal,,True
+2026-04-06T19:53:03+00:00,page_20260307_120653_cards,1,base3-32/normal,Cloyster,0.9806,v2_single_candidate,Cloyster,0.9806,normal,,True
+2026-04-06T19:53:04+00:00,page_20260307_120653_cards,2,neo3-50/normal,Remoraid,0.9746,v2_ref_match,Remoraid,0.9746,normal,,True
+2026-04-06T19:53:04+00:00,page_20260307_120653_cards,3,base3-56/normal,Tentacool,0.9815,v2_ref_match,Tentacool,0.9815,normal,,True
+2026-04-06T19:53:05+00:00,page_20260307_120653_cards,4,base3-44/normal,Tentacruel,0.9831,v2_ref_match,Tentacruel,0.9831,normal,,True
+2026-04-06T19:53:06+00:00,page_20260307_120653_cards,5,neo3-34/normal,Octillery,0.9706,v2_ref_match,Octillery,0.9706,normal,,True
+2026-04-06T19:53:07+00:00,page_20260307_120653_cards,6,base3-49/normal,Horsea,0.978,v2_ref_match,Horsea,0.978,normal,,True
+2026-04-06T19:53:08+00:00,page_20260307_120653_cards,7,neo1-48/normal,Seadra,0.958,v2_ref_match,Seadra,0.958,normal,,True
+2026-04-06T19:53:09+00:00,page_20260307_120653_cards,8,neo1-8/normal,Kingdra,0.9724,v2_ref_match,Kingdra,0.9724,normal,,False
+2026-04-06T19:53:10+00:00,page_20260307_123235_cards,0,base1-35/normal,Magikarp,0.9546,v2_ref_match,Magikarp,0.9546,normal,,True
+2026-04-06T19:53:11+00:00,page_20260307_123235_cards,1,base4-7/normal,Gyarados,0.9709,v2_ref_match,Gyarados,0.9709,normal,,True
+2026-04-06T19:53:14+00:00,page_20260307_123235_cards,2,base3-17/normal,Articuno,0.8907,v2_ref_match,Articuno,0.8907,normal,,True
+2026-04-06T19:53:15+00:00,page_20260307_123235_cards,3,base3-51/normal,Krabby,0.9104,v2_ref_match,Krabby,0.9104,normal,,True
+2026-04-06T19:53:16+00:00,page_20260307_123235_cards,4,base3-38/normal,Kingler,0.9711,v2_single_candidate,Kingler,0.9711,normal,,True
+2026-04-06T19:53:17+00:00,page_20260307_123235_cards,5,base6-43/normal,Golduck,0.9231,v2_ref_match,Golduck,0.9231,normal,,False
+2026-04-06T19:53:18+00:00,page_20260307_123235_cards,6,base1-65/normal,Staryu,0.975,v2_ref_match,Staryu,0.975,normal,,True
+2026-04-06T19:53:19+00:00,page_20260307_123235_cards,7,base4-94/normal,Starmie,0.9781,v2_ref_match,Starmie,0.9781,normal,,False
+2026-04-06T19:53:21+00:00,page_20260307_123235_cards,8,base2-28/normal,Vaporeon,0.9774,v2_ref_match,Vaporeon,0.9774,normal,,False
+2026-04-06T19:53:21+00:00,page_20260307_123427_cards,0,ecard3-116/normal,Yanma,0.8764,v2_ref_match,Yanma,0.8764,normal,,True
+2026-04-06T19:53:22+00:00,page_20260307_123427_cards,1,ecard3-86/normal,Pineco,0.8836,v2_ref_match,Pineco,0.8836,normal,,True
+2026-04-06T19:53:23+00:00,page_20260307_123427_cards,2,ex12-66/normal,Tentacool,0.9601,v2_ref_match,Tentacool,0.9601,normal,,True
+2026-04-06T19:53:24+00:00,page_20260307_123427_cards,3,ecard1-107/normal,Dratini,0.9607,v2_ref_match,Dratini,0.9607,normal,,True
+2026-04-06T19:53:26+00:00,page_20260307_123427_cards,4,ecard2-98/normal,Onix,0.8966,v2_ref_match,Onix,0.8966,normal,,True
+2026-04-06T19:53:27+00:00,page_20260307_123427_cards,5,ecard3-79/normal,Murkrow,0.9737,v2_ref_match,Murkrow,0.9737,normal,,True
+2026-04-06T19:53:33+00:00,page_20260307_123427_cards,6,ex2-65/normal,,0.8034598159790038,v2_attack_fallback,,,normal,,True
+2026-04-06T19:53:34+00:00,page_20260307_123427_cards,7,ex2-15/normal,Arcanine,0.9696,v2_ref_match,Arcanine,0.9696,normal,,True
+2026-04-06T19:53:35+00:00,page_20260307_123427_cards,8,ex3-34/normal,Houndoom,0.9729,v2_ref_match,Houndoom,0.9729,normal,,True
+2026-04-06T19:53:36+00:00,page_20260307_132359_cards,0,dpp-DP09/normal,Torterra,0.8607,v2_ref_match,Torterra,0.8607,normal,,True
+2026-04-06T19:53:38+00:00,page_20260307_132359_cards,1,dp2-121/normal,Electivire,0.8876,v2_ref_match,Electivire,0.8876,normal,,True
+2026-04-06T19:53:39+00:00,page_20260307_132359_cards,2,dpp-DP29/normal,Rhyperior,0.8753,v2_ref_match,Rhyperior,0.8753,normal,,True
+2026-04-06T19:53:40+00:00,page_20260307_132359_cards,3,dp4-104/normal,Darkrai,0.8472,v2_ref_match,Darkrai,0.8472,normal,,True
+2026-04-06T19:53:41+00:00,page_20260307_132359_cards,4,pl1-124/normal,Giratina LV.X,0.8884,v2_ref_match,Giratina LV.X,0.8884,normal,,True
+2026-04-06T19:53:43+00:00,page_20260307_132359_cards,5,dp3-131/normal,Gardevoir,0.8823,v2_ref_match,Gardevoir,0.8823,normal,,True
+2026-04-06T19:53:43+00:00,page_20260307_132359_cards,6,dp6-143/normal,Mesprit,0.8488,v2_single_candidate,Mesprit,0.8488,normal,,True
+2026-04-06T19:53:44+00:00,page_20260307_132359_cards,7,pl4-98/normal,Salamence,0.8818,v2_ref_match,Salamence,0.8818,normal,,True
+2026-04-06T19:53:45+00:00,page_20260307_132359_cards,8,dpp-DP56/normal,Arceus,0.8732,v2_ref_match,Arceus,0.8732,normal,,True
+2026-04-06T19:53:46+00:00,page_20260309_225737_cards,0,,,0.95,v2_card_back,,,normal,,
+2026-04-06T19:53:47+00:00,page_20260309_225737_cards,1,sv2-61/normal,Chien-Pao ex,0.9516,v2_ref_match,Chien-Pao ex,0.9516,normal,,True
+2026-04-06T19:53:49+00:00,page_20260309_225737_cards,2,sv6pt5-12/normal,Kingdra ex,0.8943820059299469,v2_attack_fallback,Kingdra ex,,normal,,True
+2026-04-06T19:53:50+00:00,page_20260309_225737_cards,3,,,0.95,v2_card_back,,,normal,,
+2026-04-06T19:53:51+00:00,page_20260309_225737_cards,4,sv1-32/normal,Arcanine ex,0.9348,v2_ref_match,Arcanine ex,0.9348,normal,,True
+2026-04-06T19:53:52+00:00,page_20260309_225737_cards,5,sv10-195/normal,Clamperl,0.9002,v2_ref_match,Clamperl,0.9002,normal,,True
+2026-04-06T19:53:52+00:00,page_20260309_225737_cards,6,sv6-172/normal,Torkoal,0.96,v2_ref_match,Torkoal,0.96,normal,,True
+2026-04-06T19:53:54+00:00,page_20260309_225737_cards,7,sv3pt5-205/normal,Mew ex,0.8125,v2_ref_match,Mew ex,0.8125,normal,,True
+2026-04-06T19:53:55+00:00,page_20260309_225737_cards,8,sv7-110/normal,Orthworm ex,0.9426,v2_ref_match,Orthworm ex,0.9426,normal,,True
+2026-04-06T19:53:55+00:00,page_20260320_223702_cards,0,ex1-64/normal,Poochyena,0.9777,v2_ref_match,Poochyena,0.9777,normal,,True
+2026-04-06T19:53:56+00:00,page_20260320_223702_cards,1,ex1-64/normal,Poochyena,0.9839,v2_ref_match,Poochyena,0.9839,normal,,True
+2026-04-06T19:53:57+00:00,page_20260320_223702_cards,2,ex4-30/normal,Team Aqua's Mightyena,0.8527,v2_single_candidate,Team Aqua's Mightyena,0.8527,normal,,True
+2026-04-06T19:53:57+00:00,page_20260320_223702_cards,3,ex4-54/normal,Team Aqua's Poochyena,0.9695,v2_single_candidate,Team Aqua's Poochyena,0.9695,normal,,True
+2026-04-06T19:53:57+00:00,page_20260320_223702_cards,4,ex4-55/normal,Team Aqua's Poochyena,0.9694,v2_single_candidate,Team Aqua's Poochyena,0.9694,normal,,True
+2026-04-06T19:53:58+00:00,page_20260320_223702_cards,5,ex4-15/normal,Team Aqua's Mightyena,0.9326,v2_single_candidate,Team Aqua's Mightyena,0.9326,normal,,True
+2026-04-06T19:53:58+00:00,page_20260320_223702_cards,6,ex4-65/normal,Team Magma's Poochyena,0.9162,v2_single_candidate,Team Magma's Poochyena,0.9162,normal,,True
+2026-04-06T19:53:59+00:00,page_20260320_223702_cards,7,ex4-66/normal,Team Magma's Poochyena,0.9646,v2_single_candidate,Team Magma's Poochyena,0.9646,normal,,True
+2026-04-06T19:53:59+00:00,page_20260320_223702_cards,8,ex4-21/normal,Team Magma's Mightyena,0.9713,v2_single_candidate,Team Magma's Mightyena,0.9713,normal,,True
+2026-04-06T19:54:07+00:00,page_20260320_191743_cards,0,ex13-18/normal,,0.5344719767570496,v2_attack_fallback,,,normal,,True
+2026-04-06T19:54:09+00:00,page_20260320_191743_cards,1,pl3-1/normal,Absol G,0.7723,v2_single_candidate,Absol G,0.7723,normal,,True
+2026-04-06T19:54:10+00:00,page_20260320_191743_cards,2,pl3-141/normal,Absol G,0.8813,v2_single_candidate,Absol G,0.8813,normal,,True
+2026-04-06T19:54:11+00:00,page_20260320_191743_cards,3,hgss4-91/normal,Absol,0.8593,v2_single_candidate,Absol,0.8593,normal,,True
+2026-04-06T19:54:14+00:00,page_20260320_191743_cards,4,swsh12pt5gg-GG16/normal,Absol,0.8641,v2_ref_match,Absol,0.8641,normal,,True
+2026-04-06T19:54:21+00:00,page_20260320_191743_cards,5,,,0.4399838447570801,unidentified,,,normal,,
+2026-04-06T19:54:24+00:00,page_20260320_191743_cards,6,sv6pt5-30/normal,Absol,0.8719,v2_ref_match,Absol,0.8719,normal,,True
+2026-04-06T19:54:24+00:00,page_20260320_191743_cards,7,sv3-135/normal,Absol,0.921,v2_ref_match,Absol,0.921,normal,,True
+2026-04-06T19:54:27+00:00,page_20260320_191743_cards,8,me1-86/normal,Mega Absol ex,0.8883,v2_ref_match,Mega Absol ex,0.8883,normal,,True
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,0,,,0.3617721498012543,unidentified,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,1,tk2a-5/normal,Metang,0.6965639591217041,v2_ref_match,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,2,xy7-28/normal,M Ampharos-EX,0.7518876075744629,v2_attack_fallback,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,3,ex13-67/normal,Kabuto δ,0.978100539956774,v2_single_candidate,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,4,ex13-9/normal,Kabutops δ,0.9709188111554617,v2_single_candidate,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,5,ex13-14/normal,Pidgeot δ,0.8232598304748535,v2_ref_match,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,6,ex15-56/normal,Nidoran ♀ δ,0.5754266381263733,v2_ref_match,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,7,ex15-23/normal,Tropius δ,0.5217419862747192,v2_ref_match,,,normal,,
+2026-04-06T20:24:24+00:00,page_20260406_162414_cards,8,ex15-7/normal,Nidoqueen δ,0.70279860496521,v2_ref_match,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,0,,,0.95,v2_card_back,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,1,ex11-49/normal,Metang δ,0.9055238723754883,v2_ref_match,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,2,ex11-11/normal,Metagross δ,0.811346869468689,v2_attack_fallback,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,3,ex13-67/normal,Kabuto δ,0.8999143947254528,v2_single_candidate,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,4,ex13-9/normal,Kabutops δ,0.9744339873393376,v2_single_candidate,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,5,ex13-14/normal,Pidgeot δ,0.8737180995941162,v2_ref_match,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,6,ex15-56/normal,Nidoran ♀ δ,0.9078357178761043,v2_single_candidate,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,7,ex15-23/normal,Tropius δ,0.9802337646484375,v2_single_candidate,,,normal,,
+2026-04-06T22:27:51+00:00,page_20260406_182742_cards,8,ex15-7/normal,Nidoqueen δ,0.9478688580596792,v2_single_candidate,,,normal,,

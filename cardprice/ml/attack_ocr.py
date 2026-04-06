@@ -737,6 +737,9 @@ def identify_by_attacks(
     candidate_card_ids: list[str] | None = None,
     fuzzy_threshold: float = 0.60,
     precomputed_ocr_candidates: list | None = None,
+    type_detected: str | None = None,
+    type_confidence: float = 0.0,
+    hp_value: str | None = None,
 ) -> list[tuple[str, float]]:
     """Identify a card by OCR-reading its attack names and matching the index.
 
@@ -758,6 +761,16 @@ def identify_by_attacks(
         existing candidate set).
     fuzzy_threshold : float
         Minimum fuzzy ratio for accepting an OCR-to-attack match.
+    type_detected : str, optional
+        Pokemon type detected from card color (e.g. "Grass", "Fighting").
+        Used as a soft scoring signal: candidates whose energy costs match
+        this type get a bonus; mismatches get a penalty.
+    type_confidence : float
+        Confidence of the type detection (0-1). Higher confidence means
+        stronger bonus/penalty.
+    hp_value : str, optional
+        HP value detected from the card. Used to penalize candidates
+        with mismatched HP.
 
     Returns
     -------
@@ -835,6 +848,22 @@ def identify_by_attacks(
     if not cards_to_score:
         return []
 
+    # Load structured data for energy cost / type / HP scoring
+    import json
+    _structured_data: dict = {}
+    if _STRUCTURED_ATTACKS_PATH.exists():
+        if not hasattr(identify_by_attacks, "_cached_structured"):
+            with open(_STRUCTURED_ATTACKS_PATH) as f:
+                identify_by_attacks._cached_structured = json.load(f)
+        _structured_data = identify_by_attacks._cached_structured
+
+    # Determine if type signal is strong enough to use
+    use_type_signal = (
+        type_detected is not None
+        and type_confidence >= 0.35
+        and type_detected != "Colorless"
+    )
+
     # Score each candidate
     scored: list[tuple[str, float]] = []
     for cid in cards_to_score:
@@ -876,6 +905,59 @@ def identify_by_attacks(
         if intersection:
             avg_fuzzy /= len(intersection)
         score += 0.05 * avg_fuzzy
+
+        # --- Energy cost type scoring ---
+        # When multiple cards share the same attack name, the energy cost
+        # types are a free discriminator. E.g. Cradily's "Poison Ring"
+        # costs [Grass, Grass, Colorless] vs Gliscor's [Fighting].
+        # If we detected the card's color/type, boost candidates whose
+        # energy costs use that type and penalize mismatches.
+        base_cid = cid.split("/")[0]
+        struct_entry = _structured_data.get(base_cid, {})
+
+        if use_type_signal and struct_entry:
+            # Collect all non-Colorless energy types from the card's attacks
+            energy_types = set()
+            for atk in struct_entry.get("attacks", []):
+                for cost in atk.get("cost", []):
+                    if cost != "Colorless":
+                        energy_types.add(cost)
+
+            # Also check the card's declared type(s)
+            card_types = set(struct_entry.get("types", []))
+
+            if energy_types or card_types:
+                all_types = energy_types | card_types
+                if type_detected in all_types:
+                    # Energy/type matches detected color — boost
+                    bonus = 0.08 * min(type_confidence, 1.0)
+                    score += bonus
+                    logger.debug(
+                        "  energy type bonus +%.3f for %s (type=%s, energy=%s)",
+                        bonus, cid, type_detected, energy_types,
+                    )
+                elif energy_types:
+                    # Energy types exist but none match — penalize
+                    # (soft penalty, scaled by confidence)
+                    penalty = 0.05 * min(type_confidence, 1.0)
+                    score -= penalty
+                    logger.debug(
+                        "  energy type penalty -%.3f for %s (type=%s, energy=%s)",
+                        penalty, cid, type_detected, energy_types,
+                    )
+
+        # --- HP scoring ---
+        # If HP was detected from the card, penalize candidates with
+        # different HP. This is a hard discriminator (HP is printed
+        # clearly on the card) so the penalty is larger.
+        if hp_value and struct_entry:
+            card_hp = struct_entry.get("hp")
+            if card_hp and str(card_hp) != str(hp_value):
+                score -= 0.10
+                logger.debug(
+                    "  HP mismatch penalty for %s (detected=%s, card=%s)",
+                    cid, hp_value, card_hp,
+                )
 
         # Name boost if pokemon_name provided
         if pokemon_name:

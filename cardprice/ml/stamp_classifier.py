@@ -80,7 +80,7 @@ def _load_classifier() -> dict:
     if not _MODEL_PATH.exists():
         raise FileNotFoundError(
             f"Stamp classifier model not found at {_MODEL_PATH}. "
-            "Run 'python scripts/train_stamp_classifier.py' to train it."
+            "Run 'python scripts/train/train_stamp_classifier.py' to train it."
         )
 
     logger.info("Loading stamp classifier from %s", _MODEL_PATH)

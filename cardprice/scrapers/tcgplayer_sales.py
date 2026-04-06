@@ -74,11 +74,15 @@ def _insert_sales(
     now = datetime.now(timezone.utc).isoformat()
     rows = []
     for s in sales:
+        condition = s.get("condition", "")
+        # Skip chart data / entries without a real condition
+        if not condition or "to" in s.get("sale_date", ""):
+            continue
         rows.append((
             product_id,
             s.get("sale_date", ""),
             s.get("sale_price", 0.0),
-            s.get("condition", ""),
+            condition,
             s.get("quantity", 1),
             s.get("printing", ""),
             now,
@@ -468,16 +472,14 @@ def create_browser_context(playwright):
     return browser, context
 
 
-def scrape_batch(
+def _worker(
+    worker_id: int,
     product_ids: list[int],
-    *,
-    delay_range: tuple[float, float] = (2.0, 4.0),
-    max_errors: int = 5,
+    delay_range: tuple[float, float],
+    max_errors: int,
+    browser_restart_every: int,
 ) -> dict[int, int]:
-    """
-    Scrape sales for a batch of product IDs.
-    Returns {product_id: num_sales_stored}.
-    """
+    """Single worker: one browser, scrapes its chunk of product IDs."""
     conn = _get_db()
     results: dict[int, int] = {}
     consecutive_errors = 0
@@ -487,13 +489,23 @@ def scrape_batch(
         page = context.new_page()
 
         for i, pid in enumerate(product_ids):
-            log.info("Scraping product %d (%d/%d)", pid, i + 1, len(product_ids))
+            log.info("[W%d] Scraping product %d (%d/%d)", worker_id, pid, i + 1, len(product_ids))
+
+            if i > 0 and i % browser_restart_every == 0:
+                log.info("[W%d] Restarting browser after %d products", worker_id, i)
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+                browser, context = create_browser_context(pw)
+                page = context.new_page()
+
             try:
                 sales = scrape_product_sales(page, pid)
                 if sales:
                     n = _insert_sales(conn, pid, sales)
                     results[pid] = n
-                    log.info("Stored %d sales for product %d", n, pid)
+                    log.info("[W%d] Stored %d sales for product %d", worker_id, n, pid)
                 else:
                     results[pid] = 0
                     conn.execute(
@@ -505,7 +517,7 @@ def scrape_batch(
                     conn.commit()
                 consecutive_errors = 0
             except Exception as e:
-                log.error("Error scraping product %d: %s", pid, e)
+                log.error("[W%d] Error scraping product %d: %s", worker_id, pid, e)
                 results[pid] = -1
                 consecutive_errors += 1
                 conn.execute(
@@ -516,19 +528,73 @@ def scrape_batch(
                 )
                 conn.commit()
                 if consecutive_errors >= max_errors:
-                    log.error("Too many consecutive errors, stopping")
-                    break
+                    log.warning("[W%d] Hit %d consecutive errors, restarting browser", worker_id, consecutive_errors)
+                    try:
+                        browser.close()
+                    except Exception:
+                        pass
+                    browser, context = create_browser_context(pw)
+                    page = context.new_page()
+                    consecutive_errors = 0
+                    max_errors = max_errors // 2 or 1
 
-            # Rate limiting
             if i < len(product_ids) - 1:
                 delay = random.uniform(*delay_range)
-                log.debug("Sleeping %.1fs", delay)
                 time.sleep(delay)
 
         browser.close()
 
     conn.close()
     return results
+
+
+def scrape_batch(
+    product_ids: list[int],
+    *,
+    delay_range: tuple[float, float] = (2.0, 4.0),
+    max_errors: int = 5,
+    browser_restart_every: int = 100,
+    workers: int = 1,
+) -> dict[int, int]:
+    """
+    Scrape sales for a batch of product IDs.
+    Returns {product_id: num_sales_stored}.
+
+    Uses `workers` parallel browser instances to speed up scraping.
+    Restarts each browser every `browser_restart_every` products.
+    """
+    if workers <= 1:
+        return _worker(0, product_ids, delay_range, max_errors, browser_restart_every)
+
+    # Split product IDs into chunks, one per worker
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    import multiprocessing
+
+    chunks = [[] for _ in range(workers)]
+    for i, pid in enumerate(product_ids):
+        chunks[i % workers].append(pid)
+
+    log.info("Launching %d parallel workers (%d-%d products each)",
+             workers, min(len(c) for c in chunks if c), max(len(c) for c in chunks if c))
+
+    all_results: dict[int, int] = {}
+
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(_worker, wid, chunk, delay_range, max_errors, browser_restart_every): wid
+            for wid, chunk in enumerate(chunks) if chunk
+        }
+        for future in as_completed(futures):
+            wid = futures[future]
+            try:
+                result = future.result()
+                all_results.update(result)
+                success = sum(1 for v in result.values() if v >= 0)
+                log.info("Worker %d finished: %d/%d succeeded", wid, success, len(result))
+            except Exception as e:
+                log.error("Worker %d crashed: %s", wid, e)
+
+    return all_results
 
 
 # ---------------------------------------------------------------------------

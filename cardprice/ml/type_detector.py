@@ -119,14 +119,16 @@ def _sample_border_region(img: np.ndarray) -> np.ndarray:
     tx2 = int(w * 0.65)
     regions.append(img[ty1:ty2, tx1:tx2])
 
-    # Region 2: left inner strip at text-box height (x: 25-33%)
-    lx1 = int(w * 0.25)
+    # Region 2: left inner strip at text-box height (x: 27-33%)
+    # Inset from 25% to 27% to avoid binder sleeve bleed on the card edge
+    lx1 = int(w * 0.27)
     lx2 = int(w * 0.33)
     regions.append(img[ty1:ty2, lx1:lx2])
 
-    # Region 3: right inner strip at text-box height (x: 67-75%)
+    # Region 3: right inner strip at text-box height (x: 67-73%)
+    # Inset from 75% to 73% to avoid binder sleeve bleed on the card edge
     rx1 = int(w * 0.67)
-    rx2 = int(w * 0.75)
+    rx2 = int(w * 0.73)
     regions.append(img[ty1:ty2, rx1:rx2])
 
     # Region 4: name bar area (y: 3-10%, x: 30-70%)

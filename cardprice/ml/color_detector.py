@@ -172,12 +172,14 @@ def _sample_regions(img: np.ndarray) -> np.ndarray:
         regions.append(r)
 
     # Region 3: Left inner border at text-box height
-    r = img[int(h * 0.56):int(h * 0.83), int(w * 0.18):int(w * 0.30)]
+    # Inset from 18% to 22% to avoid binder sleeve bleed on the card edge
+    r = img[int(h * 0.56):int(h * 0.83), int(w * 0.22):int(w * 0.30)]
     if r.size > 0:
         regions.append(r)
 
     # Region 4: Right inner border at text-box height
-    r = img[int(h * 0.56):int(h * 0.83), int(w * 0.70):int(w * 0.82)]
+    # Inset from 82% to 78% to avoid binder sleeve bleed on the card edge
+    r = img[int(h * 0.56):int(h * 0.83), int(w * 0.70):int(w * 0.78)]
     if r.size > 0:
         regions.append(r)
 
@@ -234,9 +236,15 @@ def _bgr_to_hsv(bgr: np.ndarray) -> Tuple[float, float, float]:
 
 
 def _is_binder_orange(h: float, s: float, v: float) -> bool:
-    """Check if a color looks like the orange binder page background."""
-    # Orange binder: H=8-18, S=150+, V=150+
-    return 5 <= h <= 22 and s >= 140 and v >= 140
+    """Check if a color looks like the orange binder page background.
+
+    Broadened to catch desaturated binder orange that bleeds through card
+    sleeves -- the sleeve diffuses the color, lowering saturation from 150+
+    down to ~100 while keeping the warm hue.
+    """
+    # Saturated binder orange: H=5-22, S=100+, V=130+
+    # The previous S>=140 threshold missed sleeve-diffused binder bleed
+    return 5 <= h <= 22 and s >= 100 and v >= 130
 
 
 def _is_text_or_noise(h: float, s: float, v: float) -> bool:
@@ -438,8 +446,11 @@ def _classify_hsv(h: float, s: float, v: float) -> List[Tuple[str, float]]:
         return _sort(results)
 
     # Purple-magenta (H 156-169)
+    # Psychic cards in binder photos often desaturate to S=40-55 due to
+    # sleeve diffusion and lighting.  Previous threshold of S>=50 missed
+    # borderline Psychic cards (e.g., Mr. Mime at S=46).
     if 156 <= h <= 169:
-        if s >= 50:
+        if s >= 40:
             results["Psychic"] = 0.55
             results["Fairy"] = 0.25
             results["Darkness"] = 0.20

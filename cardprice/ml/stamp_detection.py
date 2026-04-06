@@ -1282,7 +1282,16 @@ def _check_ex_set_stamp(img_bgr: np.ndarray, set_id: str,
 #   Normal range:  -0.0237 - 0.0699 (mean 0.0362)
 #   Gap: 0.0479 (clean separation between 0.0699 and 0.1178)
 #   Threshold at 0.09 = midpoint of gap.
-_EX_STAMP_DINO_DIFF_THRESHOLD = 0.09
+#
+# 2026-04-06 recalibration after Pidgeot ex13-14 false positive (binder scan):
+#   Pidgeot (NOT stamped): diff=0.2078, stamp_sim=0.5320
+#   Real stamps: diff=0.24-0.40, stamp_sim=0.15-0.43
+#   Real negatives (Kabuto/Kabutops): diff=0.02-0.05
+#   Pidgeot likely has foil glare on bottom-right that drops stamp_sim
+#   without an overlay being present. Add a stamp_sim ceiling and bump
+#   threshold to give the binder-scan signal more headroom.
+_EX_STAMP_DINO_DIFF_THRESHOLD = 0.22
+_EX_STAMP_MAX_STAMP_SIM = 0.50  # If scan stamp region still matches reference well, no overlay
 
 
 def _check_ex_stamp_dino(img_bgr: np.ndarray, card_id: str,
@@ -1418,7 +1427,7 @@ def _load_ref_stamp_embeddings() -> dict:
         if not _REF_STAMP_EMBEDDINGS_PATH.is_file():
             logger.warning(
                 "Precomputed stamp embeddings not found at %s. "
-                "Run 'python scripts/build_ref_stamp_embeddings.py' to generate.",
+                "Run 'python scripts/build/build_ref_stamp_embeddings.py' to generate.",
                 _REF_STAMP_EMBEDDINGS_PATH,
             )
             _ref_stamp_embeddings = {}
@@ -1528,7 +1537,15 @@ def check_ex_stamp_fast(image_path: str, card_id: str) -> tuple[bool, float]:
             _EX_STAMP_DINO_DIFF_THRESHOLD,
         )
 
-        is_stamped = diff > _EX_STAMP_DINO_DIFF_THRESHOLD
+        # Two-signal gate: differential must clear threshold AND the scan
+        # stamp region must NOT still match the reference closely. Foil glare
+        # on the bottom-right of normal Delta Species cards (e.g. Pidgeot
+        # ex13-14) can produce a 0.20 differential without an overlay; the
+        # stamp_sim ceiling rejects those cases.
+        is_stamped = (
+            diff > _EX_STAMP_DINO_DIFF_THRESHOLD
+            and stamp_sim < _EX_STAMP_MAX_STAMP_SIM
+        )
 
         if is_stamped:
             margin = diff - _EX_STAMP_DINO_DIFF_THRESHOLD

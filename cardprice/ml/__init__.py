@@ -54,15 +54,20 @@ _STAMP_NAME_TO_SET = {v: k for k, v in EX_STAMP_NAMES.items()}
 _STAMP_NAME_CHOICES = list(EX_STAMP_NAMES.values())
 
 
-def _fuzzy_match_stamp_text(texts):
+def _fuzzy_match_stamp_text(texts, min_score=55):
     """Fuzzy-match OCR texts from the stamp region against known EX stamp names.
 
     Args:
         texts: list of OCR text strings from the stamp region.
+        min_score: minimum fuzz score to accept (default 55). Pass 0 to get
+            the raw best match regardless of threshold (caller can apply
+            its own threshold based on context, e.g. lower the bar when the
+            matched set matches the card's identified set).
 
     Returns:
-        (set_id, score) if best match > 55, else (None, 0).
-        set_id is e.g. "ex10", score is 0-100.
+        (set_id, score) if best match >= min_score, else (None, best_score).
+        Note: when below min_score, set_id is None but score is still returned
+        so callers can decide if a contextual lower threshold applies.
     """
     from rapidfuzz import fuzz, process
 
@@ -83,9 +88,11 @@ def _fuzzy_match_stamp_text(texts):
             best_score = match[1]
             best_set_id = _STAMP_NAME_TO_SET[match[0]]
 
-    if best_score > 55:
+    if best_score >= min_score:
         return best_set_id, best_score
-    return None, 0
+    # Return the candidate set_id even when below threshold so context-aware
+    # callers can apply their own (possibly lower) threshold.
+    return None, best_score
 
 
 # Resolve data paths relative to the project root (two levels up from this file).
@@ -384,7 +391,10 @@ _ERA_VARIANT_ALLOWED = {
 }
 
 
-def _apply_variant_detection(result, image_path, detect_variants=True):
+def _apply_variant_detection(result, image_path, detect_variants=True,
+                             precomputed_stamp_set_id=None,
+                             precomputed_stamp_match_score=0,
+                             precomputed_stamp_texts=None):
     """Apply variant detection to a v2 result dict (in-place).
 
     Uses variant_tree to determine which checks are relevant for the card's
@@ -612,32 +622,95 @@ def _apply_variant_detection(result, image_path, detect_variants=True):
                 set_id = card_portion
 
             if set_id in _EX_STAMPED_SETS:
-                try:
-                    from cardprice.ml.stamp_detection import check_ex_stamp_fast
-                    is_stamped, ex_conf = check_ex_stamp_fast(
-                        str(image_path), card_id)
-                    checks_run.append("ex_stamp_fast")
-                    if "stamps_checked" in result:
-                        result["stamps_checked"].append("ex_set_stamp_fast")
+                # PRIMARY signal: OCR fuzzy-matched the stamp text against
+                # known EX set names. This is the most reliable signal — it
+                # only fires when readable text matching "DELTA SPECIES",
+                # "DRAGON FRONTIERS", etc. was found in the stamp region.
+                # Holo cards with metallic glare can fool the DINOv2
+                # differential (e.g. Metang ex11-49) but their OCR text is
+                # the illustrator name, not the set name, so they correctly
+                # score 0 against EX_STAMP_NAMES.
+                #
+                # Stamp data comes from the OCR worker via the precomputed
+                # path (page scans) or directly on the result (single-card
+                # path). Prefer the explicit precomputed values if passed.
+                ocr_stamp_score = (
+                    precomputed_stamp_match_score
+                    if precomputed_stamp_match_score
+                    else result.get("stamp_match_score", 0) or 0
+                )
+                ocr_stamp_set = (
+                    precomputed_stamp_set_id
+                    or result.get("stamp_set_id")
+                )
+                ocr_stamp_texts = (
+                    precomputed_stamp_texts
+                    if precomputed_stamp_texts
+                    else (result.get("stamp_texts", []) or [])
+                )
 
-                    if is_stamped and ex_conf >= 0.99:
-                        logger.info(
-                            "fast EX stamp: detected stamp on %s (conf=%.2f)",
-                            card_id, ex_conf,
-                        )
-                        flags["ex_stamped_reverse"] = True
-                        result["variant_flags"] = flags
-                        result.setdefault("stamps_detected", []).append("ex_set_stamp")
-                        result.setdefault("stamp_details", {})["ex_set_stamp"] = {
-                            "detected": True,
-                            "confidence": ex_conf,
-                            "position": "artwork_bottom_right",
-                            "evidence": "dino_differential_fast",
-                        }
-                        result["detected_variant"] = "ex_set_stamp"
-                        result["variant_confidence"] = ex_conf
-                except Exception as e:
-                    logger.debug("fast EX stamp check failed: %s", e)
+                # Context-aware threshold: when the OCR's best-guess set
+                # matches the card's identified set, lower the bar from 60
+                # to 45. This catches Nidoqueen (ex15-7) where the OCR sees
+                # rules text + faint stamp text and scores 48 against
+                # "DRAGON FRONTIERS" — below the 60 hard threshold but the
+                # set agreement is itself a strong signal that the card
+                # really is from that stamped set.
+                set_matches = (ocr_stamp_set == set_id)
+                ocr_threshold = 45 if set_matches else 60
+                if ocr_stamp_score >= ocr_threshold and ocr_stamp_set:
+                    logger.info(
+                        "OCR stamp match: %s -> %s (score=%d, set_match=%s)",
+                        card_id, ocr_stamp_set, ocr_stamp_score, set_matches,
+                    )
+                    flags["ex_stamped_reverse"] = True
+                    result["variant_flags"] = flags
+                    result.setdefault("stamps_detected", []).append("ex_set_stamp")
+                    result.setdefault("stamp_details", {})["ex_set_stamp"] = {
+                        "detected": True,
+                        "confidence": min(0.70 + ocr_stamp_score / 200.0, 0.99),
+                        "position": "artwork_bottom_right",
+                        "evidence": "ocr_text_fuzzy_match",
+                        "matched_set": ocr_stamp_set,
+                        "match_score": ocr_stamp_score,
+                    }
+                    result["detected_variant"] = "ex_set_stamp"
+                    result["variant_confidence"] = min(0.70 + ocr_stamp_score / 200.0, 0.99)
+                else:
+                    # SECONDARY signal: DINOv2 differential, but ONLY when
+                    # the stamp region contained no readable text at all
+                    # (otherwise the OCR found illustrator credits / rules
+                    # text, which means the artwork bottom-right looks
+                    # different from reference but NOT due to a stamp).
+                    has_meaningful_ocr = any(len(t) >= 4 for t in ocr_stamp_texts)
+                    if not has_meaningful_ocr:
+                        try:
+                            from cardprice.ml.stamp_detection import check_ex_stamp_fast
+                            is_stamped, ex_conf = check_ex_stamp_fast(
+                                str(image_path), card_id)
+                            checks_run.append("ex_stamp_fast")
+                            if "stamps_checked" in result:
+                                result["stamps_checked"].append("ex_set_stamp_fast")
+
+                            if is_stamped and ex_conf >= 0.70:
+                                logger.info(
+                                    "fast EX stamp: detected stamp on %s "
+                                    "(conf=%.2f) [OCR fallback]",
+                                    card_id, ex_conf,
+                                )
+                                flags["ex_stamped_reverse"] = True
+                                result["variant_flags"] = flags
+                                result.setdefault("stamps_detected", []).append("ex_set_stamp")
+                                result.setdefault("stamp_details", {})["ex_set_stamp"] = {
+                                    "detected": True,
+                                    "confidence": ex_conf,
+                                    "position": "artwork_bottom_right",
+                                    "evidence": "dino_differential_fast",
+                                }
+                                result["detected_variant"] = "ex_set_stamp"
+                                result["variant_confidence"] = ex_conf
+                        except Exception as e:
+                            logger.debug("fast EX stamp check failed: %s", e)
 
         except Exception as e:
             logger.debug("variant detection pipeline failed: %s", e)
@@ -4804,6 +4877,12 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     ocr_raw = None
     hp_value = None
 
+    # Stamp text from precomputed worker (set even when name OCR fails).
+    # Used to narrow candidates when the card name is unreadable but the
+    # stamp text in the artwork region was OCR'd successfully.
+    precomputed_stamp_set_id = None
+    precomputed_stamp_match_score = 0
+    precomputed_stamp_texts: list[str] = []
     if _precomputed_ocr:
         # Use pre-computed OCR results from batch processing
         ocr_name = _precomputed_ocr.get("ocr_name")
@@ -4812,6 +4891,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         hp_value = _precomputed_ocr.get("hp_value")
         color_type = _precomputed_ocr.get("color_type")
         color_conf = _precomputed_ocr.get("color_conf", 0.0)
+        precomputed_stamp_set_id = _precomputed_ocr.get("stamp_set_id")
+        precomputed_stamp_match_score = _precomputed_ocr.get("stamp_match_score", 0) or 0
+        precomputed_stamp_texts = _precomputed_ocr.get("stamp_texts", []) or []
     else:
         with ThreadPoolExecutor(max_workers=2) as pool:
             color_future = pool.submit(_run_color_detect, image_path)
@@ -4963,7 +5045,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 "language": "ja",
             },
         }
-        _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+        _apply_variant_detection(result, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
         return result
 
     # -----------------------------------------------------------------------
@@ -5107,7 +5192,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     "dino_sanity": dino_score,
                 },
             }
-            _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+            _apply_variant_detection(result, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
             _cache_store(cache_key, result)
             return result
         else:
@@ -5147,7 +5235,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         "dino_sanity": dino_score,
                     },
                 }
-                _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+                _apply_variant_detection(result, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
                 _cache_store(cache_key, result)
                 return result
             else:
@@ -5240,7 +5331,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     if _ja_ocr and len(candidates) <= 3:
                         logger.info("v2: Japanese OCR with %d candidates, accepting dino=%.3f",
                                     len(candidates), best_detail['dino_score'])
-                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants)
+                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                     elif best_detail['dino_score'] < 0.60 and ocr_conf < 0.90:
@@ -5248,7 +5342,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                                     "will also try attack path",
                                     best_detail['dino_score'], ocr_conf)
                     else:
-                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants)
+                        _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                 else:
@@ -5386,6 +5483,71 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             logger.warning("v2 step5: attack fallback failed: %s", e)
 
     # -----------------------------------------------------------------------
+    # Step 5b: Stamp-set candidate rescue
+    # -----------------------------------------------------------------------
+    # When name OCR failed AND attack result is suspect (no result OR low
+    # DINOv2 score), try a DINOv2-only search constrained to the set whose
+    # stamp text we DID read. This recovers cards like Metagross δ where the
+    # name "Metagross" is unreadable on the foiled stamped art but the stamp
+    # text "DELTA SPECIES" was OCR'd successfully (-> ex11).
+    stamp_rescue_result = None
+    attack_dino_too_low = (
+        attack_result is None
+        or (
+            attack_result.get("raw_response", {})
+            .get("combined_results", [(None, 0, {"dino_score": 0})])[0][2]
+            .get("dino_score", 0) < 0.50
+        )
+    )
+    if (
+        not ocr_name
+        and precomputed_stamp_set_id
+        and attack_dino_too_low
+    ):
+        try:
+            from cardprice.ml.ref_matcher import _load_ref_embeddings
+            import numpy as np
+
+            # Compute scan embedding (use precomputed if available)
+            if _precomputed_dino_embedding is not None:
+                scan_emb = _precomputed_dino_embedding
+            else:
+                from cardprice.ml.dino_matcher import extract_embedding
+                scan_emb = extract_embedding(image_path)
+            scan_emb = scan_emb / (np.linalg.norm(scan_emb) or 1.0)
+
+            ref = _load_ref_embeddings()
+            set_keys = [k for k in ref if k.startswith(f"{precomputed_stamp_set_id}-")]
+            if set_keys:
+                mats = np.array([ref[k] for k in set_keys])
+                mats = mats / np.linalg.norm(mats, axis=1, keepdims=True)
+                sims = mats @ scan_emb
+                best_idx = int(np.argmax(sims))
+                best_sim = float(sims[best_idx])
+                best_cid = set_keys[best_idx]
+                if best_sim >= 0.40:
+                    stamp_rescue_result = {
+                        "card_id": best_cid,
+                        "confidence": min(0.60 + (best_sim - 0.40) * 1.5, 0.92),
+                        "method": "v2_stamp_set_rescue",
+                        "explanation": (
+                            f"v2: name OCR failed; stamp text -> {precomputed_stamp_set_id}; "
+                            f"DINOv2 best in set = {best_cid} (sim={best_sim:.3f})"
+                        ),
+                        "raw_response": {
+                            "ocr_name": None,
+                            "stamp_set_id": precomputed_stamp_set_id,
+                            "dino_sim": best_sim,
+                        },
+                    }
+                    logger.info(
+                        "v2 step5b: stamp-set rescue -> %s (sim=%.3f, set=%s)",
+                        best_cid, best_sim, precomputed_stamp_set_id,
+                    )
+        except Exception as e:
+            logger.warning("v2 step5b: stamp-set rescue failed: %s", e)
+
+    # -----------------------------------------------------------------------
     # Step 6: Ensemble fallback (last resort)
     # -----------------------------------------------------------------------
     # When name path failed (bad rotation OCR), use original image and
@@ -5449,14 +5611,28 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 )
                 attack_result["confidence"] -= 0.30
 
-    for candidate in [ref_match_result, attack_result]:
+    # Stamp-set rescue is highly trusted when triggered (it only fires when
+    # name OCR failed AND attack DINOv2 was weak, so it has the cleanest
+    # signal we have for that card). Boost its weight against ensemble.
+    if stamp_rescue_result:
+        # Penalize ensemble harder than the regular case if it picked a card
+        # from a DIFFERENT set than the stamp said.
+        rescue_set = stamp_rescue_result["raw_response"]["stamp_set_id"]
+        fallback_cid = fallback.get("card_id", "")
+        if fallback_cid and not fallback_cid.startswith(f"{rescue_set}-"):
+            best_alt_conf -= 0.25
+
+    for candidate in [ref_match_result, attack_result, stamp_rescue_result]:
         if candidate and candidate["confidence"] > best_alt_conf:
             best_alt = candidate
             best_alt_conf = candidate["confidence"]
     if best_alt:
         logger.info("v2: %s (%.3f) > ensemble (%.3f)",
                      best_alt["method"], best_alt_conf, fallback_conf)
-        _apply_variant_detection(best_alt, image_path, detect_variants=detect_variants)
+        _apply_variant_detection(best_alt, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
         _cache_store(cache_key, best_alt)
         return best_alt
 
@@ -5514,7 +5690,10 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     }
     fallback["raw_response"] = raw
 
-    _apply_variant_detection(fallback, image_path, detect_variants=detect_variants)
+    _apply_variant_detection(fallback, image_path, detect_variants=detect_variants,
+                                 precomputed_stamp_set_id=precomputed_stamp_set_id,
+                                 precomputed_stamp_match_score=precomputed_stamp_match_score,
+                                 precomputed_stamp_texts=precomputed_stamp_texts)
 
     # -----------------------------------------------------------------------
     # Step 7: Claude vision fallback (optional, last resort)
@@ -5536,6 +5715,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 _apply_variant_detection(
                     vision_result, image_path,
                     detect_variants=detect_variants,
+                    precomputed_stamp_set_id=precomputed_stamp_set_id,
+                    precomputed_stamp_match_score=precomputed_stamp_match_score,
+                    precomputed_stamp_texts=precomputed_stamp_texts,
                 )
                 _cache_store(cache_key, vision_result)
                 return vision_result
@@ -5622,12 +5804,27 @@ def _name_ocr_worker(image_path: str) -> dict:
                 if texts:
                     result["has_stamp_text"] = True
                     result["stamp_texts"] = texts
-                    # Fuzzy match against known EX stamp names
-                    matched_set, match_score = _fuzzy_match_stamp_text(texts)
-                    if matched_set:
-                        result["stamp_set_id"] = matched_set
-                        result["stamp_set_name"] = EX_STAMP_NAMES[matched_set]
-                        result["stamp_match_score"] = match_score
+                    # Fuzzy match against known EX stamp names. Use min_score=0
+                    # to capture the raw best score; the caller in
+                    # _apply_variant_detection applies a context-aware
+                    # threshold (lower bar when matched_set == card's set).
+                    matched_set, match_score = _fuzzy_match_stamp_text(texts, min_score=0)
+                    # Always store the candidate set + score so context-aware
+                    # logic can run later (Nidoqueen scores 48 against
+                    # DRAGON FRONTIERS — below the 60 hard threshold but
+                    # acceptable when card is identified as ex15-7).
+                    if matched_set is None and match_score > 0:
+                        # extractOne returned a candidate but below min_score=0
+                        # threshold logic. Recompute to get the candidate set.
+                        from rapidfuzz import fuzz, process
+                        combined = " ".join(texts).upper().strip()
+                        m = process.extractOne(combined, _STAMP_NAME_CHOICES,
+                                                scorer=fuzz.partial_ratio)
+                        if m:
+                            matched_set = _STAMP_NAME_TO_SET[m[0]]
+                    result["stamp_set_id"] = matched_set
+                    result["stamp_set_name"] = EX_STAMP_NAMES.get(matched_set) if matched_set else None
+                    result["stamp_match_score"] = match_score
     except Exception:
         pass
 
@@ -5805,15 +6002,13 @@ def identify_page_v2(card_image_paths, session=None,
                 logger.info("identify_page_v2: skipping OCR for card %d (card back)", i)
                 return
 
-            # Dispatch attack OCR if name not confident enough
-            ocr_name = ocr_data.get("ocr_name")
-            ocr_conf = ocr_data.get("ocr_conf", 0)
-            if not ocr_name or ocr_conf < 0.85:
-                _submit_attack_ocr(i, path)
-            else:
-                attack_results[i] = []
-                logger.info("identify_page_v2: skipping attack OCR for card %d "
-                            "(name=%r conf=%.2f)", i, ocr_name, ocr_conf)
+            # Always dispatch attack OCR. Earlier we skipped this when name
+            # conf >= 0.85, but that broke disambiguation for common Pokemon
+            # with many printings (e.g. Metang has 23 printings; without
+            # attacks, DINOv2 picked tk2a-5 over the correct ex11-49 Metang δ
+            # because the visual scores were within 0.02). The cost is ~1-2s
+            # extra per page, well within the 10s/page budget.
+            _submit_attack_ocr(i, path)
 
         # Run name OCR in parallel threads. ONNX Runtime releases the GIL
         # during inference, giving ~30% speedup. The big win is skipping the

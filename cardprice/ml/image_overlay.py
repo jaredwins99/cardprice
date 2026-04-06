@@ -159,7 +159,7 @@ _VARIANT_STYLES: dict[str, dict] = {
         "fg": (30, 30, 30, 255),
         "border": (218, 165, 32),            # gold
         # Bottom-right of artwork area — stylized logo pasted here
-        "stamp_pos": (0.78, 0.45),
+        "stamp_pos": (0.78, 0.40),
         "use_set_logo": True,  # paste stylized set logo image
     },
     "prerelease": {
@@ -384,14 +384,14 @@ def _draw_positioned_stamp(
             if logo_path.exists():
                 try:
                     logo = Image.open(logo_path).convert("RGBA")
-                    # Scale to ~20% of card width
-                    target_w = int(card_w * 0.20)
+                    # Scale to ~25% of card width
+                    target_w = int(card_w * 0.25)
                     scale = target_w / logo.width
                     target_h = int(logo.height * scale)
                     logo = logo.resize((target_w, target_h), Image.LANCZOS)
-                    # 90% opacity
+                    # 95% opacity
                     a = logo.split()[3]
-                    a = a.point(lambda p: int(p * 0.90))
+                    a = a.point(lambda p: int(p * 0.95))
                     logo.putalpha(a)
                     # Paste at position — bottom-right of artwork box
                     paste_x = cx - target_w // 2
