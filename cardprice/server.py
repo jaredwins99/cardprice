@@ -54,6 +54,8 @@ from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
+from cardprice.scan_logger import log_scan_result, get_accuracy_summary, get_card_ledger
+
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path("data/inbox")
@@ -269,6 +271,10 @@ def _find_duplicate_scan(phash_hex):
 # ---------------------------------------------------------------------------
 # Prefers Normal subtype, falls back to Holofoil, then any subtype.
 # This ensures holo-only cards (e.g. Absol) still get a price.
+# Unified price lookup: dispatches between English and Japanese tables
+# based on the card_id prefix.  Japanese cards have card_id like "jp_<id>"
+# from dim_cards_jp.  This UNION ALL means the same SQL works for both
+# without per-call-site dispatch.
 _PRICE_LOOKUP_SQL = """
     SELECT c.name, s.name as set_name, c.image_small,
            c.tcg_product_id, p.market_price
@@ -282,8 +288,27 @@ _PRICE_LOOKUP_SQL = """
             price_date DESC
         LIMIT 1
     ) p ON true
-    WHERE c.card_id = :cid
+    WHERE c.card_id = :cid AND :cid NOT LIKE 'jp\\_%' ESCAPE '\\'
+    UNION ALL
+    SELECT c.name, s.name as set_name, c.image_url as image_small,
+           c.tcg_product_id, p.market_price
+    FROM dim_cards_jp c
+    JOIN dim_sets_jp s ON s.set_id = c.set_id
+    LEFT JOIN LATERAL (
+        SELECT market_price FROM fact_market_prices_jp
+        WHERE card_id = c.card_id
+        ORDER BY
+            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            price_date DESC
+        LIMIT 1
+    ) p ON true
+    WHERE c.card_id = :cid AND :cid LIKE 'jp\\_%' ESCAPE '\\'
 """
+
+
+def _is_jp_card_id(card_id: str | None) -> bool:
+    """Detect Japanese card_id format (jp_<product_id> from dim_cards_jp)."""
+    return bool(card_id and card_id.startswith("jp_"))
 
 _PRICE_LOOKUP_BULK_SQL = """
     SELECT c.card_id, c.name, p.market_price
@@ -389,12 +414,41 @@ _1ST_EDITION_SUBTYPES = ["1st Edition Holofoil", "1st Edition", "1st Edition Nor
 def _lookup_variant_price(session, card_id, detected_variant):
     """Look up variant-specific price from fact_market_prices.
 
+    For Japanese cards (card_id starts with "jp_"), looks up
+    fact_market_prices_jp instead.
+
     For 1st Edition, tries multiple subtype names since TCGCSV uses different
     ones depending on era (Holofoil vs Normal vs bare "1st Edition").
 
     Returns the market_price as float, or None if not found.
     """
     from sqlalchemy import text as sql_text
+
+    # Japanese cards: route to fact_market_prices_jp
+    if _is_jp_card_id(card_id):
+        subtype = _VARIANT_TO_SUBTYPE.get(detected_variant or "normal", "Normal")
+        vrow = session.execute(
+            sql_text("""
+                SELECT market_price FROM fact_market_prices_jp
+                WHERE card_id = :cid AND subtype_name = :subtype
+                ORDER BY price_date DESC LIMIT 1
+            """),
+            {"cid": card_id, "subtype": subtype},
+        ).fetchone()
+        if vrow and vrow.market_price:
+            return float(vrow.market_price)
+        # Fall back to any subtype if specific one missing
+        vrow = session.execute(
+            sql_text("""
+                SELECT market_price FROM fact_market_prices_jp
+                WHERE card_id = :cid
+                ORDER BY price_date DESC LIMIT 1
+            """),
+            {"cid": card_id},
+        ).fetchone()
+        if vrow and vrow.market_price:
+            return float(vrow.market_price)
+        return None
 
     if detected_variant == "1st_edition":
         # Try each 1st Edition subtype in priority order
@@ -1695,6 +1749,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_history()
         elif self.path == "/stats":
             self._send_stats()
+        elif self.path == "/scan-stats":
+            self._send_scan_stats()
+        elif self.path == "/card-ledger":
+            self._send_card_ledger()
         elif self.path.startswith("/result/"):
             self._send_result(self.path.split("/result/", 1)[1])
         elif self.path.startswith("/events/"):
@@ -2512,6 +2570,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "variant_confidence": result.get("variant_confidence"),
                         "stamps_detected": result.get("stamps_detected", []),
                         "stamp_details": result.get("stamp_details", {}),
+                        "ocr_name": result.get("raw_response", {}).get("ocr_name") if isinstance(result.get("raw_response"), dict) else None,
+                        "ocr_conf": result.get("raw_response", {}).get("ocr_confidence") if isinstance(result.get("raw_response"), dict) else None,
                         "card_name": None,
                         "market_price": None,
                         "variant_price": None,
@@ -2553,6 +2613,22 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 )
 
                     cards.append(card_data)
+
+                # Log scan results for accuracy tracking
+                try:
+                    page_id = f"page_{timestamp}_cards"
+                    for card_data in cards:
+                        log_scan_result(page_id, card_data.get("position", 0), {
+                            "card_id": card_data.get("card_id"),
+                            "card_name": card_data.get("card_name"),
+                            "confidence": card_data.get("confidence"),
+                            "method": card_data.get("method"),
+                            "ocr_name": card_data.get("raw_response", {}).get("ocr_name") if isinstance(card_data.get("raw_response"), dict) else None,
+                            "ocr_conf": card_data.get("raw_response", {}).get("ocr_confidence") if isinstance(card_data.get("raw_response"), dict) else None,
+                            "variant_detected": card_data.get("detected_variant"),
+                        })
+                except Exception as e:
+                    logger.warning(f"Failed to log scan results: {e}")
 
         except Exception as e:
             logger.error("Page scan identification error: %s", e)
@@ -2718,6 +2794,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         "variant_confidence": result.get("variant_confidence"),
                         "stamps_detected": result.get("stamps_detected", []),
                         "stamp_details": result.get("stamp_details", {}),
+                        "ocr_name": result.get("raw_response", {}).get("ocr_name") if isinstance(result.get("raw_response"), dict) else None,
+                        "ocr_conf": result.get("raw_response", {}).get("ocr_confidence") if isinstance(result.get("raw_response"), dict) else None,
                         "card_name": None,
                         "market_price": None,
                         "variant_price": None,
@@ -4486,6 +4564,78 @@ class ScanHandler(BaseHTTPRequestHandler):
             "index_sizes": index_sizes,
             "card_image_count": image_count,
         })
+
+    def _send_scan_stats(self):
+        """Return accuracy summary from the scan logger."""
+        try:
+            summary = get_accuracy_summary()
+            self._send_json(summary)
+        except Exception as e:
+            logger.error("Failed to get scan stats: %s", e)
+            self._send_json({"error": str(e)}, status=500)
+
+    def _send_card_ledger(self):
+        """Render per-card accuracy table as HTML, sorted worst-first."""
+        try:
+            ledger = get_card_ledger()
+        except Exception as e:
+            logger.error("Failed to get card ledger: %s", e)
+            self._send_html(f"<html><body><h1>Error</h1><p>{e}</p></body></html>")
+            return
+
+        total_cards = len(ledger)
+        total_scans = sum(c["scans"] for c in ledger)
+        total_correct = sum(c["correct"] for c in ledger)
+        overall_acc = (total_correct / total_scans * 100) if total_scans > 0 else 0.0
+
+        rows_html = ""
+        for c in ledger:
+            acc_pct = c["accuracy"] * 100
+            if acc_pct >= 100:
+                color = "#4CAF50"
+                status = "OK"
+            elif acc_pct >= 50:
+                color = "#FFC107"
+                status = "WARN"
+            else:
+                color = "#F44336"
+                status = "FAIL"
+            rows_html += (
+                f'<tr>'
+                f'<td style="font-family:monospace;font-size:12px">{c["card_id"]}</td>'
+                f'<td>{c["card_name"]}</td>'
+                f'<td style="text-align:center">{c["scans"]}</td>'
+                f'<td style="text-align:center">{c["correct"]}</td>'
+                f'<td style="text-align:center;font-weight:bold;color:{color}">{acc_pct:.0f}%</td>'
+                f'<td style="text-align:center;color:{color};font-weight:bold">{status}</td>'
+                f'</tr>'
+            )
+
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Card Ledger</title>
+<style>
+body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }}
+h1 {{ color: #fff; }}
+.summary {{ background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: inline-block; }}
+.summary span {{ margin-right: 20px; }}
+table {{ border-collapse: collapse; width: 100%; }}
+th, td {{ padding: 8px 12px; border-bottom: 1px solid #333; text-align: left; }}
+th {{ background: #0f3460; color: #fff; position: sticky; top: 0; }}
+tr:hover {{ background: #16213e; }}
+</style></head><body>
+<h1>Card Accuracy Ledger</h1>
+<div class="summary">
+<span><b>Unique Cards:</b> {total_cards}</span>
+<span><b>Total Scans:</b> {total_scans}</span>
+<span><b>Correct:</b> {total_correct}</span>
+<span><b>Overall Accuracy:</b> <b style="color:{'#4CAF50' if overall_acc >= 95 else '#FFC107' if overall_acc >= 80 else '#F44336'}">{overall_acc:.1f}%</b></span>
+</div>
+<table>
+<thead><tr><th>Card ID</th><th>Card Name</th><th>Scans</th><th>Correct</th><th>Accuracy</th><th>Status</th></tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+</body></html>"""
+        self._send_html(html)
 
     def _send_result(self, scan_id):
         """Check result of a specific scan by scan_id."""

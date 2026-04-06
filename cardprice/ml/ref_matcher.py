@@ -26,6 +26,13 @@ _REF_EMBEDDINGS_PATH = Path("data/ref_embeddings.pkl")
 _ref_embeddings: Optional[dict[str, np.ndarray]] = None
 _ref_embeddings_lock = __import__("threading").Lock()
 
+# Pre-computed Japanese reference embeddings (separate file because JP cards
+# have different card_id namespace: jp_<tcg_product_id> from dim_cards_jp).
+_REF_EMBEDDINGS_JP_PATH = Path("data/ref_embeddings_jp.pkl")
+_ref_embeddings_jp: Optional[dict[str, np.ndarray]] = None
+_ref_embeddings_jp_matrix: Optional[np.ndarray] = None  # stacked (N, 768) for fast search
+_ref_embeddings_jp_ids: Optional[list[str]] = None
+
 # JSON fallback for card names when DB is unavailable
 _CARD_NAMES_JSON = Path(__file__).resolve().parent.parent.parent / "data" / "card_names.json"
 _card_names_fallback: Optional[list[tuple[str, str, str]]] = None
@@ -79,7 +86,7 @@ def _load_ref_embeddings() -> dict[str, np.ndarray]:
         if not _REF_EMBEDDINGS_PATH.is_file():
             logger.warning(
                 "Pre-computed embeddings not found at %s — will compute on the fly. "
-                "Run 'python scripts/build_ref_embeddings.py' to pre-compute.",
+                "Run 'python scripts/build/build_ref_embeddings.py' to pre-compute.",
                 _REF_EMBEDDINGS_PATH,
             )
             _ref_embeddings = {}
@@ -90,6 +97,76 @@ def _load_ref_embeddings() -> dict[str, np.ndarray]:
             _ref_embeddings = pickle.load(f)
         logger.info("Loaded %d pre-computed embeddings.", len(_ref_embeddings))
         return _ref_embeddings
+
+
+def _load_jp_ref_embeddings() -> tuple[Optional[np.ndarray], Optional[list[str]]]:
+    """Lazy-load JP reference embeddings as a stacked (N, 768) matrix for fast
+    cosine search.
+
+    Returns (matrix, card_ids) or (None, None) if file doesn't exist.
+    """
+    global _ref_embeddings_jp, _ref_embeddings_jp_matrix, _ref_embeddings_jp_ids
+    if _ref_embeddings_jp_matrix is not None:
+        return _ref_embeddings_jp_matrix, _ref_embeddings_jp_ids
+
+    with _ref_embeddings_lock:
+        if _ref_embeddings_jp_matrix is not None:
+            return _ref_embeddings_jp_matrix, _ref_embeddings_jp_ids
+
+        if not _REF_EMBEDDINGS_JP_PATH.is_file():
+            logger.warning(
+                "JP embeddings not found at %s — JP DINOv2 search disabled. "
+                "Run 'python scripts/build_jp_embeddings.py' to build.",
+                _REF_EMBEDDINGS_JP_PATH,
+            )
+            return None, None
+
+        logger.info("Loading JP reference embeddings from %s ...", _REF_EMBEDDINGS_JP_PATH)
+        with open(_REF_EMBEDDINGS_JP_PATH, "rb") as f:
+            _ref_embeddings_jp = pickle.load(f)
+        # Stack into a matrix for vectorized cosine search
+        ids = sorted(_ref_embeddings_jp.keys())
+        matrix = np.stack([_ref_embeddings_jp[i] for i in ids], axis=0).astype(np.float32)
+        _ref_embeddings_jp_matrix = matrix
+        _ref_embeddings_jp_ids = ids
+        logger.info(
+            "Loaded %d JP embeddings into (%d, %d) search matrix",
+            len(ids), matrix.shape[0], matrix.shape[1],
+        )
+        return _ref_embeddings_jp_matrix, _ref_embeddings_jp_ids
+
+
+def search_jp_embeddings(
+    query_image_path: str | Path,
+    query_embedding: Optional[np.ndarray] = None,
+    top_k: int = 1,
+) -> list[tuple[str, float]]:
+    """Global JP DINOv2 search: find the closest Japanese cards to a query image.
+
+    Used when the OCR pipeline detects Japanese text — instead of doing English
+    name lookup, do a direct visual match against all 3,273 JP card embeddings.
+
+    Returns a list of (jp_card_id, cosine_similarity) tuples, top_k entries.
+    Returns an empty list if JP embeddings are not available.
+    """
+    matrix, ids = _load_jp_ref_embeddings()
+    if matrix is None or ids is None:
+        return []
+
+    if query_embedding is None:
+        from cardprice.ml.dino_matcher import extract_embedding
+        query_embedding = extract_embedding(query_image_path)
+
+    # Cosine similarity = dot product of L2-normalized vectors
+    # matrix shape: (N, 768), query: (768,) → result: (N,)
+    sims = matrix @ query_embedding.astype(np.float32)
+    # Top-k indices by descending similarity
+    if top_k >= len(sims):
+        order = np.argsort(-sims)
+    else:
+        order = np.argpartition(-sims, top_k)[:top_k]
+        order = order[np.argsort(-sims[order])]
+    return [(ids[i], float(sims[i])) for i in order[:top_k]]
 
 
 # ---------------------------------------------------------------------------

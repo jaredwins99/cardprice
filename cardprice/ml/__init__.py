@@ -3763,17 +3763,53 @@ def _rapid_ja_ocr(image_path: str) -> list[tuple[str, float]]:
 _paddle_ja_ocr_subprocess = _rapid_ja_ocr
 
 
-def _try_japanese_ocr(image_path: str) -> str | None:
-    """Try PaddleOCR Japanese on the name region, return English name if found.
+def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> str | None:
+    """Global DINOv2 search against the JP embeddings.
 
-    Uses PaddleOCR (lang='japan') via subprocess on multiple crops of the top
-    portion of the card.  Extracted Japanese text is fuzzy-matched against the
-    reverse index of Japanese -> English card names (species names + compound
-    names like わるいマルマイン -> Dark Electrode).
+    Returns a "jp_<tcg_product_id>" card_id if a confident match is found,
+    otherwise None.  Used as the primary JP identification path: when a card
+    looks Japanese, we directly visual-match it to the 3,273 JP card images.
 
-    Only called when primary (RapidOCR) returns nothing, so no performance
-    impact on English cards.
+    Threshold 0.78 is conservative — true matches usually score 0.85+, and
+    we want to avoid false positives that route an English card to JP pricing.
     """
+    try:
+        from cardprice.ml.ref_matcher import search_jp_embeddings
+        results = search_jp_embeddings(image_path, top_k=1)
+        if not results:
+            return None
+        jp_id, score = results[0]
+        if score >= threshold:
+            logger.info("JP DINOv2 match: %s (sim=%.3f)", jp_id, score)
+            return jp_id
+        logger.debug("JP DINOv2 best match below threshold: %s (sim=%.3f)", jp_id, score)
+        return None
+    except Exception as e:
+        logger.debug("JP DINOv2 search failed: %s", e)
+        return None
+
+
+def _try_japanese_ocr(image_path: str) -> str | None:
+    """Try Japanese OCR on the name region, return English name if found.
+
+    Returns either:
+      - "jp_<tcg_product_id>" — if JP DINOv2 search found a confident match
+        in the JP card embeddings.  Caller treats this as a direct card_id.
+      - English Pokemon name (str) — fallback when DINOv2 isn't confident
+        but RapidOCR Japanese + reverse index found a name.
+      - None — no Japanese signal at all.
+
+    Strategy:
+    1. Run JP DINOv2 global search FIRST.  If confident, return jp_<id>.
+    2. Otherwise, run RapidOCR Japanese on the name region for a heuristic
+       English name (fuzzy-matched via the JA reverse index).
+    """
+    # --- Step 1: JP DINOv2 global search (preferred — gives specific card) ---
+    jp_id = _try_jp_dino_match(image_path)
+    if jp_id:
+        return jp_id
+
+    # --- Step 2: Fall back to OCR + reverse-index lookup ---
     import re
     from rapidfuzz import fuzz, process
 
@@ -4907,6 +4943,28 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         ocr_name, ocr_conf, hp_value, color_type, color_conf,
         ocr_card_num, ocr_set_total,
     )
+
+    # -----------------------------------------------------------------------
+    # Japanese fast path: when JP DINOv2 found a confident match, the OCR
+    # function returns the JP card_id directly (jp_<tcg_product_id>) instead
+    # of an English Pokemon name.  Short-circuit the candidate lookup and
+    # return the JP card_id straight through.  Downstream price lookup
+    # auto-routes to fact_market_prices_jp via the UNION SQL.
+    # -----------------------------------------------------------------------
+    if ocr_name and isinstance(ocr_name, str) and ocr_name.startswith("jp_"):
+        logger.info("v2: Japanese fast path — JP DINOv2 returned %s", ocr_name)
+        result = {
+            "card_id": ocr_name,
+            "confidence": ocr_conf,
+            "method": "v2_jp_dinov2",
+            "raw_response": {
+                "ocr_name": ocr_name,
+                "ocr_raw": ocr_raw or f"[JP]{ocr_name}",
+                "language": "ja",
+            },
+        }
+        _apply_variant_detection(result, image_path, detect_variants=detect_variants)
+        return result
 
     # -----------------------------------------------------------------------
     # Step 2: Query DB for candidates

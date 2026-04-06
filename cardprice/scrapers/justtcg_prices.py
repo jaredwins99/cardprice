@@ -55,6 +55,7 @@ MIN_REQUEST_INTERVAL = 6.5  # seconds between requests (conservative)
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS justtcg_prices (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    game            TEXT NOT NULL DEFAULT 'pokemon',
     tcg_product_id  INTEGER NOT NULL,
     card_name       TEXT,
     set_name        TEXT,
@@ -76,7 +77,19 @@ CREATE INDEX IF NOT EXISTS idx_justtcg_product_condition
     ON justtcg_prices (tcg_product_id, condition);
 CREATE INDEX IF NOT EXISTS idx_justtcg_fetched
     ON justtcg_prices (fetched_at);
+CREATE INDEX IF NOT EXISTS idx_justtcg_game_product
+    ON justtcg_prices (game, tcg_product_id);
 """
+
+
+def _ensure_game_column(conn: sqlite3.Connection) -> None:
+    """Add game column to pre-existing tables (backwards compat migration)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(justtcg_prices)").fetchall()}
+    if "game" not in cols:
+        conn.execute(
+            "ALTER TABLE justtcg_prices ADD COLUMN game TEXT NOT NULL DEFAULT 'pokemon'"
+        )
+        conn.commit()
 
 
 def get_db(db_path: Path | None = None) -> sqlite3.Connection:
@@ -86,7 +99,9 @@ def get_db(db_path: Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.executescript(CREATE_TABLE_SQL + CREATE_INDEX_SQL)
+    conn.executescript(CREATE_TABLE_SQL)
+    _ensure_game_column(conn)
+    conn.executescript(CREATE_INDEX_SQL)
     return conn
 
 
@@ -179,6 +194,7 @@ class JustTCGClient:
         tcgplayer_id: int,
         include_history: bool = False,
         history_duration: str = "7d",
+        game: str = "pokemon",
     ) -> dict | None:
         """Look up a single card by TCGPlayer product ID.
 
@@ -187,6 +203,7 @@ class JustTCGClient:
         """
         params = {
             "tcgplayerId": str(tcgplayer_id),
+            "game": game,
             "include_price_history": str(include_history).lower(),
             "include_null_prices": "false",
         }
@@ -205,6 +222,7 @@ class JustTCGClient:
         self,
         tcgplayer_ids: list[int],
         include_history: bool = False,
+        game: str = "pokemon",
     ) -> list[dict]:
         """Batch lookup by TCGPlayer product IDs (max 20 on free tier).
 
@@ -215,6 +233,7 @@ class JustTCGClient:
 
         body = [{"tcgplayerId": str(tid)} for tid in tcgplayer_ids]
         params = {
+            "game": game,
             "include_price_history": str(include_history).lower(),
             "include_null_prices": "false",
         }
@@ -229,9 +248,10 @@ class JustTCGClient:
         self,
         tcgplayer_id: int,
         db: sqlite3.Connection | None = None,
+        game: str = "pokemon",
     ) -> list[dict]:
         """Fetch pricing for a card and store in SQLite. Returns variant rows."""
-        card = self.get_card_by_tcgplayer_id(tcgplayer_id)
+        card = self.get_card_by_tcgplayer_id(tcgplayer_id, game=game)
         if not card:
             logger.warning(f"Card not found for tcgplayerId={tcgplayer_id}")
             return []
@@ -244,6 +264,7 @@ class JustTCGClient:
         now = datetime.now(timezone.utc).isoformat()
         for v in card.get("variants", []):
             row = {
+                "game": game,
                 "tcg_product_id": tcgplayer_id,
                 "card_name": card.get("name"),
                 "set_name": card.get("set_name"),
@@ -260,10 +281,10 @@ class JustTCGClient:
             }
             db.execute(
                 """INSERT INTO justtcg_prices
-                   (tcg_product_id, card_name, set_name, card_number, rarity,
+                   (game, tcg_product_id, card_name, set_name, card_number, rarity,
                     condition, printing, price, avg_price,
                     price_change_24hr, price_change_7d, last_updated, fetched_at)
-                   VALUES (:tcg_product_id, :card_name, :set_name, :card_number,
+                   VALUES (:game, :tcg_product_id, :card_name, :set_name, :card_number,
                            :rarity, :condition, :printing, :price, :avg_price,
                            :price_change_24hr, :price_change_7d, :last_updated,
                            :fetched_at)""",
@@ -285,9 +306,10 @@ class JustTCGClient:
         self,
         tcgplayer_ids: list[int],
         db: sqlite3.Connection | None = None,
+        game: str = "pokemon",
     ) -> int:
         """Batch fetch and store. Returns total variant rows stored."""
-        cards = self.get_cards_batch(tcgplayer_ids)
+        cards = self.get_cards_batch(tcgplayer_ids, game=game)
 
         own_db = db is None
         if own_db:
@@ -300,12 +322,12 @@ class JustTCGClient:
             for v in card.get("variants", []):
                 db.execute(
                     """INSERT INTO justtcg_prices
-                       (tcg_product_id, card_name, set_name, card_number, rarity,
+                       (game, tcg_product_id, card_name, set_name, card_number, rarity,
                         condition, printing, price, avg_price,
                         price_change_24hr, price_change_7d, last_updated, fetched_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
-                        tid, card.get("name"), card.get("set_name"),
+                        game, tid, card.get("name"), card.get("set_name"),
                         card.get("number"), card.get("rarity"),
                         v.get("condition", ""), v.get("printing", ""),
                         v.get("price"), v.get("avgPrice"),
