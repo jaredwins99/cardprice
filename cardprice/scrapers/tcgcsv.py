@@ -19,7 +19,11 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 ARCHIVES_DIR = DATA_DIR / "archives"
 EXTRACTED_DIR = DATA_DIR / "extracted"
 
-BASE = f"{TCGCSV_BASE_URL}/tcgplayer/{POKEMON_CATEGORY_ID}"
+# Default category is English Pokemon (3); pass category_id=85 for Japanese.
+def _base(category_id: int = POKEMON_CATEGORY_ID) -> str:
+    return f"{TCGCSV_BASE_URL}/tcgplayer/{category_id}"
+
+BASE = _base(POKEMON_CATEGORY_ID)
 ARCHIVE_BASE = f"{TCGCSV_BASE_URL}/archive/tcgplayer"
 
 # TCGPlayer marketplace_id — must match dim_marketplaces row.
@@ -44,28 +48,24 @@ def _get_json(url: str) -> dict:
 # Live API functions
 # ---------------------------------------------------------------------------
 
-def fetch_groups() -> list[dict]:
-    """Return all Pokemon groups from TCGCSV."""
-    data = _get_json(f"{BASE}/groups")
-    # Response is a bare list (no wrapper).
+def fetch_groups(category_id: int = POKEMON_CATEGORY_ID) -> list[dict]:
+    """Return all Pokemon groups from TCGCSV for the given category."""
+    data = _get_json(f"{_base(category_id)}/groups")
     if isinstance(data, list):
         return data
-    # Some endpoints wrap in {"results": [...]}.
     return data.get("results", data)
 
 
-def fetch_prices(group_id: int) -> list[dict]:
+def fetch_prices(group_id: int, category_id: int = POKEMON_CATEGORY_ID) -> list[dict]:
     """Fetch prices for one group. Returns list of price dicts."""
-    data = _get_json(f"{BASE}/{group_id}/prices")
-    results = data.get("results", [])
-    return results
+    data = _get_json(f"{_base(category_id)}/{group_id}/prices")
+    return data.get("results", [])
 
 
-def fetch_products(group_id: int) -> list[dict]:
+def fetch_products(group_id: int, category_id: int = POKEMON_CATEGORY_ID) -> list[dict]:
     """Fetch products for one group. Returns list of product dicts."""
-    data = _get_json(f"{BASE}/{group_id}/products")
-    results = data.get("results", [])
-    return results
+    data = _get_json(f"{_base(category_id)}/{group_id}/products")
+    return data.get("results", [])
 
 
 # ---------------------------------------------------------------------------

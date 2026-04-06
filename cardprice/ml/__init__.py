@@ -40,6 +40,54 @@ _scan_cache: OrderedDict = OrderedDict()
 _SCAN_CACHE_MAX = 100
 _ROBUST_CONFIDENCE_THRESHOLD = 0.65
 
+# Known EX-era stamp text for fuzzy matching against OCR output.
+# Maps set ID to the text that appears on stamped cards from that set.
+EX_STAMP_NAMES = {
+    "ex7": "TEAM ROCKET RETURNS", "ex8": "DEOXYS", "ex9": "EMERALD",
+    "ex10": "UNSEEN FORCES", "ex11": "DELTA SPECIES", "ex12": "LEGEND MAKER",
+    "ex13": "HOLON PHANTOMS", "ex14": "CRYSTAL GUARDIANS",
+    "ex15": "DRAGON FRONTIERS", "ex16": "POWER KEEPERS",
+}
+# Reverse lookup: stamp name -> set ID
+_STAMP_NAME_TO_SET = {v: k for k, v in EX_STAMP_NAMES.items()}
+# Pre-built list of stamp names for rapidfuzz extractOne
+_STAMP_NAME_CHOICES = list(EX_STAMP_NAMES.values())
+
+
+def _fuzzy_match_stamp_text(texts):
+    """Fuzzy-match OCR texts from the stamp region against known EX stamp names.
+
+    Args:
+        texts: list of OCR text strings from the stamp region.
+
+    Returns:
+        (set_id, score) if best match > 55, else (None, 0).
+        set_id is e.g. "ex10", score is 0-100.
+    """
+    from rapidfuzz import fuzz, process
+
+    # Concatenate all texts and also try each individually
+    combined = " ".join(texts).upper().strip()
+    candidates = [combined] + [t.upper().strip() for t in texts]
+
+    best_set_id = None
+    best_score = 0
+    for candidate in candidates:
+        if len(candidate) < 3:
+            continue
+        match = process.extractOne(
+            candidate, _STAMP_NAME_CHOICES,
+            scorer=fuzz.partial_ratio,
+        )
+        if match and match[1] > best_score:
+            best_score = match[1]
+            best_set_id = _STAMP_NAME_TO_SET[match[0]]
+
+    if best_score > 55:
+        return best_set_id, best_score
+    return None, 0
+
+
 # Resolve data paths relative to the project root (two levels up from this file).
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _HASH_DB_PATH = _PROJECT_ROOT / "data" / "hash_db.pkl"
@@ -2870,14 +2918,20 @@ def _ocr_card_number(image_path: str) -> tuple:
     """Read the card number from the bottom of a card image.
 
     Pokemon cards print their collector number (e.g. "205/165") in small
-    text at the bottom-left.  We crop the bottom 15%, upscale 3x, and
-    run RapidOCR to find a "N/M" pattern.
+    text at the bottom-left.  At binder segment resolution (~1008x1530),
+    this text is only ~8-12px tall — very challenging for OCR.
+
+    Strategy: try multiple upscale levels (4x, 6x) and preprocessing
+    variants (plain, CLAHE, sharpen) to maximize detection probability.
+    Also applies OCR character substitutions (O->0, l->1, etc.) as a
+    fallback pass.
 
     Returns:
         (card_number, set_total) — e.g. ("205", "165"), or (None, None).
     """
     import cv2
     import re
+    import numpy as np
 
     try:
         img = cv2.imread(str(image_path))
@@ -2885,23 +2939,61 @@ def _ocr_card_number(image_path: str) -> tuple:
             return None, None
 
         h, w = img.shape[:2]
-        bottom = img[int(h * 0.85):, :]
-        up = cv2.resize(bottom, None, fx=3, fy=3)
+        # Crop bottom 13% (87-100%) — card number is at very bottom
+        bottom = img[int(h * 0.87):int(h * 0.97), int(w * 0.03):int(w * 0.97)]
 
         from cardprice.ml.ocr_matcher import get_rapid_engine
         rapid_engine = get_rapid_engine()
-        result, _ = rapid_engine(up)
-        if not result:
-            return None, None
 
-        for box, text, conf in result:
-            m = re.search(r'(\d{1,4})\s*/\s*(\d{1,4})', text)
-            if m:
-                card_num = m.group(1).lstrip('0') or '0'
-                set_total = m.group(2).lstrip('0') or '0'
-                logger.info("card_number OCR: found %s/%s (raw=%r, conf=%.2f)",
-                            card_num, set_total, text, conf)
-                return card_num, set_total
+        # Try multiple preprocessing variants for robustness
+        bh, bw = bottom.shape[:2]
+        variants = []
+        for scale in (4, 6):
+            big = cv2.resize(bottom, (bw * scale, bh * scale),
+                             interpolation=cv2.INTER_CUBIC)
+            # Plain upscale
+            variants.append(big)
+            # CLAHE enhanced
+            gray = cv2.cvtColor(big, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+            enh = clahe.apply(gray)
+            variants.append(cv2.cvtColor(enh, cv2.COLOR_GRAY2BGR))
+            # Sharpen
+            kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+            sharp = cv2.filter2D(big, -1, kernel)
+            variants.append(sharp)
+
+        # Pass 1: look for N/M pattern in raw OCR text
+        for variant in variants:
+            result, _ = rapid_engine(variant)
+            if not result:
+                continue
+            for box, text, conf in result:
+                m = re.search(r'(\d{1,4})\s*/\s*(\d{1,4})', text)
+                if m:
+                    card_num = m.group(1).lstrip('0') or '0'
+                    set_total = m.group(2).lstrip('0') or '0'
+                    logger.info("card_number OCR: found %s/%s (raw=%r, conf=%.2f)",
+                                card_num, set_total, text, conf)
+                    return card_num, set_total
+
+        # Pass 2: OCR character substitutions (O->0, l->1, etc.)
+        for variant in variants:
+            result, _ = rapid_engine(variant)
+            if not result:
+                continue
+            for box, text, conf in result:
+                fixed = text
+                for old, new in [('O', '0'), ('o', '0'), ('l', '1'),
+                                 ('I', '1'), ('S', '5'), ('B', '8')]:
+                    fixed = fixed.replace(old, new)
+                m = re.search(r'(\d{1,4})\s*[/|\\]\s*(\d{1,4})', fixed)
+                if m:
+                    card_num = m.group(1).lstrip('0') or '0'
+                    set_total = m.group(2).lstrip('0') or '0'
+                    logger.info("card_number OCR: found %s/%s via substitution (raw=%r, conf=%.2f)",
+                                card_num, set_total, text, conf)
+                    return card_num, set_total
 
     except Exception as e:
         logger.warning("card_number OCR failed: %s", e)
@@ -3488,11 +3580,17 @@ _ja_reverse_index: dict[str, str] | None = None
 def _get_ja_reverse_index() -> dict[str, str]:
     """Build/return a reverse index mapping Japanese text -> English card name.
 
-    Sources:
-    - _load_translation_names() already contains Japanese compound names
-      (e.g. わるいマルマイン -> Dark Electrode) from the prefix mapping plus
-      species names.  We filter to entries containing Japanese characters.
-    - jp_en_pokemon_names.json for direct species-level mappings.
+    Priority order (highest wins, overrides lower sources):
+    1. jp_en_pokemon_names.json -- authoritative PokeAPI species names,
+       LOADED FIRST to override any cross-language ID collisions from
+       card_translations.json.  This fixes the bug where Japanese set IDs
+       in card_translations.json (e.g. "neo2-1" = キャタピー) collided with
+       different English cards (neo2-1 = Espeon), corrupting 22+ base
+       species names (Pikachu -> Gloom, Lugia -> Shuckle, etc.).
+    2. _load_translation_names() -- compound names (e.g. わるいマルマイン
+       -> Dark Electrode) from the JP prefix mapping.  Filtered to entries
+       containing Japanese characters.  Only adds entries NOT already
+       present from Source 1.
     """
     global _ja_reverse_index
     if _ja_reverse_index is not None:
@@ -3504,124 +3602,165 @@ def _get_ja_reverse_index() -> dict[str, str]:
 
     result: dict[str, str] = {}
 
-    # Source 1: translation names (includes わるいマルマイン etc.)
-    for foreign_lower, eng_name in _load_translation_names().items():
-        if JP_CHAR_RE.search(foreign_lower):
-            result[foreign_lower] = eng_name
-
-    # Source 2: jp_en_pokemon_names.json (species-level)
+    # Source 1 (authoritative species): jp_en_pokemon_names.json.
+    # Loaded FIRST so Source 3 cannot overwrite correct Pokemon species
+    # with cross-language ID collisions.
     jp_map_path = Path(__file__).resolve().parent.parent.parent / "data" / "jp_en_pokemon_names.json"
     if jp_map_path.exists():
         with open(jp_map_path) as f:
             for ja_name, en_name in json.load(f).items():
-                ja_lower = ja_name.lower()
-                if ja_lower not in result:
-                    result[ja_lower] = en_name
+                result[ja_name.lower()] = en_name
+
+    # Source 2 (authoritative trainers/energy): curated JP→EN bridge file.
+    # Loaded BEFORE Source 3 so corrupted trainer/energy translations from
+    # card_translations.json (caused by cross-language ID collisions) cannot
+    # overwrite hand-verified mappings.  Format: {jp_name: english_name}.
+    try:
+        bridge_path = Path(__file__).resolve().parent.parent.parent / "data" / "jp_en_trainer_energy.json"
+        if bridge_path.exists():
+            with open(bridge_path) as f:
+                bridge = json.load(f)
+            added_bridge = 0
+            for jp_name, eng_name in bridge.items():
+                jp_lower = jp_name.lower().strip()
+                if jp_lower:
+                    # Force override — curated bridge is authoritative for
+                    # trainer/energy names.  Pokemon species in Source 1 are
+                    # still protected because bridge file only has T/E names.
+                    result[jp_lower] = eng_name
+                    added_bridge += 1
+            logger.info("Source 2 (curated trainer/energy bridge): added %d entries", added_bridge)
+    except Exception as e:
+        logger.warning("Failed to load curated trainer/energy bridge: %s", e)
+
+    # Source 3: translation names (compound species names like わるいマルマイン).
+    # TCGdex JA uses different set IDs than our ptcgio DB, so ID-based joins
+    # produce cross-language collisions.  We only add entries NOT already
+    # covered by Sources 1-2 (authoritative) to avoid importing corrupted
+    # mappings.  This means JP trainer/energy coverage is limited to the
+    # curated bridge file, but Pokemon species are comprehensive.
+    for foreign_lower, eng_name in _load_translation_names().items():
+        if JP_CHAR_RE.search(foreign_lower) and foreign_lower not in result:
+            result[foreign_lower] = eng_name
 
     logger.info("Japanese reverse index: %d entries", len(result))
     _ja_reverse_index = result
     return result
 
 
-def _paddle_ja_ocr_subprocess(image_path: str) -> list[tuple[str, float]]:
-    """Run PaddleOCR Japanese in a subprocess to avoid OOM.
+# ---------------------------------------------------------------------------
+# Japanese OCR: in-process RapidOCR with Japanese ONNX model
+# ---------------------------------------------------------------------------
+# Replaces the previous PaddleOCR subprocess approach.  RapidOCR uses
+# ONNX Runtime (already in dependencies for English OCR), runs in-process
+# (no subprocess overhead), and the Japanese CRNN v2 model is only 3.4MB.
+# Benchmarks: ~0.3s per card vs 18s for PaddleOCR subprocess.
 
-    PaddleOCR loads ~300MB of models.  When the main process already has
-    RapidOCR + FSRCNN + FAISS loaded, adding PaddleOCR can exceed available
-    memory.  Running in a subprocess isolates the memory usage.
+_ja_ocr_engine = None
+_ja_ocr_engine_lock = threading.Lock()
 
-    Returns list of (text, confidence) pairs from the OCR result.
+
+def _get_ja_ocr_engine():
+    """Lazy singleton for the Japanese RapidOCR engine.
+
+    Uses japan_rec_crnn_v2.onnx (3.4MB) from data/models/.  The CRNN v2
+    architecture needs rec_img_shape=[3,32,320] (height=32, not default 48).
     """
-    import subprocess
-    import json
+    global _ja_ocr_engine
+    if _ja_ocr_engine is not None:
+        return _ja_ocr_engine
 
-    # Prepare crops in the main process (cheap), pass image path to subprocess
-    script = r'''
-import sys, json, os, cv2
-os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
-
-image_path = sys.argv[1]
-img = cv2.imread(image_path)
-if img is None:
-    print(json.dumps([]))
-    sys.exit(0)
-
-h, w = img.shape[:2]
-
-from paddleocr import PaddleOCR
-ocr = PaddleOCR(
-    lang='japan',
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-)
-
-all_texts = []
-import tempfile
-
-crop_specs = [
-    (0.00, 0.25, "top25"),
-    (0.00, 0.15, "top15"),
-    (0.02, 0.20, "skip2"),
-]
-
-for top_frac, bot_frac, label in crop_specs:
-    crop = img[int(h * top_frac):int(h * bot_frac), :]
-    pad = 20
-    crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
-    crop = cv2.resize(crop, None, fx=3, fy=3)
-
-    tmp = tempfile.mktemp(suffix='.png')
-    try:
-        cv2.imwrite(tmp, crop)
-        results = ocr.predict(tmp)
-    finally:
+    with _ja_ocr_engine_lock:
+        if _ja_ocr_engine is not None:
+            return _ja_ocr_engine
         try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+            from rapidocr_onnxruntime import RapidOCR
+            model_path = _PROJECT_ROOT / "data" / "models" / "japan_rec_crnn_v2.onnx"
+            if not model_path.exists():
+                logger.warning(
+                    "Japanese OCR model not found at %s — JP OCR disabled. "
+                    "Download from: https://huggingface.co/spaces/RapidAI/RapidOCR/"
+                    "resolve/main/models/text_rec/japan_rec_crnn_v2.onnx",
+                    model_path,
+                )
+                return None
+            _ja_ocr_engine = RapidOCR(
+                rec_model_path=str(model_path),
+                rec_img_shape=[3, 32, 320],
+            )
+            logger.info("Japanese RapidOCR engine loaded from %s", model_path.name)
+            return _ja_ocr_engine
+        except Exception as e:
+            logger.warning("Failed to load Japanese RapidOCR engine: %s", e)
+            return None
 
-    if not results:
-        continue
-    for r in results:
-        texts = r.get('rec_texts', [])
-        scores = r.get('rec_scores', [])
-        for t, s in zip(texts, scores):
-            if s > 0.5 and len(t.strip()) >= 2:
-                all_texts.append([t, float(s), label])
 
-    # Early exit if we got good text from broadest crop
-    if all_texts:
-        break
+def _rapid_ja_ocr(image_path: str) -> list[tuple[str, float]]:
+    """Run RapidOCR Japanese on a card image.
 
-print(json.dumps(all_texts, ensure_ascii=False))
-'''
-    try:
-        # Strip CLAUDE* env vars (they break subprocess Claude calls)
-        env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE")}
-        env["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+    Tries multiple crops of the name region with early exit on good results.
+    Runs in-process (no subprocess), ~0.2-0.3s per card after warmup.
 
-        proc = subprocess.run(
-            [sys.executable, "-c", script, str(image_path)],
-            capture_output=True, text=True, timeout=120, env=env,
-        )
-        if proc.returncode != 0:
-            logger.warning("PaddleOCR Japanese subprocess failed: %s", proc.stderr[-500:] if proc.stderr else "")
-            return []
-
-        # Parse JSON output (last line of stdout)
-        output_lines = proc.stdout.strip().splitlines()
-        if not output_lines:
-            return []
-        data = json.loads(output_lines[-1])
-        return [(t, s) for t, s, _label in data]
-
-    except subprocess.TimeoutExpired:
-        logger.warning("PaddleOCR Japanese subprocess timed out")
+    Returns list of (text, confidence) pairs.
+    """
+    import cv2
+    engine = _get_ja_ocr_engine()
+    if engine is None:
         return []
-    except Exception as e:
-        logger.warning("PaddleOCR Japanese subprocess error: %s", e)
+
+    img = cv2.imread(str(image_path))
+    if img is None:
         return []
+
+    h, w = img.shape[:2]
+    all_texts: list[tuple[str, float]] = []
+
+    # Crop specs for the name region (top portion of card)
+    crop_specs = [
+        (0.00, 0.25),  # top25 — broadest
+        (0.00, 0.15),  # top15 — narrower
+        (0.02, 0.20),  # skip2 — skip border
+    ]
+
+    # RapidOCR ONNX is not guaranteed thread-safe; serialize engine calls
+    with _ja_ocr_engine_lock:
+        for top_frac, bot_frac in crop_specs:
+            crop = img[int(h * top_frac):int(h * bot_frac), :]
+            # Pad + upscale for better OCR on small text
+            pad = 20
+            crop = cv2.copyMakeBorder(crop, pad, pad, pad, pad, cv2.BORDER_REPLICATE)
+            crop = cv2.resize(crop, None, fx=3, fy=3)
+
+            try:
+                result, _ = engine(crop)
+            except Exception as e:
+                logger.debug("RapidOCR Japanese call failed: %s", e)
+                continue
+
+            if not result:
+                continue
+
+            for item in result:
+                # RapidOCR returns (box, text, score) tuples
+                if len(item) >= 3:
+                    text = item[1]
+                    try:
+                        score = float(item[2])
+                    except (TypeError, ValueError):
+                        continue
+                    if score > 0.5 and len(text.strip()) >= 2:
+                        all_texts.append((text, score))
+
+            # Early exit if we found good text on the broadest crop
+            if all_texts:
+                break
+
+    return all_texts
+
+
+# Backwards-compatible alias — old call sites use _paddle_ja_ocr_subprocess.
+# The new implementation is RapidOCR-based but keeps the same signature.
+_paddle_ja_ocr_subprocess = _rapid_ja_ocr
 
 
 def _try_japanese_ocr(image_path: str) -> str | None:
@@ -4153,6 +4292,8 @@ def _score_candidates_combined(
     type_detected: str | None = None,
     type_confidence: float = 0.0,
     precomputed_fulltext: str | None = None,
+    ocr_card_num: str | None = None,
+    ocr_set_total: str | None = None,
 ) -> list[tuple[str, float, dict]]:
     """Score candidates using DINOv2 visual similarity, attack OCR overlap, and full-text matching.
 
@@ -4398,19 +4539,56 @@ def _score_candidates_combined(
             # else: unknown type, no adjustment
         combined += type_bonus
 
+        # Card number tiebreaker: when OCR read a collector number from the
+        # bottom of the card, boost candidates whose DB card_number matches.
+        # This resolves same-artwork reprints across sets (e.g. Buffer Piece
+        # in ex3 vs ex15 vs pl4) where DINOv2 scores are within 0.01.
+        card_num_bonus = 0.0
+        if ocr_card_num:
+            base_cid = cid.split("/")[0] if "/" in cid else cid
+            # Extract card number from the card_id (e.g. "ex15-72" -> "72")
+            cid_num = base_cid.rsplit("-", 1)[-1] if "-" in base_cid else None
+            if cid_num and cid_num == ocr_card_num:
+                card_num_bonus = 0.08
+                # Additional bonus if set total also matches
+                if ocr_set_total:
+                    try:
+                        from sqlalchemy import text as sa_text
+                        from cardprice.ml.ref_matcher import _get_session
+                        _sess = _get_session()
+                        row = _sess.execute(
+                            sa_text(
+                                "SELECT s.total_cards FROM dim_sets s "
+                                "JOIN dim_cards c ON c.set_id = s.set_id "
+                                "WHERE c.card_id = :cid"
+                            ),
+                            {"cid": cid},
+                        ).fetchone()
+                        _sess.close()
+                        if row and str(row[0]) == ocr_set_total:
+                            card_num_bonus = 0.15  # Strong match: both number and set total
+                            logger.info(
+                                "v2 combined: card_number %s/%s matches %s (set total %s)",
+                                ocr_card_num, ocr_set_total, cid, row[0],
+                            )
+                    except Exception:
+                        pass  # DB error, keep the card_number-only bonus
+        combined += card_num_bonus
+
         results.append((cid, combined, {
             "dino_score": round(d, 4),
             "attack_score": round(a, 4),
             "fulltext_score": round(ft, 4),
             "matched_attacks": attack_details.get(cid, []),
             "type_bonus": round(type_bonus, 4),
+            "card_num_bonus": round(card_num_bonus, 4),
         }))
 
     results.sort(key=lambda x: x[1], reverse=True)
     if results:
         t = results[0]
-        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f, ft=%.4f, type_bonus=%.4f) %d candidates",
-                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], t[2]["fulltext_score"], t[2]["type_bonus"], len(results))
+        logger.info("v2 combined: top=%s score=%.4f (dino=%.4f, atk=%.4f, ft=%.4f, type=%.4f, cardnum=%.4f) %d candidates",
+                     t[0], t[1], t[2]["dino_score"], t[2]["attack_score"], t[2]["fulltext_score"], t[2]["type_bonus"], t[2].get("card_num_bonus", 0.0), len(results))
     return results
 
 
@@ -4478,7 +4656,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                      _precomputed_dino_embedding=None, _precomputed_attacks=None,
                      _precomputed_clip_embedding=None, _precomputed_easyocr_name=None,
                      detect_variants=True, use_claude_vision_fallback=False,
-                     correct_perspective=False):
+                     correct_perspective=False, enable_card_number_ocr=False):
     """V2 card identification: color + name OCR + HP -> DB filter -> DINOv2.
 
     This pipeline is fundamentally different from v1 (cascade/ensemble):
@@ -4705,13 +4883,20 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
     # -----------------------------------------------------------------------
     # Step 1c: Card number OCR — read collector number from bottom of card
+    # OFF BY DEFAULT. Binder page segments are too low-resolution
+    # (~1008x1530) for the bottom number text (~8-12px tall) to OCR reliably,
+    # and the 12-attempt loop blows the 10s/page budget. Caller can opt-in
+    # via enable_card_number_ocr=True for single-card scans where the extra
+    # latency is acceptable.
     # -----------------------------------------------------------------------
     ocr_card_num = None
     ocr_set_total = None
-    if _precomputed_ocr and "ocr_card_num" in _precomputed_ocr:
+    if _precomputed_ocr is not None and "ocr_card_num" in _precomputed_ocr:
+        # Caller (page scanner) precomputed it — accept whatever they pass
         ocr_card_num = _precomputed_ocr.get("ocr_card_num")
         ocr_set_total = _precomputed_ocr.get("ocr_set_total")
-    else:
+    elif enable_card_number_ocr:
+        # Explicit opt-in (single-card scans only)
         try:
             ocr_card_num, ocr_set_total = _ocr_card_number(image_path)
         except Exception as e:
@@ -4770,12 +4955,36 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
             # Intersect with current candidates
             num_matched = [c for c in candidates if c in num_card_ids]
+
+            # If set_total was also read, further narrow by matching the
+            # set's total_cards (e.g. "72/101" -> only sets with 101 cards).
+            if ocr_set_total and len(num_matched) >= 2:
+                try:
+                    total_rows = _sess.execute(
+                        sa_text(
+                            "SELECT c.card_id FROM dim_cards c "
+                            "JOIN dim_sets s ON s.set_id = c.set_id "
+                            "WHERE c.card_id = ANY(:cids) "
+                            "AND CAST(s.total_cards AS TEXT) = :total"
+                        ),
+                        {"cids": num_matched, "total": ocr_set_total},
+                    ).fetchall()
+                    total_matched = [r[0] for r in total_rows]
+                    if len(total_matched) >= 1 and len(total_matched) < len(num_matched):
+                        logger.info(
+                            "v2 step2b: set_total %s narrowed %d -> %d candidates",
+                            ocr_set_total, len(num_matched), len(total_matched),
+                        )
+                        num_matched = total_matched
+                except Exception as e2:
+                    logger.debug("v2 step2b: set_total filtering failed: %s", e2)
+
             if len(num_matched) == 1:
                 # Unique match — card number + name uniquely identifies
                 card_num_match = num_matched[0]
                 logger.info(
-                    "v2 step2b: card_number %s uniquely matches %s among %d candidates",
-                    ocr_card_num, card_num_match, len(candidates),
+                    "v2 step2b: card_number %s/%s uniquely matches %s among %d candidates",
+                    ocr_card_num, ocr_set_total, card_num_match, len(candidates),
                 )
             elif len(num_matched) >= 2:
                 # Multiple matches (rare) — narrow candidates
@@ -4894,7 +5103,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             # DINOv2 alone can't reliably distinguish printings of the same card
             # (scores differ by <0.05). Attacks uniquely identify the set printing.
             effective_attacks = _precomputed_attacks
-            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=effective_attacks, type_detected=use_type, type_confidence=color_conf)
+            combined_results = _score_candidates_combined(image_path, candidates, query_embedding=_precomputed_dino_embedding, precomputed_attacks=effective_attacks, type_detected=use_type, type_confidence=color_conf, ocr_card_num=ocr_card_num, ocr_set_total=ocr_set_total)
             if combined_results:
                 best_cid, best_score, best_detail = combined_results[0]
                 alt_list = [(cid, score) for cid, score, _ in combined_results[1:4]]
@@ -5008,10 +5217,18 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         try:
             from cardprice.ml.attack_ocr import identify_by_attacks
             if _precomputed_attacks is not None:
-                atk_results = identify_by_attacks(attack_image, precomputed_ocr_candidates=_precomputed_attacks)
+                atk_results = identify_by_attacks(
+                    attack_image, precomputed_ocr_candidates=_precomputed_attacks,
+                    type_detected=use_type, type_confidence=color_conf,
+                    hp_value=str(hp_value) if hp_value else None,
+                )
             else:
                 with _ocr_lock:
-                    atk_results = identify_by_attacks(attack_image)
+                    atk_results = identify_by_attacks(
+                        attack_image,
+                        type_detected=use_type, type_confidence=color_conf,
+                        hp_value=str(hp_value) if hp_value else None,
+                    )
             if atk_results:
                 atk_candidate_ids = [cid for cid, _s in atk_results[:50]]
 
@@ -5056,7 +5273,7 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
 
                 # Track whether era filtering actually reduced the set
                 era_filtered = page_era and len(atk_candidate_ids) < len(atk_results[:50])
-                combined_results = _score_candidates_combined(attack_image, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf)
+                combined_results = _score_candidates_combined(attack_image, atk_candidate_ids, query_embedding=_precomputed_dino_embedding, precomputed_attacks=_precomputed_attacks, type_detected=use_type, type_confidence=color_conf, ocr_card_num=ocr_card_num, ocr_set_total=ocr_set_total)
                 if combined_results:
                     best_cid, best_score, best_detail = combined_results[0]
                     # Boost confidence when era filtering significantly reduced
@@ -5156,6 +5373,24 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         fallback_era = _era_for_set(_extract_set_id(fallback_cid)) if fallback_cid else None
         if fallback_era and not _eras_compatible(fallback_era, page_era):
             best_alt_conf -= 0.10  # penalize wrong-era ensemble result
+    # When the name path produced a result (ref_match_result) AND OCR name
+    # confidence is reasonable, penalize attack results that picked a card
+    # with a DIFFERENT name.  Common attacks like "Tackle" appear on hundreds
+    # of cards; single-attack matches mislead the attack path into picking
+    # wrong species (e.g., Voltorb instead of Misty's Horsea).
+    if attack_result and ref_match_result and ocr_name and ocr_conf >= 0.70:
+        atk_cid = attack_result.get("card_id", "")
+        if atk_cid:
+            from cardprice.ml.ref_matcher import get_candidate_card_ids as _get_cids
+            name_cids = set(_get_cids(ocr_name))
+            if atk_cid not in name_cids:
+                logger.info(
+                    "v2: attack result %s doesn't match OCR name %r (conf=%.2f), "
+                    "penalizing by 0.30",
+                    atk_cid, ocr_name, ocr_conf,
+                )
+                attack_result["confidence"] -= 0.30
+
     for candidate in [ref_match_result, attack_result]:
         if candidate and candidate["confidence"] > best_alt_conf:
             best_alt = candidate
@@ -5295,6 +5530,7 @@ def _name_ocr_worker(image_path: str) -> dict:
     # Binary signal: if OCR finds readable text there, the card is stamped.
     # Regular cards have artwork (no text) in this region.
     # Stamped cards have the set name (e.g. "POWER KEEPERS") as text.
+    # After OCR, fuzzy match against known EX-era stamp names for set ID.
     # This runs on the same ONNX engine, same thread — negligible overhead.
     try:
         import cv2
@@ -5328,6 +5564,12 @@ def _name_ocr_worker(image_path: str) -> dict:
                 if texts:
                     result["has_stamp_text"] = True
                     result["stamp_texts"] = texts
+                    # Fuzzy match against known EX stamp names
+                    matched_set, match_score = _fuzzy_match_stamp_text(texts)
+                    if matched_set:
+                        result["stamp_set_id"] = matched_set
+                        result["stamp_set_name"] = EX_STAMP_NAMES[matched_set]
+                        result["stamp_match_score"] = match_score
     except Exception:
         pass
 
@@ -5724,25 +5966,47 @@ def identify_page_v2(card_image_paths, session=None,
     # -----------------------------------------------------------------------
 
     # -----------------------------------------------------------------------
-    # Stamp detection via OCR: if the name OCR worker found text in the
+    # Stamp detection via OCR: if identify_card_v2 found text in the
     # stamp region (bottom-right of artwork), and the card is from an
     # EX stamped set (ex7-ex16), mark it as ex_set_stamp.
-    # Binary: text found in stamp region = stamped. No text = not stamped.
+    # Two signals: (1) text found + card from EX set, (2) fuzzy match
+    # of stamp text against known set names (can detect stamp even if
+    # card_id set doesn't match, and can correct set identification).
     # -----------------------------------------------------------------------
     _STAMPED_EX_SETS = {"ex7", "ex8", "ex9", "ex10", "ex11",
                         "ex12", "ex13", "ex14", "ex15", "ex16"}
     for i, result in enumerate(results):
-        ocr_data = precomputed[i] or {}
-        if not ocr_data.get("has_stamp_text"):
+        if not result.get("has_stamp_text"):
             continue
         card_id = result.get("card_id")
+        stamp_texts_list = result.get("stamp_texts", [])
+
+        # Path 1: Fuzzy match identifies the stamp set name directly
+        matched_set = result.get("stamp_set_id")
+        match_score = result.get("stamp_match_score", 0)
+        if not matched_set and stamp_texts_list:
+            matched_set, match_score = _fuzzy_match_stamp_text(stamp_texts_list)
+
+        if matched_set:
+            result["detected_variant"] = "ex_set_stamp"
+            result["variant_confidence"] = min(0.95, match_score / 100.0)
+            result["stamp_ocr_texts"] = stamp_texts_list
+            result["stamp_set_id"] = matched_set
+            result["stamp_set_name"] = EX_STAMP_NAMES[matched_set]
+            result["stamp_match_score"] = match_score
+            logger.debug("stamp fuzzy match: card %s -> %s (%s, score=%d)",
+                         card_id, matched_set, EX_STAMP_NAMES[matched_set],
+                         match_score)
+            continue
+
+        # Path 2: Text found in stamp region + card is from a known EX set
         if not card_id:
             continue
         set_id = card_id.split("-")[0]
         if set_id in _STAMPED_EX_SETS:
             result["detected_variant"] = "ex_set_stamp"
             result["variant_confidence"] = 0.85
-            result["stamp_ocr_texts"] = ocr_data.get("stamp_texts", [])
+            result["stamp_ocr_texts"] = stamp_texts_list
 
     n_identified = sum(1 for r in results if r.get("confidence", 0) >= 0.5)
     avg_conf = sum(r.get("confidence", 0) for r in results) / max(n_cards, 1)
