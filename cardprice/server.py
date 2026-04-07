@@ -920,10 +920,15 @@ function showResult(data, sec) {
     var nameEl = document.getElementById(sec + 'CardName');
     var cardName = data.card_name || 'Unknown Card';
     var accentColor = sec === 'inv' ? '#4ecca3' : '#3498db';
+    // Append Japanese name in parens when present (e.g., "Pineco (クヌギダマ)")
+    var displayName = cardName;
+    if (data.card_name_jp) {
+        displayName = cardName + ' <span style="color:#888;font-size:0.85em;font-weight:normal;">(' + data.card_name_jp + ')</span>';
+    }
     if (data.tcgplayer_url) {
-        nameEl.innerHTML = '<a href="' + data.tcgplayer_url + '" target="_blank" rel="noopener" style="color:' + accentColor + ';text-decoration:underline;">' + cardName + '</a>';
+        nameEl.innerHTML = '<a href="' + data.tcgplayer_url + '" target="_blank" rel="noopener" style="color:' + accentColor + ';text-decoration:underline;">' + displayName + '</a>';
     } else {
-        nameEl.textContent = cardName;
+        nameEl.innerHTML = displayName;
     }
     var badgeContainer = document.getElementById(sec + 'VariantBadges');
     badgeContainer.innerHTML = '';
@@ -1173,6 +1178,9 @@ function _showCardDetail(sec, idx) {
         h += '<img src="' + imgSrc + '" style="width:100%;max-width:280px;display:block;margin:0 auto 12px;border-radius:8px;" />';
     }
     var nameText = c.card_name || 'Unknown';
+    if (c.card_name_jp) {
+        nameText = nameText + ' <span style="color:#888;font-size:0.85em;font-weight:normal;">(' + c.card_name_jp + ')</span>';
+    }
     if (c.tcgplayer_url) {
         h += '<div style="font-size:18px;font-weight:bold;margin-bottom:4px;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:' + accentColor + ';">' + nameText + '</a></div>';
     } else {
@@ -2426,6 +2434,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                     ).fetchone()
                     if row:
                         response["card_name"] = row.name
+                        if getattr(row, "name_jp", None):
+                            response["card_name_jp"] = row.name_jp
                         response["set_name"] = row.set_name
                         response["market_price"] = (
                             float(row.market_price) if row.market_price else None
@@ -2612,6 +2622,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         ).fetchone()
                         if row:
                             card_data["card_name"] = row.name
+                            if getattr(row, "name_jp", None):
+                                card_data["card_name_jp"] = row.name_jp
                             card_data["set_name"] = row.set_name
                             card_data["market_price"] = (
                                 float(row.market_price) if row.market_price else None
@@ -2836,6 +2848,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                         ).fetchone()
                         if row_db:
                             card_data["card_name"] = row_db.name
+                            if getattr(row_db, "name_jp", None):
+                                card_data["card_name_jp"] = row_db.name_jp
                             card_data["set_name"] = row_db.set_name
                             card_data["market_price"] = (
                                 float(row_db.market_price) if row_db.market_price else None
