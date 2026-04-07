@@ -277,7 +277,7 @@ def _find_duplicate_scan(phash_hex):
 # without per-call-site dispatch.
 _PRICE_LOOKUP_SQL = """
     SELECT c.name, s.name as set_name, c.image_small,
-           c.tcg_product_id, p.market_price
+           c.tcg_product_id, p.market_price, NULL::text as name_jp
     FROM dim_cards c
     JOIN dim_sets s ON s.set_id = c.set_id
     LEFT JOIN LATERAL (
@@ -291,7 +291,7 @@ _PRICE_LOOKUP_SQL = """
     WHERE c.card_id = :cid AND :cid NOT LIKE 'jp\\_%' ESCAPE '\\'
     UNION ALL
     SELECT c.name, s.name as set_name, c.image_url as image_small,
-           c.tcg_product_id, p.market_price
+           c.tcg_product_id, p.market_price, c.name_jp
     FROM dim_cards_jp c
     JOIN dim_sets_jp s ON s.set_id = c.set_id
     LEFT JOIN LATERAL (
@@ -2079,6 +2079,8 @@ class ScanHandler(BaseHTTPRequestHandler):
                     ).fetchone()
                     if row:
                         response["card_name"] = row.name
+                        if getattr(row, "name_jp", None):
+                            response["card_name_jp"] = row.name_jp
                         response["set_name"] = row.set_name
                         response["market_price"] = (
                             float(row.market_price) if row.market_price else None
