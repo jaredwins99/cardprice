@@ -47,6 +47,16 @@ API_KEY = os.environ.get("JUSTTCG_API_KEY", "")
 # Rate limiting: free tier = 10 req/min
 MIN_REQUEST_INTERVAL = 6.5  # seconds between requests (conservative)
 
+# Consecutive-failure cap: if this many requests in a row hit 429 or other
+# errors with zero successes between, abort the run.  Prevents the "zombie
+# scraper stuck in retry loop forever" failure mode.  At 60s sleep per 429
+# this gives ~30 minutes of stuck-retries before bailing.
+MAX_CONSECUTIVE_FAILURES = 30
+
+
+class ConsecutiveFailureLimit(Exception):
+    """Raised when too many consecutive request failures occur in a row."""
+
 
 # ---------------------------------------------------------------------------
 # SQLite setup
@@ -128,6 +138,8 @@ class JustTCGClient:
         # Track quota from response metadata
         self.requests_remaining = None
         self.daily_remaining = None
+        # Consecutive-failure tracking — resets to 0 on each successful request
+        self._consecutive_failures = 0
 
     def _rate_limit(self):
         """Sleep if needed to respect rate limits."""
@@ -149,26 +161,57 @@ class JustTCGClient:
                     f"{self.daily_remaining} daily remaining"
                 )
 
+    def _note_failure(self, reason: str):
+        """Increment consecutive-failure counter; abort if cap reached."""
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            raise ConsecutiveFailureLimit(
+                f"Aborting JustTCG run after {self._consecutive_failures} "
+                f"consecutive failures (last: {reason}). API likely down or "
+                f"quota exhausted — try again later."
+            )
+
+    def _note_success(self):
+        """Reset consecutive-failure counter on a successful request."""
+        self._consecutive_failures = 0
+
     def _request(self, method: str, endpoint: str, **kwargs) -> dict:
-        """Make a rate-limited API request."""
+        """Make a rate-limited API request.
+
+        Retries 429s with a 60s sleep, but tracks consecutive failures.
+        After MAX_CONSECUTIVE_FAILURES (30) in a row, raises
+        ConsecutiveFailureLimit so the caller can exit cleanly instead of
+        spinning forever in rate-limit hell.
+        """
         self._rate_limit()
         url = f"{BASE_URL}{endpoint}"
         try:
             resp = self.session.request(method, url, timeout=30, **kwargs)
         except requests.RequestException as e:
             logger.error(f"JustTCG request failed: {e}")
+            self._note_failure(f"network error: {e}")
             raise
 
         if resp.status_code == 429:
-            logger.warning("JustTCG rate limit hit, waiting 60s")
+            logger.warning(
+                "JustTCG rate limit hit, waiting 60s (consecutive failures: %d/%d)",
+                self._consecutive_failures + 1, MAX_CONSECUTIVE_FAILURES,
+            )
+            self._note_failure("429 rate limit")
             time.sleep(60)
             return self._request(method, endpoint, **kwargs)
 
         if resp.status_code == 401:
             raise ValueError(f"JustTCG auth failed: {resp.text}")
 
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            self._note_failure(f"HTTP {resp.status_code}")
+            raise
+
         data = resp.json()
+        self._note_success()
         self._update_quota(data.get("_metadata", {}))
         return data
 

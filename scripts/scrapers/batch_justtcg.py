@@ -28,6 +28,7 @@ from sqlalchemy import text as sa_text
 from cardprice.db.session import SessionLocal
 from cardprice.scrapers.justtcg_prices import (
     JustTCGClient,
+    ConsecutiveFailureLimit,
     get_db,
     DB_PATH,
     print_price_breakdown,
@@ -136,6 +137,13 @@ def run_pass(client, db, game: str, limit: int, batch_size: int, resume: bool) -
             if client.requests_remaining is not None and client.requests_remaining <= 1:
                 log.warning("[%s] Monthly quota exhausted, stopping", game)
                 break
+
+        except ConsecutiveFailureLimit as e:
+            # Hard stop — API is wedged.  Exit the whole pass cleanly so
+            # the script doesn't sit in a retry loop for hours.
+            log.error("[%s] %s", game, e)
+            log.error("[%s] Aborting pass — try again later when API recovers", game)
+            break
 
         except Exception as e:
             errors += 1
