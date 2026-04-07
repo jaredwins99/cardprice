@@ -391,10 +391,100 @@ _ERA_VARIANT_ALLOWED = {
 }
 
 
+# --- JP variant detection helpers ---------------------------------------
+# TCGPlayer encodes the JP variant in the product name as a suffix in
+# parentheses, e.g. "Pikachu (Master Ball Pattern)" or
+# "Mew - 002/028 (Mirror Holofoil)". Each variant printing is its own
+# tcg_product_id row in dim_cards_jp, so pricing routes via the card_id
+# directly — this helper only normalizes the variant string for display.
+_JP_VARIANT_SUFFIX_MAP = {
+    "master ball pattern":   "master_ball_pattern",
+    "poke ball pattern":     "poke_ball_pattern",
+    "pokeball pattern":      "poke_ball_pattern",
+    "mirror holofoil":       "mirror_holofoil",
+    "mirror holo":           "mirror_holofoil",
+    "mirror foil":           "mirror_foil",
+    "reverse holofoil":      "reverse_holofoil",
+    "reverse holo":          "reverse_holofoil",
+    "holofoil":              "holofoil",
+    "holo":                  "holofoil",
+    "energy symbol pattern": "energy_symbol_pattern",
+    "dusk ball pattern":     "dusk_ball_pattern",
+    "love ball pattern":     "love_ball_pattern",
+    "friend ball pattern":   "friend_ball_pattern",
+    "quick ball pattern":    "quick_ball_pattern",
+    "team rocket pattern":   "team_rocket_pattern",
+    "terastal pattern":      "terastal_pattern",
+}
+
+# Module-level cache: card_id -> normalized variant string. Lazily populated.
+_JP_VARIANT_CACHE: dict[str, str] = {}
+
+
+def _detect_jp_variant_from_name(card_id: str) -> str:
+    """Look up dim_cards_jp.name and parse the variant suffix.
+
+    Returns a normalized variant string ("master_ball_pattern", "holofoil",
+    "normal", etc.). Cached per card_id. Returns "normal" if the name has
+    no recognized variant suffix or the lookup fails.
+    """
+    cached = _JP_VARIANT_CACHE.get(card_id)
+    if cached is not None:
+        return cached
+
+    name = None
+    try:
+        from cardprice.db.session import SessionLocal  # type: ignore
+        from sqlalchemy import text as _sql_text
+        with SessionLocal() as session:
+            row = session.execute(
+                _sql_text("SELECT name FROM dim_cards_jp WHERE card_id = :cid"),
+                {"cid": card_id},
+            ).fetchone()
+            if row:
+                name = row[0]
+    except Exception:
+        # Fall back to a direct psycopg2 connection if the SQLAlchemy
+        # session helper isn't importable in this context.
+        try:
+            import psycopg2
+            conn = psycopg2.connect("dbname=cardprice")
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT name FROM dim_cards_jp WHERE card_id = %s",
+                        (card_id,),
+                    )
+                    r = cur.fetchone()
+                    if r:
+                        name = r[0]
+            finally:
+                conn.close()
+        except Exception:
+            name = None
+
+    variant = "normal"
+    if name:
+        # Find the LAST parenthesized group (suffix). Example:
+        # "Mew - 002/028 (Mirror Holofoil)" -> "Mirror Holofoil"
+        import re as _re
+        matches = _re.findall(r"\(([^()]+)\)", name)
+        for raw in reversed(matches):
+            key = raw.strip().lower()
+            if key in _JP_VARIANT_SUFFIX_MAP:
+                variant = _JP_VARIANT_SUFFIX_MAP[key]
+                break
+
+    _JP_VARIANT_CACHE[card_id] = variant
+    return variant
+
+
 def _apply_variant_detection(result, image_path, detect_variants=True,
                              precomputed_stamp_set_id=None,
                              precomputed_stamp_match_score=0,
-                             precomputed_stamp_texts=None):
+                             precomputed_stamp_texts=None,
+                             precomputed_scan_stamp_emb=None,
+                             precomputed_scan_ctrl_emb=None):
     """Apply variant detection to a v2 result dict (in-place).
 
     Uses variant_tree to determine which checks are relevant for the card's
@@ -410,6 +500,26 @@ def _apply_variant_detection(result, image_path, detect_variants=True,
     """
     card_id = result.get("card_id")
     if not card_id or not detect_variants:
+        return
+
+    # --- Japanese cards: name-suffix based variant detection ---
+    # JP cards have card_id like "jp_628656" which has no era prefix, so the
+    # English era-gated OpenCV pipeline does not apply. Instead, TCGPlayer
+    # encodes the variant in dim_cards_jp.name as a suffix like
+    # "(Master Ball Pattern)" or "(Mirror Holofoil)". Each variant printing
+    # has its own tcg_product_id, so pricing already routes correctly via
+    # the card_id itself — we just need to set detected_variant for display.
+    if isinstance(card_id, str) and card_id.startswith("jp_"):
+        try:
+            variant = _detect_jp_variant_from_name(card_id)
+            result["detected_variant"] = variant
+            result["variant_confidence"] = 1.0 if variant != "normal" else 0.5
+            result["variant_checks_run"] = ["jp_name_suffix"]
+        except Exception as e:
+            logger.debug("JP variant detection failed for %s: %s", card_id, e)
+            result["detected_variant"] = "normal"
+            result["variant_confidence"] = 0.0
+            result["variant_checks_run"] = ["jp_name_suffix_failed"]
         return
 
     try:
@@ -656,8 +766,16 @@ def _apply_variant_detection(result, image_path, detect_variants=True,
                 # "DRAGON FRONTIERS" — below the 60 hard threshold but the
                 # set agreement is itself a strong signal that the card
                 # really is from that stamped set.
+                # Threshold tuning: real stamp OCR often matches the WRONG
+                # EX set name (because OCR garbles "DRAGON FRONTIERS" into
+                # noise that fuzzy-matches whatever ex_set_name is closest).
+                # Tropius/Nidoqueen frequently score 60-61 against ex9/ex10/
+                # ex13 even though they're ex15, so we keep the no-set-match
+                # threshold at 60. The first line of defense against false
+                # positives is the artist-credit filter in the worker —
+                # Metang's "Haume Kusguma" never makes it here.
                 set_matches = (ocr_stamp_set == set_id)
-                ocr_threshold = 45 if set_matches else 60
+                ocr_threshold = 50 if set_matches else 60
                 if ocr_stamp_score >= ocr_threshold and ocr_stamp_set:
                     logger.info(
                         "OCR stamp match: %s -> %s (score=%d, set_match=%s)",
@@ -677,17 +795,22 @@ def _apply_variant_detection(result, image_path, detect_variants=True,
                     result["detected_variant"] = "ex_set_stamp"
                     result["variant_confidence"] = min(0.70 + ocr_stamp_score / 200.0, 0.99)
                 else:
-                    # SECONDARY signal: DINOv2 differential, but ONLY when
-                    # the stamp region contained no readable text at all
-                    # (otherwise the OCR found illustrator credits / rules
-                    # text, which means the artwork bottom-right looks
-                    # different from reference but NOT due to a stamp).
-                    has_meaningful_ocr = any(len(t) >= 4 for t in ocr_stamp_texts)
-                    if not has_meaningful_ocr:
+                    # DINOv2 fallback ONLY when OCR returned literally
+                    # ZERO texts (RapidOCR's text detector failed entirely
+                    # — typical of stylized embossed stamp text like
+                    # "DELTA SPECIES" on Metagross ex11-11). Even one
+                    # surviving illustrator/rules text fragment means OCR
+                    # DID see something and we should trust the OCR-only
+                    # decision. Also requires very low stamp_sim (<0.20)
+                    # which only true overlays produce — Metagross gets
+                    # 0.097, holo glare on Metang/Pidgeot stays >0.22.
+                    if not ocr_stamp_texts:
                         try:
                             from cardprice.ml.stamp_detection import check_ex_stamp_fast
                             is_stamped, ex_conf = check_ex_stamp_fast(
-                                str(image_path), card_id)
+                                str(image_path), card_id,
+                                precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
                             checks_run.append("ex_stamp_fast")
                             if "stamps_checked" in result:
                                 result["stamps_checked"].append("ex_set_stamp_fast")
@@ -2960,9 +3083,10 @@ def _run_name_and_hp(image_path: str, _hold_lock: bool = True) -> tuple:
             if hp is not None:
                 # Try Japanese OCR fallback for the name
                 try:
-                    jp_name = _try_japanese_ocr(image_path)
-                    if jp_name:
-                        return jp_name, 0.70, f"[JP]{jp_name}", hp
+                    jp_result = _try_japanese_ocr(image_path)
+                    if jp_result:
+                        jp_name, jp_conf = jp_result
+                        return jp_name, jp_conf, f"[JP]{jp_name}", hp
                 except Exception as e:
                     logger.debug("v2 japanese_ocr failed: %s", e)
                 return None, 0.0, None, hp
@@ -2972,9 +3096,10 @@ def _run_name_and_hp(image_path: str, _hold_lock: bool = True) -> tuple:
         # Japanese OCR fallback: if English OCR found nothing,
         # try reading Japanese text and mapping to English name.
         try:
-            jp_name = _try_japanese_ocr(image_path)
-            if jp_name:
-                return jp_name, 0.70, f"[JP]{jp_name}", None
+            jp_result = _try_japanese_ocr(image_path)
+            if jp_result:
+                jp_name, jp_conf = jp_result
+                return jp_name, jp_conf, f"[JP]{jp_name}", None
         except Exception as e:
             logger.debug("v2 japanese_ocr failed: %s", e)
 
@@ -3637,9 +3762,10 @@ def _run_name_ocr(image_path: str) -> tuple:
         # Japanese OCR fallback: if English OCR found nothing,
         # try reading Japanese text and mapping to English name.
         try:
-            jp_name = _try_japanese_ocr(image_path)
-            if jp_name:
-                return jp_name, 0.70, f"[JP]{jp_name}"
+            jp_result = _try_japanese_ocr(image_path)
+            if jp_result:
+                jp_name, jp_conf = jp_result
+                return jp_name, jp_conf, f"[JP]{jp_name}"
         except Exception as e:
             logger.debug("v2 japanese_ocr failed: %s", e)
 
@@ -3836,12 +3962,13 @@ def _rapid_ja_ocr(image_path: str) -> list[tuple[str, float]]:
 _paddle_ja_ocr_subprocess = _rapid_ja_ocr
 
 
-def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> str | None:
+def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> tuple[str, float] | None:
     """Global DINOv2 search against the JP embeddings.
 
-    Returns a "jp_<tcg_product_id>" card_id if a confident match is found,
-    otherwise None.  Used as the primary JP identification path: when a card
-    looks Japanese, we directly visual-match it to the 3,273 JP card images.
+    Returns ("jp_<tcg_product_id>", cosine_similarity) if a confident match
+    is found, otherwise None.  Used as the primary JP identification path:
+    when a card looks Japanese, we directly visual-match it to the 3,273 JP
+    card images.
 
     Threshold 0.78 is conservative — true matches usually score 0.85+, and
     we want to avoid false positives that route an English card to JP pricing.
@@ -3854,7 +3981,7 @@ def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> str | None:
         jp_id, score = results[0]
         if score >= threshold:
             logger.info("JP DINOv2 match: %s (sim=%.3f)", jp_id, score)
-            return jp_id
+            return jp_id, score
         logger.debug("JP DINOv2 best match below threshold: %s (sim=%.3f)", jp_id, score)
         return None
     except Exception as e:
@@ -3862,25 +3989,26 @@ def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> str | None:
         return None
 
 
-def _try_japanese_ocr(image_path: str) -> str | None:
-    """Try Japanese OCR on the name region, return English name if found.
+def _try_japanese_ocr(image_path: str) -> tuple[str, float] | None:
+    """Try Japanese OCR on the name region, return (name_or_id, confidence).
 
     Returns either:
-      - "jp_<tcg_product_id>" — if JP DINOv2 search found a confident match
-        in the JP card embeddings.  Caller treats this as a direct card_id.
-      - English Pokemon name (str) — fallback when DINOv2 isn't confident
-        but RapidOCR Japanese + reverse index found a name.
+      - ("jp_<tcg_product_id>", cosine_sim) — JP DINOv2 search found a
+        confident visual match.  Caller treats this as a direct card_id.
+        confidence is the actual DINOv2 cosine similarity (0.78-1.00).
+      - (English_name, 0.70) — fallback when DINOv2 wasn't confident but
+        RapidOCR Japanese + reverse index found a fuzzy name match.
       - None — no Japanese signal at all.
 
     Strategy:
-    1. Run JP DINOv2 global search FIRST.  If confident, return jp_<id>.
+    1. Run JP DINOv2 global search FIRST.  If confident, return (jp_id, score).
     2. Otherwise, run RapidOCR Japanese on the name region for a heuristic
-       English name (fuzzy-matched via the JA reverse index).
+       English name (fuzzy-matched via the JA reverse index, conf=0.70).
     """
     # --- Step 1: JP DINOv2 global search (preferred — gives specific card) ---
-    jp_id = _try_jp_dino_match(image_path)
-    if jp_id:
-        return jp_id
+    dino_result = _try_jp_dino_match(image_path)
+    if dino_result is not None:
+        return dino_result  # (jp_id, real_score)
 
     # --- Step 2: Fall back to OCR + reverse-index lookup ---
     import re
@@ -3942,7 +4070,7 @@ def _try_japanese_ocr(image_path: str) -> str | None:
                 en_name = ja_index[jp_lower]
                 logger.info("Japanese PaddleOCR exact: '%s' -> '%s' (conf=%.3f)",
                             jp_clean, en_name, conf)
-                return en_name
+                return en_name, 0.85  # exact ja_index match — high confidence
 
             # Fuzzy match — handles partial reads like るいマルマイン
             match = process.extractOne(
@@ -3960,7 +4088,9 @@ def _try_japanese_ocr(image_path: str) -> str | None:
     if best_en_name and best_score >= 70:
         logger.info("Japanese PaddleOCR fuzzy: '%s' -> '%s' (score=%.1f)",
                     best_ja_text, best_en_name, best_score)
-        return best_en_name
+        # Convert fuzzy score (0-100) to confidence (0-1), capped at 0.80
+        # to leave room for the higher-confidence DINOv2 path.
+        return best_en_name, min(0.80, best_score / 100.0)
 
     return None
 
@@ -4883,6 +5013,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     precomputed_stamp_set_id = None
     precomputed_stamp_match_score = 0
     precomputed_stamp_texts: list[str] = []
+    precomputed_scan_stamp_emb = None
+    precomputed_scan_ctrl_emb = None
     if _precomputed_ocr:
         # Use pre-computed OCR results from batch processing
         ocr_name = _precomputed_ocr.get("ocr_name")
@@ -4894,6 +5026,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         precomputed_stamp_set_id = _precomputed_ocr.get("stamp_set_id")
         precomputed_stamp_match_score = _precomputed_ocr.get("stamp_match_score", 0) or 0
         precomputed_stamp_texts = _precomputed_ocr.get("stamp_texts", []) or []
+        precomputed_scan_stamp_emb = _precomputed_ocr.get("scan_stamp_emb")
+        precomputed_scan_ctrl_emb = _precomputed_ocr.get("scan_ctrl_emb")
     else:
         with ThreadPoolExecutor(max_workers=2) as pool:
             color_future = pool.submit(_run_color_detect, image_path)
@@ -5048,7 +5182,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         _apply_variant_detection(result, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
         return result
 
     # -----------------------------------------------------------------------
@@ -5195,7 +5331,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
             _apply_variant_detection(result, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
             _cache_store(cache_key, result)
             return result
         else:
@@ -5238,7 +5376,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                 _apply_variant_detection(result, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
                 _cache_store(cache_key, result)
                 return result
             else:
@@ -5334,7 +5474,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                     elif best_detail['dino_score'] < 0.60 and ocr_conf < 0.90:
@@ -5345,7 +5487,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                         _apply_variant_detection(ref_match_result, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
                         _cache_store(cache_key, ref_match_result)
                         return ref_match_result
                 else:
@@ -5632,7 +5776,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
         _apply_variant_detection(best_alt, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
         _cache_store(cache_key, best_alt)
         return best_alt
 
@@ -5693,7 +5839,9 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
     _apply_variant_detection(fallback, image_path, detect_variants=detect_variants,
                                  precomputed_stamp_set_id=precomputed_stamp_set_id,
                                  precomputed_stamp_match_score=precomputed_stamp_match_score,
-                                 precomputed_stamp_texts=precomputed_stamp_texts)
+                                 precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb)
 
     # -----------------------------------------------------------------------
     # Step 7: Claude vision fallback (optional, last resort)
@@ -5718,6 +5866,8 @@ def identify_card_v2(image_path, session=None, page_era=None, _precomputed_ocr=N
                     precomputed_stamp_set_id=precomputed_stamp_set_id,
                     precomputed_stamp_match_score=precomputed_stamp_match_score,
                     precomputed_stamp_texts=precomputed_stamp_texts,
+                                 precomputed_scan_stamp_emb=precomputed_scan_stamp_emb,
+                                 precomputed_scan_ctrl_emb=precomputed_scan_ctrl_emb,
                 )
                 _cache_store(cache_key, vision_result)
                 return vision_result
@@ -5777,28 +5927,103 @@ def _name_ocr_worker(image_path: str) -> dict:
         img = cv2.imread(str(image_path))
         if img is not None:
             h, w = img.shape[:2]
-            # Stamp region: bottom-right of artwork (y: 35-55%, x: 55-90%)
-            stamp_crop = img[int(h*0.35):int(h*0.55), int(w*0.55):int(w*0.90)]
-            # Upscale 3x for better OCR on small text
-            stamp_up = cv2.resize(stamp_crop, (stamp_crop.shape[1]*3, stamp_crop.shape[0]*3))
+            # Stamp region: right side of artwork. Expanded UPWARD to
+            # y=0.28 because Metagross ex11-11 (and other Stage 2 cards
+            # with tall art boxes) have the "DELTA SPECIES" stamp text
+            # positioned higher than the standard 0.35 cutoff. Real
+            # examples: Metagross scan 221558 has stamp at y~0.30-0.40,
+            # Nidoqueen scan has stamp at y~0.40-0.46.
+            stamp_crop = img[int(h*0.28):int(h*0.55), int(w*0.55):int(w*0.92)]
             from cardprice.ml.ocr_matcher import get_rapid_engine as _get_re
-            stamp_result, _ = _get_re()(stamp_up)
+            _engine = _get_re()
+            # Try multiple upscale factors. RapidOCR is sensitive to the
+            # input scale: a stamp text that fails at 3x can succeed at
+            # 4x, 5x, or 6x. Real examples from user binder scans:
+            # - DRAGON FRONTIERS on Nidoran ex15-56 (scan 191355): 3x=None,
+            #   4x='DAACOO FOMCRS' (success)
+            # - DRAGON FRONTIERS on Nidoran ex15-56 (scan 192354): 3x/4x/5x
+            #   all None, 6x='JRAGOO FHOOTIERS' (success)
+            # Merge results from all scales.
+            stamp_result = None
+            for scale in (3, 4, 5, 6):
+                up = cv2.resize(
+                    stamp_crop,
+                    (stamp_crop.shape[1] * scale, stamp_crop.shape[0] * scale),
+                )
+                res, _ = _engine(up)
+                if res:
+                    if stamp_result is None:
+                        stamp_result = list(res)
+                    else:
+                        stamp_result.extend(res)
             if stamp_result:
                 # Filter out artist credits and other non-stamp text
                 _NON_STAMP = {"illus", "arita", "sugimori", "nishida", "imakuni",
                               "komiya", "tokiya", "mitsuhiro", "atsuko", "ken",
                               "kagemaru", "himeno", "masakazu", "ryo", "kouki",
-                              "saya", "planeta", "cr.", "5ban", "graphics"}
+                              "saya", "planeta", "cr.", "5ban", "graphics",
+                              "hajime", "haume", "kusajima", "kusguma", "kusumo",
+                              "kusoumo", "kusumu", "kouki", "satou", "satoh",
+                              "kawayoo", "miki", "tanaka", "matsuda", "ohmura",
+                              "5ban", "milky", "milkyway"}
+
+                def _is_artist_fragment(text: str) -> bool:
+                    """Heuristic: does this text look like an OCR'd artist
+                    credit / illustrator signature rather than stamp text?
+                    Real stamps are short uppercase phrases like
+                    'DRAGON FRONTIERS' / 'DELTA SPECIES'. Artist credits
+                    are mixed-case names that often start with 'lus'/'us'/
+                    'llus' (garbled 'Illus.') or contain 'Kus*'/'Hau*'.
+                    """
+                    s = text.strip()
+                    sl = s.lower()
+                    # Starts with garbled "Illus." prefix
+                    if (sl.startswith("us ") or sl.startswith("lus")
+                            or sl.startswith("llus") or sl.startswith("ilus")
+                            or sl.startswith("us")):
+                        # Confirm it has a name-shaped suffix (capital + lower)
+                        # not e.g. "USING" or "USE"
+                        if any(c.isupper() for c in s[2:]) or "kus" in sl or "hau" in sl:
+                            return True
+                    # Contains a known artist surname fragment
+                    if any(frag in sl for frag in
+                           ("kusguma", "kusajima", "kusoumo", "kusoma",
+                            "kusumo", "kusumu", "haumeku", "haimeku",
+                            "kourou", "kawayoo")):
+                        return True
+                    return False
+
+                import re as _re
+                # Real stamp text on EX-era cards is always all-uppercase
+                # ("DRAGON FRONTIERS", "DELTA SPECIES", "POWER KEEPERS",
+                # etc.). RapidOCR garbles it to things like "TIENS",
+                # "OFAOOTIERS", "JRAGOO", "EXUELTH" — all of which contain
+                # at least one run of 3+ consecutive uppercase letters.
+                # Artist credit fragments ("usHaumeKusguma", "lusHaime")
+                # and rules text fragments ("ThisPokemon isboth rype",
+                # "reyourattacklyoumay") never have such runs because
+                # they're proper-case names or sentence-case prose.
+                _CAPS_RUN = _re.compile(r"[A-Z]{3,}")
+
                 texts = []
                 for _, t, c in stamp_result:
                     if float(c) < 0.4 or len(t.strip()) < 3:
                         continue
-                    # Skip if any word matches artist name
+                    # Skip if any word matches a known artist name fragment
                     words = t.lower().split()
                     if any(w.strip(".,") in _NON_STAMP for w in words):
                         continue
                     # Skip if looks like artist credit (contains "illus" anywhere)
                     if "illus" in t.lower() or "ilus" in t.lower():
+                        continue
+                    if _is_artist_fragment(t):
+                        continue
+                    # Require at least one run of 3+ consecutive uppercase
+                    # letters — the strongest single signal that the OCR
+                    # actually caught stamp text and not artist credit /
+                    # rules text. This kills the Metang ex11-49 and
+                    # Pidgeot ex13-14 false positives.
+                    if not _CAPS_RUN.search(t):
                         continue
                     texts.append(t)
                 if texts:
@@ -5948,7 +6173,10 @@ def identify_page_v2(card_image_paths, session=None,
     # Eagerly import modules that threads will use to avoid circular import
     # issues when multiple threads try to import torchvision simultaneously.
     from cardprice.ml.attack_ocr import extract_attack_names_paddle as _extract_attacks_paddle
-    from cardprice.ml.dino_matcher import extract_embedding_batch as _extract_batch
+    from cardprice.ml.dino_matcher import (
+        extract_embedding_batch as _extract_batch,
+        extract_region_embeddings_batch as _extract_region_batch,
+    )
     from cardprice.ml.preprocess import preprocess_for_matching as _preprocess
 
     t_precomp_start = _time.time()
@@ -5958,6 +6186,11 @@ def identify_page_v2(card_image_paths, session=None,
     dino_embeddings = [None] * n_cards
     clip_embeddings = [None] * n_cards
     stamp_texts = {}  # card_idx -> list of OCR text strings found in stamp region
+    # Precomputed scan-side stamp/control region embeddings for batched
+    # check_ex_stamp_fast. scan_stamp_embeddings[i] = (stamp_emb, ctrl_emb)
+    # for card i, both 768-d L2-normalized vectors. Filled by the parallel
+    # _batch_embeddings thread; consumed by _apply_variant_detection.
+    scan_stamp_embeddings: list[tuple] = [(None, None)] * n_cards
 
     # Shared pool for attack OCR — tasks are submitted by the name OCR
     # thread as soon as each card's name confidence is known.
@@ -6110,7 +6343,19 @@ def identify_page_v2(card_image_paths, session=None,
                      _time.time() - t0, len(stamp_texts), n_cards)
 
     def _batch_embeddings():
-        """Thread 2: DINOv2 batch embeddings (GPU, single forward pass)."""
+        """Thread 2: DINOv2 batch embeddings (GPU, single forward pass).
+
+        Computes:
+          1. Full-card embeddings (used by ref_matcher to score against
+             20k pre-computed reference embeddings).
+          2. Stamp + control region embeddings (used by check_ex_stamp_fast
+             after identification, to detect EX-era set stamps without
+             needing another GPU forward pass per card).
+
+        Both batches share the same GPU model load and run in the same
+        thread, so the marginal cost of (2) is just the extra forward
+        pass on 2*N small crops — typically <100ms for a 9-card page.
+        """
         t0 = _time.time()
         preproc_paths = []
         preproc_temps = []
@@ -6123,11 +6368,30 @@ def identify_page_v2(card_image_paths, session=None,
                 preproc_paths.append(str(path))
                 preproc_temps.append(None)
 
-        # DINOv2 batch (GPU)
+        # DINOv2 full-card batch (GPU)
         d_embs = _extract_batch(preproc_paths)
         for i, emb in enumerate(d_embs):
             dino_embeddings[i] = emb
         t_dino = _time.time() - t0
+
+        # DINOv2 stamp+control region batch — runs immediately after the
+        # full-card batch, on the same loaded model. Uses ORIGINAL paths
+        # (not preprocessed) since stamp regions are fractional crops of
+        # the unpreprocessed scan.
+        t_stamp = _time.time()
+        stamp_region = (0.55, 0.35, 0.90, 0.55)
+        control_region = (0.10, 0.10, 0.55, 0.35)
+        try:
+            region_embs = _extract_region_batch(
+                [str(p) for p in card_image_paths],
+                [stamp_region, control_region],
+            )
+            for i, regs in enumerate(region_embs):
+                if len(regs) >= 2:
+                    scan_stamp_embeddings[i] = (regs[0], regs[1])
+        except Exception as e:
+            logger.warning("identify_page_v2: stamp region batch failed: %s", e)
+        t_stamp = _time.time() - t_stamp
 
         # CLIP batch skipped — lazy-loaded only if ensemble tiebreaker fires
         # (CLIP contributes 0 unique correct IDs; loading it here causes heap corruption)
@@ -6138,7 +6402,9 @@ def identify_page_v2(card_image_paths, session=None,
                     os.unlink(tmp)
                 except OSError:
                     pass
-        logger.info("identify_page_v2: embeddings thread done in %.1fs (DINOv2=%.1fs)", _time.time()-t0, t_dino)
+        logger.info("identify_page_v2: embeddings thread done in %.1fs "
+                    "(full=%.1fs, stamp_regions=%.1fs)",
+                    _time.time()-t0, t_dino, t_stamp)
 
     # Run four main threads in parallel:
     #   - Name OCR (CPU, 3 parallel threads via internal pool)
@@ -6173,10 +6439,19 @@ def identify_page_v2(card_image_paths, session=None,
 
     def _thread_worker(i):
         try:
+            # Inject precomputed stamp/control region embeddings into the
+            # precomputed dict so _apply_variant_detection -> check_ex_stamp_fast
+            # can skip the per-card GPU forward pass.
+            pre = precomputed[i] or {}
+            stamp_emb, ctrl_emb = scan_stamp_embeddings[i]
+            if stamp_emb is not None and ctrl_emb is not None:
+                pre = dict(pre)
+                pre["scan_stamp_emb"] = stamp_emb
+                pre["scan_ctrl_emb"] = ctrl_emb
             return identify_card_v2(
                 str(card_image_paths[i]),
                 session=None,
-                _precomputed_ocr=precomputed[i],
+                _precomputed_ocr=pre,
                 _precomputed_dino_embedding=dino_embeddings[i],
                 _precomputed_attacks=attack_results[i],
                 _precomputed_clip_embedding=clip_embeddings[i],
