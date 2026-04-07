@@ -405,6 +405,22 @@ _VARIANT_TO_SUBTYPE = {
     "rainbow_rare":     "Holofoil",
     "cosmos":           "Holofoil",
     "cracked_ice":      "Holofoil",
+    # --- Japanese variant printings ---
+    # Each JP variant printing is its own tcg_product_id in dim_cards_jp,
+    # and TCGCSV cat 85 prices them under the "Holofoil" subtype_name.
+    # The card_id itself encodes the variant; the subtype map just routes
+    # the price query to the right fact_market_prices_jp row.
+    "master_ball_pattern":   "Holofoil",
+    "poke_ball_pattern":     "Holofoil",
+    "mirror_holofoil":       "Holofoil",
+    "mirror_foil":           "Holofoil",
+    "energy_symbol_pattern": "Holofoil",
+    "dusk_ball_pattern":     "Holofoil",
+    "love_ball_pattern":     "Holofoil",
+    "friend_ball_pattern":   "Holofoil",
+    "quick_ball_pattern":    "Holofoil",
+    "team_rocket_pattern":   "Holofoil",
+    "terastal_pattern":      "Holofoil",
 }
 
 # 1st Edition has multiple possible subtypes in TCGCSV; try them in priority order.
@@ -4855,15 +4871,30 @@ tr:hover {{ background: #16213e; }}
             self.wfile.write(cached_data)
             return
 
-        # NOTE: variant-image fast path DISABLED. The variant_image_index
-        # contains many mislabeled files (e.g. ex15-56 "nidoran_56_stamped"
-        # is actually a δ Rainbow Energy card scan, ex15-26 "bayleef" is a
-        # non-stamped Pokellector scan, ex15-12 "typhlosion" is a 3-PSA
-        # gallery image). Serving those directly was the user's "Nidoran
-        # called rainbow energy" complaint. The overlay renderer below
-        # paints the correct stylized set logo from data/stamp_logos/
-        # stylized/ on top of the canonical reference image, which is
-        # always correct.
+        # Variant-image fast path: serve a real photograph of the stamped/
+        # holo/reverse-holo card directly when one is in variant_image_index.
+        # The index was audited 2026-04-07: 19 mislabeled entries removed
+        # (e.g. ex15-56 was a Rainbow Energy scan, ex15-12 was a 3-PSA
+        # gallery), and 5 verified v2 photos added for the user's binder
+        # (ex15-7/23/56 Dragon Frontiers, ex11-11/49 Delta Species).
+        primary_variant = variant_list[0] if variant_list else None
+        variant_ref = _ref_image_path(card_id, variant=primary_variant)
+        if variant_ref and variant_ref != _ref_image_path(card_id):
+            img_data = variant_ref.read_bytes()
+            ext = variant_ref.suffix.lower()
+            content_type = {
+                ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                ".png": "image/png", ".webp": "image/webp",
+            }.get(ext, "image/jpeg")
+            if len(ScanHandler._variant_image_cache) < 500:
+                ScanHandler._variant_image_cache[cache_key] = (img_data, content_type)
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(img_data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            self.wfile.write(img_data)
+            return
 
         # Find the base reference image (normal variant)
         ref_path = _ref_image_path(card_id)
