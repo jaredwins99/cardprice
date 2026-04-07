@@ -155,6 +155,79 @@ JA_TCGDEX_TO_EN_TCGDEX_SET = {
     "SV8s": "sv08",      # id/th combined → Surging Sparks
     "SV9s": "sv09",      # id/th combined → Journey Together
     "SVDs": "sv10",      # id/th combined → Destined Rivals
+    # === Sun & Moon era (JA SM-series) ===
+    "SM1S": "sm1",       # Collection Sun → Sun & Moon
+    "SM1M": "sm1",       # Collection Moon → Sun & Moon
+    "SM2K": "sm2",       # Islands Await You → Guardians Rising
+    "SM2L": "sm2",       # Alolan Moonlight → Guardians Rising
+    "sm2+": "sm2",       # To Have Seen the Battle Rainbow → Guardians Rising
+    "SM3N": "sm3",       # Darkness That Consumes Light → Burning Shadows
+    "SM3H": "sm3",       # To Have Seen the Battle Rainbow → Burning Shadows
+    "SM3+": "sm3.5",     # Shining Legends → Shining Legends
+    "SM4A": "sm4",       # Ultradimensional Beasts → Crimson Invasion
+    "SM4S": "sm4",       # Awakened Heroes → Crimson Invasion
+    "SM4+": "sm4",       # GX Battle Boost → Crimson Invasion
+    "SM5M": "sm5",       # Ultra Moon → Ultra Prism
+    "SM5S": "sm5",       # Ultra Sun → Ultra Prism
+    "SM5+": "sm5",       # Ultra Force → Ultra Prism
+    "SM6": "sm6",        # Forbidden Light → Forbidden Light
+    "SM6a": "sm6",       # Dragon Storm → Forbidden Light
+    "SM6b": "sm7.5",     # Champion Road → Dragon Majesty
+    "SM7": "sm7",        # Charisma of the Wrecked Sky → Celestial Storm
+    "SM7a": "sm8",       # Thunderclap Spark → Lost Thunder
+    "SM7b": "sm8",       # Fairy Rise → Lost Thunder
+    "SM8": "sm8",        # Super-Burst Impact → Lost Thunder
+    "SM8a": "sm115",     # Dark Order → Hidden Fates
+    "SM8b": "sma",       # GX Ultra Shiny → Hidden Fates Shiny Vault
+    "SM9": "sm9",        # Tag Bolt → Team Up
+    "SM9a": "sm10",      # Night Unison → Unbroken Bonds
+    "SM9b": "sm9",       # Full Metal Wall → Team Up
+    "SM10": "sm10",      # Double Blaze → Unbroken Bonds
+    "sn10a": "sm11",     # GG End → Unified Minds
+    "SM10b": "sm11",     # Sky Legend → Unified Minds
+    "sn11": "sm11",      # Miracle Twin → Unified Minds
+    "SM11a": "sm11",     # Remix Bout → Unified Minds
+    "SM11b": "sm11",     # Dream League → Unified Minds
+    "SM12": "sm12",      # Alter Genesis → Cosmic Eclipse
+    "SM12a": "sm12",     # Tag All Stars → Cosmic Eclipse
+    # === XY era (JA XY-series) ===
+    "XY1a": "xy1",       # Collection X → XY
+    "XY1b": "xy1",       # Collection Y → XY
+    "XY2": "xy2",        # Wild Blaze → Flashfire
+    "XY3": "xy3",        # Rising Fist → Furious Fists
+    "XY4": "xy4",        # Phantom Gate → Phantom Forces
+    "XY5a": "xy5",       # Gaia Volcano / Tidal Storm → Primal Clash
+    "CP1": "dc1",        # Double Crisis → Double Crisis
+    "XY6": "xy6",        # Emerald Break → Roaring Skies
+    "XY7": "xy7",        # Bandit Ring → Ancient Origins
+    "XY8a": "xy8",       # Blue Shock → BREAKthrough
+    "XY8b": "xy8",       # Red Flash → BREAKthrough
+    "XY9": "xy9",        # Rage of the Broken Sky → BREAKpoint
+    "CP2": "g1",         # Legendary Shine Collection → Generations
+    "CP3": "g1",         # Pokekyun Collection → Generations
+    "XY10": "xy10",      # Awakening Psychic King → Fates Collide
+    "XY11a": "xy11",     # Cruel Traitor / Explosive Fighter → Steam Siege
+    "CP5": "xy11",       # Mythical Legendary Dream Shine Collection → Steam Siege
+    "CP6": "xy12",       # 20th Anniversary → Evolutions
+    # === HGSS era (JA L-series) ===
+    "L1a": "hgss1",      # HeartGold Collection → HeartGold SoulSilver
+    "L1b": "hgss1",      # SoulSilver Collection → HeartGold SoulSilver
+    "L2": "hgss2",       # Revived Legends → Unleashed
+    "LL": "hgss3",       # Lost Link → Undaunted
+    "L3": "hgss4",       # Clash at the Summit → Triumphant
+    # === Sword & Shield era (JA S-series) — missing ones ===
+    "S1H": "swsh1",      # Shield → Sword & Shield
+    "S1W": "swsh1",      # Sword → Sword & Shield
+    "S1a": "swsh1",      # VMAX Rising → Sword & Shield
+    "S2": "swsh2",       # Rebellion Crash → Rebel Clash
+    "S2a": "swsh3",      # Explosive Walker → Darkness Ablaze
+    "S3": "swsh3",       # Infinity Zone → Darkness Ablaze
+    "S3a": "swsh3",      # Legendary Heartbeat → Darkness Ablaze
+    # === Mega Evolution era (JA M-series) ===
+    "M1S": "me01",       # Mega Symphonia → Mega Evolution
+    "M3": "me03",        # Munikis Zero → Perfect Order
+    # SV1a (Triplet Beat) intentionally NOT bridged to sv01 — produces
+    # bijection collisions on reprinted trainers (e.g. Clavell→Youngster).
 }
 
 

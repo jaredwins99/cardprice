@@ -28,7 +28,13 @@ _ref_embeddings_lock = __import__("threading").Lock()
 
 # Pre-computed Japanese reference embeddings (separate file because JP cards
 # have different card_id namespace: jp_<tcg_product_id> from dim_cards_jp).
-_REF_EMBEDDINGS_JP_PATH = Path("data/ref_embeddings_jp.pkl")
+_REF_EMBEDDINGS_JP_PATH_FULL = Path("data/ref_embeddings_jp_full.pkl")
+_REF_EMBEDDINGS_JP_PATH_LEGACY = Path("data/ref_embeddings_jp.pkl")
+_REF_EMBEDDINGS_JP_PATH = (
+    _REF_EMBEDDINGS_JP_PATH_FULL
+    if _REF_EMBEDDINGS_JP_PATH_FULL.is_file()
+    else _REF_EMBEDDINGS_JP_PATH_LEGACY
+)
 _ref_embeddings_jp: Optional[dict[str, np.ndarray]] = None
 _ref_embeddings_jp_matrix: Optional[np.ndarray] = None  # stacked (N, 768) for fast search
 _ref_embeddings_jp_ids: Optional[list[str]] = None
