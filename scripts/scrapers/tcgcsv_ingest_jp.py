@@ -12,6 +12,10 @@ import logging
 import sys
 import time
 from datetime import date
+from pathlib import Path
+
+# Ensure project root is on path so 'cardprice' package imports work under cron
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import requests
 from sqlalchemy import create_engine, text

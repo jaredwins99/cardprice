@@ -296,7 +296,7 @@ _PRICE_LOOKUP_SQL = """
     JOIN dim_sets_jp s ON s.set_id = c.set_id
     LEFT JOIN LATERAL (
         SELECT market_price FROM fact_market_prices_jp
-        WHERE card_id = c.card_id
+        WHERE tcg_product_id = c.tcg_product_id
         ORDER BY
             CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
             price_date DESC
@@ -424,14 +424,17 @@ def _lookup_variant_price(session, card_id, detected_variant):
     """
     from sqlalchemy import text as sql_text
 
-    # Japanese cards: route to fact_market_prices_jp
+    # Japanese cards: route to fact_market_prices_jp.
+    # JP table joins on tcg_product_id, not card_id — bridge via dim_cards_jp.
     if _is_jp_card_id(card_id):
         subtype = _VARIANT_TO_SUBTYPE.get(detected_variant or "normal", "Normal")
         vrow = session.execute(
             sql_text("""
-                SELECT market_price FROM fact_market_prices_jp
-                WHERE card_id = :cid AND subtype_name = :subtype
-                ORDER BY price_date DESC LIMIT 1
+                SELECT p.market_price
+                FROM dim_cards_jp c
+                JOIN fact_market_prices_jp p ON p.tcg_product_id = c.tcg_product_id
+                WHERE c.card_id = :cid AND p.subtype_name = :subtype
+                ORDER BY p.price_date DESC LIMIT 1
             """),
             {"cid": card_id, "subtype": subtype},
         ).fetchone()
@@ -440,9 +443,11 @@ def _lookup_variant_price(session, card_id, detected_variant):
         # Fall back to any subtype if specific one missing
         vrow = session.execute(
             sql_text("""
-                SELECT market_price FROM fact_market_prices_jp
-                WHERE card_id = :cid
-                ORDER BY price_date DESC LIMIT 1
+                SELECT p.market_price
+                FROM dim_cards_jp c
+                JOIN fact_market_prices_jp p ON p.tcg_product_id = c.tcg_product_id
+                WHERE c.card_id = :cid
+                ORDER BY p.price_date DESC LIMIT 1
             """),
             {"cid": card_id},
         ).fetchone()
@@ -4850,29 +4855,15 @@ tr:hover {{ background: #16213e; }}
             self.wfile.write(cached_data)
             return
 
-        # Check if an actual variant reference image exists (downloaded photo
-        # of the real stamped/holo/reverse-holo card).  If so, serve it
-        # directly instead of applying an overlay to the normal image.
-        primary_variant = variant_list[0] if variant_list else None
-        variant_ref = _ref_image_path(card_id, variant=primary_variant)
-        if variant_ref and variant_ref != _ref_image_path(card_id):
-            # We have a real variant image — serve it directly
-            img_data = variant_ref.read_bytes()
-            ext = variant_ref.suffix.lower()
-            content_type = {
-                ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-                ".png": "image/png", ".webp": "image/webp",
-            }.get(ext, "image/jpeg")
-            # Cache the raw bytes + content type under the same key
-            if len(ScanHandler._variant_image_cache) < 500:
-                ScanHandler._variant_image_cache[cache_key] = (img_data, content_type)
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(img_data)))
-            self.send_header("Cache-Control", "no-cache")
-            self.end_headers()
-            self.wfile.write(img_data)
-            return
+        # NOTE: variant-image fast path DISABLED. The variant_image_index
+        # contains many mislabeled files (e.g. ex15-56 "nidoran_56_stamped"
+        # is actually a δ Rainbow Energy card scan, ex15-26 "bayleef" is a
+        # non-stamped Pokellector scan, ex15-12 "typhlosion" is a 3-PSA
+        # gallery image). Serving those directly was the user's "Nidoran
+        # called rainbow energy" complaint. The overlay renderer below
+        # paints the correct stylized set logo from data/stamp_logos/
+        # stylized/ on top of the canonical reference image, which is
+        # always correct.
 
         # Find the base reference image (normal variant)
         ref_path = _ref_image_path(card_id)
