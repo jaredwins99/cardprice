@@ -3821,6 +3821,9 @@ def _get_ja_reverse_index() -> dict[str, str]:
                 bridge = json.load(f)
             added_bridge = 0
             for jp_name, eng_name in bridge.items():
+                # Skip metadata keys (e.g. "_comment") and any non-string vals
+                if jp_name.startswith("_") or not isinstance(eng_name, str):
+                    continue
                 jp_lower = jp_name.lower().strip()
                 if jp_lower:
                     # Force override — curated bridge is authoritative for
@@ -3957,9 +3960,6 @@ def _rapid_ja_ocr(image_path: str) -> list[tuple[str, float]]:
     return all_texts
 
 
-# Backwards-compatible alias — old call sites use _paddle_ja_ocr_subprocess.
-# The new implementation is RapidOCR-based but keeps the same signature.
-_paddle_ja_ocr_subprocess = _rapid_ja_ocr
 
 
 def _try_jp_dino_match(image_path: str, threshold: float = 0.78) -> tuple[str, float] | None:
@@ -4045,8 +4045,8 @@ def _try_japanese_ocr(image_path: str) -> tuple[str, float] | None:
 
     ja_names = list(ja_index.keys())
 
-    # Run PaddleOCR in subprocess to avoid OOM when other models are loaded
-    ocr_results = _paddle_ja_ocr_subprocess(image_path)
+    # Run RapidOCR Japanese in-process (replaced PaddleOCR subprocess approach)
+    ocr_results = _rapid_ja_ocr(image_path)
     if not ocr_results:
         return None
 
