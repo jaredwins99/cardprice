@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sqlite3
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,36 +27,37 @@ from sqlalchemy import text as sa_text
 
 from cardprice.db.session import SessionLocal
 from cardprice.scrapers.tcgplayer_sales import DB_PATH, scrape_batch, _get_db
+from cardprice.scrapers.velocity import (
+    compute_velocity,
+    get_last_scraped_at,
+    select_by_velocity,
+    EXPECTED_SALES_THRESHOLD,
+)
 
 log = logging.getLogger("daily_tcgplayer_scrape")
 
 
-def get_product_ids(limit: int = 500, stale_days: int = 7) -> list[int]:
-    """Get product IDs to scrape, prioritized by market value.
+def get_product_ids(limit: int = 500, threshold: float = EXPECTED_SALES_THRESHOLD) -> list[int]:
+    """Get product IDs to scrape, prioritized by expected information gain.
 
-    Strategy:
-    1. Never-scraped products first (ordered by latest market_price DESC)
-    2. Stale products (scraped > stale_days ago, ordered by market_price DESC)
+    Replaces uniform stale-days rotation with velocity-aware scheduling:
+
+    1. Compute per-product sales-per-day from observed history.
+    2. For each product, compute expected_new_sales = velocity * days_since_last_scrape.
+    3. Skip if expected_new_sales < threshold (default 1.0).
+       Re-scraping a product that's had zero new sales burns Playwright
+       time for a no-op UPSERT — exactly what we want to avoid.
+    4. Never-scraped products always qualify (unknown velocity).
+    5. Rank survivors by expected_new_sales DESC (most overdue first),
+       with market_price as tie-breaker.
+
+    This replaces the previous "every card every 7 days uniformly"
+    strategy, which overstaffed low-velocity commons and under-sampled
+    high-velocity high-value cards.
     """
-    # Get already-scraped product IDs and their last scrape time from SQLite
-    scraped: dict[int, str] = {}
-    if DB_PATH.exists():
-        sconn = sqlite3.connect(str(DB_PATH))
-        try:
-            rows = sconn.execute(
-                "SELECT tcg_product_id, last_scraped FROM scrape_log"
-            ).fetchall()
-            scraped = {r[0]: r[1] for r in rows}
-        except sqlite3.OperationalError:
-            pass
-        finally:
-            sconn.close()
-
-    scraped_ids = set(scraped.keys())
-
+    # Pull market price for every product from Postgres
     session = SessionLocal()
     try:
-        # Get all product IDs with their latest market price
         result = session.execute(sa_text("""
             SELECT DISTINCT dc.tcg_product_id,
                    COALESCE(
@@ -74,27 +74,18 @@ def get_product_ids(limit: int = 500, stale_days: int = 7) -> list[int]:
     finally:
         session.close()
 
-    all_products = [(r[0], float(r[1])) for r in result]
+    candidates = [(int(r[0]), float(r[1])) for r in result]
 
-    # Split into never-scraped and stale
-    never_scraped = []
-    stale = []
-    from datetime import timedelta
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=stale_days)).isoformat()
+    # Velocity + last-scraped timestamps from SQLite
+    velocity = compute_velocity()
+    last_scraped = get_last_scraped_at()
 
-    for pid, price in all_products:
-        if pid not in scraped_ids:
-            never_scraped.append(pid)
-        elif scraped.get(pid, "") < cutoff:
-            stale.append(pid)
-
-    # Prioritize never-scraped, then stale (both already sorted by price DESC)
-    candidates = never_scraped + stale
-    selected = candidates[:limit]
-
-    log.info(
-        "Product selection: %d never-scraped, %d stale (>%dd), selected %d",
-        len(never_scraped), len(stale), stale_days, len(selected),
+    selected = select_by_velocity(
+        candidates,
+        velocity=velocity,
+        last_scraped=last_scraped,
+        limit=limit,
+        threshold=threshold,
     )
     return selected
 
@@ -103,8 +94,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Daily TCGPlayer sales scraper")
     parser.add_argument("--limit", type=int, default=500,
                         help="Max products to scrape per run (default: 500)")
-    parser.add_argument("--stale-days", type=int, default=7,
-                        help="Re-scrape products older than N days (default: 7)")
+    parser.add_argument("--threshold", type=float, default=EXPECTED_SALES_THRESHOLD,
+                        help=("Skip products with fewer than this many new "
+                              "sales expected since last scrape (default: 1.0). "
+                              "Never-scraped products always qualify."))
     parser.add_argument("--delay-min", type=float, default=2.0,
                         help="Min delay between scrapes in seconds (default: 2.0)")
     parser.add_argument("--delay-max", type=float, default=4.0,
@@ -123,7 +116,7 @@ def main() -> None:
     start = datetime.now(timezone.utc)
     log.info("=== Daily TCGPlayer scrape starting ===")
 
-    product_ids = get_product_ids(limit=args.limit, stale_days=args.stale_days)
+    product_ids = get_product_ids(limit=args.limit, threshold=args.threshold)
     if not product_ids:
         log.info("No products to scrape, exiting")
         return

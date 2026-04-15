@@ -33,6 +33,10 @@ from cardprice.scrapers.justtcg_prices import (
     DB_PATH,
     print_price_breakdown,
 )
+from cardprice.scrapers.velocity import (
+    compute_velocity,
+    value_weighted_priority,
+)
 
 log = logging.getLogger("batch_justtcg")
 
@@ -94,6 +98,22 @@ def get_product_ids_by_value(
         all_ids = [(pid, price) for pid, price in all_ids if pid not in already]
         log.info("[%s] Skipping %d already-fetched, %d remaining",
                  game, before - len(all_ids), len(all_ids))
+
+    # Value-weighted velocity priority: price * sales-per-day ranks products
+    # by how much USD moves per day, i.e. where condition pricing matters most.
+    # Free-tier quota is 1000/month, so we want every call spent on a product
+    # whose prices are actually changing. For English (pokemon) game we have
+    # velocity data; JP has none so we fall back to the original price order.
+    if game == "pokemon":
+        velocity = compute_velocity()
+        scored = value_weighted_priority(all_ids, velocity=velocity)
+        selected_pairs = scored[:limit]
+        if selected_pairs:
+            log.info(
+                "[%s] Selected %d by price*velocity, score range $%.3f - $%.3f",
+                game, len(selected_pairs), selected_pairs[0][1], selected_pairs[-1][1],
+            )
+        return [pid for pid, _ in selected_pairs]
 
     selected = all_ids[:limit]
     if selected:
