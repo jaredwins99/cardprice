@@ -41,17 +41,80 @@ from cardprice.scrapers.velocity import (
 log = logging.getLogger("batch_justtcg")
 
 
+def _velocity_refresh_days(velocity_per_day: float) -> int:
+    """Compute how many days to wait before re-fetching JustTCG prices
+    for a product with a given sales velocity.
+
+    Hot cards move fast — their condition premiums shift more frequently
+    and are worth checking weekly or better.  Slow cards rarely see NM/LP
+    price swings so monthly is fine.  Quota budget (~1000/month) forces a
+    long floor on the cold tier.
+    """
+    if velocity_per_day >= 2.0:
+        return 3   # hot: ~10 refreshes per month
+    if velocity_per_day >= 0.5:
+        return 7   # warm: ~4 refreshes per month
+    if velocity_per_day >= 0.1:
+        return 14  # median: 2/month
+    return 30      # cold: 1/month (quota floor)
+
+
+def _load_last_fetched(game: str) -> dict[int, str]:
+    """Return {tcg_product_id: latest ISO fetched_at} for a game.
+
+    Empty dict if DB doesn't exist or table is empty.
+    """
+    if not DB_PATH.exists():
+        return {}
+    import sqlite3
+    conn = sqlite3.connect(str(DB_PATH))
+    try:
+        rows = conn.execute(
+            """
+            SELECT tcg_product_id, MAX(fetched_at) AS last
+            FROM justtcg_prices
+            WHERE game = ?
+            GROUP BY tcg_product_id
+            """,
+            (game,),
+        ).fetchall()
+        return {pid: ts for pid, ts in rows}
+    except Exception:
+        return {}
+    finally:
+        conn.close()
+
+
 def get_product_ids_by_value(
     limit: int = 2000,
-    skip_fetched: bool = False,
+    refresh_days: int | None = None,
     game: str = "pokemon",
 ) -> list[int]:
-    """Get product IDs ordered by market price DESC.
+    """Select JustTCG targets with velocity-aware refresh cadence.
 
-    For game='pokemon' uses dim_cards joined with fact_market_prices.
-    For game='pokemon-japan' uses dim_cards_jp (no price ordering — JP has
-    no fact_market_prices coverage; orders by tcg_product_id).
+    Replaces the old binary --resume behaviour (fetch each product once
+    and never again).  Each product gets an individual refresh interval
+    based on its TCGPlayer sales velocity: hot cards every 3 days, warm
+    every 7, median every 14, cold every 30.  Products whose last fetch
+    is older than their interval become candidates.
+
+    Within the candidate set, orders by price*velocity so the 1000/month
+    quota gets spent on products whose USD-flow-per-day is highest.
+
+    Parameters
+    ----------
+    limit : int
+        Max products to return this run.
+    refresh_days : int | None
+        If set, overrides the velocity-based per-product interval with a
+        uniform wait.  Useful for initial coverage passes (refresh_days=0
+        means "fetch anything not fetched yet").
+    game : str
+        'pokemon' or 'pokemon-japan'.
     """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+
     session = SessionLocal()
     try:
         if game == "pokemon":
@@ -82,31 +145,47 @@ def get_product_ids_by_value(
     finally:
         session.close()
 
-    if skip_fetched and DB_PATH.exists():
-        import sqlite3
-        conn = sqlite3.connect(str(DB_PATH))
-        try:
-            already = {r[0] for r in conn.execute(
-                "SELECT DISTINCT tcg_product_id FROM justtcg_prices WHERE game = ?",
-                (game,),
-            ).fetchall()}
-        except Exception:
-            already = set()
-        finally:
-            conn.close()
-        before = len(all_ids)
-        all_ids = [(pid, price) for pid, price in all_ids if pid not in already]
-        log.info("[%s] Skipping %d already-fetched, %d remaining",
-                 game, before - len(all_ids), len(all_ids))
+    last_fetched = _load_last_fetched(game)
+    # Velocity is computed from TCGPlayer sales data, which only exists for
+    # English (pokemon). JP products have no velocity signal.
+    velocity = compute_velocity() if game == "pokemon" else {}
 
-    # Value-weighted velocity priority: price * sales-per-day ranks products
-    # by how much USD moves per day, i.e. where condition pricing matters most.
-    # Free-tier quota is 1000/month, so we want every call spent on a product
-    # whose prices are actually changing. For English (pokemon) game we have
-    # velocity data; JP has none so we fall back to the original price order.
+    # Filter: a product is eligible if never-fetched OR past its refresh interval.
+    never_fetched = 0
+    due = 0
+    skipped_fresh = 0
+    eligible: list[tuple[int, float]] = []
+
+    for pid, price in all_ids:
+        last = last_fetched.get(pid)
+        if last is None:
+            never_fetched += 1
+            eligible.append((pid, price))
+            continue
+        # Per-product interval: explicit override, else velocity-derived.
+        if refresh_days is not None:
+            interval = refresh_days
+        else:
+            interval = _velocity_refresh_days(velocity.get(pid, 0.0))
+        try:
+            last_dt = datetime.fromisoformat(last.replace("Z", "+00:00"))
+            days_old = (now - last_dt).total_seconds() / 86400.0
+        except Exception:
+            days_old = 9e9  # unparseable → treat as very stale
+        if days_old >= interval:
+            due += 1
+            eligible.append((pid, price))
+        else:
+            skipped_fresh += 1
+
+    log.info(
+        "[%s] refresh eligibility: never_fetched=%d, due=%d, skipped_fresh=%d",
+        game, never_fetched, due, skipped_fresh,
+    )
+
+    # Value-weighted velocity priority: spend quota where USD-flow is highest.
     if game == "pokemon":
-        velocity = compute_velocity()
-        scored = value_weighted_priority(all_ids, velocity=velocity)
+        scored = value_weighted_priority(eligible, velocity=velocity)
         selected_pairs = scored[:limit]
         if selected_pairs:
             log.info(
@@ -115,7 +194,7 @@ def get_product_ids_by_value(
             )
         return [pid for pid, _ in selected_pairs]
 
-    selected = all_ids[:limit]
+    selected = eligible[:limit]
     if selected:
         log.info(
             "[%s] Selected %d products, price range $%.2f - $%.2f",
@@ -124,10 +203,19 @@ def get_product_ids_by_value(
     return [pid for pid, _ in selected]
 
 
-def run_pass(client, db, game: str, limit: int, batch_size: int, resume: bool) -> tuple[int, int, int]:
+def run_pass(
+    client,
+    db,
+    game: str,
+    limit: int,
+    batch_size: int,
+    refresh_days: int | None,
+) -> tuple[int, int, int]:
     """Run one full scrape pass for a game. Returns (batches, variants, errors)."""
     log.info("=== JustTCG pass starting: game=%s ===", game)
-    product_ids = get_product_ids_by_value(limit=limit, skip_fetched=resume, game=game)
+    product_ids = get_product_ids_by_value(
+        limit=limit, refresh_days=refresh_days, game=game,
+    )
     if not product_ids:
         log.info("[%s] No products to fetch", game)
         return 0, 0, 0
@@ -184,7 +272,14 @@ def main():
     parser.add_argument("--batch-size", type=int, default=20,
                         help="Cards per API request (default: 20, max 20 on free)")
     parser.add_argument("--resume", action="store_true",
-                        help="Skip cards already in justtcg_prices.db")
+                        help=("Deprecated alias for --refresh-days 0. Kept for "
+                              "backwards compat with the existing cron entry. "
+                              "Prefer --refresh-days."))
+    parser.add_argument("--refresh-days", type=int, default=None,
+                        help=("Uniform wait between re-fetches per product. "
+                              "If unset, uses velocity-aware per-product "
+                              "intervals (3/7/14/30 days for hot/warm/"
+                              "median/cold)."))
     parser.add_argument("--include-jp", action="store_true",
                         help="Also run a Japanese (pokemon-japan) pass against dim_cards_jp")
     parser.add_argument("--jp-limit", type=int, default=None,
@@ -202,8 +297,16 @@ def main():
     client = JustTCGClient()
     db = get_db()
 
+    # --resume is the legacy cron flag — treat as "fetch anything not
+    # fetched yet" (refresh_days=0 means any gap qualifies).  When
+    # --refresh-days is passed explicitly, it wins.  When neither is set,
+    # the per-product velocity intervals apply.
+    refresh_days = args.refresh_days
+    if refresh_days is None and args.resume:
+        refresh_days = 0  # backwards-compat: only never-fetched products
+
     en_b, en_v, en_e = run_pass(
-        client, db, "pokemon", args.limit, args.batch_size, args.resume,
+        client, db, "pokemon", args.limit, args.batch_size, refresh_days,
     )
 
     jp_b = jp_v = jp_e = 0
@@ -214,7 +317,7 @@ def main():
     if args.include_jp and quota_left:
         jp_limit = args.jp_limit if args.jp_limit is not None else args.limit
         jp_b, jp_v, jp_e = run_pass(
-            client, db, "pokemon-japan", jp_limit, args.batch_size, args.resume,
+            client, db, "pokemon-japan", jp_limit, args.batch_size, refresh_days,
         )
     elif args.include_jp:
         log.warning("Skipping JP pass: quota exhausted after EN pass")
