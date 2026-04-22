@@ -97,8 +97,14 @@ def ensure_schema(engine):
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
+# CloudFront in front of tcgcsv.com blocks the default python-requests
+# User-Agent with HTTP 401 (confirmed 2026-04-22).  Send a browser UA so
+# CloudFront's bot filter lets the request through.
+_HEADERS = {"User-Agent": "Mozilla/5.0 (cardprice-ingest)"}
+
+
 def _get_json(url: str) -> dict | list:
-    resp = requests.get(url, timeout=60)
+    resp = requests.get(url, timeout=60, headers=_HEADERS)
     resp.raise_for_status()
     return resp.json()
 
