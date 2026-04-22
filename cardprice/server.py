@@ -310,6 +310,1286 @@ def _is_jp_card_id(card_id: str | None) -> bool:
     """Detect Japanese card_id format (jp_<product_id> from dim_cards_jp)."""
     return bool(card_id and card_id.startswith("jp_"))
 
+
+# -----------------------------------------------------------------------
+# Manual-search indexes (name autocomplete + move fuzzy match)
+# -----------------------------------------------------------------------
+
+_NAME_AUTOCOMPLETE_INDEX: list[tuple[str, int]] | None = None
+_NAME_AUTOCOMPLETE_LOCK = __import__("threading").Lock()
+
+# Japanese-catalog counterparts (dim_cards_jp).  Separate indexes because
+# JP product names carry card-number + variant suffixes we need to strip
+# (e.g. "Pineco - 001/098 (Master Ball Pattern)" -> "Pineco" base name).
+_NAME_AUTOCOMPLETE_INDEX_JP: list[tuple[str, int]] | None = None
+_NAME_AUTOCOMPLETE_LOCK_JP = __import__("threading").Lock()
+_SEARCH_BY_NAME_INDEX_JP: dict[str, list[tuple]] | None = None
+_SEARCH_INDEX_LOCK_JP = __import__("threading").Lock()
+
+# Authoritative per-card variant catalog, built by
+# scripts/scrapers/build_variant_catalog.py from TCGCSV product metadata.
+# Format: {card_id: {variant_key: tcg_product_id}}. Enumerates every
+# real TCGPlayer SKU per card — covers prime, cracked_ice_holofoil,
+# cosmos_holofoil, delta_species, full_art, team_plasma, prerelease,
+# staff, winner, JP master/poke ball patterns, etc.
+_CARD_VARIANT_CATALOG: dict[str, dict[str, int]] | None = None
+_CARD_VARIANT_CATALOG_LOCK = __import__("threading").Lock()
+_CARD_VARIANT_CATALOG_PATH = Path(__file__).resolve().parent.parent / \
+    "data" / "dim_card_variants.json"
+
+
+def _get_card_variant_catalog() -> dict[str, dict[str, int]]:
+    """Lazy-load the TCGCSV-derived per-card variant catalog."""
+    global _CARD_VARIANT_CATALOG
+    if _CARD_VARIANT_CATALOG is not None:
+        return _CARD_VARIANT_CATALOG
+    with _CARD_VARIANT_CATALOG_LOCK:
+        if _CARD_VARIANT_CATALOG is not None:
+            return _CARD_VARIANT_CATALOG
+        try:
+            if not _CARD_VARIANT_CATALOG_PATH.is_file():
+                logger.warning(
+                    "dim_card_variants.json not found at %s — variant picker "
+                    "will fall back to variant_tree.json eras only. Run "
+                    "scripts/scrapers/build_variant_catalog.py to generate.",
+                    _CARD_VARIANT_CATALOG_PATH,
+                )
+                _CARD_VARIANT_CATALOG = {}
+                return _CARD_VARIANT_CATALOG
+            with open(_CARD_VARIANT_CATALOG_PATH) as f:
+                blob = json.load(f)
+            _CARD_VARIANT_CATALOG = blob.get("by_card", {})
+            logger.info("Loaded variant catalog: %d cards, %d SKUs",
+                        blob.get("card_count", len(_CARD_VARIANT_CATALOG)),
+                        blob.get("total_variants", 0))
+        except Exception as _e:
+            logger.warning("variant catalog load failed: %s", _e)
+            _CARD_VARIANT_CATALOG = {}
+        return _CARD_VARIANT_CATALOG
+
+# Lowercased-name → list of search-card rows (base_id, name, set_id,
+# set_name, rarity, release_date, tcg_product_id). Built once at first
+# use from a single DB scan and reused for every /search-cards request.
+# Total footprint is ~5MB for 20k cards — cheap in exchange for turning
+# Postgres hits into Python dict lookups.
+_SEARCH_BY_NAME_INDEX: dict[str, list[tuple]] | None = None
+_SEARCH_INDEX_LOCK = __import__("threading").Lock()
+
+# Pokemon-TCG name suffixes that render as glyphs most mobile fonts don't
+# ship (delta species δ, prism star ◇, gold star ★). We keep the raw DB
+# name for SQL lookups but send a phone-safe display label in the API
+# response so "Latias δ" renders as "Latias (Delta Species)" on the client.
+_NAME_GLYPH_MAP = {
+    "δ": " (Delta Species)",   # δ
+    "◇": " (Prism Star)",       # ◇
+    "★": " (Gold Star)",        # ★
+    "♀": " F",                  # ♀ (Nidoran F)
+    "♂": " M",                  # ♂ (Nidoran M)
+}
+
+
+def _display_name(name: str) -> str:
+    """Return a phone-safe rendering of a Pokemon name.
+
+    Replaces rare-glyph suffixes (δ/◇/★/♀/♂) with their English
+    equivalents. Internal card_ids and DB queries still use the raw
+    name — this is display-only.
+    """
+    if not name:
+        return name
+    out = name
+    for src, dst in _NAME_GLYPH_MAP.items():
+        out = out.replace(src, dst)
+    # Collapse doubled spaces created by suffix substitutions.
+    while "  " in out:
+        out = out.replace("  ", " ")
+    return out.strip()
+
+
+# Regex to strip card-number suffix "- 123/456" and variant suffix "(...)"
+# from dim_cards_jp.name, leaving just the base Pokemon/Trainer name.
+# Example: "Pikachu - 025/165 (Master Ball Pattern)" -> "Pikachu"
+_JP_NAME_STRIP_RE = re.compile(
+    r"\s*-\s*\S+?/\S+?\s*(?:\([^)]*\))?\s*$"
+    r"|\s*\([^)]*\)\s*$"
+)
+
+
+def _jp_base_name(full_name: str) -> str:
+    """Extract the base name from a dim_cards_jp.name value.
+
+    TCGPlayer JP naming format: "<Name> - <CardNum>/<SetSize> (<Variant>)".
+    We strip the numeric suffix and parenthesized variant to match how
+    English search keys on plain Pokemon names.
+    """
+    if not full_name:
+        return ""
+    stripped = _JP_NAME_STRIP_RE.sub("", full_name).strip()
+    return stripped or full_name.strip()
+
+
+def _get_name_autocomplete_index_jp() -> list[tuple[str, int]]:
+    """JP counterpart of _get_name_autocomplete_index.
+
+    Queries dim_cards_jp, strips card-number + variant suffixes, groups
+    by base name.  Returns (base_name, distinct_card_count) sorted by
+    count desc.
+    """
+    global _NAME_AUTOCOMPLETE_INDEX_JP
+    if _NAME_AUTOCOMPLETE_INDEX_JP is not None:
+        return _NAME_AUTOCOMPLETE_INDEX_JP
+    with _NAME_AUTOCOMPLETE_LOCK_JP:
+        if _NAME_AUTOCOMPLETE_INDEX_JP is not None:
+            return _NAME_AUTOCOMPLETE_INDEX_JP
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+            counts: dict[str, int] = {}
+            with SessionLocal() as session:
+                rows = session.execute(sql_text(
+                    "SELECT name, card_id FROM dim_cards_jp WHERE name IS NOT NULL"
+                )).fetchall()
+            for full_name, _cid in rows:
+                base = _jp_base_name(str(full_name))
+                if not base:
+                    continue
+                counts[base] = counts.get(base, 0) + 1
+            _NAME_AUTOCOMPLETE_INDEX_JP = sorted(
+                counts.items(), key=lambda kv: (-kv[1], kv[0])
+            )
+            logger.info(
+                "name-autocomplete (JP): %d distinct base names",
+                len(_NAME_AUTOCOMPLETE_INDEX_JP),
+            )
+        except Exception as _e:
+            logger.warning("name-autocomplete JP DB load failed: %s", _e)
+            _NAME_AUTOCOMPLETE_INDEX_JP = []
+        return _NAME_AUTOCOMPLETE_INDEX_JP
+
+
+def _get_search_by_name_index_jp() -> dict[str, list[tuple]]:
+    """JP counterpart of _get_search_by_name_index.
+
+    Keys on the stripped base name (so "pikachu" matches all Pikachu JP
+    products).  Entries carry the JP card_id (jp_<id>), the full
+    TCGPlayer name (keeps the variant suffix for display), set info,
+    image URL, and tcg_product_id.
+    """
+    global _SEARCH_BY_NAME_INDEX_JP
+    if _SEARCH_BY_NAME_INDEX_JP is not None:
+        return _SEARCH_BY_NAME_INDEX_JP
+    with _SEARCH_INDEX_LOCK_JP:
+        if _SEARCH_BY_NAME_INDEX_JP is not None:
+            return _SEARCH_BY_NAME_INDEX_JP
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+            out: dict[str, list[tuple]] = {}
+            with SessionLocal() as session:
+                rows = session.execute(sql_text(
+                    "SELECT c.card_id, c.name, c.name_jp, c.set_id, "
+                    "       s.name AS set_name, c.rarity, s.published_on, "
+                    "       c.tcg_product_id, c.image_url "
+                    "FROM dim_cards_jp c "
+                    "LEFT JOIN dim_sets_jp s ON c.set_id = s.set_id "
+                    "WHERE c.name IS NOT NULL"
+                )).fetchall()
+            for r in rows:
+                card_id = r[0]
+                full_name = r[1] or ""
+                base = _jp_base_name(full_name)
+                if not base:
+                    continue
+                entry = (
+                    card_id,        # 0 jp_<id>
+                    full_name,      # 1 full TCGPlayer name w/ variant suffix
+                    r[2],           # 2 name_jp (kanji, may be None)
+                    r[3],           # 3 set_id
+                    r[4],           # 4 set_name
+                    r[5],           # 5 rarity
+                    r[6],           # 6 published_on (date)
+                    r[7],           # 7 tcg_product_id
+                    r[8],           # 8 image_url
+                )
+                out.setdefault(base.lower(), []).append(entry)
+            # Sort each bucket by published_on desc (None last).
+            for lst in out.values():
+                lst.sort(key=lambda e: (e[6] or ""), reverse=True)
+            _SEARCH_BY_NAME_INDEX_JP = out
+            logger.info(
+                "search-name index (JP): %d distinct names, %d rows",
+                len(out), sum(len(v) for v in out.values()),
+            )
+        except Exception as _e:
+            logger.warning("search-name JP index build failed: %s", _e)
+            _SEARCH_BY_NAME_INDEX_JP = {}
+        return _SEARCH_BY_NAME_INDEX_JP
+
+
+def _get_name_autocomplete_index() -> list[tuple[str, int]]:
+    """Return list of (name, printing_count) sorted by count desc.
+
+    Uses dim_cards as the source of truth so it always reflects the
+    current catalog. Cached on first call; cache rebuilds on server
+    restart.
+    """
+    global _NAME_AUTOCOMPLETE_INDEX
+    if _NAME_AUTOCOMPLETE_INDEX is not None:
+        return _NAME_AUTOCOMPLETE_INDEX
+    with _NAME_AUTOCOMPLETE_LOCK:
+        if _NAME_AUTOCOMPLETE_INDEX is not None:
+            return _NAME_AUTOCOMPLETE_INDEX
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+            counts: dict[str, int] = {}
+            with SessionLocal() as session:
+                rows = session.execute(sql_text(
+                    "SELECT name, COUNT(DISTINCT card_id) "
+                    "FROM dim_cards WHERE name IS NOT NULL GROUP BY name"
+                )).fetchall()
+            for name, count in rows:
+                if name:
+                    counts[str(name)] = int(count)
+            _NAME_AUTOCOMPLETE_INDEX = sorted(
+                counts.items(), key=lambda kv: (-kv[1], kv[0])
+            )
+        except Exception as _e:
+            logger.warning("name-autocomplete DB load failed: %s", _e)
+            _NAME_AUTOCOMPLETE_INDEX = []
+        return _NAME_AUTOCOMPLETE_INDEX
+
+
+def _get_search_by_name_index() -> dict[str, list[tuple]]:
+    """Return {lowered_name: [(base_id, name, set_id, set_name, rarity,
+    release_date, tcg_product_id), ...]}. Each list is sorted by
+    release_date desc.
+
+    Built from a single dim_cards + dim_sets join on first access and
+    cached. Invalidated only by server restart — dim_cards updates are
+    rare (batch ingests), so a stale index is acceptable until next boot.
+    """
+    global _SEARCH_BY_NAME_INDEX
+    if _SEARCH_BY_NAME_INDEX is not None:
+        return _SEARCH_BY_NAME_INDEX
+    with _SEARCH_INDEX_LOCK:
+        if _SEARCH_BY_NAME_INDEX is not None:
+            return _SEARCH_BY_NAME_INDEX
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+            out: dict[str, list[tuple]] = {}
+            with SessionLocal() as session:
+                rows = session.execute(sql_text(
+                    "SELECT c.card_id, c.name, c.set_id, s.name AS set_name, "
+                    "       c.rarity, s.release_date, c.tcg_product_id "
+                    "FROM dim_cards c "
+                    "LEFT JOIN dim_sets s ON c.set_id = s.set_id "
+                    "WHERE c.name IS NOT NULL"
+                )).fetchall()
+            for r in rows:
+                base_id = (r[0] or "").split("/", 1)[0]
+                if not base_id:
+                    continue
+                raw_name = r[1] or ""
+                entry = (base_id, r[1], r[2], r[3], r[4], r[5], r[6])
+                # Index under the raw name *and* the display-safe name
+                # (e.g. "Nidoran ♀" and "Nidoran F") so a client-typed
+                # ASCII query matches the same row as its raw form.
+                keys = {raw_name.lower()}
+                display = _display_name(raw_name)
+                if display:
+                    keys.add(display.lower())
+                for key in keys:
+                    out.setdefault(key, []).append(entry)
+            # Sort each bucket by release_date desc (None last), stable on id.
+            for k, lst in out.items():
+                lst.sort(key=lambda e: (e[5] is None, e[5] or "", e[0]),
+                         reverse=False)
+                # flip: reverse=False with tuple would put None last, but
+                # we want newest first -> resort:
+                lst.sort(key=lambda e: (e[5] or ""), reverse=True)
+            _SEARCH_BY_NAME_INDEX = out
+            logger.info("search-name index: %d distinct names, %d rows",
+                        len(out), sum(len(v) for v in out.values()))
+        except Exception as _e:
+            logger.warning("search-name index build failed: %s", _e)
+            _SEARCH_BY_NAME_INDEX = {}
+        return _SEARCH_BY_NAME_INDEX
+
+
+def _rarity_canonical_printing(rarity: str | None) -> str:
+    """Map a card's rarity to its canonical JustTCG printing value.
+
+    "Rare Holo", "Trainer Gallery Rare Holo", "Illustration Rare", "Full
+    Art", "Hyper/Rainbow/Gold/Secret", V/VMAX/VSTAR/GX/EX/ex etc. are
+    printed on holofoil stock — use the Holofoil JustTCG row for them.
+    Everything else (Common, Uncommon, non-holo Rare, Promo) defaults to
+    Normal.
+    """
+    if not rarity:
+        return "Normal"
+    rlow = rarity.lower()
+    _HOLO_KEYWORDS = (
+        "holo", "illustration", "full art", "hyper", "rainbow",
+        "gold", "secret", "amazing", "radiant", "prism star",
+        "shining", "shiny", "ultra", "special illustration",
+        "break", "lv.x", "lvx", "lv x",
+    )
+    for kw in _HOLO_KEYWORDS:
+        if kw in rlow:
+            return "Holofoil"
+    # Short token-match for suffix markers like "GX", "V", "VMAX", "EX".
+    toks = rlow.replace("-", " ").split()
+    for t in ("gx", "ex", "v", "vmax", "vstar"):
+        if t in toks:
+            return "Holofoil"
+    return "Normal"
+
+
+def _batch_mp_prices(entries: list[tuple]) -> dict[str, tuple[float | None, bool]]:
+    """Build (mp_price, estimated) for each base_id in one pass.
+
+    Uses each card's rarity (entries[4]) to pick the JustTCG *printing*
+    (Normal vs Holofoil) so holo cards don't fall through to an
+    unrelated-Normal-row + bad estimate. Falls back to NM market price
+    (matched by printing) * 0.62 when JustTCG has no MP row.
+    """
+    if not entries:
+        return {}
+    base_ids = [e[0] for e in entries]
+    tcg_pids = [e[6] for e in entries if e[6] is not None]
+
+    # Bulk NM market prices from fact_market_prices. Query by the indexed
+    # card_id column directly (no SPLIT_PART wrapper) — we know every
+    # dim_cards row stores card_id as "<base>/normal", so mapping
+    # base_id → full_id is a string append, not a substring call.
+    nm_by_base: dict[str, float | None] = {}
+    full_to_base = {b + "/normal": b for b in base_ids}
+    full_ids = list(full_to_base.keys())
+    try:
+        from cardprice.db.session import SessionLocal
+        from sqlalchemy import text as sql_text
+        with SessionLocal() as session:
+            rows = session.execute(sql_text(
+                "SELECT card_id, "
+                "       MIN(market_price) FILTER (WHERE subtype_name='Normal') AS nm_normal, "
+                "       MIN(market_price) FILTER (WHERE subtype_name='Holofoil') AS nm_holo, "
+                "       MIN(market_price) AS nm_any "
+                "FROM fact_market_prices "
+                "WHERE card_id = ANY(:ids) "
+                "GROUP BY card_id"
+            ), {"ids": full_ids}).fetchall()
+        for full_id, p_norm, p_holo, p_any in rows:
+            base_id = full_to_base.get(full_id, full_id.split("/", 1)[0])
+            nm_by_base[base_id] = float(p_norm or p_holo or p_any) if (p_norm or p_holo or p_any) else None
+    except Exception as _e:
+        logger.debug("bulk market_price lookup failed: %s", _e)
+
+    # Bulk JustTCG MP rows. Pull BOTH printings so we can pick per-card.
+    jtcg_mp: dict[tuple[int, str], float] = {}
+    if tcg_pids:
+        try:
+            import sqlite3
+            db_path = Path(__file__).resolve().parent.parent / "data" / "justtcg_prices.db"
+            if db_path.is_file():
+                con = sqlite3.connect(str(db_path))
+                try:
+                    placeholders = ",".join("?" * len(tcg_pids))
+                    for row in con.execute(
+                        "SELECT tcg_product_id, price, printing "
+                        "FROM justtcg_prices "
+                        f"WHERE tcg_product_id IN ({placeholders}) "
+                        "AND condition = 'Moderately Played' "
+                        "AND printing IN ('Normal','Holofoil')",
+                        tcg_pids,
+                    ):
+                        jtcg_mp[(row[0], row[2])] = float(row[1])
+                finally:
+                    con.close()
+        except Exception as _e:
+            logger.debug("bulk JustTCG MP lookup failed: %s", _e)
+
+    # We also pulled holo NM alongside normal NM earlier — reshape the
+    # existing nm_by_base lookup so we can pick the printing-appropriate
+    # fallback. Refetch per-printing breakdown.
+    nm_by_base_printing: dict[tuple[str, str], float] = {}
+    try:
+        from cardprice.db.session import SessionLocal
+        from sqlalchemy import text as sql_text
+        with SessionLocal() as session:
+            rows = session.execute(sql_text(
+                "SELECT card_id, subtype_name, MIN(market_price) "
+                "FROM fact_market_prices "
+                "WHERE card_id = ANY(:ids) AND subtype_name IN ('Normal','Holofoil') "
+                "GROUP BY card_id, subtype_name"
+            ), {"ids": full_ids}).fetchall()
+        for full_id, subtype, price in rows:
+            base_id = full_to_base.get(full_id, full_id.split("/", 1)[0])
+            if price is not None:
+                nm_by_base_printing[(base_id, subtype)] = float(price)
+    except Exception as _e:
+        logger.debug("per-printing NM lookup failed: %s", _e)
+
+    out: dict[str, tuple[float | None, bool]] = {}
+    for e in entries:
+        base_id, tcg_pid = e[0], e[6]
+        rarity = e[4] if len(e) > 4 else None
+        printing = _rarity_canonical_printing(rarity)
+        # Prefer the canonical printing; fall back to the other.
+        mp_price = None
+        if tcg_pid is not None:
+            mp_price = jtcg_mp.get((tcg_pid, printing))
+            if mp_price is None:
+                other = "Normal" if printing == "Holofoil" else "Holofoil"
+                mp_price = jtcg_mp.get((tcg_pid, other))
+        if mp_price is not None:
+            out[base_id] = (mp_price, False)
+            continue
+        # Estimate from the printing-appropriate NM
+        nm = (nm_by_base_printing.get((base_id, printing))
+              or nm_by_base_printing.get((base_id, "Holofoil" if printing == "Normal" else "Normal"))
+              or nm_by_base.get(base_id))
+        if nm is not None:
+            out[base_id] = (round(nm * 0.62, 2), True)
+        else:
+            out[base_id] = (None, False)
+    return out
+
+
+def _search_cards_by_name_and_move(name: str, move: str, limit: int) -> list[dict]:
+    """Return card printings matching an exact Pokemon name + optional move.
+
+    Name match: case-insensitive equality (user picked from autocomplete).
+    Move match: fuzzy substring against structured_attacks.json attack/ability
+    names for that card. When both filters are applied and exactly one card
+    matches, the frontend can treat it as a resolved identification.
+
+    Each result carries the base card_id (no variant suffix); the client
+    fetches variants separately to populate the variant picker.
+    """
+    try:
+        from cardprice.ml import _load_structured_attacks
+    except Exception as _e:
+        logger.warning("search-cards import failed: %s", _e)
+        return []
+
+    structured = _load_structured_attacks()
+    name_q = name.strip().lower()
+    index = _get_search_by_name_index()
+
+    # Prefix match over the name index. Exact matches always included.
+    # For broader prefix hits, skip keys whose suffix after the query is
+    # a mechanic token — "Pikachu ex", "Pikachu V", "Pikachu VMAX",
+    # "Pikachu-GX", tag-team "Pikachu & Zekrom-GX" are different cards
+    # with different moves. Keep subseries markers like δ / ◇ / ★ and
+    # "(Delta Species)" / "(Prism Star)" / "(Gold Star)".
+    _MECHANIC_RE = re.compile(
+        r"(?:\bex\b|\bgx\b|\bv\b|\bvmax\b|\bvstar\b|\bv-union\b|"
+        r"\bbreak\b|\blv\.?\s*x\b|&)",
+        re.IGNORECASE,
+    )
+    raw_entries: list[tuple] = []
+    exact = index.get(name_q, [])
+    if exact:
+        raw_entries.extend(exact)
+    for key, bucket in index.items():
+        if key == name_q:
+            continue
+        if not key.startswith(name_q):
+            continue
+        suffix = key[len(name_q):]
+        # Normalize hyphen to space so "-ex" is tokenized as "ex".
+        if _MECHANIC_RE.search(suffix.replace("-", " ")):
+            continue
+        raw_entries.extend(bucket)
+
+    # First pass: collect matching base_ids (dedupe, apply move filter).
+    seen_base: set[str] = set()
+    matched_entries: list[tuple] = []
+    matched_moves_by_base: dict[str, list[str]] = {}
+    for entry in raw_entries:
+        base_id = entry[0]
+        if base_id in seen_base:
+            continue
+        seen_base.add(base_id)
+
+        if move:
+            data = structured.get(base_id, {}) or {}
+            moves_list = [a.get("name", "") for a in data.get("attacks", [])]
+            moves_list += [a.get("name", "") for a in data.get("abilities", [])]
+            matched = [m for m in moves_list if m and move in m.lower()]
+            if not matched:
+                continue
+            matched_moves_by_base[base_id] = matched
+        matched_entries.append(entry)
+        if len(matched_entries) >= limit:
+            break
+
+    # Second pass: batched MP price lookup for all surviving candidates.
+    mp_lookup = _batch_mp_prices(matched_entries)
+
+    results = []
+    for entry in matched_entries:
+        base_id, card_name, set_id, set_name, rarity, _rel, tcg_pid = entry
+        image_url = None
+        if set_id and "-" in base_id:
+            num = base_id.rsplit("-", 1)[-1]
+            image_url = f"https://images.pokemontcg.io/{set_id}/{num}.png"
+
+        mp_price, mp_est = mp_lookup.get(base_id, (None, False))
+
+        results.append({
+            "card_id": base_id,
+            "name": _display_name(card_name),
+            "raw_name": card_name,
+            "set_id": set_id,
+            "set_name": set_name,
+            "rarity": rarity,
+            "image_url": image_url,
+            "matched_moves": matched_moves_by_base.get(base_id, []),
+            "mp_price": mp_price,
+            "mp_estimated": mp_est,
+        })
+
+    return results
+
+
+def _search_cards_by_name_jp(name: str, limit: int) -> list[dict]:
+    """Search JP catalog (dim_cards_jp) for a Pokemon name.
+
+    User types an English name (the Pokemon name TCGPlayer uses for JP
+    products).  Returns JP product rows with JP images + JP market prices.
+    JP has no structured_attacks data, so no move filtering.
+    """
+    name_q = name.strip().lower()
+    index = _get_search_by_name_index_jp()
+
+    # Prefix match over the base-name keys, with exact matches first.
+    raw_entries: list[tuple] = []
+    exact = index.get(name_q, [])
+    if exact:
+        raw_entries.extend(exact)
+    _MECHANIC_RE = re.compile(
+        r"(?:\bex\b|\bgx\b|\bv\b|\bvmax\b|\bvstar\b|\bv-union\b|"
+        r"\bbreak\b|\blv\.?\s*x\b|&)",
+        re.IGNORECASE,
+    )
+    for key, bucket in index.items():
+        if key == name_q:
+            continue
+        if not key.startswith(name_q):
+            continue
+        suffix = key[len(name_q):]
+        if _MECHANIC_RE.search(suffix.replace("-", " ")):
+            continue
+        raw_entries.extend(bucket)
+
+    # Dedupe by card_id (same JP product could be indexed under both
+    # name variants if we ever alias).
+    seen: set[str] = set()
+    matched: list[tuple] = []
+    for entry in raw_entries:
+        card_id = entry[0]
+        if card_id in seen:
+            continue
+        seen.add(card_id)
+        matched.append(entry)
+        if len(matched) >= limit:
+            break
+
+    # Batched price lookup from fact_market_prices_jp.
+    pids = [e[7] for e in matched if e[7]]
+    price_by_pid: dict[int, float] = {}
+    if pids:
+        try:
+            from cardprice.db.session import SessionLocal
+            from sqlalchemy import text as sql_text
+            with SessionLocal() as session:
+                # Prefer Normal subtype, fall back to Holofoil, then any.
+                rows = session.execute(sql_text("""
+                    SELECT DISTINCT ON (tcg_product_id)
+                           tcg_product_id, market_price
+                    FROM fact_market_prices_jp
+                    WHERE tcg_product_id = ANY(:pids)
+                    ORDER BY tcg_product_id,
+                             CASE subtype_name WHEN 'Normal' THEN 0
+                                               WHEN 'Holofoil' THEN 1
+                                               ELSE 2 END,
+                             price_date DESC
+                """), {"pids": pids}).fetchall()
+            for pid, mp in rows:
+                if mp is not None:
+                    price_by_pid[int(pid)] = float(mp)
+        except Exception as _e:
+            logger.warning("JP batch price lookup failed: %s", _e)
+
+    results = []
+    for e in matched:
+        (card_id, full_name, name_jp, set_id, set_name, rarity,
+         _rel, tcg_pid, image_url) = e
+        mp_price = price_by_pid.get(int(tcg_pid)) if tcg_pid else None
+        results.append({
+            "card_id": card_id,
+            "name": full_name,
+            "raw_name": full_name,
+            "name_jp": name_jp,
+            "set_id": set_id,
+            "set_name": set_name,
+            "rarity": rarity,
+            "image_url": image_url,
+            "matched_moves": [],  # not available for JP
+            "mp_price": mp_price,
+            "mp_estimated": False,
+        })
+    return results
+
+
+# -----------------------------------------------------------------------
+# Card detail page (big image + variant picker + pricing)
+# -----------------------------------------------------------------------
+
+def _decompose_variants(raw: list[str], rarity: str | None = None) -> dict:
+    """Split a card's possible variant strings into orthogonal axes.
+
+    Each raw variant is parsed into (edition, finish, modifier):
+      - edition: normal | 1st_edition | shadowless | unlimited
+      - finish: non_holo | holofoil | reverse_holofoil | full_art
+                | gold | rainbow_rare
+      - modifier: None | ex_set_stamp | prerelease | staff | ...
+
+    Returned dict has axis-specific ordered lists plus the raw set for
+    the client to validate its composition against.
+
+    If rarity indicates the card is intrinsically holo (Trainer Gallery
+    Rare Holo, Illustration Rare, Full Art, Hyper/Rainbow/Gold/Secret,
+    Rare Holo V/VMAX/VSTAR/EX, etc.), "non_holo" is dropped from the
+    finish options. These cards are never printed flat.
+    """
+    # Rarities that imply holofoil/foil-only printings. Match case-insensitive
+    # substring so "Trainer Gallery Rare Holo" / "Rare Holo V" / "Rare Holo
+    # VMAX" all map to holo-only without listing each explicitly.
+    _HOLO_ONLY_KEYWORDS = (
+        "holo", "illustration", "full art", "hyper",
+        "rainbow", "gold", "secret", "amazing", "radiant",
+        "prism star", "shining", "shiny",
+        "lv.x", "lvx", "lv x",
+        "break", "gx", "ex", "v", "vmax", "vstar",
+        "special illustration", "ultra",
+    )
+    holo_only = False
+    if rarity:
+        rlow = rarity.lower().strip()
+        # Single-letter matches like "V" need word-boundary to avoid
+        # "Common"/"Uncommon"/etc false positives. Use exact match for
+        # short tokens and substring for long ones.
+        for kw in _HOLO_ONLY_KEYWORDS:
+            if len(kw) <= 3:
+                # token-match
+                tokens = rlow.replace("-", " ").split()
+                if kw in tokens:
+                    holo_only = True
+                    break
+            else:
+                if kw in rlow:
+                    holo_only = True
+                    break
+
+    editions: list[str] = []
+    finishes: list[str] = []
+    modifiers: list[str] = []
+
+    def _add(lst, v):
+        if v not in lst:
+            lst.append(v)
+
+    # Variant keys that are a visible finish/foil rather than a modifier
+    _FINISH_KEYS = {
+        "holofoil", "reverse_holofoil", "full_art", "gold", "rainbow_rare",
+        "secret", "secret_rare", "hyper_rare", "illustration_rare",
+        "special_illustration_rare", "alternate_full_art",
+        "alternate_art_secret", "cosmos_holofoil", "cracked_ice_holofoil",
+        "shiny", "non_holo", "foil",
+        # JP finish patterns
+        "poke_ball_pattern", "master_ball_pattern", "energy_symbol_pattern",
+        "dusk_ball", "love_ball", "friend_ball", "quick_ball", "poke_ball",
+    }
+    # Variant keys that are a stamp/modifier layered on a printing
+    _MODIFIER_KEYS = {
+        "ex_set_stamp", "prerelease", "staff", "pc_exclusive",
+        "pokemon_center_exclusive", "winner", "crosshatch", "wc", "ditto",
+        "tru", "black_star_promo", "promo", "ghost_stamp", "grey_stamp",
+        "movie_exclusive", "mcdonalds", "pokemon_day", "jumbo",
+        "black_dot_error", "team_rocket", "omega",
+    }
+
+    for v in raw:
+        vl = v.lower()
+        edition = "normal"
+        finish = "non_holo"
+        modifier = None
+
+        if vl.startswith("1st_edition"):
+            edition = "1st_edition"
+            rest = vl[len("1st_edition"):].lstrip("_")
+        elif vl.startswith("shadowless"):
+            edition = "shadowless"
+            rest = vl[len("shadowless"):].lstrip("_")
+        elif vl.startswith("unlimited"):
+            edition = "unlimited"
+            rest = vl[len("unlimited"):].lstrip("_")
+        else:
+            rest = vl
+
+        if rest in ("holofoil", "holo"):
+            finish = "holofoil"
+        elif rest in _FINISH_KEYS:
+            finish = rest
+        elif rest in ("", "normal"):
+            # For holo-only rarities, TCGCSV lists the canonical product
+            # as just the card name ("Charizard") — that product is the
+            # Holofoil printing, not a non-holo one. Map accordingly.
+            finish = "holofoil" if holo_only else "non_holo"
+        elif rest in _MODIFIER_KEYS:
+            modifier = rest
+        else:
+            # Unknown variant key — treat as modifier so it's still selectable.
+            modifier = rest
+
+        _add(editions, edition)
+        _add(finishes, finish)
+        if modifier:
+            _add(modifiers, modifier)
+
+    # Canonicalize ordering for nicer UX
+    EDITION_ORDER = ["normal", "unlimited", "1st_edition", "shadowless"]
+    FINISH_ORDER = [
+        "non_holo", "holofoil", "reverse_holofoil",
+        "cosmos_holofoil", "cracked_ice_holofoil",
+        "full_art", "alternate_full_art", "illustration_rare",
+        "special_illustration_rare",
+        "secret_rare", "alternate_art_secret", "secret",
+        "gold", "rainbow_rare", "hyper_rare", "shiny",
+        # JP finish patterns
+        "poke_ball_pattern", "master_ball_pattern", "energy_symbol_pattern",
+        "poke_ball", "dusk_ball", "love_ball", "friend_ball", "quick_ball",
+        "foil",
+    ]
+    editions = sorted(editions, key=lambda e: (EDITION_ORDER.index(e)
+                                               if e in EDITION_ORDER
+                                               else len(EDITION_ORDER)))
+    finishes = sorted(finishes, key=lambda f: (FINISH_ORDER.index(f)
+                                               if f in FINISH_ORDER
+                                               else len(FINISH_ORDER)))
+    # Drop non_holo from the finish set when the card's rarity implies
+    # a foil-only printing. Keeps the dropdown honest.
+    if holo_only and "non_holo" in finishes:
+        finishes = [f for f in finishes if f != "non_holo"]
+    # Guarantee at least one finish — if modifier-only variants like
+    # delta_species leave the finish axis empty, the card is still a
+    # physical object the user needs to pick a finish for. Fall back to
+    # holofoil for holo-only rarities, non_holo otherwise.
+    if not finishes:
+        finishes = ["holofoil" if holo_only else "non_holo"]
+    return {
+        "raw": list(raw),
+        "edition": editions,
+        "finish": finishes,
+        "modifier": modifiers,
+    }
+
+
+def _card_detail_payload(card_id: str) -> dict | None:
+    """Return the full detail payload for a card_id (bare or with variant).
+
+    Shape mirrors the scan-result fields (name, set_name, image_url,
+    market_price, condition_prices, tcgplayer_url) plus possible variants.
+    """
+    base_id = card_id.split("/", 1)[0]
+    full_id = card_id if "/" in card_id else f"{base_id}/normal"
+
+    name = None
+    set_name = None
+    market_price = None
+    image_url = None
+    condition_prices = None
+    tcg_product_id = None
+    rarity = None
+
+    try:
+        from cardprice.db.session import SessionLocal
+        from sqlalchemy import text as sql_text
+        with SessionLocal() as session:
+            row = session.execute(
+                sql_text(_PRICE_LOOKUP_SQL), {"cid": full_id}
+            ).fetchone()
+            if not row:
+                # Fall back to bare id
+                row = session.execute(
+                    sql_text(_PRICE_LOOKUP_SQL), {"cid": base_id}
+                ).fetchone()
+            if row:
+                name = row.name
+                set_name = row.set_name
+                image_url = row.image_small
+                tcg_product_id = row.tcg_product_id
+                market_price = float(row.market_price) if row.market_price else None
+                variant_suffix = full_id.rsplit("/", 1)[-1] if "/" in full_id else "normal"
+                condition_prices = _build_condition_prices(
+                    row.market_price,
+                    tcg_product_id=tcg_product_id,
+                    variant=variant_suffix,
+                )
+            # Separate query for rarity (not in the price SQL SELECT list).
+            rarity_row = session.execute(sql_text(
+                "SELECT rarity FROM dim_cards WHERE card_id = :cid LIMIT 1"
+            ), {"cid": full_id}).fetchone()
+            if not rarity_row:
+                rarity_row = session.execute(sql_text(
+                    "SELECT rarity FROM dim_cards WHERE card_id LIKE :p LIMIT 1"
+                ), {"p": base_id + "/%"}).fetchone()
+            if rarity_row:
+                rarity = rarity_row[0]
+    except Exception as _e:
+        logger.warning("card-info DB lookup failed for %s: %s", card_id, _e)
+        return None
+
+    if name is None:
+        return None
+
+    # Per-card variant catalog (TCGCSV-derived) is the authoritative list:
+    # it enumerates every TCGPlayer product SKU for this card, which means
+    # prime / cracked_ice_holofoil / delta_species / cosmos_holofoil /
+    # prerelease / staff / alternate_full_art / master_ball_pattern / etc.
+    # all surface correctly when the data has them.
+    catalog = _get_card_variant_catalog()
+    possible: list[str] = []
+    if base_id in catalog:
+        possible = list(catalog[base_id].keys())
+
+    # Fallback to variant_tree.json-derived possible_variants when the
+    # catalog doesn't have this card (promo/freshly-added sets). This
+    # keeps the picker functional for cards the TCGCSV scrape missed.
+    if not possible:
+        try:
+            from cardprice.ml.card_attributes import get_card_attrs
+            attrs = get_card_attrs(full_id) or get_card_attrs(f"{base_id}/normal")
+            if attrs:
+                possible = list(attrs.possible_variants or [])
+        except Exception as _e:
+            logger.debug("possible_variants lookup failed for %s: %s", base_id, _e)
+
+    variants = _decompose_variants(possible, rarity=rarity)
+
+    tcgplayer_url = None
+    if tcg_product_id:
+        tcgplayer_url = f"https://www.tcgplayer.com/product/{tcg_product_id}"
+
+    # Inline sales — cheap SQLite query, saves a second network round-trip
+    # from the client. Capped at 100 rows to keep the payload reasonable.
+    sales = []
+    if tcg_product_id:
+        try:
+            import sqlite3
+            db_path = Path(__file__).resolve().parent.parent / "data" / "tcgplayer_sales.db"
+            if db_path.is_file():
+                con = sqlite3.connect(str(db_path))
+                try:
+                    for sale_date, price, cond, qty, printing in con.execute(
+                        "SELECT sale_date, sale_price, condition, quantity, printing "
+                        "FROM tcgplayer_sales WHERE tcg_product_id=? "
+                        "ORDER BY sale_date DESC LIMIT 100", (tcg_product_id,)
+                    ):
+                        sales.append({
+                            "date": (sale_date or "")[:10],
+                            "datetime": sale_date,
+                            "price": float(price) if price is not None else None,
+                            "condition": cond,
+                            "quantity": qty,
+                            "printing": printing,
+                        })
+                finally:
+                    con.close()
+        except Exception as _e:
+            logger.debug("inline sales lookup failed for %s: %s", card_id, _e)
+
+    return {
+        "card_id": base_id,
+        "name": _display_name(name),
+        "raw_name": name,
+        "set_name": set_name,
+        "image_url": image_url,
+        "market_price": market_price,
+        "condition_prices": condition_prices,
+        "tcgplayer_url": tcgplayer_url,
+        "tcg_product_id": tcg_product_id,
+        "rarity": rarity,
+        "variants": variants,
+        "sales": sales,
+    }
+
+
+CARD_DETAIL_HTML = r"""<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Detail</title>
+<style>
+body { font-family: -apple-system, sans-serif; max-width: 500px; margin: 20px auto; padding: 0 15px; background: #1a1a2e; color: #eee; }
+a { color: #f39c12; text-decoration: none; }
+.topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.backbtn { background: #16213e; color: #f39c12; border: 1px solid #333; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.card-img { display: block; width: 100%; max-width: 320px; margin: 0 auto 15px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,0.6); }
+.card-title { text-align: center; font-size: 22px; font-weight: 700; margin: 4px 0; color: #fff; }
+.card-meta { text-align: center; font-size: 13px; color: #888; margin-bottom: 10px; }
+.price-big { text-align: center; font-size: 32px; font-weight: 700; color: #4ecca3; margin: 6px 0; }
+.panel { background: #16213e; border-radius: 10px; padding: 14px; margin: 10px 0; }
+.panel h4 { margin: 0 0 8px; color: #f39c12; font-size: 15px; }
+.v-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.v-row label { min-width: 80px; font-size: 13px; color: #bbb; }
+.v-row select { flex: 1; padding: 8px; border-radius: 6px; background: #0f3460; color: #eee; border: 1px solid #333; font-size: 14px; }
+.cond-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 6px 0 4px; font-size: 13px; font-weight: 600; }
+.cond-pill { padding: 4px 10px; border-radius: 14px; background: #0f3460; border: 1px solid transparent; cursor: pointer; user-select: none; }
+.cond-pill:hover { background: #14447a; }
+.cond-pill.selected { outline: 2px solid currentColor; outline-offset: 1px; filter: brightness(1.15); font-weight: 800; }
+.cond-hint { font-size: 11px; color: #666; text-align: center; margin-top: 4px; }
+.sales-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sales-table th, .sales-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #222; }
+.sales-table th { color: #888; font-weight: 600; font-size: 11px; }
+.sales-cond { font-weight: 700; }
+.addbtn { width: 100%; padding: 14px; background: #4ecca3; color: #1a1a2e; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+.addbtn:disabled { opacity: 0.5; cursor: default; }
+.msg { text-align: center; font-size: 13px; margin-top: 6px; min-height: 16px; }
+.selected-variant { color: #f39c12; font-family: monospace; font-size: 13px; }
+.invalid { opacity: 0.4; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="backbtn" onclick="history.back()">&larr; Back</button>
+  <span style="color:#888;font-size:12px;">Card detail</span>
+</div>
+<div id="err" style="display:none;color:#e94560;text-align:center;padding:20px;"></div>
+<div id="loading" style="text-align:center;padding:40px;color:#888;">Loading…</div>
+<div id="view" style="display:none;">
+  <img id="img" class="card-img" alt="">
+  <div id="title" class="card-title"></div>
+  <div id="meta" class="card-meta"></div>
+  <div class="price-big" id="priceBig">—</div>
+  <div id="priceBigLabel" style="text-align:center;font-size:11px;color:#888;margin-top:-6px;margin-bottom:8px;letter-spacing:1px;">MODERATELY PLAYED</div>
+
+  <div class="panel">
+    <h4>Variant</h4>
+    <div class="v-row"><label>Edition</label><select id="selEdition"></select></div>
+    <div class="v-row"><label>Finish</label><select id="selFinish"></select></div>
+    <div class="v-row" id="modRow" style="display:none;"><label>Modifier</label><select id="selMod"></select></div>
+    <div style="font-size:12px;color:#888;margin-top:6px;">
+      Selected: <span id="variantStr" class="selected-variant">normal</span>
+      <span id="variantWarn" style="color:#e94560;margin-left:8px;display:none;">not a known variant for this card</span>
+    </div>
+  </div>
+
+  <div class="panel" id="condPanel" style="display:none;">
+    <h4>Condition Prices</h4>
+    <div class="cond-row" id="condRow"></div>
+    <div class="cond-hint">Tap a condition to select it for your inventory</div>
+    <div id="condSource" style="font-size:11px;color:#666;text-align:center;margin-top:4px;"></div>
+  </div>
+
+  <button id="addBtn" class="addbtn">Add MP to Inventory</button>
+  <div id="addMsg" class="msg"></div>
+
+  <div class="panel" id="salesPanel" style="display:none;">
+    <h4>Recent Sales</h4>
+    <div id="salesFilter" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;"></div>
+    <div id="salesSummary" style="font-size:12px;color:#bbb;margin-bottom:6px;"></div>
+    <table class="sales-table" id="salesTable"></table>
+  </div>
+
+  <div style="text-align:center;margin-top:14px;">
+    <a id="tcgLink" href="#" target="_blank">View on TCGplayer</a>
+  </div>
+</div>
+
+<script>
+const CARD_ID = "__CARD_ID__";
+let SELECTED_COND = 'MP';
+const COND_LONG = {NM:'Near Mint', LP:'Lightly Played', MP:'Moderately Played', HP:'Heavily Played', DMG:'Damaged'};
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+async function load() {
+    try {
+        // Fire /card-info and /card-sales in parallel — sales doesn't
+        // depend on info, so serializing them is wasted wall time.
+        // Sales needs tcg_product_id which only comes from /card-info,
+        // but we can guess from base_id isn't viable — so fire info first,
+        // then sales as soon as we see tcg_product_id. Actually simpler:
+        // one info request, then paint immediately and fire sales in
+        // the background render() path. Keep that flow.
+        const r = await fetch('/card-info?card_id=' + encodeURIComponent(CARD_ID));
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
+        render(data);
+    } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        const err = document.getElementById('err');
+        err.style.display = 'block';
+        err.textContent = 'Could not load card: ' + e.message;
+    }
+}
+
+function composeVariant() {
+    const ed = document.getElementById('selEdition').value;
+    const fi = document.getElementById('selFinish').value;
+    const mod = document.getElementById('selMod').value;
+    if (mod) return mod;
+    let base;
+    if (ed === 'normal') {
+        base = (fi === 'non_holo') ? 'normal' : fi;
+    } else {
+        base = (fi === 'non_holo') ? ed : (ed + '_' + fi);
+    }
+    return base;
+}
+
+function labelize(v) {
+    return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+let RAW_VARIANTS = [];
+
+function refreshVariantStr() {
+    const v = composeVariant();
+    document.getElementById('variantStr').textContent = v;
+    const warn = document.getElementById('variantWarn');
+    if (RAW_VARIANTS.length && !RAW_VARIANTS.includes(v)) {
+        warn.style.display = 'inline';
+    } else {
+        warn.style.display = 'none';
+    }
+}
+
+const SALES_CONDCOLOR = {'Near Mint':'#4ecca3','Lightly Played':'#a8d8a8','Moderately Played':'#f0c040','Heavily Played':'#e08040','Damaged':'#e94560'};
+const SALES_CONDSHORT = {'Near Mint':'NM','Lightly Played':'LP','Moderately Played':'MP','Heavily Played':'HP','Damaged':'DMG'};
+const SALES_CONDS_ORDER = ['Near Mint','Lightly Played','Moderately Played','Heavily Played','Damaged'];
+let ALL_SALES = [];
+let SALES_FILTER = 'all';
+
+function renderSales(sales) {
+    ALL_SALES = sales;
+    // Build filter pill row
+    const filterDiv = document.getElementById('salesFilter');
+    const counts = {all: sales.length};
+    for (const s of sales) counts[s.condition] = (counts[s.condition]||0) + 1;
+    const buttons = [['all','All',counts.all,'#eee']];
+    for (const c of SALES_CONDS_ORDER) {
+        if (counts[c]) buttons.push([c, SALES_CONDSHORT[c], counts[c], SALES_CONDCOLOR[c]]);
+    }
+    filterDiv.innerHTML = '';
+    for (const [key,label,count,color] of buttons) {
+        const b = document.createElement('button');
+        b.className = 'sf-btn';
+        const active = (SALES_FILTER === key);
+        b.style.cssText = 'padding:4px 9px;border-radius:12px;border:1px solid ' + color
+            + ';background:' + (active ? color : 'transparent')
+            + ';color:' + (active ? '#1a1a2e' : color)
+            + ';font-size:12px;font-weight:700;cursor:pointer;';
+        b.innerHTML = esc(label) + ' <span style="opacity:0.75;font-weight:500;">' + count + '</span>';
+        b.addEventListener('click', () => { SALES_FILTER = key; renderSales(ALL_SALES); });
+        filterDiv.appendChild(b);
+    }
+    const filtered = (SALES_FILTER === 'all') ? sales : sales.filter(s => s.condition === SALES_FILTER);
+    document.getElementById('salesSummary').textContent =
+        filtered.length + ' sale' + (filtered.length===1?'':'s')
+        + (SALES_FILTER === 'all' ? '' : (' in ' + SALES_CONDSHORT[SALES_FILTER]));
+    const tbl = document.getElementById('salesTable');
+    tbl.innerHTML = '<tr><th>Date</th><th>Cond</th><th>Printing</th><th style="text-align:right;">Price</th></tr>';
+    for (const s of filtered) {
+        const short = SALES_CONDSHORT[s.condition] || s.condition || '';
+        const color = SALES_CONDCOLOR[s.condition] || '#eee';
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td>' + esc(s.date) + '</td>'
+          + '<td class="sales-cond" style="color:' + color + ';">' + esc(short) + '</td>'
+          + '<td>' + esc(s.printing || '') + '</td>'
+          + '<td style="text-align:right;">' + (s.price!=null ? '$' + Number(s.price).toFixed(2) : '—') + '</td>';
+        tbl.appendChild(tr);
+    }
+}
+
+function render(data) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('view').style.display = 'block';
+    if (data.image_url) document.getElementById('img').src = data.image_url;
+    else document.getElementById('img').style.display = 'none';
+    document.getElementById('title').textContent = data.name || data.card_id;
+    // Meta line: "Set Name - #<collector number>". We strip the set prefix
+    // from card_id because "swsh12pt5gg-GG20" is an internal identifier
+    // that reads as gibberish; the number ("GG20") is the useful bit.
+    const cidParts = (data.card_id || '').split('-');
+    const cardNum = cidParts.length > 1 ? cidParts.slice(1).join('-') : data.card_id;
+    const metaStr = [data.set_name, cardNum ? ('#' + cardNum) : null].filter(Boolean).join(' - ');
+    document.getElementById('meta').textContent = metaStr;
+    // Headline price: Moderately Played. MP is the typical "played card"
+    // anchor — we always want to see it up top. Fall back to market price
+    // if MP isn't in the condition grid.
+    const priceEl = document.getElementById('priceBig');
+    const priceLabel = document.getElementById('priceBigLabel');
+    const cpForBig = data.condition_prices || {};
+    const mp = cpForBig.MP || cpForBig.mp;
+    if (mp && mp.price != null) {
+        priceEl.textContent = '$' + Number(mp.price).toFixed(2);
+        priceEl.style.color = '#f0c040';
+        priceLabel.textContent = 'MODERATELY PLAYED';
+    } else if (data.market_price) {
+        priceEl.textContent = '$' + Number(data.market_price).toFixed(2);
+        priceEl.style.color = '#4ecca3';
+        priceLabel.textContent = 'MARKET (NM)';
+    } else {
+        priceEl.textContent = '—';
+        priceLabel.textContent = '';
+    }
+
+    const variants = data.variants || {};
+    RAW_VARIANTS = variants.raw || [];
+
+    function fill(sel, opts, fallback) {
+        sel.innerHTML = '';
+        const list = (opts && opts.length) ? opts : [fallback];
+        for (const v of list) {
+            const o = document.createElement('option');
+            o.value = v;
+            o.textContent = labelize(v);
+            sel.appendChild(o);
+        }
+    }
+    // Edition row: only show when there's a real choice (more than just
+    // "normal"). Hides the row for cards with no 1st-edition / shadowless /
+    // unlimited distinction.
+    const edRow = document.getElementById('selEdition').closest('.v-row');
+    const editions = (variants.edition || []).filter(e => e && e !== 'normal');
+    if (editions.length > 0) {
+        fill(document.getElementById('selEdition'), ['normal'].concat(editions), 'normal');
+        edRow.style.display = 'flex';
+    } else {
+        fill(document.getElementById('selEdition'), ['normal'], 'normal');
+        edRow.style.display = 'none';
+    }
+    fill(document.getElementById('selFinish'), variants.finish, 'non_holo');
+
+    const modRow = document.getElementById('modRow');
+    const selMod = document.getElementById('selMod');
+    if (variants.modifier && variants.modifier.length) {
+        modRow.style.display = 'flex';
+        selMod.innerHTML = '<option value="">None</option>';
+        for (const m of variants.modifier) {
+            const o = document.createElement('option');
+            o.value = m;
+            o.textContent = labelize(m);
+            selMod.appendChild(o);
+        }
+    }
+
+    ['selEdition', 'selFinish', 'selMod'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', refreshVariantStr);
+    });
+    refreshVariantStr();
+
+    // Condition prices — 5 pills, matches the scan result. MP is emphasized
+    // (bold border + glow) since that's the typical visual anchor when
+    // pricing a played card. Each pill is clickable to pick the condition
+    // that the Add-to-Inventory button will use.
+    const cp = data.condition_prices;
+    const COLORS = {NM:'#4ecca3', LP:'#a8d8a8', MP:'#f0c040', HP:'#e08040', DMG:'#e94560'};
+    const COND_LONG = {NM:'Near Mint', LP:'Lightly Played', MP:'Moderately Played', HP:'Heavily Played', DMG:'Damaged'};
+    SELECTED_COND = 'MP';
+    function refreshCondSelection() {
+        document.querySelectorAll('#condRow .cond-pill').forEach(el => {
+            if (el.getAttribute('data-cond') === SELECTED_COND) el.classList.add('selected');
+            else el.classList.remove('selected');
+        });
+        const btn = document.getElementById('addBtn');
+        btn.textContent = 'Add ' + SELECTED_COND + ' to Inventory';
+    }
+    if (cp) {
+        const row = document.getElementById('condRow');
+        row.innerHTML = '';
+        const CONDS = ['NM','LP','MP','HP','DMG'];
+        let allJtcg = true, anyJtcg = false;
+        for (const key of CONDS) {
+            const info = cp[key] || cp[key.toLowerCase()];
+            if (!info) continue;
+            if (info.source === 'justtcg') anyJtcg = true; else allJtcg = false;
+            const prefix = '$';
+            const estStyle = info.estimated ? 'font-style:italic;opacity:0.7;' : '';
+            const pill = document.createElement('span');
+            pill.className = 'cond-pill';
+            pill.setAttribute('data-cond', key);
+            pill.style.color = COLORS[key];
+            pill.style.cssText += estStyle;
+            pill.innerHTML = esc(key) + ' ' + prefix + Number(info.price).toFixed(2);
+            pill.addEventListener('click', () => {
+                SELECTED_COND = key;
+                refreshCondSelection();
+            });
+            row.appendChild(pill);
+        }
+        if (anyJtcg) {
+            document.getElementById('condSource').textContent = allJtcg ? 'market' : 'mixed';
+        }
+        document.getElementById('condPanel').style.display = 'block';
+        refreshCondSelection();
+    }
+
+    const link = document.getElementById('tcgLink');
+    if (data.tcgplayer_url) link.href = data.tcgplayer_url;
+    else link.style.display = 'none';
+
+    // Sales are inlined in /card-info to save a round-trip.
+    const sales = Array.isArray(data.sales) ? data.sales : [];
+    if (sales.length > 0) {
+        renderSales(sales);
+        document.getElementById('salesPanel').style.display = 'block';
+    }
+
+    document.getElementById('addBtn').addEventListener('click', async () => {
+        const v = composeVariant();
+        const fullId = CARD_ID + '/' + v;
+        const cond = COND_LONG[SELECTED_COND] || null;
+        const btn = document.getElementById('addBtn');
+        const msg = document.getElementById('addMsg');
+        btn.disabled = true; btn.textContent = 'Adding…'; msg.textContent = '';
+        try {
+            const r = await fetch('/inventory/add', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({card_id: fullId, quantity: 1, condition: cond}),
+            });
+            const j = await r.json();
+            if (r.ok) {
+                msg.style.color = '#4ecca3';
+                msg.textContent = 'Added ' + fullId + (cond ? ' (' + SELECTED_COND + ')' : '');
+            } else {
+                msg.style.color = '#e94560';
+                msg.textContent = j.error || 'Failed';
+            }
+        } catch (e) {
+            msg.style.color = '#e94560'; msg.textContent = 'Network error';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Add ' + SELECTED_COND + ' to Inventory';
+        }
+    });
+}
+
+load();
+</script>
+</body>
+</html>
+"""
+
+
 _PRICE_LOOKUP_BULK_SQL = """
     SELECT c.card_id, c.name, p.market_price
     FROM dim_cards c
@@ -620,6 +1900,27 @@ input[type=file] { display: none; }
     <canvas id="qrCanvas"></canvas>
     <br>
     <span class="url" id="serverUrl"></span>
+</div>
+
+<!-- ===== SECTION 0: MANUAL SEARCH (orange #f39c12) ===== -->
+<div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #f39c12;">
+<h3 style="color:#f39c12;margin:0 0 10px;font-size:18px;">Search by Name</h3>
+<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;">
+    <select id="searchLang"
+            style="padding:10px;border-radius:6px;border:1px solid #333;background:#0f3460;color:#eee;font-size:15px;box-sizing:border-box;">
+        <option value="en" selected>English</option>
+        <option value="ja">Japanese</option>
+    </select>
+    <div style="position:relative;">
+        <input id="searchName" type="text" autocomplete="off" placeholder="Pokemon name"
+               style="width:100%;padding:10px;border-radius:6px;border:1px solid #333;background:#0f3460;color:#eee;font-size:15px;box-sizing:border-box;">
+        <div id="searchNameDropdown"
+             style="display:none;position:absolute;top:100%;left:0;right:0;background:#0f3460;border:1px solid #f39c12;border-radius:0 0 6px 6px;max-height:220px;overflow-y:auto;z-index:20;"></div>
+    </div>
+    <input id="searchMove" type="text" placeholder="Move text (optional)"
+           style="width:100%;padding:10px;border-radius:6px;border:1px solid #333;background:#0f3460;color:#eee;font-size:15px;box-sizing:border-box;">
+</div>
+<div id="searchResults" style="margin-top:10px;"></div>
 </div>
 
 <!-- ===== SECTION 1: MY INVENTORY (green #4ecca3) ===== -->
@@ -976,7 +2277,7 @@ function showResult(data, sec) {
             var cond = conditions[ci];
             var info = cp[cond];
             if (!info) continue;
-            var prefix = (info.source === 'estimated') ? '~$' : '$';
+            var prefix = '$';
             var estStyle = info.estimated ? 'font-style:italic;opacity:0.7;' : '';
             html += '<span class="cond-pill" style="color:' + colors[cond] + ';' + estStyle + '">' + cond + ' ' + prefix + info.price.toFixed(2) + '</span>';
         }
@@ -1229,12 +2530,12 @@ function _showCardDetail(sec, idx) {
             if (!info) continue;
             h += '<tr style="border-bottom:1px solid #222;">';
             h += '<td style="padding:4px 8px;color:' + clrs[cond] + ';font-weight:bold;">' + cond + '</td>';
-            var pricePrefix = (info.source === 'estimated') ? '~$' : '$';
+            var pricePrefix = '$';
             h += '<td style="padding:4px 8px;text-align:right;color:#e0e0e0;">' + pricePrefix + info.price.toFixed(2) + '</td>';
             if (info.source === 'justtcg') {
                 h += '<td style="padding:4px 8px;text-align:right;color:#4ecca3;font-size:11px;">market</td>';
             } else if (info.range_low != null) {
-                h += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">~$' + info.range_low.toFixed(2) + ' - $' + info.range_high.toFixed(2) + '</td>';
+                h += '<td style="padding:4px 8px;text-align:right;color:#888;font-size:11px;">$' + info.range_low.toFixed(2) + ' - $' + info.range_high.toFixed(2) + '</td>';
             } else {
                 h += '<td></td>';
             }
@@ -1406,6 +2707,242 @@ function addAllPage(sec) {
         btn.textContent = sec === 'inv' ? 'Add All to Inventory' : 'Add All to Cart';
     });
 }
+
+// ===== Manual search (name + move → results → card detail page) =====
+(function() {
+    const nameInput = document.getElementById('searchName');
+    const moveInput = document.getElementById('searchMove');
+    const langSelect = document.getElementById('searchLang');
+    const dropdown = document.getElementById('searchNameDropdown');
+    const resultsDiv = document.getElementById('searchResults');
+    let debounceTimer = null;
+    let LAST_RESULTS = [];
+    // Sort modes: 'release' (default, newest first), 'price_desc', 'price_asc'
+    let SORT_MODE = 'release';
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g,
+            c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
+    }
+
+    function currentLang() {
+        return (langSelect && langSelect.value) || 'en';
+    }
+
+    // Per-language autocomplete caches — switching EN/JP loads a different
+    // name index, so we key the cache by language and fetch lazily.
+    const NAMES_CACHE = {};      // lang -> items[]
+    const NAMES_PROMISES = {};   // lang -> inflight promise
+    function ensureAllNames() {
+        const lang = currentLang();
+        if (NAMES_CACHE[lang]) return Promise.resolve(NAMES_CACHE[lang]);
+        if (NAMES_PROMISES[lang]) return NAMES_PROMISES[lang];
+        NAMES_PROMISES[lang] = fetch('/names/all?lang=' + encodeURIComponent(lang))
+            .then(r => r.json())
+            .then(items => {
+                NAMES_CACHE[lang] = Array.isArray(items) ? items : [];
+                return NAMES_CACHE[lang];
+            })
+            .catch(() => { NAMES_CACHE[lang] = []; return NAMES_CACHE[lang]; });
+        return NAMES_PROMISES[lang];
+    }
+
+    function renderAutocomplete(items) {
+        if (!items.length) {
+            dropdown.style.display='none'; dropdown.innerHTML=''; return;
+        }
+        dropdown.innerHTML = items.map(it =>
+            '<div class="ac-item" data-name="' + esc(it.name) + '" '
+            + 'style="padding:14px 12px;cursor:pointer;border-bottom:1px solid #222;display:flex;justify-content:space-between;align-items:center;">'
+            + '<span>' + esc(it.name) + '</span>'
+            + '<span style="color:#888;font-size:12px;">' + it.count + ' prints</span>'
+            + '</div>'
+        ).join('');
+        dropdown.style.display = 'block';
+        dropdown.querySelectorAll('.ac-item').forEach(el => {
+            el.addEventListener('click', () => {
+                nameInput.value = el.getAttribute('data-name');
+                dropdown.style.display = 'none';
+                runSearch();
+            });
+        });
+    }
+
+    function filterAutocomplete(q) {
+        const names = NAMES_CACHE[currentLang()];
+        if (!q || !names) return [];
+        const ql = q.toLowerCase();
+        const prefix = [], sub = [];
+        for (const it of names) {
+            const n = (it.name || '').toLowerCase();
+            const rn = (it.raw_name || '').toLowerCase();
+            if (n.startsWith(ql) || rn.startsWith(ql)) prefix.push(it);
+            else if (n.includes(ql) || rn.includes(ql)) sub.push(it);
+            if (prefix.length >= 40) break;
+        }
+        const hits = prefix.length ? prefix : sub;
+        return hits.slice(0, 10);
+    }
+
+    function updateAutocomplete(q) {
+        if (!q) { dropdown.style.display='none'; dropdown.innerHTML=''; return; }
+        if (NAMES_CACHE[currentLang()]) {
+            renderAutocomplete(filterAutocomplete(q));
+        } else {
+            ensureAllNames().then(() => {
+                if (nameInput.value.trim().toLowerCase() === q.toLowerCase()) {
+                    renderAutocomplete(filterAutocomplete(q));
+                }
+            });
+        }
+    }
+
+    // Language switch — hide move input (no move data for JP) and
+    // re-run the current query under the new catalog.
+    if (langSelect) {
+        langSelect.addEventListener('change', () => {
+            const jp = currentLang() === 'ja';
+            moveInput.style.display = jp ? 'none' : '';
+            moveInput.value = '';
+            dropdown.style.display = 'none';
+            resultsDiv.innerHTML = '';
+            LAST_RESULTS = [];
+            // Preload the JP name index so autocomplete works on first keystroke.
+            ensureAllNames();
+            const q = nameInput.value.trim();
+            if (q) updateAutocomplete(q);
+        });
+    }
+
+    function openCardDetail(cardId) {
+        window.location.href = '/card/' + encodeURIComponent(cardId);
+    }
+
+    function sortItems(items, mode) {
+        const copy = items.slice();
+        if (mode === 'price_desc') {
+            copy.sort((a, b) => (b.mp_price || 0) - (a.mp_price || 0));
+        } else if (mode === 'price_asc') {
+            copy.sort((a, b) => (a.mp_price || 999999) - (b.mp_price || 999999));
+        }
+        // 'release' = server order (release_date DESC), no client-side reorder
+        return copy;
+    }
+
+    function renderResults() {
+        if (!LAST_RESULTS.length) { resultsDiv.innerHTML=''; return; }
+        const sorted = sortItems(LAST_RESULTS, SORT_MODE);
+        // Sort toolbar
+        function btn(val, label) {
+            const active = (SORT_MODE === val);
+            return '<button data-sort="' + val + '" '
+                + 'style="padding:4px 10px;border-radius:12px;border:1px solid #333;'
+                + 'background:' + (active ? '#f39c12' : 'transparent') + ';'
+                + 'color:' + (active ? '#1a1a2e' : '#f39c12') + ';'
+                + 'font-size:11px;font-weight:700;cursor:pointer;">' + esc(label) + '</button>';
+        }
+        const toolbar = '<div style="display:flex;gap:4px;margin-bottom:6px;">'
+            + btn('release', 'Newest')
+            + btn('price_desc', 'Price high')
+            + btn('price_asc', 'Price low')
+            + '</div>';
+        const cards = sorted.map((c, i) => {
+            const mm = (c.matched_moves && c.matched_moves.length) ? ' — ' + c.matched_moves.map(esc).join(', ') : '';
+            let mpHtml = '';
+            if (c.mp_price != null) {
+                const prefix = '$';
+                mpHtml = '<div style="text-align:right;min-width:60px;">'
+                       +   '<div style="color:#f0c040;font-size:14px;font-weight:800;">' + prefix + Number(c.mp_price).toFixed(2) + '</div>'
+                       +   '<div style="color:#888;font-size:9px;letter-spacing:1px;">MP</div>'
+                       + '</div>';
+            }
+            return '<div class="sr-card" data-idx="' + i + '" '
+                + 'style="display:flex;gap:8px;background:#0f3460;margin:4px 0;padding:6px;border-radius:6px;cursor:pointer;align-items:center;">'
+                + (c.image_url ? '<img src="' + esc(c.image_url) + '" style="width:44px;height:61px;object-fit:cover;border-radius:4px;">' : '<div style="width:44px;height:61px;background:#222;border-radius:4px;"></div>')
+                + '<div style="flex:1;font-size:13px;min-width:0;">'
+                +   '<div style="color:#fff;font-weight:600;">' + esc(c.name) + '</div>'
+                +   '<div style="color:#888;font-size:11px;">' + esc(c.set_name || c.set_id || '') + ' - ' + esc(c.rarity || '-') + '</div>'
+                +   '<div style="color:#f39c12;font-size:11px;">#' + esc((c.card_id.split("-").slice(1).join("-")) || c.card_id) + mm + '</div>'
+                + '</div>'
+                + mpHtml
+                + '</div>';
+        }).join('');
+        resultsDiv.innerHTML = toolbar + cards;
+        resultsDiv.querySelectorAll('button[data-sort]').forEach(b => {
+            b.addEventListener('click', () => { SORT_MODE = b.getAttribute('data-sort'); renderResults(); });
+        });
+        resultsDiv.querySelectorAll('.sr-card').forEach(el => {
+            // Prefetch /card-info on first touch/hover so the browser has
+            // the payload cached before navigation kicks off the real fetch.
+            let prefetched = false;
+            const prefetch = () => {
+                if (prefetched) return;
+                prefetched = true;
+                const idx = parseInt(el.getAttribute('data-idx'));
+                const cid = sorted[idx].card_id;
+                fetch('/card-info?card_id=' + encodeURIComponent(cid)).catch(()=>{});
+            };
+            el.addEventListener('touchstart', prefetch, {passive: true});
+            el.addEventListener('mouseenter', prefetch);
+            el.addEventListener('click', () => {
+                const idx = parseInt(el.getAttribute('data-idx'));
+                openCardDetail(sorted[idx].card_id);
+            });
+        });
+    }
+
+    async function runSearch() {
+        const name = nameInput.value.trim();
+        const move = moveInput.value.trim();
+        if (!name) { resultsDiv.innerHTML=''; return; }
+        resultsDiv.innerHTML = '<div style="color:#888;font-size:13px;padding:6px;">Searching…</div>';
+        try {
+            const u = '/search-cards?name=' + encodeURIComponent(name)
+                    + (move ? '&move=' + encodeURIComponent(move) : '')
+                    + '&lang=' + encodeURIComponent(currentLang())
+                    + '&limit=300';
+            const r = await fetch(u);
+            const items = await r.json();
+            if (!Array.isArray(items)) {
+                resultsDiv.innerHTML = '<div style="color:#e94560;font-size:13px;">' + esc(items.error || 'Error') + '</div>';
+                return;
+            }
+            if (items.length === 0) {
+                resultsDiv.innerHTML = '<div style="color:#888;font-size:13px;padding:6px;">No matches</div>';
+                return;
+            }
+            // Single-result shortcut: jump straight to the detail page.
+            if (items.length === 1) {
+                openCardDetail(items[0].card_id);
+                return;
+            }
+            LAST_RESULTS = items;
+            renderResults();
+        } catch (e) {
+            resultsDiv.innerHTML = '<div style="color:#e94560;font-size:13px;">Search error</div>';
+        }
+    }
+
+    nameInput.addEventListener('input', () => {
+        // Local filter is instant — no debounce needed.
+        updateAutocomplete(nameInput.value.trim());
+    });
+    // Pre-warm the index so the first keystroke is already instant.
+    ensureAllNames();
+    nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); dropdown.style.display='none'; runSearch(); }
+        else if (e.key === 'Escape') { dropdown.style.display='none'; }
+    });
+    moveInput.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { if (nameInput.value.trim()) runSearch(); }, 200);
+    });
+    document.addEventListener('click', (e) => {
+        if (!nameInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+})();
 </script>
 </body>
 </html>
@@ -1857,6 +3394,18 @@ class ScanHandler(BaseHTTPRequestHandler):
         elif self.path == "/slide-scan-v7":
             from cardprice.slide_scan_v7 import SLIDE_SCAN_V7_HTML
             self._send_html(SLIDE_SCAN_V7_HTML)
+        elif self.path.startswith("/names/autocomplete"):
+            self._handle_names_autocomplete()
+        elif self.path == "/names/all":
+            self._handle_names_all()
+        elif self.path.startswith("/search-cards"):
+            self._handle_search_cards()
+        elif self.path.startswith("/card-info"):
+            self._handle_card_info()
+        elif self.path.startswith("/card-sales"):
+            self._handle_card_sales()
+        elif self.path.startswith("/card/"):
+            self._handle_card_detail_page()
         elif self.path == "/tunnel-url":
             tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
             url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
@@ -3159,13 +4708,221 @@ class ScanHandler(BaseHTTPRequestHandler):
             "items_removed": count,
         })
 
+    # ------------------------------------------------------------------
+    # Manual search (text-based lookup alternative to image scan)
+    # ------------------------------------------------------------------
+
+    def _handle_names_autocomplete(self):
+        """Return Pokemon names matching a prefix, ranked by printing count.
+
+        GET /names/autocomplete?q=la&limit=10&lang=en
+        -> [{"name": "Lapras", "count": 21}, {"name": "Latias", "count": 14}, ...]
+
+        lang=en (default) hits dim_cards; lang=ja hits dim_cards_jp.
+        Popularity proxy = number of distinct card_ids with that English name.
+        """
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        q = (qs.get("q", [""])[0] or "").strip().lower()
+        lang = (qs.get("lang", ["en"])[0] or "en").strip().lower()
+        try:
+            limit = int(qs.get("limit", ["10"])[0])
+        except ValueError:
+            limit = 10
+        limit = max(1, min(limit, 50))
+
+        if not q:
+            self._send_json([])
+            return
+
+        index = (
+            _get_name_autocomplete_index_jp() if lang == "ja"
+            else _get_name_autocomplete_index()
+        )
+        # Prefix match; substring match as a weaker fallback when no prefix hits.
+        prefix_hits = [(n, c) for n, c in index if n.lower().startswith(q)]
+        if prefix_hits:
+            hits = prefix_hits
+        else:
+            hits = [(n, c) for n, c in index if q in n.lower()]
+
+        exact = [(n, c) for n, c in hits if n.lower() == q]
+        others = [(n, c) for n, c in hits if n.lower() != q]
+        ranked = (exact + others)[:limit]
+        self._send_json([
+            {"name": _display_name(n), "raw_name": n, "count": c}
+            for n, c in ranked
+        ])
+
+    def _handle_names_all(self):
+        """Return the full autocomplete index in one shot.
+
+        GET /names/all?lang=en   (default)
+        GET /names/all?lang=ja   (Japanese catalog)
+
+        Used by the client to filter locally.  ~7k entries (EN) / ~3k
+        (JP); small enough for one request per language.
+        """
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        lang = (qs.get("lang", ["en"])[0] or "en").strip().lower()
+        index = (
+            _get_name_autocomplete_index_jp() if lang == "ja"
+            else _get_name_autocomplete_index()
+        )
+        self._send_json([
+            {"name": _display_name(n), "raw_name": n, "count": c}
+            for n, c in index
+        ])
+
+    def _handle_search_cards(self):
+        """Search for cards matching a Pokemon name and optional move text.
+
+        GET /search-cards?name=Latias&move=psychic+drain&limit=20
+        -> [{"card_id":"ex6-22","name":"Latias","set_id":"ex6",
+             "set_name":"Legend Maker","rarity":"Rare Holo",
+             "image_url":"https://images.pokemontcg.io/ex6/22.png",
+             "matched_moves":["psychic drain"]}, ...]
+
+        Returns a single result when the combination narrows to one card,
+        otherwise the full matching set (sorted by set age descending).
+        """
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        name = (qs.get("name", [""])[0] or "").strip()
+        move = (qs.get("move", [""])[0] or "").strip().lower()
+        lang = (qs.get("lang", ["en"])[0] or "en").strip().lower()
+        try:
+            limit = int(qs.get("limit", ["200"])[0])
+        except ValueError:
+            limit = 200
+        limit = max(1, min(limit, 500))
+
+        if not name:
+            self._send_json({"error": "name required"}, status=400)
+            return
+
+        if lang == "ja":
+            results = _search_cards_by_name_jp(name, limit)
+        else:
+            results = _search_cards_by_name_and_move(name, move, limit)
+        self._send_json(results)
+
+    def _handle_card_info(self):
+        """Return detail view data for one card.
+
+        GET /card-info?card_id=base1-4
+        -> {"card_id": "base1-4", "name": "Charizard", "set_name": "Base Set",
+            "image_url": "...", "market_price": 345.0,
+            "condition_prices": {...},
+            "variants": {"raw":[...], "edition":[...], "finish":[...]},
+            "tcgplayer_url": "..."}
+
+        card_id may be bare ("base1-4") or include a variant
+        ("base1-4/1st_edition_holofoil"). Pricing prefers the normal
+        printing for breadth; the client chooses the variant for the
+        final add-to-inventory call.
+        """
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        card_id = (qs.get("card_id", [""])[0] or "").strip()
+        if not card_id:
+            self._send_json({"error": "card_id required"}, status=400)
+            return
+        info = _card_detail_payload(card_id)
+        if info is None:
+            self._send_json({"error": f"Card not found: {card_id}"}, status=404)
+            return
+        self._send_json(info)
+
+    def _handle_card_sales(self):
+        """Return recent TCGplayer sales for a card.
+
+        GET /card-sales?tcg_product_id=42382&limit=50
+        -> [{"date":"2026-04-16","price":499.0,"condition":"Lightly Played",
+             "quantity":1,"printing":"Holofoil"}, ...]
+        Reads from data/tcgplayer_sales.db; returns [] if no sales recorded.
+        """
+        from urllib.parse import urlparse, parse_qs
+        qs = parse_qs(urlparse(self.path).query)
+        pid_s = (qs.get("tcg_product_id", [""])[0] or "").strip()
+        try:
+            pid = int(pid_s) if pid_s else 0
+        except ValueError:
+            pid = 0
+        if pid <= 0:
+            self._send_json([])
+            return
+        try:
+            limit = int(qs.get("limit", ["50"])[0])
+        except ValueError:
+            limit = 50
+        limit = max(1, min(limit, 200))
+
+        try:
+            import sqlite3
+            db_path = Path(__file__).resolve().parent.parent / "data" / "tcgplayer_sales.db"
+            if not db_path.is_file():
+                self._send_json([])
+                return
+            con = sqlite3.connect(str(db_path))
+            try:
+                rows = con.execute(
+                    "SELECT sale_date, sale_price, condition, quantity, printing "
+                    "FROM tcgplayer_sales WHERE tcg_product_id=? "
+                    "ORDER BY sale_date DESC LIMIT ?", (pid, limit)
+                ).fetchall()
+            finally:
+                con.close()
+        except Exception as _e:
+            logger.warning("card-sales failed for pid=%s: %s", pid, _e)
+            self._send_json([])
+            return
+
+        sales = []
+        for sale_date, price, cond, qty, printing in rows:
+            sales.append({
+                "date": (sale_date or "")[:10],
+                "datetime": sale_date,
+                "price": float(price) if price is not None else None,
+                "condition": cond,
+                "quantity": qty,
+                "printing": printing,
+            })
+        self._send_json(sales)
+
+    def _handle_card_detail_page(self):
+        """Serve the card detail HTML page.
+
+        GET /card/<card_id>
+        Client-side fetches /card-info and /inventory/add.
+        """
+        from urllib.parse import unquote
+        # /card/<id> -> id (id may include slash if user added variant)
+        raw = self.path[len("/card/"):]
+        # Strip any query string before decoding
+        if "?" in raw:
+            raw = raw.split("?", 1)[0]
+        card_id = unquote(raw)
+        # Guard against path traversal / injection
+        if not card_id or any(ch in card_id for ch in ("<", ">", "\"", "'", "\n", "\r")):
+            self.send_error(400, "Invalid card_id")
+            return
+        html = CARD_DETAIL_HTML.replace("__CARD_ID__", card_id)
+        self._send_html(html)
+
     # ---- Inventory endpoints ----
 
     def _handle_inventory_add(self):
-        """Add a card to user inventory (upsert).
+        """Add a card to user inventory (upsert, keyed on card_id + condition).
 
-        Accepts JSON: {"card_id": "base1-4/holofoil", "quantity": 1}
+        Accepts JSON: {"card_id": "base1-4/holofoil", "quantity": 1,
+                       "condition": "Moderately Played"}
         Validates card exists in dim_cards, then upserts into user_inventory.
+        When condition is given, rows are keyed by (card_id, condition) so a
+        Charizard NM and a Charizard MP live as separate rows. When no
+        condition is supplied, behaves like the old un-conditioned upsert
+        (legacy callers).
         """
         data = self._read_json_body()
         if data is None:
@@ -3186,12 +4943,32 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "quantity must be >= 1"}, status=400)
             return
 
+        # user_inventory.condition is constrained to {NM,LP,MP,HP,DMG}. Accept
+        # either the 2-letter code or the full name from the client and
+        # normalize before the upsert.
+        condition = data.get("condition")
+        if condition is not None:
+            condition = str(condition).strip() or None
+        _COND_FULL_TO_CODE = {
+            "Near Mint": "NM", "Lightly Played": "LP",
+            "Moderately Played": "MP", "Heavily Played": "HP",
+            "Damaged": "DMG",
+        }
+        _COND_CODES = {"NM", "LP", "MP", "HP", "DMG"}
+        if condition:
+            if condition in _COND_FULL_TO_CODE:
+                condition = _COND_FULL_TO_CODE[condition]
+            elif condition.upper() in _COND_CODES:
+                condition = condition.upper()
+            else:
+                self._send_json({"error": f"Unknown condition: {condition}"}, status=400)
+                return
+
         try:
             from cardprice.db.session import SessionLocal
             from sqlalchemy import text as sql_text
 
             with SessionLocal() as session:
-                # Validate card exists
                 card = session.execute(
                     sql_text("SELECT card_id FROM dim_cards WHERE card_id = :cid"),
                     {"cid": card_id},
@@ -3200,15 +4977,26 @@ class ScanHandler(BaseHTTPRequestHandler):
                     self._send_json({"error": f"Card not found: {card_id}"}, status=404)
                     return
 
-                # Upsert: increment if exists, insert otherwise
-                existing = session.execute(
-                    sql_text("""
-                        SELECT id, quantity FROM user_inventory
-                        WHERE card_id = :cid
-                        ORDER BY id LIMIT 1
-                    """),
-                    {"cid": card_id},
-                ).fetchone()
+                # Upsert keyed on (card_id, condition). NULL-safe equality so
+                # pre-existing rows with no condition still match legacy adds.
+                if condition:
+                    existing = session.execute(
+                        sql_text("""
+                            SELECT id, quantity FROM user_inventory
+                            WHERE card_id = :cid AND condition = :cond
+                            ORDER BY id LIMIT 1
+                        """),
+                        {"cid": card_id, "cond": condition},
+                    ).fetchone()
+                else:
+                    existing = session.execute(
+                        sql_text("""
+                            SELECT id, quantity FROM user_inventory
+                            WHERE card_id = :cid AND condition IS NULL
+                            ORDER BY id LIMIT 1
+                        """),
+                        {"cid": card_id},
+                    ).fetchone()
 
                 if existing:
                     new_qty = existing.quantity + quantity
@@ -3224,15 +5012,17 @@ class ScanHandler(BaseHTTPRequestHandler):
                     new_qty = quantity
                     session.execute(
                         sql_text("""
-                            INSERT INTO user_inventory (card_id, quantity, created_at, updated_at)
-                            VALUES (:cid, :qty, NOW(), NOW())
+                            INSERT INTO user_inventory
+                                (card_id, quantity, condition, created_at, updated_at)
+                            VALUES (:cid, :qty, :cond, NOW(), NOW())
                         """),
-                        {"cid": card_id, "qty": new_qty},
+                        {"cid": card_id, "qty": new_qty, "cond": condition},
                     )
                 session.commit()
 
                 self._send_json({
                     "card_id": card_id,
+                    "condition": condition,
                     "quantity": new_qty,
                     "action": "added",
                 })
