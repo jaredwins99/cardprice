@@ -3406,6 +3406,15 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_card_sales()
         elif self.path.startswith("/card/"):
             self._handle_card_detail_page()
+        elif self.path == "/annotate":
+            self._handle_annotate_page()
+        elif self.path.startswith("/annotate/next"):
+            self._handle_annotate_next()
+        elif self.path.startswith("/annotate/image/"):
+            from urllib.parse import unquote as _uq
+            self._handle_annotate_image(_uq(self.path.split("/annotate/image/", 1)[1]))
+        elif self.path.startswith("/annotate/stats"):
+            self._handle_annotate_stats()
         elif self.path == "/tunnel-url":
             tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
             url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
@@ -3454,6 +3463,14 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_slide_scan_identify()
         elif self.path.startswith("/condition/photo/"):
             self._handle_condition_photo()
+        elif self.path == "/annotate/label":
+            self._handle_annotate_label_post()
+        else:
+            self.send_error(404)
+
+    def do_DELETE(self):
+        if self.path.startswith("/annotate/label"):
+            self._handle_annotate_label_delete()
         else:
             self.send_error(404)
 
@@ -6750,8 +6767,305 @@ tr:hover {{ background: #16213e; }}
         self.end_headers()
         self.wfile.write(img_data)
 
+    # ------------------------------------------------------------------
+    # Reddit 1st-edition annotation tool
+    # ------------------------------------------------------------------
+    def _annotate_paths(self):
+        root = Path(__file__).resolve().parent.parent / "data" / "1st_edition_stamps" / "reddit_scrape"
+        return root, root / "manifest.json", root / "annotations.json"
+
+    def _annotate_load_manifest(self):
+        _, mpath, _ = self._annotate_paths()
+        with open(mpath) as f:
+            return json.load(f)
+
+    def _annotate_load_annotations(self):
+        _, _, apath = self._annotate_paths()
+        if not apath.is_file():
+            return {}
+        try:
+            with open(apath) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _annotate_save_annotations(self, ann):
+        _, _, apath = self._annotate_paths()
+        apath.parent.mkdir(parents=True, exist_ok=True)
+        tmp = apath.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(ann, f, indent=2, sort_keys=True)
+        os.replace(tmp, apath)
+
+    def _annotate_priority_sorted(self, manifest, annotations):
+        def bucket(e):
+            wl = e.get("weak_label")
+            dr = e.get("dark_ratio") or 0.0
+            if wl == "probably_1st_ed":
+                return (0, -dr, -(e.get("score") or 0))
+            if wl == "uncertain" and dr >= 0.20:
+                return (1, -dr, -(e.get("score") or 0))
+            return (2, -(e.get("score") or 0), 0)
+        unlabeled = [e for e in manifest if e["post_id"] not in annotations]
+        unlabeled.sort(key=bucket)
+        return unlabeled
+
+    def _handle_annotate_page(self):
+        self._send_html(ANNOTATE_HTML)
+
+    def _handle_annotate_next(self):
+        from urllib.parse import urlparse, parse_qs
+        q = parse_qs(urlparse(self.path).query)
+        after = (q.get("after") or [None])[0]
+        manifest = self._annotate_load_manifest()
+        annotations = self._annotate_load_annotations()
+        total = len(manifest)
+        total_labeled = sum(1 for e in manifest if e["post_id"] in annotations)
+        ordered = self._annotate_priority_sorted(manifest, annotations)
+        if not ordered:
+            self._send_json({"done": True, "total": total, "total_labeled": total_labeled})
+            return
+        entry = ordered[0]
+        if after:
+            for e in ordered:
+                if e["post_id"] != after:
+                    entry = e
+                    break
+        self._send_json({
+            "done": False,
+            "post_id": entry["post_id"],
+            "subreddit": entry.get("subreddit"),
+            "title": entry.get("title"),
+            "permalink": entry.get("permalink"),
+            "image_url": f"/annotate/image/{entry['post_id']}",
+            "weak_label": entry.get("weak_label"),
+            "dark_ratio": entry.get("dark_ratio"),
+            "score": entry.get("score"),
+            "idx": total_labeled + 1,
+            "total": total,
+            "total_labeled": total_labeled,
+            "total_remaining": len(ordered),
+        })
+
+    def _handle_annotate_image(self, post_id):
+        manifest = self._annotate_load_manifest()
+        entry = next((e for e in manifest if e["post_id"] == post_id), None)
+        if not entry:
+            self.send_error(404, f"Unknown post_id: {post_id}")
+            return
+        repo_root = Path(__file__).resolve().parent.parent
+        fp = repo_root / entry["file_path"]
+        if not fp.is_file():
+            self.send_error(404, f"Image not found: {fp}")
+            return
+        data = fp.read_bytes()
+        ext = fp.suffix.lower()
+        ctype = "image/png" if ext == ".png" else "image/jpeg"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_annotate_stats(self):
+        manifest = self._annotate_load_manifest()
+        annotations = self._annotate_load_annotations()
+        counts = {"1st_edition": 0, "not_1st_edition": 0, "unclear": 0, "skip": 0}
+        for v in annotations.values():
+            lbl = v.get("label")
+            if lbl in counts:
+                counts[lbl] += 1
+        self._send_json({
+            "total": len(manifest),
+            "total_labeled": len(annotations),
+            "remaining": len(manifest) - len(annotations),
+            "counts": counts,
+        })
+
+    def _handle_annotate_label_post(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            self.send_error(400, "Empty body")
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode())
+        except Exception:
+            self.send_error(400, "Invalid JSON")
+            return
+        post_id = payload.get("post_id")
+        label = payload.get("label")
+        note = payload.get("note")
+        if not post_id or label not in ("1st_edition", "not_1st_edition", "unclear", "skip"):
+            self.send_error(400, "post_id and valid label required")
+            return
+        ann = self._annotate_load_annotations()
+        from datetime import timezone as _tz
+        entry = {"label": label, "annotated_at": datetime.now(_tz.utc).isoformat()}
+        if note:
+            entry["note"] = note
+        ann[post_id] = entry
+        self._annotate_save_annotations(ann)
+        self._send_json({"ok": True, "post_id": post_id, "total_labeled": len(ann)})
+
+    def _handle_annotate_label_delete(self):
+        from urllib.parse import urlparse, parse_qs
+        q = parse_qs(urlparse(self.path).query)
+        post_id = (q.get("post_id") or [None])[0]
+        if not post_id:
+            self.send_error(400, "post_id required")
+            return
+        ann = self._annotate_load_annotations()
+        existed = post_id in ann
+        if existed:
+            del ann[post_id]
+            self._annotate_save_annotations(ann)
+        self._send_json({"ok": True, "deleted": existed, "total_labeled": len(ann)})
+
     def log_message(self, fmt, *args):
         logger.info(fmt, *args)
+
+
+ANNOTATE_HTML = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1st-Ed Annotator</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0f1116; color:#e6e8ef; font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:720px; margin:0 auto; padding:12px; }
+  .bar { background:#16213e; border-radius:8px; overflow:hidden; height:22px; position:relative; }
+  .bar .fill { background:#4cc9f0; height:100%; transition:width .2s; }
+  .bar .lbl { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#fff; text-shadow:0 1px 2px #000; }
+  .card { background:#16213e; border-radius:10px; padding:10px; margin-top:12px; }
+  .imgbox { display:flex; justify-content:center; align-items:center; min-height:200px; }
+  .imgbox img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:6px; background:#000; }
+  .meta { margin-top:8px; font-size:13px; color:#b8c0d0; line-height:1.5; }
+  .meta a { color:#4cc9f0; }
+  .hint { margin-top:6px; padding:6px 10px; background:#1a2a4e; border-left:3px solid #4cc9f0; border-radius:4px; font-size:12px; color:#9fb0c8; }
+  .hint.pos { border-color:#2ecc71; }
+  .hint.neg { border-color:#e74c3c; }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .btns button { min-height:56px; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; color:#fff; }
+  .b-yes { background:#2ecc71; }
+  .b-no { background:#e74c3c; }
+  .b-unclear { background:#f39c12; }
+  .b-skip { background:#555e75; }
+  .b-undo { background:#34405d; grid-column:span 2; min-height:44px; }
+  .done { text-align:center; padding:40px 20px; }
+  .done h2 { color:#4cc9f0; }
+  kbd { background:#0f1116; border:1px solid #2a3350; padding:1px 6px; border-radius:4px; font-size:11px; margin-left:6px; opacity:.75; }
+</style></head>
+<body><div class="wrap">
+  <div class="bar"><div id="fill" class="fill" style="width:0%"></div><div id="barlbl" class="lbl">loading...</div></div>
+  <div id="card" class="card" style="display:none">
+    <div class="imgbox"><img id="img" alt=""></div>
+    <div class="meta">
+      <div id="title"></div>
+      <div id="sub"></div>
+      <div id="link"></div>
+    </div>
+    <div id="hint" class="hint" style="display:none"></div>
+    <div class="btns">
+      <button class="b-yes"     onclick="label('1st_edition')">1st Ed<kbd>1</kbd></button>
+      <button class="b-no"      onclick="label('not_1st_edition')">Not 1st Ed<kbd>2</kbd></button>
+      <button class="b-unclear" onclick="label('unclear')">Unclear<kbd>3</kbd></button>
+      <button class="b-skip"    onclick="label('skip')">Skip<kbd>s</kbd></button>
+      <button class="b-undo"    onclick="undo()">Undo<kbd>u</kbd></button>
+    </div>
+  </div>
+  <div id="done" class="done" style="display:none"></div>
+</div>
+<script>
+let current = null;
+let prefetchImg = null;
+let undoStack = [];
+
+async function loadNext(after) {
+  const url = '/annotate/next' + (after ? ('?after=' + encodeURIComponent(after)) : '');
+  const r = await fetch(url);
+  const d = await r.json();
+  updateBar(d);
+  if (d.done) { showDone(); return; }
+  current = d;
+  document.getElementById('card').style.display = '';
+  document.getElementById('done').style.display = 'none';
+  document.getElementById('img').src = d.image_url;
+  document.getElementById('title').textContent = d.title || '(no title)';
+  document.getElementById('sub').textContent = 'r/' + (d.subreddit || '?') + '  -  score ' + (d.score ?? '?');
+  const link = document.getElementById('link');
+  link.innerHTML = d.permalink ? ('<a target="_blank" rel="noopener" href="' + d.permalink + '">open on Reddit</a>') : '';
+  const hint = document.getElementById('hint');
+  if (d.weak_label) {
+    hint.style.display = '';
+    hint.className = 'hint ' + (d.weak_label === 'probably_1st_ed' ? 'pos' : (d.weak_label === 'probably_not_1st_ed' ? 'neg' : ''));
+    hint.textContent = 'weak-label: ' + d.weak_label + (d.dark_ratio != null ? ' (dark_ratio=' + d.dark_ratio.toFixed(3) + ')' : '');
+  } else { hint.style.display = 'none'; }
+  prefetchNext(d.post_id);
+}
+
+async function prefetchNext(after) {
+  try {
+    const r = await fetch('/annotate/next?after=' + encodeURIComponent(after));
+    const d = await r.json();
+    if (!d.done && d.image_url) {
+      prefetchImg = new Image();
+      prefetchImg.src = d.image_url;
+    }
+  } catch(e) {}
+}
+
+function updateBar(d) {
+  const labeled = d.total_labeled ?? 0;
+  const total = d.total ?? 500;
+  const pct = total ? Math.round(100 * labeled / total) : 0;
+  document.getElementById('fill').style.width = pct + '%';
+  document.getElementById('barlbl').textContent = labeled + ' / ' + total + ' labeled, ' + (total - labeled) + ' remaining';
+}
+
+async function label(lbl) {
+  if (!current) return;
+  const pid = current.post_id;
+  const r = await fetch('/annotate/label', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({post_id: pid, label: lbl})
+  });
+  if (r.ok) {
+    undoStack.push(pid);
+    if (undoStack.length > 10) undoStack.shift();
+  }
+  loadNext();
+}
+
+async function undo() {
+  const pid = undoStack.pop();
+  if (!pid) return;
+  await fetch('/annotate/label?post_id=' + encodeURIComponent(pid), {method:'DELETE'});
+  loadNext();
+}
+
+async function showDone() {
+  const r = await fetch('/annotate/stats');
+  const s = await r.json();
+  document.getElementById('card').style.display = 'none';
+  const d = document.getElementById('done');
+  d.style.display = '';
+  d.innerHTML = '<h2>All done.</h2><p>' + s.counts['1st_edition'] + ' labeled as 1st Ed, ' +
+    s.counts['not_1st_edition'] + ' not, ' + s.counts['unclear'] + ' unclear, ' + s.counts['skip'] + ' skipped.</p>' +
+    '<button class="b-skip" style="margin-top:20px;padding:10px 20px;border:none;border-radius:6px;color:#fff;cursor:pointer" onclick="console.log(\'reset disabled for safety\')">Reset (disabled)</button>';
+}
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === '1') label('1st_edition');
+  else if (e.key === '2') label('not_1st_edition');
+  else if (e.key === '3') label('unclear');
+  else if (e.key === 's' || e.key === 'S') label('skip');
+  else if (e.key === 'u' || e.key === 'U') undo();
+});
+
+loadNext();
+</script></body></html>
+"""
 
 
 def warmup():
