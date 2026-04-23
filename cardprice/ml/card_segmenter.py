@@ -1014,7 +1014,8 @@ def _find_grid_lines(rectified_page, rows, cols):
 
 
 def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
-                         rows: int = 3, cols: int = 3) -> Optional[list[np.ndarray]]:
+                         rows: int = 3, cols: int = 3,
+                         return_corners: bool = False):
     """Use detected contour positions to infer grid boundaries and extract all cells.
 
     When contour detection finds >=6 but <9 cards, we can use their positions
@@ -1203,6 +1204,7 @@ def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
 
     # Extract cells in reading order
     cards = []
+    corners_list: list[Optional[np.ndarray]] = []
     for r in range(rows):
         for c in range(cols):
             y1, y2 = row_bounds[r]
@@ -1210,19 +1212,42 @@ def _contour_guided_grid(image: np.ndarray, contours: list[np.ndarray],
             cell = image[y1:y2, x1:x2]
             # Ensure portrait
             ch, cw = cell.shape[:2]
-            if cw > ch:
+            rotated_ccw = cw > ch
+            if rotated_ccw:
                 cell = cv2.rotate(cell, cv2.ROTATE_90_COUNTERCLOCKWISE)
             card = cv2.resize(cell, (CARD_OUTPUT_W, CARD_OUTPUT_H),
                               interpolation=cv2.INTER_AREA)
             cards.append(card)
+            # Compute axis-aligned corners in the original image coord system.
+            # _contour_guided_grid operates directly on `image` (no warp), so
+            # row/col bounds are already in original image coordinates.
+            if rotated_ccw:
+                # CCW rotation maps rect TR->TL, BR->TR, BL->BR, TL->BL
+                quad = np.array([
+                    [x2, y1],  # rect TR -> portrait TL
+                    [x2, y2],  # rect BR -> portrait TR
+                    [x1, y2],  # rect BL -> portrait BR
+                    [x1, y1],  # rect TL -> portrait BL
+                ], dtype=np.float32)
+            else:
+                quad = np.array([
+                    [x1, y1],
+                    [x2, y1],
+                    [x2, y2],
+                    [x1, y2],
+                ], dtype=np.float32)
+            corners_list.append(quad)
 
+    if return_corners:
+        return cards, corners_list
     return cards
 
 
 def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
                     pad_frac: float = 0.035,
                     ref_contours: Optional[list[np.ndarray]] = None,
-                    ) -> list[np.ndarray]:
+                    return_corners: bool = False,
+                    ):
     """Extract cards by dividing the binder page area into a uniform grid.
 
     Used as a fallback when contour detection misses cards. Finds the
@@ -1334,6 +1359,8 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
     # Rectify the page: prefer perspective warp (corrects camera angle
     # distortion) over plain bounding-box crop.
     perspective_warped = False
+    M_warp_inv: Optional[np.ndarray] = None
+    pad_needed: int = 0
     if page_corners is not None:
         try:
             ordered = _order_points(
@@ -1382,6 +1409,9 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
                 ], dtype=np.float32)
                 M_warp = cv2.getPerspectiveTransform(ordered_expanded, dst)
                 rectified = cv2.warpPerspective(padded_image, M_warp, (dst_w, dst_h))
+                # Inverse warp: rectified point -> padded-image point.
+                # Callers subtract `pad_needed` to get the original-image coord.
+                M_warp_inv = np.linalg.inv(M_warp)
                 perspective_warped = True
                 # After perspective warp, page fills the entire rectified
                 # image so crop offset is zero
@@ -1521,6 +1551,20 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
     # additional inset is needed and any inset risks clipping card content
     # (especially after 90-degree rotation on landscape pages).
     cards = []
+    corners_list: list[Optional[np.ndarray]] = []
+
+    def _rect_corners_to_orig(rx1, ry1, rx2, ry2):
+        """Map rectified-space axis-aligned rect to original-image quad."""
+        pts = np.array([
+            [[rx1, ry1]], [[rx2, ry1]], [[rx2, ry2]], [[rx1, ry2]],
+        ], dtype=np.float32)
+        if perspective_warped and M_warp_inv is not None:
+            mapped = cv2.perspectiveTransform(pts, M_warp_inv)
+            mapped = mapped.reshape(-1, 2) - float(pad_needed)
+        else:
+            mapped = pts.reshape(-1, 2) + np.array([bx, by], dtype=np.float32)
+        return mapped.astype(np.float32)
+
     for br in range(rows):
         for bc in range(cols):
             if page_is_landscape:
@@ -1563,8 +1607,37 @@ def _grid_fallback(image: np.ndarray, rows: int = 3, cols: int = 3,
 
             cards.append(card)
 
+            # Build original-image corner quad for this cell, ordered
+            # [TL, TR, BR, BL] relative to the FINAL (portrait-upright)
+            # card image.  The rect rx1..rx2, ry1..ry2 is in rectified
+            # space; we map it back to original image coords (accounting
+            # for perspective warp + padding, or bbox offset).
+            rect_quad = _rect_corners_to_orig(x1, y1, x2, y2)
+            # rect_quad corners follow rect order: TL, TR, BR, BL of
+            # the rectified rectangle.  If we rotated the cell to make
+            # it portrait, remap so quad order matches the portrait
+            # crop's TL/TR/BR/BL.
+            if cw > ch:
+                if cell_rot == cv2.ROTATE_90_COUNTERCLOCKWISE:
+                    # CCW: rect TR->TL, BR->TR, BL->BR, TL->BL
+                    quad = np.array([
+                        rect_quad[1], rect_quad[2],
+                        rect_quad[3], rect_quad[0],
+                    ], dtype=np.float32)
+                else:
+                    # CW: rect BL->TL, TL->TR, TR->BR, BR->BL
+                    quad = np.array([
+                        rect_quad[3], rect_quad[0],
+                        rect_quad[1], rect_quad[2],
+                    ], dtype=np.float32)
+            else:
+                quad = rect_quad
+            corners_list.append(quad)
+
     logger.info("Grid fallback: extracted %d cards (%dx%d grid, perspective=%s)",
                 len(cards), rows, cols, perspective_warped)
+    if return_corners:
+        return cards, corners_list
     return cards
 
 
@@ -1574,7 +1647,8 @@ def segment_cards(
     max_cards: int = 18,
     output_format: str = "png",
     expected_grid: Optional[tuple[int, int]] = None,
-) -> list[Path]:
+    return_metadata: bool = False,
+):
     """Detect and extract individual cards from a binder page photo.
 
     Takes a photo of a binder page (typically 3x3 or 3x3x2 grid of cards in
@@ -1656,16 +1730,22 @@ def segment_cards(
     if use_grid_fallback:
         # Try contour-guided grid first (uses detected card positions)
         card_images = None
+        grid_corners: Optional[list[Optional[np.ndarray]]] = None
         if contours and len(contours) >= 3:
-            card_images = _contour_guided_grid(
-                image, contours, expected_rows, expected_cols)
-            if card_images:
+            result = _contour_guided_grid(
+                image, contours, expected_rows, expected_cols,
+                return_corners=True)
+            if result is not None:
+                card_images, grid_corners = result
                 logger.info("Using contour-guided grid (%d contours)",
                             len(contours))
 
         if card_images is None:
-            card_images = _grid_fallback(image, expected_rows, expected_cols,
-                                          ref_contours=contours if contours else None)
+            card_images, grid_corners = _grid_fallback(
+                image, expected_rows, expected_cols,
+                ref_contours=contours if contours else None,
+                return_corners=True,
+            )
         saved_paths = []
         for i, card_img in enumerate(card_images):
             out_path = output_dir / f"card_{i:02d}.{output_format}"
@@ -1673,6 +1753,16 @@ def segment_cards(
             saved_paths.append(out_path)
         logger.info("Grid fallback extracted %d cards from %s -> %s",
                      len(saved_paths), image_path, output_dir)
+        if return_metadata:
+            if grid_corners is None:
+                grid_corners = [None] * len(saved_paths)
+            return {
+                "page_image": image,
+                "cards": [
+                    {"path": p, "corners_orig": c}
+                    for p, c in zip(saved_paths, grid_corners)
+                ],
+            }
         return saved_paths
 
     # Limit to max_cards (take largest by area)
@@ -1715,16 +1805,33 @@ def segment_cards(
 
     # Extract and save each card
     saved_paths = []
+    per_card_corners: list[Optional[np.ndarray]] = []
     for i, cnt in enumerate(contours):
         card_img = _perspective_crop(image, cnt.astype(np.float32),
                                      force_landscape=force_landscape)
         out_path = output_dir / f"card_{i:02d}.{output_format}"
         cv2.imwrite(str(out_path), card_img)
         saved_paths.append(out_path)
+        # Record the card's 4 corners in the (possibly resized) page image
+        # coordinates as [TL, TR, BR, BL]. These feed downstream detectors
+        # (e.g. 1st-Edition stamp) that need a clean card frame warp.
+        try:
+            ordered = _order_points(cnt.reshape(4, 2).astype(np.float32))
+            per_card_corners.append(ordered.copy())
+        except Exception:
+            per_card_corners.append(None)
         logger.debug("Saved card %d to %s", i, out_path)
 
     logger.info("Extracted %d cards from %s -> %s",
                 len(saved_paths), image_path, output_dir)
+    if return_metadata:
+        return {
+            "page_image": image,
+            "cards": [
+                {"path": p, "corners_orig": c}
+                for p, c in zip(saved_paths, per_card_corners)
+            ],
+        }
     return saved_paths
 
 
