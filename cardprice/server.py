@@ -284,7 +284,21 @@ _PRICE_LOOKUP_SQL = """
         SELECT market_price FROM fact_market_prices
         WHERE card_id = c.card_id
         ORDER BY
-            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            -- Prefer the unlimited printing as the "default" price when a
+            -- caller doesn't specify a variant. WOTC cards have no 'Normal'
+            -- subtype — only 'Unlimited' / '1st Edition' / their Holofoil
+            -- siblings — so without this priority we'd silently pick the
+            -- 1st-Edition row (≈5x price) as if it were the default.
+            CASE subtype_name
+                WHEN 'Normal' THEN 0
+                WHEN 'Unlimited' THEN 1
+                WHEN 'Holofoil' THEN 2
+                WHEN 'Unlimited Holofoil' THEN 3
+                WHEN 'Reverse Holofoil' THEN 4
+                WHEN '1st Edition' THEN 8
+                WHEN '1st Edition Holofoil' THEN 9
+                ELSE 5
+            END,
             price_date DESC
         LIMIT 1
     ) p ON true
@@ -298,7 +312,21 @@ _PRICE_LOOKUP_SQL = """
         SELECT market_price FROM fact_market_prices_jp
         WHERE tcg_product_id = c.tcg_product_id
         ORDER BY
-            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            -- Prefer the unlimited printing as the "default" price when a
+            -- caller doesn't specify a variant. WOTC cards have no 'Normal'
+            -- subtype — only 'Unlimited' / '1st Edition' / their Holofoil
+            -- siblings — so without this priority we'd silently pick the
+            -- 1st-Edition row (≈5x price) as if it were the default.
+            CASE subtype_name
+                WHEN 'Normal' THEN 0
+                WHEN 'Unlimited' THEN 1
+                WHEN 'Holofoil' THEN 2
+                WHEN 'Unlimited Holofoil' THEN 3
+                WHEN 'Reverse Holofoil' THEN 4
+                WHEN '1st Edition' THEN 8
+                WHEN '1st Edition Holofoil' THEN 9
+                ELSE 5
+            END,
             price_date DESC
         LIMIT 1
     ) p ON true
@@ -366,6 +394,84 @@ def _get_card_variant_catalog() -> dict[str, dict[str, int]]:
             logger.warning("variant catalog load failed: %s", _e)
             _CARD_VARIANT_CATALOG = {}
         return _CARD_VARIANT_CATALOG
+
+
+def _resolve_tcg_product_id(
+    base_card_id: str | None,
+    variant: str | None,
+) -> int | None:
+    """Pick the right TCGPlayer product SKU for a given base card + variant.
+
+    WOTC-era cards are the motivating case: the naive `dim_cards.tcg_product_id`
+    column holds whichever SKU TCGCSV listed first (often 1st Edition), but
+    the user-visible product page should default to the Unlimited listing when
+    the detected variant is `normal`. The per-card catalog at
+    data/dim_card_variants.json enumerates every real SKU per card, so we
+    consult it first and fall back to `None` (callers substitute the
+    `dim_cards.tcg_product_id` column) when the catalog has nothing useful.
+
+    Preference rules:
+      * If the requested variant is `1st_edition*`, prefer the matching 1st-ed
+        key verbatim — never silently fall back to Unlimited.
+      * Otherwise, prefer the requested variant, then unlimited, then normal,
+        then the holofoil equivalents.
+      * Unknown variants fall through to the generic preference list so
+        callers still get *some* SKU.
+
+    Returns an int `tcg_product_id` or `None` if no usable key matches.
+    """
+    if not base_card_id:
+        return None
+    if base_card_id.startswith("jp_"):
+        # Japanese catalog lives in dim_cards_jp with its own SKU-per-printing
+        # layout and a separate URL path. Don't second-guess it here.
+        return None
+    catalog = _get_card_variant_catalog()
+    entry = catalog.get(base_card_id)
+    if not entry:
+        return None
+
+    v = (variant or "normal").strip().lower()
+    # 1st-Edition printings are a distinct product — honor the variant,
+    # do not fall back to Unlimited.
+    if v in ("1st_edition", "1st_edition_holofoil"):
+        prefs = [v, "1st_edition", "1st_edition_holofoil"]
+    else:
+        prefs = [v, "unlimited", "normal",
+                 "unlimited_holofoil", "holofoil", "normal_holofoil"]
+
+    seen: set[str] = set()
+    for key in prefs:
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        pid = entry.get(key)
+        if pid:
+            try:
+                return int(pid)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
+def _tcgplayer_url_for(
+    base_card_id: str | None,
+    variant: str | None,
+    fallback_tcg_product_id: int | None,
+) -> str | None:
+    """Build the outward-facing TCGPlayer product URL for a card.
+
+    Resolves through the variant catalog first (see _resolve_tcg_product_id);
+    falls back to `fallback_tcg_product_id` (typically dim_cards.tcg_product_id)
+    so cards missing from the catalog still get *some* URL.
+    """
+    pid = _resolve_tcg_product_id(base_card_id, variant)
+    if pid is None:
+        pid = fallback_tcg_product_id
+    if not pid:
+        return None
+    return f"https://www.tcgplayer.com/product/{pid}"
+
 
 # Lowercased-name → list of search-card rows (base_id, name, set_id,
 # set_name, rarity, release_date, tcg_product_id). Built once at first
@@ -1128,6 +1234,14 @@ def _card_detail_payload(card_id: str) -> dict | None:
                 row = session.execute(
                     sql_text(_PRICE_LOOKUP_SQL), {"cid": base_id}
                 ).fetchone()
+            if not row and full_id != f"{base_id}/normal":
+                # Requested a variant that isn't its own row in dim_cards
+                # (e.g. base3-49/1st_edition). Fall back to the normal row
+                # so the client still gets name/image/price — the TCGPlayer
+                # URL resolver below still honors the requested variant.
+                row = session.execute(
+                    sql_text(_PRICE_LOOKUP_SQL), {"cid": f"{base_id}/normal"}
+                ).fetchone()
             if row:
                 name = row.name
                 set_name = row.set_name
@@ -1181,9 +1295,8 @@ def _card_detail_payload(card_id: str) -> dict | None:
 
     variants = _decompose_variants(possible, rarity=rarity)
 
-    tcgplayer_url = None
-    if tcg_product_id:
-        tcgplayer_url = f"https://www.tcgplayer.com/product/{tcg_product_id}"
+    variant_suffix = full_id.rsplit("/", 1)[-1] if "/" in full_id else "normal"
+    tcgplayer_url = _tcgplayer_url_for(base_id, variant_suffix, tcg_product_id)
 
     # Inline sales — cheap SQLite query, saves a second network round-trip
     # from the client. Capped at 100 rows to keep the payload reasonable.
@@ -1597,7 +1710,21 @@ _PRICE_LOOKUP_BULK_SQL = """
         SELECT market_price FROM fact_market_prices
         WHERE card_id = c.card_id
         ORDER BY
-            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+            -- Prefer the unlimited printing as the "default" price when a
+            -- caller doesn't specify a variant. WOTC cards have no 'Normal'
+            -- subtype — only 'Unlimited' / '1st Edition' / their Holofoil
+            -- siblings — so without this priority we'd silently pick the
+            -- 1st-Edition row (≈5x price) as if it were the default.
+            CASE subtype_name
+                WHEN 'Normal' THEN 0
+                WHEN 'Unlimited' THEN 1
+                WHEN 'Holofoil' THEN 2
+                WHEN 'Unlimited Holofoil' THEN 3
+                WHEN 'Reverse Holofoil' THEN 4
+                WHEN '1st Edition' THEN 8
+                WHEN '1st Edition Holofoil' THEN 9
+                ELSE 5
+            END,
             price_date DESC
         LIMIT 1
     ) p ON true
@@ -1905,11 +2032,11 @@ input[type=file] { display: none; }
 <!-- ===== SECTION 0: MANUAL SEARCH (orange #f39c12) ===== -->
 <div style="background:#16213e;border-radius:12px;padding:15px;margin:10px 0;border-left:4px solid #f39c12;">
 <h3 style="color:#f39c12;margin:0 0 10px;font-size:18px;">Search by Name</h3>
-<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;">
+<div style="display:grid;grid-template-columns:64px 1fr 1fr;gap:8px;">
     <select id="searchLang"
-            style="padding:10px;border-radius:6px;border:1px solid #333;background:#0f3460;color:#eee;font-size:15px;box-sizing:border-box;">
-        <option value="en" selected>English</option>
-        <option value="ja">Japanese</option>
+            style="padding:10px 6px;border-radius:6px;border:1px solid #333;background:#0f3460;color:#eee;font-size:15px;box-sizing:border-box;text-align:center;">
+        <option value="en" selected>en</option>
+        <option value="ja">jp</option>
     </select>
     <div style="position:relative;">
         <input id="searchName" type="text" autocomplete="off" placeholder="Pokemon name"
@@ -2466,6 +2593,151 @@ function reopenPageCamera(sec) {
 
 // ===== Page scan — parameterized by section =====
 var _pageCardsData = {inv: [], cart: []};
+// Per-section page_id (used when logging scan corrections to the server)
+var _pageScanId = {inv: null, cart: null};
+// Per-section list of the originally-picked cards so we can revert + log
+var _pageOrigCards = {inv: [], cart: []};
+// Per-section array of alt indices (0 = original pick)
+var _pageAltIdx = {inv: [], cart: []};
+
+// Apply an alternative to a card slot.  altIdx 0 = original pick; 1..N = alternatives.
+function _applyAlt(sec, i, altIdx) {
+    var orig = _pageOrigCards[sec][i];
+    if (!orig) return;
+    var alts = orig.alternatives || [];
+    if (altIdx <= 0 || !alts.length) {
+        _pageCardsData[sec][i] = orig;
+        _pageAltIdx[sec][i] = 0;
+        return;
+    }
+    var a = alts[(altIdx - 1) % alts.length];
+    // Merge: preserve segmentation/position/stamps etc from the original,
+    // overwrite the user-visible identity/price/image fields from the alt.
+    var merged = {};
+    for (var k in orig) merged[k] = orig[k];
+    merged.card_id = a.card_id;
+    merged.card_name = a.card_name || a.card_id;
+    merged.set_name = a.set_name;
+    merged.image_url = a.image_url;
+    merged.local_image_url = a.local_image_url || null;
+    merged.market_price = a.market_price;
+    merged.variant_price = null;
+    merged.condition_prices = a.condition_prices || null;
+    merged.tcgplayer_url = a.tcgplayer_url;
+    merged.confidence = (a.confidence != null ? a.confidence : merged.confidence);
+    merged._isAlt = true;
+    merged._altIdx = altIdx;
+    merged._altSource = a.source || null;
+    _pageCardsData[sec][i] = merged;
+    _pageAltIdx[sec][i] = altIdx;
+}
+
+function _cycleAlt(sec, i, ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var orig = _pageOrigCards[sec][i];
+    if (!orig) return;
+    var alts = orig.alternatives || [];
+    if (!alts.length) return;
+    var cur = _pageAltIdx[sec][i] || 0;
+    var next = (cur + 1) % (alts.length + 1);  // 0..alts.length, cycles back to original
+    _applyAlt(sec, i, next);
+    _renderPageTile(sec, i);
+}
+
+function _revertAlt(sec, i, ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    _applyAlt(sec, i, 0);
+    _renderPageTile(sec, i);
+}
+
+function _renderPageTile(sec, i) {
+    var el = document.getElementById(sec + 'PageTile_' + i);
+    if (!el) return;
+    var c = _pageCardsData[sec][i];
+    var orig = _pageOrigCards[sec][i] || c;
+    var altCount = (orig.alternatives || []).length;
+    var altIdx = _pageAltIdx[sec][i] || 0;
+    var accentColor = sec === 'inv' ? '#4ecca3' : '#3498db';
+    var condColors = {'NM':'#4ecca3','LP':'#a8d8a8','MP':'#f1c40f','HP':'#e67e22','DMG':'#e74c3c'};
+    var displayPrice = c.variant_price || c.market_price;
+    var imgSrc = c.local_image_url || c.image_url || '';
+    var h = '';
+    if (imgSrc) {
+        h += '<img src="' + imgSrc + '" style="width:100%;display:block;border-radius:8px 8px 0 0;" />';
+    } else {
+        h += '<div style="width:100%;aspect-ratio:5/7;background:#16213e;display:flex;align-items:center;justify-content:center;color:#666;font-size:12px;border-radius:8px 8px 0 0;">No image</div>';
+    }
+    // Bottom-corner affordances: X bottom-right to cycle alternatives,
+    // undo bottom-left to revert. ASCII glyphs only — phone fonts were
+    // rendering the Unicode ✕ / ↩ as garbage.
+    if (altCount > 0) {
+        h += '<button onclick="_cycleAlt(\'' + sec + '\',' + i + ',event)" title="Next alternative" '
+           + 'style="position:absolute;bottom:3px;right:3px;width:24px;height:24px;border-radius:12px;'
+           + 'border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:13px;font-weight:bold;'
+           + 'cursor:pointer;line-height:24px;padding:0;font-family:Arial,sans-serif;'
+           + '-webkit-tap-highlight-color:rgba(255,255,255,0.2);z-index:2;">x</button>';
+        if (altIdx > 0) {
+            h += '<button onclick="_revertAlt(\'' + sec + '\',' + i + ',event)" title="Back to original" '
+               + 'style="position:absolute;bottom:3px;left:3px;width:36px;height:24px;border-radius:12px;'
+               + 'border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;font-weight:bold;'
+               + 'cursor:pointer;line-height:24px;padding:0;font-family:Arial,sans-serif;'
+               + '-webkit-tap-highlight-color:rgba(255,255,255,0.2);z-index:2;">undo</button>';
+        }
+    }
+    h += '<div style="padding:6px 4px;">';
+    var nameText = c.card_name || 'Unknown';
+    var altBadge = '';
+    if (altIdx > 0) {
+        altBadge = ' <span style="color:' + accentColor + ';font-size:10px;">(' + (altIdx + 1) + '/' + (altCount + 1) + ')</span>';
+    }
+    if (c.tcgplayer_url) {
+        h += '<div style="font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><a href="' + c.tcgplayer_url + '" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#e0e0e0;text-decoration:underline;text-decoration-color:' + accentColor + '55;">' + nameText + '</a>' + altBadge + '</div>';
+    } else {
+        h += '<div style="font-size:12px;font-weight:bold;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + nameText + altBadge + '</div>';
+    }
+    if (altIdx > 0 && c._altSource) {
+        var _srcLabel = {phash:'phash match', name_ocr:'name match', attack_ocr:'move match', dino_image:'image match', combined:'combined'}[c._altSource] || c._altSource;
+        h += '<div style="font-size:9px;color:#888;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _srcLabel + '</div>';
+    }
+    if (c.condition_prices || displayPrice) {
+        var cp = c.condition_prices || {};
+        var mpInfo = cp['MP'];
+        var mpPrice = mpInfo && mpInfo.price != null ? mpInfo.price : (displayPrice ? parseFloat(displayPrice) * 0.8 : null);
+        if (mpPrice != null) {
+            h += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + mpPrice.toFixed(2) + '</div>';
+        } else if (displayPrice) {
+            h += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+        } else {
+            h += '<div style="font-size:13px;color:#666;">No price</div>';
+        }
+        var corners = [['LP','HP'],['NM','DMG']];
+        for (var cri = 0; cri < corners.length; cri++) {
+            h += '<div style="display:flex;gap:1px;font-size:8px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:' + (cri === 0 ? '2' : '1') + 'px;">';
+            for (var cci = 0; cci < corners[cri].length; cci++) {
+                var ccond = corners[cri][cci];
+                var cinfo = cp[ccond];
+                var cclr = cinfo && cinfo.price != null ? condColors[ccond] : '#555';
+                var cval = cinfo && cinfo.price != null ? '$' + cinfo.price.toFixed(cinfo.price >= 10 ? 0 : 2) : '—';
+                var cestStyle = (cinfo && cinfo.estimated) ? 'font-style:italic;opacity:0.7;' : '';
+                h += '<div style="flex:1;text-align:center;color:' + cclr + ';background:rgba(255,255,255,0.04);border-radius:3px;padding:2px 0;' + cestStyle + '"><span style="opacity:0.5;font-size:7px;display:block;">' + ccond + '</span>' + cval + '</div>';
+            }
+            h += '</div>';
+        }
+    } else if (displayPrice) {
+        h += '<div style="font-size:16px;font-weight:bold;color:' + condColors['MP'] + ';">$' + parseFloat(displayPrice).toFixed(2) + '</div>';
+    } else {
+        h += '<div style="font-size:13px;color:#666;">No price</div>';
+    }
+    h += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
+    h += '</div>';
+    el.innerHTML = h;
+}
+function _openPageTileDetail(sec, i) {
+    var c = _pageCardsData[sec][i];
+    if (!c || !c.card_id) return;
+    // Navigate to the same full detail page as search results.
+    window.location.href = '/card/' + encodeURIComponent(c.card_id);
+}
 function _showCardDetail(sec, idx) {
     var c = _pageCardsData[sec][idx];
     if (!c) return;
@@ -2581,6 +2853,10 @@ function handlePageFile(file, sec) {
             }
             var cards = data.cards || [];
             _pageCardsData[sec] = cards;
+            // Snapshot originals (deep-ish copy via JSON) for revert + correction logging
+            _pageOrigCards[sec] = cards.map(function(cc) { return JSON.parse(JSON.stringify(cc)); });
+            _pageAltIdx[sec] = cards.map(function() { return 0; });
+            _pageScanId[sec] = data.scan_id || data.page_id || ('page_' + Date.now());
             var total = 0;
             if (data.status === 'pending') {
                 document.getElementById(sec + 'PageTotal').textContent = 'Page queued (' + (data.scan_id || '') + ')';
@@ -2595,10 +2871,13 @@ function handlePageFile(file, sec) {
             for (var i = 0; i < cards.length; i++) {
                 var c = cards[i];
                 var displayPrice = c.variant_price || c.market_price;
-                var price = displayPrice ? parseFloat(displayPrice) : 0;
-                total += price;
-                var imgSrc = c.local_image_url || c.image_url || '';
-                html += '<div onclick="_showCardDetail(\'' + sec + '\',' + i + ')" style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(78,204,163,0.2);">';
+                total += displayPrice ? parseFloat(displayPrice) : 0;
+                html += '<div id="' + sec + 'PageTile_' + i + '" onclick="_openPageTileDetail(\'' + sec + '\',' + i + ')" style="background:#0f3460;border-radius:8px;overflow:hidden;text-align:center;position:relative;cursor:pointer;-webkit-tap-highlight-color:rgba(78,204,163,0.2);"></div>';
+            }
+            html += '</div>';
+            // The tile bodies are rendered by _renderPageTile() once the grid is in the DOM.
+            if (false) {
+                var imgSrc = '';
                 if (imgSrc) {
                     html += '<img src="' + imgSrc + '" style="width:100%;display:block;border-radius:8px 8px 0 0;" />';
                 } else {
@@ -2644,7 +2923,6 @@ function handlePageFile(file, sec) {
                 html += '<div style="font-size:10px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (c.set_name || '') + '</div>';
                 html += '</div></div>';
             }
-            html += '</div>';
             var condTotals = {};
             for (var ci = 0; ci < condKeys.length; ci++) condTotals[condKeys[ci]] = 0;
             for (var ti = 0; ti < cards.length; ti++) {
@@ -2665,6 +2943,8 @@ function handlePageFile(file, sec) {
                 '<span style="color:#888;"> \u00b7 </span>' +
                 '<span style="color:' + condColors['NM'] + ';">NM: $' + total.toFixed(2) + '</span>';
             document.getElementById(sec + 'PageCards').innerHTML = html || '<div style="color:#888">No cards identified</div>';
+            // Populate each tile body now that the grid container exists in the DOM.
+            for (var ri = 0; ri < cards.length; ri++) _renderPageTile(sec, ri);
             // Show "Add All" button if cards have IDs
             var hasCards = cards.some(function(c) { return c.card_id; });
             document.getElementById(sec + 'PageBtnRow').style.display = hasCards ? 'flex' : 'none';
@@ -2695,6 +2975,24 @@ function addAllPage(sec) {
             body = JSON.stringify({card_id: c.card_id, card_name: c.card_name || c.card_id, market_price: parseFloat(c.variant_price || c.market_price) || 0, quantity: 1});
         }
         promises.push(fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: body }));
+        // If the user cycled to an alternative, log the correction for later learning.
+        var orig = _pageOrigCards[sec][i];
+        if (orig && orig.card_id && orig.card_id !== c.card_id) {
+            try {
+                fetch('/scan-correction', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        page_id: _pageScanId[sec] || '',
+                        position: (c.position != null ? c.position : i),
+                        original_card_id: orig.card_id,
+                        chosen_card_id: c.card_id,
+                        original_conf: orig.confidence,
+                        chosen_conf: c.confidence,
+                    }),
+                });
+            } catch (e) { /* best-effort */ }
+        }
     }
     var btn = document.getElementById(sec + 'PageBtnRow').querySelector('button');
     btn.disabled = true; btn.textContent = 'Adding...';
@@ -3451,6 +3749,8 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_cart_remove()
         elif self.path == "/inventory/add":
             self._handle_inventory_add()
+        elif self.path == "/scan-correction":
+            self._handle_scan_correction()
         elif self.path == "/inventory/remove":
             self._handle_inventory_remove()
         elif self.path == "/condition/camera/assess":
@@ -3660,8 +3960,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                             float(row.market_price) if row.market_price else None
                         )
                         response["image_url"] = row.image_small
-                        if row.tcg_product_id:
-                            response["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
+                        _base_id = (result["card_id"] or "").split("/", 1)[0]
+                        _url = _tcgplayer_url_for(_base_id, detected_variant, row.tcg_product_id)
+                        if _url:
+                            response["tcgplayer_url"] = _url
 
                         # Look up variant-specific price
                         if detected_variant != "normal":
@@ -4058,6 +4360,152 @@ class ScanHandler(BaseHTTPRequestHandler):
             logger.error("Scan-URL error: %s", e)
             self._send_json({"error": str(e)}, status=500)
 
+    def _build_alternatives(self, session, combined_results, chosen_cid,
+                            variant="normal", limit=5, candidate_sources=None):
+        """Build up to `limit` diverse alternative-candidate dicts.
+
+        Strategy:
+          1. Take the top non-chosen candidate from each per-source ranking
+             (name_ocr, attack_ocr, dino_image) that fired. Up to 3 slots.
+          2. Fill remaining slots from `combined_results` (skipping dupes).
+
+        Dedup is by base card_id (strip `/variant` suffix). Each returned dict
+        mirrors the lightweight subset of the main card tile and carries a
+        `source` field so the UI can label the match signal.
+        """
+        from sqlalchemy import text as sql_text
+        if not combined_results and not candidate_sources:
+            return []
+
+        def _base(cid):
+            return cid.split("/")[0] if cid and "/" in cid else cid
+
+        chosen_base = _base(chosen_cid)
+        seen_bases = {chosen_base} if chosen_base else set()
+
+        # Build ordered (cid, score, source) picks
+        picks = []
+
+        def _add(cid, score, source):
+            if not cid:
+                return
+            b = _base(cid)
+            if b in seen_bases:
+                return
+            seen_bases.add(b)
+            picks.append((cid, float(score), source))
+
+        candidate_sources = candidate_sources or {}
+        # Fixed order per spec: phash, name_ocr, attack_ocr, dino_image
+        for src_name in ("phash", "name_ocr", "attack_ocr", "dino_image"):
+            ranked = candidate_sources.get(src_name) or []
+            for entry in ranked:
+                try:
+                    cid = entry[0]
+                    score = float(entry[1]) if len(entry) > 1 else 0.0
+                except (TypeError, IndexError):
+                    continue
+                b = _base(cid)
+                if not cid or b in seen_bases:
+                    continue
+                _add(cid, score, src_name)
+                break  # only the top from this source
+
+        # Fill remaining slots from combined_results
+        for entry in combined_results or []:
+            if len(picks) >= limit:
+                break
+            try:
+                cid = entry[0]
+                score = float(entry[1]) if len(entry) > 1 else 0.0
+            except (TypeError, IndexError):
+                continue
+            _add(cid, score, "combined")
+
+        # Trim to limit (source picks might exceed it if limit < 3)
+        picks = picks[:limit]
+
+        alts = []
+        for cid, score, source in picks:
+            try:
+                row = session.execute(sql_text(_PRICE_LOOKUP_SQL), {"cid": cid}).fetchone()
+            except Exception:
+                row = None
+            if not row:
+                alts.append({
+                    "card_id": cid,
+                    "confidence": score,
+                    "card_name": cid,
+                    "set_name": None,
+                    "image_url": None,
+                    "local_image_url": _local_image_url(cid),
+                    "market_price": None,
+                    "tcgplayer_url": None,
+                    "condition_prices": None,
+                    "source": source,
+                })
+                continue
+            market_price = float(row.market_price) if row.market_price else None
+            _alt_base = (cid or "").split("/", 1)[0]
+            tcg_url = _tcgplayer_url_for(_alt_base, variant, row.tcg_product_id)
+            cond_prices = None
+            if market_price:
+                try:
+                    full_cp = _build_condition_prices(market_price, tcg_product_id=row.tcg_product_id, variant=variant)
+                    if full_cp and "MP" in full_cp:
+                        cond_prices = {"MP": full_cp["MP"]}
+                except Exception:
+                    cond_prices = None
+            alts.append({
+                "card_id": cid,
+                "confidence": score,
+                "card_name": row.name,
+                "set_name": row.set_name,
+                "image_url": row.image_small,
+                "local_image_url": _local_image_url(cid),
+                "market_price": market_price,
+                "tcgplayer_url": tcg_url,
+                "condition_prices": cond_prices,
+                "source": source,
+            })
+        return alts
+
+    def _handle_scan_correction(self):
+        """Log a user correction (they picked an alternative over the original).
+
+        Appends a row to data/scan_corrections.csv so we can later use these
+        to improve candidate ranking.
+        JSON body: {page_id, position, original_card_id, chosen_card_id,
+                    original_conf, chosen_conf}.
+        """
+        import csv as _csv
+        data = self._read_json_body()
+        if data is None:
+            return
+        try:
+            path = Path("data/scan_corrections.csv")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            new_file = not path.exists()
+            with path.open("a", newline="") as f:
+                w = _csv.writer(f)
+                if new_file:
+                    w.writerow(["timestamp", "page_id", "position",
+                                "original_card_id", "chosen_card_id",
+                                "original_conf", "chosen_conf"])
+                w.writerow([
+                    datetime.now().isoformat(timespec="seconds"),
+                    data.get("page_id", ""),
+                    data.get("position", ""),
+                    data.get("original_card_id", ""),
+                    data.get("chosen_card_id", ""),
+                    data.get("original_conf", ""),
+                    data.get("chosen_conf", ""),
+                ])
+            self._send_json({"status": "ok"})
+        except Exception as e:
+            logger.warning("scan-correction log failed: %s", e)
+            self._send_json({"error": str(e)}, status=500)
+
     def _handle_scan_page(self):
         """Handle binder page upload: segment into individual cards, identify each.
 
@@ -4112,7 +4560,15 @@ class ScanHandler(BaseHTTPRequestHandler):
         segmentation_ok = False
         try:
             from cardprice.ml.card_segmenter import segment_cards
-            card_images = segment_cards(str(save_path))
+            _seg_meta = segment_cards(str(save_path), return_metadata=True)
+            if isinstance(_seg_meta, dict):
+                card_images = [c["path"] for c in _seg_meta["cards"]]
+                _seg_page_img = _seg_meta["page_image"]
+                _seg_corners = [c["corners_orig"] for c in _seg_meta["cards"]]
+            else:
+                card_images = _seg_meta
+                _seg_page_img = None
+                _seg_corners = None
             segmentation_ok = True
             logger.info("Segmented %d cards from binder page", len(card_images))
         except ImportError:
@@ -4148,7 +4604,9 @@ class ScanHandler(BaseHTTPRequestHandler):
             with SessionLocal() as session:
                 page_results = identify_page(card_images, session=session,
                                              detect_variants=detect_variants,
-                                             correct_perspective=correct_perspective)
+                                             correct_perspective=correct_perspective,
+                                             page_img=_seg_page_img,
+                                             per_card_corners=_seg_corners)
                 for idx, (card_img_path, result) in enumerate(zip(card_images, page_results)):
                     # Compute grid position (assume 3 columns for binder pages)
                     num_cols = 3
@@ -4195,8 +4653,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 float(row.market_price) if row.market_price else None
                             )
                             card_data["image_url"] = row.image_small
-                            if row.tcg_product_id:
-                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row.tcg_product_id}"
+                            _base_id = (result["card_id"] or "").split("/", 1)[0]
+                            _url = _tcgplayer_url_for(_base_id, detected_variant, row.tcg_product_id)
+                            if _url:
+                                card_data["tcgplayer_url"] = _url
 
                             # Look up variant-specific price
                             if detected_variant != "normal":
@@ -4212,6 +4672,20 @@ class ScanHandler(BaseHTTPRequestHandler):
                                     tcg_product_id=row.tcg_product_id,
                                     variant=detected_variant,
                                 )
+
+                    # Attach up to 5 ranked alternatives for in-UI correction
+                    try:
+                        raw_resp = result.get("raw_response") or {}
+                        combined = raw_resp.get("combined_results") or []
+                        cand_sources = raw_resp.get("candidate_sources") or {}
+                        card_data["alternatives"] = self._build_alternatives(
+                            session, combined, result.get("card_id"),
+                            variant=detected_variant, limit=5,
+                            candidate_sources=cand_sources,
+                        )
+                    except Exception as e:
+                        logger.warning("alternatives build failed: %s", e)
+                        card_data["alternatives"] = []
 
                     cards.append(card_data)
 
@@ -4421,8 +4895,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                                 float(row_db.market_price) if row_db.market_price else None
                             )
                             card_data["image_url"] = row_db.image_small
-                            if row_db.tcg_product_id:
-                                card_data["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{row_db.tcg_product_id}"
+                            _base_id = (result["card_id"] or "").split("/", 1)[0]
+                            _url = _tcgplayer_url_for(_base_id, detected_variant, row_db.tcg_product_id)
+                            if _url:
+                                card_data["tcgplayer_url"] = _url
 
                             if detected_variant != "normal":
                                 vprice = _lookup_variant_price(session, result["card_id"], detected_variant)
@@ -4563,7 +5039,16 @@ class ScanHandler(BaseHTTPRequestHandler):
                         SELECT subtype_name FROM fact_market_prices
                         WHERE card_id = :cid
                         ORDER BY
-                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            CASE subtype_name
+                                WHEN 'Normal' THEN 0
+                                WHEN 'Unlimited' THEN 1
+                                WHEN 'Holofoil' THEN 2
+                                WHEN 'Unlimited Holofoil' THEN 3
+                                WHEN 'Reverse Holofoil' THEN 4
+                                WHEN '1st Edition' THEN 8
+                                WHEN '1st Edition Holofoil' THEN 9
+                                ELSE 5
+                            END,
                             price_date DESC
                         LIMIT 1
                     """),
@@ -6138,7 +6623,16 @@ class ScanHandler(BaseHTTPRequestHandler):
                         SELECT market_price FROM fact_market_prices
                         WHERE card_id = ui.card_id
                         ORDER BY
-                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            CASE subtype_name
+                                WHEN 'Normal' THEN 0
+                                WHEN 'Unlimited' THEN 1
+                                WHEN 'Holofoil' THEN 2
+                                WHEN 'Unlimited Holofoil' THEN 3
+                                WHEN 'Reverse Holofoil' THEN 4
+                                WHEN '1st Edition' THEN 8
+                                WHEN '1st Edition Holofoil' THEN 9
+                                ELSE 5
+                            END,
                             price_date DESC
                         LIMIT 1
                     ) lp ON true
@@ -6166,8 +6660,10 @@ class ScanHandler(BaseHTTPRequestHandler):
                     )
                     if cond_prices:
                         item["condition_prices"] = cond_prices
-                    if r.tcg_product_id:
-                        item["tcgplayer_url"] = f"https://www.tcgplayer.com/product/{r.tcg_product_id}"
+                    _base_id = r.card_id.split("/", 1)[0] if r.card_id else None
+                    _inv_url = _tcgplayer_url_for(_base_id, _variant, r.tcg_product_id)
+                    if _inv_url:
+                        item["tcgplayer_url"] = _inv_url
                     local_url = _local_image_url(r.card_id)
                     if local_url:
                         item["image_url"] = local_url
@@ -6196,7 +6692,16 @@ class ScanHandler(BaseHTTPRequestHandler):
                         SELECT market_price FROM fact_market_prices
                         WHERE card_id = ui.card_id
                         ORDER BY
-                            CASE subtype_name WHEN 'Normal' THEN 0 WHEN 'Holofoil' THEN 1 ELSE 2 END,
+                            CASE subtype_name
+                                WHEN 'Normal' THEN 0
+                                WHEN 'Unlimited' THEN 1
+                                WHEN 'Holofoil' THEN 2
+                                WHEN 'Unlimited Holofoil' THEN 3
+                                WHEN 'Reverse Holofoil' THEN 4
+                                WHEN '1st Edition' THEN 8
+                                WHEN '1st Edition Holofoil' THEN 9
+                                ELSE 5
+                            END,
                             price_date DESC
                         LIMIT 1
                     ) lp ON true
@@ -6785,9 +7290,43 @@ tr:hover {{ background: #16213e; }}
             return {}
         try:
             with open(apath) as f:
-                return json.load(f)
+                data = json.load(f)
         except Exception:
             return {}
+        # Migrate legacy simple-label entries to rich schema.
+        changed = False
+        for pid, v in list(data.items()):
+            if isinstance(v, dict) and "kind" in v:
+                continue
+            lbl = (v or {}).get("label") if isinstance(v, dict) else None
+            at = (v or {}).get("annotated_at") if isinstance(v, dict) else None
+            note = (v or {}).get("note") if isinstance(v, dict) else None
+            if lbl == "1st_edition":
+                new = {"kind": "card", "era": None, "stamps": ["1st_edition"]}
+            elif lbl == "not_1st_edition":
+                new = {"kind": "card", "era": None, "stamps": []}
+            elif lbl == "unclear":
+                new = {"kind": "unclear", "era": None, "stamps": []}
+            elif lbl == "not_a_card":
+                new = {"kind": "not_a_card", "era": None, "stamps": []}
+            elif lbl == "multi_card":
+                new = {"kind": "multi_card", "era": None, "stamps": []}
+            elif lbl == "skip":
+                new = {"kind": "skip", "era": None, "stamps": []}
+            else:
+                new = {"kind": "skip", "era": None, "stamps": []}
+            if at:
+                new["annotated_at"] = at
+            if note:
+                new["note"] = note
+            data[pid] = new
+            changed = True
+        if changed:
+            try:
+                self._annotate_save_annotations(data)
+            except Exception:
+                pass
+        return data
 
     def _annotate_save_annotations(self, ann):
         _, _, apath = self._annotate_paths()
@@ -6798,6 +7337,7 @@ tr:hover {{ background: #16213e; }}
         os.replace(tmp, apath)
 
     def _annotate_priority_sorted(self, manifest, annotations):
+        """Return unlabeled entries sorted by priority."""
         def bucket(e):
             wl = e.get("weak_label")
             dr = e.get("dark_ratio") or 0.0
@@ -6806,7 +7346,10 @@ tr:hover {{ background: #16213e; }}
             if wl == "uncertain" and dr >= 0.20:
                 return (1, -dr, -(e.get("score") or 0))
             return (2, -(e.get("score") or 0), 0)
-        unlabeled = [e for e in manifest if e["post_id"] not in annotations]
+        def is_labeled(pid):
+            v = annotations.get(pid)
+            return isinstance(v, dict) and "kind" in v
+        unlabeled = [e for e in manifest if not is_labeled(e["post_id"])]
         unlabeled.sort(key=bucket)
         return unlabeled
 
@@ -6820,7 +7363,10 @@ tr:hover {{ background: #16213e; }}
         manifest = self._annotate_load_manifest()
         annotations = self._annotate_load_annotations()
         total = len(manifest)
-        total_labeled = sum(1 for e in manifest if e["post_id"] in annotations)
+        def _is_labeled(pid):
+            v = annotations.get(pid)
+            return isinstance(v, dict) and "kind" in v
+        total_labeled = sum(1 for e in manifest if _is_labeled(e["post_id"]))
         ordered = self._annotate_priority_sorted(manifest, annotations)
         if not ordered:
             self._send_json({"done": True, "total": total, "total_labeled": total_labeled})
@@ -6871,16 +7417,31 @@ tr:hover {{ background: #16213e; }}
     def _handle_annotate_stats(self):
         manifest = self._annotate_load_manifest()
         annotations = self._annotate_load_annotations()
-        counts = {"1st_edition": 0, "not_1st_edition": 0, "unclear": 0, "skip": 0}
+        kinds = {"card": 0, "not_a_card": 0, "multi_card": 0, "unclear": 0, "skip": 0}
+        eras = {k: 0 for k in ("wotc", "ex", "dp", "hgss", "bw", "xy", "sm", "swsh", "sv")}
+        stamp_tags = ("1st_edition", "shadowless", "prerelease", "staff", "ex_set_stamp",
+                      "promo_star", "reverse_holo", "pokemon_center", "other_stamp")
+        stamps = {k: 0 for k in stamp_tags}
         for v in annotations.values():
-            lbl = v.get("label")
-            if lbl in counts:
-                counts[lbl] += 1
+            if not isinstance(v, dict):
+                continue
+            k = v.get("kind")
+            if k in kinds:
+                kinds[k] += 1
+            if k == "card":
+                era = v.get("era")
+                if era in eras:
+                    eras[era] += 1
+                for s in (v.get("stamps") or []):
+                    if s in stamps:
+                        stamps[s] += 1
         self._send_json({
             "total": len(manifest),
             "total_labeled": len(annotations),
             "remaining": len(manifest) - len(annotations),
-            "counts": counts,
+            "kinds": kinds,
+            "eras": eras,
+            "stamps": stamps,
         })
 
     def _handle_annotate_label_post(self):
@@ -6894,14 +7455,37 @@ tr:hover {{ background: #16213e; }}
             self.send_error(400, "Invalid JSON")
             return
         post_id = payload.get("post_id")
-        label = payload.get("label")
+        kind = payload.get("kind")
+        era = payload.get("era")
+        stamps = payload.get("stamps") or []
         note = payload.get("note")
-        if not post_id or label not in ("1st_edition", "not_1st_edition", "unclear", "skip"):
-            self.send_error(400, "post_id and valid label required")
+        valid_kinds = ("card", "not_a_card", "multi_card", "unclear", "skip")
+        valid_eras = ("wotc", "ex", "dp", "hgss", "bw", "xy", "sm", "swsh", "sv")
+        valid_stamps = ("1st_edition", "shadowless", "prerelease", "staff", "ex_set_stamp",
+                        "promo_star", "reverse_holo", "pokemon_center", "other_stamp")
+        if not post_id or kind not in valid_kinds:
+            self.send_error(400, "post_id and valid kind required")
             return
+        if era is not None and era not in valid_eras:
+            self.send_error(400, "invalid era")
+            return
+        if not isinstance(stamps, list) or any(s not in valid_stamps for s in stamps):
+            self.send_error(400, "invalid stamps")
+            return
+        if kind != "card":
+            era = None
+            stamps = []
+        # dedupe stamps, preserve order
+        seen = set()
+        stamps = [s for s in stamps if not (s in seen or seen.add(s))]
         ann = self._annotate_load_annotations()
         from datetime import timezone as _tz
-        entry = {"label": label, "annotated_at": datetime.now(_tz.utc).isoformat()}
+        entry = {
+            "kind": kind,
+            "era": era,
+            "stamps": stamps,
+            "annotated_at": datetime.now(_tz.utc).isoformat(),
+        }
         if note:
             entry["note"] = note
         ann[post_id] = entry
@@ -6928,32 +7512,45 @@ tr:hover {{ background: #16213e; }}
 
 ANNOTATE_HTML = r"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>1st-Ed Annotator</title>
+<title>Card Annotator</title>
 <style>
   :root { color-scheme: dark; }
   body { margin:0; background:#0f1116; color:#e6e8ef; font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap { max-width:720px; margin:0 auto; padding:12px; }
+  .wrap { max-width:760px; margin:0 auto; padding:12px; }
   .bar { background:#16213e; border-radius:8px; overflow:hidden; height:22px; position:relative; }
   .bar .fill { background:#4cc9f0; height:100%; transition:width .2s; }
   .bar .lbl { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#fff; text-shadow:0 1px 2px #000; }
   .card { background:#16213e; border-radius:10px; padding:10px; margin-top:12px; }
   .imgbox { display:flex; justify-content:center; align-items:center; min-height:200px; }
-  .imgbox img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:6px; background:#000; }
+  .imgbox img { max-width:100%; max-height:70vh; object-fit:contain; border-radius:6px; background:#000; }
   .meta { margin-top:8px; font-size:13px; color:#b8c0d0; line-height:1.5; }
   .meta a { color:#4cc9f0; }
   .hint { margin-top:6px; padding:6px 10px; background:#1a2a4e; border-left:3px solid #4cc9f0; border-radius:4px; font-size:12px; color:#9fb0c8; }
   .hint.pos { border-color:#2ecc71; }
   .hint.neg { border-color:#e74c3c; }
-  .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
-  .btns button { min-height:56px; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; color:#fff; }
-  .b-yes { background:#2ecc71; }
-  .b-no { background:#e74c3c; }
-  .b-unclear { background:#f39c12; }
-  .b-skip { background:#555e75; }
-  .b-undo { background:#34405d; grid-column:span 2; min-height:44px; }
+  .kinds { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:14px; }
+  .kinds button { min-height:52px; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; color:#fff; }
+  .k-card { background:#2ecc71; }
+  .k-nocard { background:#8c6d9e; }
+  .k-multi { background:#3b7a8c; }
+  .k-unclear { background:#f39c12; }
+  .k-skip { background:#555e75; }
+  .k-undo { background:#34405d; }
+  .kinds button.sel { outline:3px solid #fff; }
+  .tier2 { margin-top:14px; padding:10px; background:#0f1a2e; border-radius:8px; display:none; }
+  .tier2.on { display:block; }
+  .section-label { font-size:12px; color:#9fb0c8; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+  .pills { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .pill { display:inline-flex; align-items:center; padding:8px 12px; border-radius:20px; background:#1a2a4e; color:#d0d8ea; font-size:13px; cursor:pointer; user-select:none; border:1px solid #2a3350; }
+  .pill.on { background:#4cc9f0; color:#0f1116; border-color:#4cc9f0; font-weight:600; }
+  .pill.era.on { background:#f0b84c; border-color:#f0b84c; }
+  .pill.disabled { opacity:.35; cursor:not-allowed; }
+  .save { width:100%; min-height:50px; border:none; border-radius:8px; background:#2ecc71; color:#fff; font-size:16px; font-weight:700; cursor:pointer; margin-top:6px; }
   .done { text-align:center; padding:40px 20px; }
   .done h2 { color:#4cc9f0; }
-  kbd { background:#0f1116; border:1px solid #2a3350; padding:1px 6px; border-radius:4px; font-size:11px; margin-left:6px; opacity:.75; }
+  .done .stats { text-align:left; max-width:520px; margin:20px auto; font-size:13px; color:#b8c0d0; }
+  .done .stats h3 { color:#e6e8ef; margin:12px 0 4px; font-size:14px; }
+  kbd { background:#0f1116; border:1px solid #2a3350; padding:1px 5px; border-radius:4px; font-size:10px; margin-left:4px; opacity:.7; }
 </style></head>
 <body><div class="wrap">
   <div class="bar"><div id="fill" class="fill" style="width:0%"></div><div id="barlbl" class="lbl">loading...</div></div>
@@ -6965,20 +7562,140 @@ ANNOTATE_HTML = r"""<!DOCTYPE html>
       <div id="link"></div>
     </div>
     <div id="hint" class="hint" style="display:none"></div>
-    <div class="btns">
-      <button class="b-yes"     onclick="label('1st_edition')">1st Ed<kbd>1</kbd></button>
-      <button class="b-no"      onclick="label('not_1st_edition')">Not 1st Ed<kbd>2</kbd></button>
-      <button class="b-unclear" onclick="label('unclear')">Unclear<kbd>3</kbd></button>
-      <button class="b-skip"    onclick="label('skip')">Skip<kbd>s</kbd></button>
-      <button class="b-undo"    onclick="undo()">Undo<kbd>u</kbd></button>
+    <div class="kinds">
+      <button id="k-card"    class="k-card"    onclick="pickKind('card')">Card<kbd>1</kbd></button>
+      <button id="k-nocard"  class="k-nocard"  onclick="pickKind('not_a_card')">Not a card<kbd>2</kbd></button>
+      <button id="k-multi"   class="k-multi"   onclick="pickKind('multi_card')">Multiple<kbd>3</kbd></button>
+      <button id="k-unclear" class="k-unclear" onclick="pickKind('unclear')">Unclear<kbd>4</kbd></button>
+      <button                class="k-skip"    onclick="pickKind('skip')">Skip<kbd>s</kbd></button>
+      <button                class="k-undo"    onclick="undo()">Undo<kbd>u</kbd></button>
+    </div>
+    <div id="tier2" class="tier2">
+      <div class="section-label">Era (optional)</div>
+      <div id="eras" class="pills"></div>
+      <div class="section-label">Stamps (optional, multi-select)</div>
+      <div id="stamps" class="pills"></div>
+      <button class="save" onclick="saveCard()">Save &amp; Next<kbd>Enter</kbd></button>
     </div>
   </div>
   <div id="done" class="done" style="display:none"></div>
 </div>
 <script>
+const ERAS = [
+  ['wotc','WOTC','w'], ['ex','EX','e'], ['dp','DP','d'],
+  ['hgss','HGSS','h'], ['bw','BW','b'], ['xy','XY','x'],
+  ['sm','SM','m'], ['swsh','SWSH','S'], ['sv','SV','v']
+];
+const STAMPS = [
+  ['1st_edition','1st Edition', null],
+  ['shadowless','Shadowless', 'wotc'],
+  ['prerelease','Prerelease', null],
+  ['staff','Staff', null],
+  ['ex_set_stamp','EX Stamp', 'ex'],
+  ['promo_star','Promo Star', null],
+  ['reverse_holo','Reverse Holo', null],
+  ['pokemon_center','Pokemon Center', null],
+  ['other_stamp','Other', null],
+];
+
 let current = null;
 let prefetchImg = null;
 let undoStack = [];
+let pendingKind = null;     // 'card' means tier2 open; other kinds auto-save
+let pendingEra = null;
+let pendingStamps = new Set();
+
+function buildPills() {
+  const eraBox = document.getElementById('eras');
+  eraBox.innerHTML = '';
+  for (const [code, label, key] of ERAS) {
+    const el = document.createElement('div');
+    el.className = 'pill era';
+    el.dataset.era = code;
+    el.innerHTML = label + '<kbd>' + key + '</kbd>';
+    el.onclick = () => pickEra(code);
+    eraBox.appendChild(el);
+  }
+  const sBox = document.getElementById('stamps');
+  sBox.innerHTML = '';
+  for (const [code, label, req] of STAMPS) {
+    const el = document.createElement('div');
+    el.className = 'pill stamp';
+    el.dataset.stamp = code;
+    if (req) el.dataset.requiresEra = req;
+    el.textContent = label + (req ? ' *' : '');
+    el.onclick = () => toggleStamp(code);
+    sBox.appendChild(el);
+  }
+}
+
+function resetTier2() {
+  pendingKind = null;
+  pendingEra = null;
+  pendingStamps = new Set();
+  document.getElementById('tier2').classList.remove('on');
+  for (const b of document.querySelectorAll('.kinds button')) b.classList.remove('sel');
+  refreshPills();
+}
+
+function refreshPills() {
+  for (const el of document.querySelectorAll('.pill.era')) {
+    el.classList.toggle('on', el.dataset.era === pendingEra);
+  }
+  for (const el of document.querySelectorAll('.pill.stamp')) {
+    const req = el.dataset.requiresEra;
+    const disabled = req && req !== pendingEra;
+    el.classList.toggle('disabled', !!disabled);
+    if (disabled) pendingStamps.delete(el.dataset.stamp);
+    el.classList.toggle('on', pendingStamps.has(el.dataset.stamp));
+  }
+}
+
+function pickKind(kind) {
+  if (!current) return;
+  if (kind === 'card') {
+    pendingKind = 'card';
+    document.getElementById('tier2').classList.add('on');
+    for (const b of document.querySelectorAll('.kinds button')) b.classList.remove('sel');
+    document.getElementById('k-card').classList.add('sel');
+    refreshPills();
+  } else {
+    // auto-save immediately
+    saveNow(kind, null, []);
+  }
+}
+
+function pickEra(code) {
+  pendingEra = (pendingEra === code) ? null : code;
+  refreshPills();
+}
+
+function toggleStamp(code) {
+  const el = document.querySelector('.pill.stamp[data-stamp="'+code+'"]');
+  if (el && el.classList.contains('disabled')) return;
+  if (pendingStamps.has(code)) pendingStamps.delete(code);
+  else pendingStamps.add(code);
+  refreshPills();
+}
+
+function saveCard() {
+  if (pendingKind !== 'card' || !current) return;
+  saveNow('card', pendingEra, Array.from(pendingStamps));
+}
+
+async function saveNow(kind, era, stamps) {
+  const pid = current.post_id;
+  const r = await fetch('/annotate/label', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({post_id: pid, kind: kind, era: era, stamps: stamps})
+  });
+  if (r.ok) {
+    undoStack.push(pid);
+    if (undoStack.length > 20) undoStack.shift();
+  }
+  resetTier2();
+  loadNext();
+}
 
 async function loadNext(after) {
   const url = '/annotate/next' + (after ? ('?after=' + encodeURIComponent(after)) : '');
@@ -7022,24 +7739,11 @@ function updateBar(d) {
   document.getElementById('barlbl').textContent = labeled + ' / ' + total + ' labeled, ' + (total - labeled) + ' remaining';
 }
 
-async function label(lbl) {
-  if (!current) return;
-  const pid = current.post_id;
-  const r = await fetch('/annotate/label', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({post_id: pid, label: lbl})
-  });
-  if (r.ok) {
-    undoStack.push(pid);
-    if (undoStack.length > 10) undoStack.shift();
-  }
-  loadNext();
-}
-
 async function undo() {
   const pid = undoStack.pop();
   if (!pid) return;
   await fetch('/annotate/label?post_id=' + encodeURIComponent(pid), {method:'DELETE'});
+  resetTier2();
   loadNext();
 }
 
@@ -7049,20 +7753,44 @@ async function showDone() {
   document.getElementById('card').style.display = 'none';
   const d = document.getElementById('done');
   d.style.display = '';
-  d.innerHTML = '<h2>All done.</h2><p>' + s.counts['1st_edition'] + ' labeled as 1st Ed, ' +
-    s.counts['not_1st_edition'] + ' not, ' + s.counts['unclear'] + ' unclear, ' + s.counts['skip'] + ' skipped.</p>' +
-    '<button class="b-skip" style="margin-top:20px;padding:10px 20px;border:none;border-radius:6px;color:#fff;cursor:pointer" onclick="console.log(\'reset disabled for safety\')">Reset (disabled)</button>';
+  const k = s.kinds || {};
+  const eras = s.eras || {};
+  const stamps = s.stamps || {};
+  const fmt = (obj) => Object.entries(obj).map(([k,v]) => k+': '+v).join(', ');
+  d.innerHTML = '<h2>All done.</h2>' +
+    '<div class="stats">' +
+      '<h3>Kinds</h3><div>' + fmt(k) + '</div>' +
+      '<h3>Eras (cards only)</h3><div>' + fmt(eras) + '</div>' +
+      '<h3>Stamps</h3><div>' + fmt(stamps) + '</div>' +
+    '</div>';
 }
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  if (e.key === '1') label('1st_edition');
-  else if (e.key === '2') label('not_1st_edition');
-  else if (e.key === '3') label('unclear');
-  else if (e.key === 's' || e.key === 'S') label('skip');
-  else if (e.key === 'u' || e.key === 'U') undo();
+  // Undo / skip
+  if (e.key === 'u' || e.key === 'U') { e.preventDefault(); undo(); return; }
+  if (e.key === 's') { e.preventDefault(); pickKind('skip'); return; }
+  // Kind row
+  if (e.key === '1') { e.preventDefault(); pickKind('card'); return; }
+  if (e.key === '2') { e.preventDefault(); pickKind('not_a_card'); return; }
+  if (e.key === '3') { e.preventDefault(); pickKind('multi_card'); return; }
+  if (e.key === '4') { e.preventDefault(); pickKind('unclear'); return; }
+  // Tier 2 only active when card kind selected
+  if (pendingKind !== 'card') return;
+  if (e.key === 'Enter') { e.preventDefault(); saveCard(); return; }
+  if (e.key === '`') {
+    e.preventDefault();
+    if (pendingStamps.has('1st_edition')) pendingStamps.delete('1st_edition');
+    else pendingStamps.add('1st_edition');
+    refreshPills();
+    return;
+  }
+  // Era hotkeys
+  const map = {w:'wotc', e:'ex', d:'dp', h:'hgss', b:'bw', x:'xy', m:'sm', S:'swsh', v:'sv'};
+  if (map[e.key]) { e.preventDefault(); pickEra(map[e.key]); }
 });
 
+buildPills();
 loadNext();
 </script></body></html>
 """
