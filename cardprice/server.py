@@ -3713,6 +3713,19 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_annotate_image(_uq(self.path.split("/annotate/image/", 1)[1]))
         elif self.path.startswith("/annotate/stats"):
             self._handle_annotate_stats()
+        elif self.path == "/cropper":
+            self._handle_cropper_page()
+        elif self.path.startswith("/cropper/next"):
+            self._handle_cropper_next()
+        elif self.path.startswith("/cropper/stats"):
+            self._handle_cropper_stats()
+        elif self.path.startswith("/cropper/image/"):
+            from urllib.parse import unquote as _uq
+            self._handle_cropper_image(_uq(self.path.split("/cropper/image/", 1)[1]))
+        elif self.path.startswith("/cropper/subimage/"):
+            from urllib.parse import unquote as _uq
+            rest = _uq(self.path.split("/cropper/subimage/", 1)[1])
+            self._handle_cropper_subimage(rest)
         elif self.path == "/tunnel-url":
             tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
             url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
@@ -3765,6 +3778,10 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_condition_photo()
         elif self.path == "/annotate/label":
             self._handle_annotate_label_post()
+        elif self.path == "/cropper/accept":
+            self._handle_cropper_accept()
+        elif self.path == "/cropper/reprocess" or self.path.startswith("/cropper/reprocess?"):
+            self._handle_cropper_reprocess()
         else:
             self.send_error(404)
 
@@ -7396,13 +7413,18 @@ tr:hover {{ background: #16213e; }}
     def _handle_annotate_image(self, post_id):
         manifest = self._annotate_load_manifest()
         entry = next((e for e in manifest if e["post_id"] == post_id), None)
-        if not entry:
-            self.send_error(404, f"Unknown post_id: {post_id}")
-            return
         repo_root = Path(__file__).resolve().parent.parent
-        fp = repo_root / entry["file_path"]
-        if not fp.is_file():
-            self.send_error(404, f"Image not found: {fp}")
+        fp = None
+        if entry:
+            fp = repo_root / entry["file_path"]
+        # Fallback: pseudo-post from /cropper (id like "<parent>__sc<NN>")
+        if (not fp or not fp.is_file()) and "__sc" in post_id:
+            fp = self._cropper_resolve_pseudo_path(post_id)
+        if not fp or not fp.is_file():
+            if not entry:
+                self.send_error(404, f"Unknown post_id: {post_id}")
+            else:
+                self.send_error(404, f"Image not found: {fp}")
             return
         data = fp.read_bytes()
         ext = fp.suffix.lower()
@@ -7419,8 +7441,14 @@ tr:hover {{ background: #16213e; }}
         annotations = self._annotate_load_annotations()
         kinds = {"card": 0, "not_a_card": 0, "multi_card": 0, "unclear": 0, "skip": 0}
         eras = {k: 0 for k in ("wotc", "ex", "dp", "hgss", "bw", "xy", "sm", "swsh", "sv")}
-        stamp_tags = ("1st_edition", "shadowless", "prerelease", "staff", "ex_set_stamp",
-                      "promo_star", "reverse_holo", "pokemon_center", "other_stamp")
+        stamp_tags = ("1st_edition", "shadowless",
+                      "reverse_holo", "firework_reverse_holo",
+                      "cosmos_holofoil", "cracked_ice_holofoil",
+                      "full_art", "alternate_full_art",
+                      "poke_ball_pattern", "master_ball_pattern",
+                      "prerelease", "staff", "ex_set_stamp",
+                      "promo_star", "pokemon_center", "winner",
+                      "gold", "rainbow_rare", "other_stamp")
         stamps = {k: 0 for k in stamp_tags}
         for v in annotations.values():
             if not isinstance(v, dict):
@@ -7461,8 +7489,14 @@ tr:hover {{ background: #16213e; }}
         note = payload.get("note")
         valid_kinds = ("card", "not_a_card", "multi_card", "unclear", "skip")
         valid_eras = ("wotc", "ex", "dp", "hgss", "bw", "xy", "sm", "swsh", "sv")
-        valid_stamps = ("1st_edition", "shadowless", "prerelease", "staff", "ex_set_stamp",
-                        "promo_star", "reverse_holo", "pokemon_center", "other_stamp")
+        valid_stamps = ("1st_edition", "shadowless",
+                        "reverse_holo", "firework_reverse_holo",
+                        "cosmos_holofoil", "cracked_ice_holofoil",
+                        "full_art", "alternate_full_art",
+                        "poke_ball_pattern", "master_ball_pattern",
+                        "prerelease", "staff", "ex_set_stamp",
+                        "promo_star", "pokemon_center", "winner",
+                        "gold", "rainbow_rare", "other_stamp")
         if not post_id or kind not in valid_kinds:
             self.send_error(400, "post_id and valid kind required")
             return
@@ -7505,6 +7539,475 @@ tr:hover {{ background: #16213e; }}
             del ann[post_id]
             self._annotate_save_annotations(ann)
         self._send_json({"ok": True, "deleted": existed, "total_labeled": len(ann)})
+
+    # ------------------------------------------------------------------
+    # Cropper: segment user-labeled "multi_card" Reddit photos into
+    # individual card crops for human review. Accepted crops get queued
+    # as pseudo-posts in the annotation manifest so they can be labeled
+    # individually via /annotate.
+    # ------------------------------------------------------------------
+
+    def _cropper_paths(self):
+        """Return (scrape_root, segmented_dir, segmanifest_path)."""
+        root = Path(__file__).resolve().parent.parent / "data" / "1st_edition_stamps" / "reddit_scrape"
+        seg_dir = root / "_segmented"
+        seg_manifest = root / "segmented_manifest.json"
+        return root, seg_dir, seg_manifest
+
+    def _cropper_load_segmanifest(self):
+        _, _, p = self._cropper_paths()
+        if not p.is_file():
+            return {}
+        try:
+            with open(p) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _cropper_save_segmanifest(self, data):
+        _, _, p = self._cropper_paths()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+        os.replace(tmp, p)
+
+    def _cropper_resolve_pseudo_path(self, pseudo_id):
+        """Resolve a pseudo-post id like '<parent>__sc<NN>' to its
+        _segmented/<parent>/subcard_<NN>.jpg file path."""
+        if "__sc" not in pseudo_id:
+            return None
+        parent, _, idx_s = pseudo_id.rpartition("__sc")
+        try:
+            idx = int(idx_s)
+        except Exception:
+            return None
+        _, seg_dir, _ = self._cropper_paths()
+        # Prefer jpg, fall back to png
+        for ext in ("jpg", "png", "jpeg"):
+            p = seg_dir / parent / f"subcard_{idx:02d}.{ext}"
+            if p.is_file():
+                return p
+        # Look up the manifest in case it recorded a different path
+        sm = self._cropper_load_segmanifest()
+        entry = sm.get(parent)
+        if entry:
+            for sc in entry.get("subcards", []):
+                if int(sc.get("idx", -1)) == idx:
+                    fp = sc.get("file_path")
+                    if fp:
+                        q = Path(__file__).resolve().parent.parent / fp
+                        if q.is_file():
+                            return q
+        return None
+
+    def _cropper_multi_card_posts(self):
+        """Return list of manifest entries whose annotation kind == 'multi_card',
+        in manifest order."""
+        manifest = self._annotate_load_manifest()
+        ann = self._annotate_load_annotations()
+        out = []
+        for e in manifest:
+            pid = e.get("post_id")
+            v = ann.get(pid)
+            if isinstance(v, dict) and v.get("kind") == "multi_card":
+                out.append(e)
+        return out
+
+    def _cropper_segment_post(self, entry, force=False):
+        """Run segment_cards on the post's image. Writes subcards to
+        _segmented/<post_id>/ and updates segmented_manifest.json. Returns
+        the segmanifest entry dict for this post."""
+        from datetime import timezone as _tz
+        post_id = entry["post_id"]
+        repo_root = Path(__file__).resolve().parent.parent
+        img_path = repo_root / entry["file_path"]
+        _, seg_dir, _ = self._cropper_paths()
+        out_dir = seg_dir / post_id
+        sm = self._cropper_load_segmanifest()
+        if post_id in sm and not force:
+            return sm[post_id]
+
+        # Clean any existing dir if force-reprocessing
+        if force and out_dir.is_dir():
+            for p in out_dir.iterdir():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Previous subcard decisions (preserve status across reprocess)
+        prev_status = {}
+        if force and post_id in sm:
+            for sc in sm[post_id].get("subcards", []):
+                prev_status[int(sc.get("idx", -1))] = {
+                    "status": sc.get("status", "pending"),
+                    "accepted_post_id": sc.get("accepted_post_id"),
+                }
+
+        note = None
+        sub_entries = []
+        try:
+            from cardprice.ml.card_segmenter import segment_cards
+            import tempfile
+            # Segmenter writes crops next to image by default; we pass an
+            # explicit temp dir, then move files into our dedicated folder.
+            with tempfile.TemporaryDirectory(prefix=f"crop_{post_id}_") as tmpd:
+                if not img_path.is_file():
+                    raise FileNotFoundError(f"scrape image missing: {img_path}")
+                result = segment_cards(str(img_path), output_dir=tmpd,
+                                       output_format="jpg",
+                                       return_metadata=True)
+                cards = result.get("cards", []) if isinstance(result, dict) else []
+                for i, card in enumerate(cards):
+                    src = Path(card["path"])
+                    dst = out_dir / f"subcard_{i:02d}.jpg"
+                    try:
+                        # Read + write rather than move (cross-fs safe,
+                        # src is in a temp dir that will be wiped anyway).
+                        dst.write_bytes(src.read_bytes())
+                    except Exception as e:
+                        logger.warning("cropper: failed to save subcard %d for %s: %s",
+                                       i, post_id, e)
+                        continue
+                    rel = str(dst.relative_to(repo_root))
+                    prev = prev_status.get(i, {})
+                    sub_entries.append({
+                        "idx": i,
+                        "file_path": rel,
+                        "status": prev.get("status", "pending"),
+                        "accepted_post_id": prev.get("accepted_post_id"),
+                    })
+        except Exception as e:
+            logger.exception("cropper: segmentation failed for %s", post_id)
+            note = f"segmentation failed: {type(e).__name__}: {e}"
+            sub_entries = []
+
+        sm_entry = {
+            "segmented_at": datetime.now(_tz.utc).isoformat(),
+            "n_subcards": len(sub_entries),
+            "subcards": sub_entries,
+        }
+        if note:
+            sm_entry["note"] = note
+        sm[post_id] = sm_entry
+        self._cropper_save_segmanifest(sm)
+        return sm_entry
+
+    def _handle_cropper_page(self):
+        self._send_html(CROPPER_HTML)
+
+    def _handle_cropper_stats(self):
+        posts = self._cropper_multi_card_posts()
+        sm = self._cropper_load_segmanifest()
+        processed = 0
+        accepted_total = 0
+        for e in posts:
+            pid = e["post_id"]
+            ent = sm.get(pid)
+            if not ent:
+                continue
+            subs = ent.get("subcards", [])
+            if subs and all(s.get("status") in ("accepted", "rejected") for s in subs):
+                processed += 1
+            for s in subs:
+                if s.get("status") == "accepted":
+                    accepted_total += 1
+        self._send_json({
+            "total_multi_card": len(posts),
+            "processed": processed,
+            "pending": len(posts) - processed,
+            "accepted_subcards": accepted_total,
+        })
+
+    def _handle_cropper_next(self):
+        from urllib.parse import urlparse, parse_qs
+        q = parse_qs(urlparse(self.path).query)
+        after = (q.get("after") or [None])[0]
+        posts = self._cropper_multi_card_posts()
+        total = len(posts)
+        if not posts:
+            self._send_json({"done": True, "total": 0, "total_processed": 0})
+            return
+        sm = self._cropper_load_segmanifest()
+
+        def _fully_decided(pid):
+            ent = sm.get(pid)
+            if not ent:
+                return False
+            subs = ent.get("subcards", [])
+            if not subs:
+                # 0 subcards is terminal (segmentation failed); count as
+                # decided so user can skip past it.
+                return bool(ent.get("note"))
+            return all(s.get("status") in ("accepted", "rejected") for s in subs)
+
+        processed = sum(1 for e in posts if _fully_decided(e["post_id"]))
+
+        # Pick next: prefer post after `after`, otherwise first not-fully-decided
+        pick = None
+        if after:
+            seen = False
+            for e in posts:
+                if seen and not _fully_decided(e["post_id"]):
+                    pick = e
+                    break
+                if e["post_id"] == after:
+                    seen = True
+        if pick is None:
+            for e in posts:
+                if not _fully_decided(e["post_id"]):
+                    pick = e
+                    break
+        if pick is None:
+            self._send_json({"done": True, "total": total, "total_processed": processed})
+            return
+
+        # Lazy-segment on first access.
+        sm_entry = sm.get(pick["post_id"])
+        if sm_entry is None:
+            sm_entry = self._cropper_segment_post(pick)
+
+        subcards_out = []
+        for sc in sm_entry.get("subcards", []):
+            idx = int(sc.get("idx", 0))
+            subcards_out.append({
+                "idx": idx,
+                "image_url": f"/cropper/subimage/{pick['post_id']}/{idx}",
+                "status": sc.get("status", "pending"),
+                "accepted_post_id": sc.get("accepted_post_id"),
+            })
+
+        # Position of this post in the ordered list (1-indexed).
+        pos = 1 + next(i for i, e in enumerate(posts) if e["post_id"] == pick["post_id"])
+
+        self._send_json({
+            "done": False,
+            "post_id": pick["post_id"],
+            "subreddit": pick.get("subreddit"),
+            "title": pick.get("title"),
+            "permalink": pick.get("permalink"),
+            "image_url": f"/cropper/image/{pick['post_id']}",
+            "subcards": subcards_out,
+            "segment_note": sm_entry.get("note"),
+            "idx": pos,
+            "total": total,
+            "total_processed": processed,
+        })
+
+    def _handle_cropper_image(self, post_id):
+        """Serve original scrape image for a multi_card post."""
+        manifest = self._annotate_load_manifest()
+        entry = next((e for e in manifest if e["post_id"] == post_id), None)
+        if not entry:
+            self.send_error(404, f"Unknown post_id: {post_id}")
+            return
+        repo_root = Path(__file__).resolve().parent.parent
+        fp = repo_root / entry["file_path"]
+        if not fp.is_file():
+            self.send_error(404, f"Image not found: {fp}")
+            return
+        data = fp.read_bytes()
+        ext = fp.suffix.lower()
+        ctype = "image/png" if ext == ".png" else "image/jpeg"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_cropper_subimage(self, rest):
+        """Serve a segmented sub-crop. URL: /cropper/subimage/<post_id>/<idx>"""
+        # Split on the last '/' — post_id should not contain '/', but be safe.
+        if "/" not in rest:
+            self.send_error(400, "Expected <post_id>/<idx>")
+            return
+        post_id, _, idx_s = rest.rpartition("/")
+        try:
+            idx = int(idx_s)
+        except Exception:
+            self.send_error(400, "idx must be int")
+            return
+        sm = self._cropper_load_segmanifest()
+        ent = sm.get(post_id)
+        if not ent:
+            self.send_error(404, f"No segmentation for {post_id}")
+            return
+        repo_root = Path(__file__).resolve().parent.parent
+        match = None
+        for sc in ent.get("subcards", []):
+            if int(sc.get("idx", -1)) == idx:
+                match = sc
+                break
+        if not match:
+            self.send_error(404, f"No subcard {idx} for {post_id}")
+            return
+        fp = repo_root / match["file_path"]
+        if not fp.is_file():
+            self.send_error(404, f"Subcard file missing: {fp}")
+            return
+        data = fp.read_bytes()
+        ext = fp.suffix.lower()
+        ctype = "image/png" if ext == ".png" else "image/jpeg"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_cropper_accept(self):
+        """Body: {post_id, idx, action: "accept"|"reject"}.
+        On accept, append a pseudo-post entry to manifest.json so the
+        sub-crop surfaces in /annotate. On reject, mark status only.
+        """
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            self.send_error(400, "Empty body")
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode())
+        except Exception:
+            self.send_error(400, "Invalid JSON")
+            return
+        post_id = payload.get("post_id")
+        try:
+            idx = int(payload.get("idx"))
+        except Exception:
+            self.send_error(400, "idx required")
+            return
+        action = payload.get("action")
+        if action not in ("accept", "reject"):
+            self.send_error(400, "action must be accept|reject")
+            return
+        sm = self._cropper_load_segmanifest()
+        ent = sm.get(post_id)
+        if not ent:
+            self.send_error(404, f"No segmentation for {post_id}")
+            return
+        target = None
+        for sc in ent.get("subcards", []):
+            if int(sc.get("idx", -1)) == idx:
+                target = sc
+                break
+        if not target:
+            self.send_error(404, f"No subcard {idx} for {post_id}")
+            return
+
+        pseudo_id = f"{post_id}__sc{idx:02d}"
+
+        if action == "reject":
+            # If previously accepted, also remove the pseudo-post from
+            # the primary manifest.
+            if target.get("status") == "accepted":
+                self._cropper_remove_pseudo_from_manifest(target.get("accepted_post_id") or pseudo_id)
+            target["status"] = "rejected"
+            target["accepted_post_id"] = None
+        else:
+            # accept: add pseudo-post to manifest (idempotent — skip if already present).
+            added = self._cropper_add_pseudo_to_manifest(post_id, idx, target["file_path"])
+            target["status"] = "accepted"
+            target["accepted_post_id"] = pseudo_id
+            _ = added  # (tracked implicitly via idempotent insert)
+
+        sm[post_id] = ent
+        self._cropper_save_segmanifest(sm)
+        self._send_json({"ok": True, "post_id": post_id, "idx": idx,
+                         "status": target["status"],
+                         "pseudo_post_id": target.get("accepted_post_id")})
+
+    def _cropper_add_pseudo_to_manifest(self, parent_post_id, idx, file_path_rel):
+        """Append a pseudo-post to manifest.json if not already present."""
+        root, mpath, _ = self._annotate_paths()
+        with open(mpath) as f:
+            manifest = json.load(f)
+        pseudo_id = f"{parent_post_id}__sc{idx:02d}"
+        if any(e.get("post_id") == pseudo_id for e in manifest):
+            return False
+        parent = next((e for e in manifest if e.get("post_id") == parent_post_id), None)
+        if not parent:
+            return False
+        # Try to read sub-crop image dimensions; optional.
+        dims = {}
+        try:
+            import cv2 as _cv2  # noqa
+            repo_root = Path(__file__).resolve().parent.parent
+            im = _cv2.imread(str(repo_root / file_path_rel))
+            if im is not None:
+                h, w = im.shape[:2]
+                dims = {"image_width": int(w), "image_height": int(h)}
+        except Exception:
+            pass
+        pseudo_entry = {
+            "post_id": pseudo_id,
+            "subreddit": parent.get("subreddit"),
+            "title": parent.get("title"),
+            "permalink": parent.get("permalink"),
+            "url": parent.get("url"),
+            "score": parent.get("score"),
+            "created_utc": parent.get("created_utc"),
+            "file_path": file_path_rel,
+            "derived_from": parent_post_id,
+            "subcard_idx": idx,
+        }
+        pseudo_entry.update(dims)
+        manifest.append(pseudo_entry)
+        tmp = mpath.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(manifest, f, indent=2)
+        os.replace(tmp, mpath)
+        return True
+
+    def _cropper_remove_pseudo_from_manifest(self, pseudo_id):
+        """Remove a pseudo-post from manifest.json (used when a previously
+        accepted crop is flipped back to rejected)."""
+        if not pseudo_id or "__sc" not in pseudo_id:
+            return False
+        _, mpath, _ = self._annotate_paths()
+        try:
+            with open(mpath) as f:
+                manifest = json.load(f)
+        except Exception:
+            return False
+        new_manifest = [e for e in manifest if e.get("post_id") != pseudo_id]
+        if len(new_manifest) == len(manifest):
+            return False
+        tmp = mpath.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(new_manifest, f, indent=2)
+        os.replace(tmp, mpath)
+        return True
+
+    def _handle_cropper_reprocess(self):
+        """Re-run the segmenter on a given post_id. Body or query: post_id=..."""
+        from urllib.parse import urlparse, parse_qs
+        q = parse_qs(urlparse(self.path).query)
+        post_id = (q.get("post_id") or [None])[0]
+        if not post_id:
+            length = int(self.headers.get("Content-Length") or 0)
+            if length > 0:
+                try:
+                    payload = json.loads(self.rfile.read(length).decode())
+                    post_id = payload.get("post_id")
+                except Exception:
+                    pass
+        if not post_id:
+            self.send_error(400, "post_id required")
+            return
+        manifest = self._annotate_load_manifest()
+        entry = next((e for e in manifest if e.get("post_id") == post_id), None)
+        if not entry:
+            self.send_error(404, f"Unknown post_id: {post_id}")
+            return
+        sm_entry = self._cropper_segment_post(entry, force=True)
+        self._send_json({
+            "ok": True,
+            "post_id": post_id,
+            "n_subcards": sm_entry.get("n_subcards", 0),
+            "note": sm_entry.get("note"),
+        })
 
     def log_message(self, fmt, *args):
         logger.info(fmt, *args)
@@ -7586,15 +8089,31 @@ const ERAS = [
   ['hgss','HGSS','h'], ['bw','BW','b'], ['xy','XY','x'],
   ['sm','SM','m'], ['swsh','SWSH','S'], ['sv','SV','v']
 ];
+// Third field: era-gated (null = any era). Grouping: edition stamps,
+// finish patterns, promo/event stamps, other.
 const STAMPS = [
+  // Edition / printing
   ['1st_edition','1st Edition', null],
   ['shadowless','Shadowless', 'wotc'],
+  // Finish patterns (foil / background treatments)
+  ['reverse_holo','Reverse Holo', null],
+  ['firework_reverse_holo','Firework RH (WOTC)', 'wotc'],
+  ['cosmos_holofoil','Cosmos Holo', null],
+  ['cracked_ice_holofoil','Cracked Ice', null],
+  ['full_art','Full Art', null],
+  ['alternate_full_art','Alt Art', null],
+  ['poke_ball_pattern','Poké Ball', null],
+  ['master_ball_pattern','Master Ball', null],
+  // Promo / event stamps
   ['prerelease','Prerelease', null],
   ['staff','Staff', null],
   ['ex_set_stamp','EX Stamp', 'ex'],
   ['promo_star','Promo Star', null],
-  ['reverse_holo','Reverse Holo', null],
   ['pokemon_center','Pokemon Center', null],
+  ['winner','Winner', null],
+  // Misc
+  ['gold','Gold Rare', null],
+  ['rainbow_rare','Rainbow', null],
   ['other_stamp','Other', null],
 ];
 
@@ -7792,6 +8311,205 @@ window.addEventListener('keydown', e => {
 
 buildPills();
 loadNext();
+</script></body></html>
+"""
+
+
+CROPPER_HTML = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-Card Cropper</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0f1116; color:#e6e8ef; font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:1400px; margin:0 auto; padding:12px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+  .progress { font-size:13px; color:#b8c0d0; }
+  .meta { font-size:12px; color:#9fb0c8; margin-bottom:8px; line-height:1.4; }
+  .meta a { color:#4cc9f0; }
+  .layout { display:flex; gap:12px; flex-wrap:wrap; }
+  .left { flex:0 0 40%; min-width:280px; background:#16213e; border-radius:10px; padding:10px; }
+  .left img { width:100%; max-height:75vh; object-fit:contain; border-radius:6px; background:#000; }
+  .right { flex:1 1 55%; min-width:280px; background:#16213e; border-radius:10px; padding:10px; }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  @media (max-width:800px) { .left, .right { flex:1 1 100%; } .grid { grid-template-columns:repeat(2,1fr); } }
+  .tile { background:#0f1a2e; border-radius:8px; padding:6px; border:3px solid transparent; transition:border-color .15s; position:relative; }
+  .tile img { width:100%; height:180px; object-fit:contain; background:#000; border-radius:4px; }
+  .tile.accepted { border-color:#2ecc71; }
+  .tile.rejected { border-color:#e74c3c; opacity:0.55; }
+  .tile .idx { position:absolute; top:4px; left:6px; background:#000a; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:700; color:#fff; }
+  .tile .btns { display:flex; gap:4px; margin-top:6px; }
+  .tile .btns button { flex:1; border:none; border-radius:6px; padding:8px 4px; font-size:13px; font-weight:600; cursor:pointer; color:#fff; }
+  .b-accept { background:#2ecc71; }
+  .b-reject { background:#e74c3c; }
+  .tile .btns button.sel { outline:2px solid #fff; }
+  .actions { margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; }
+  .actions button { border:none; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; color:#fff; }
+  .a-all { background:#2ecc71; }
+  .a-none { background:#e74c3c; }
+  .a-repr { background:#f39c12; }
+  .a-skip { background:#555e75; }
+  .a-next { background:#4cc9f0; color:#0f1116; }
+  .actions button:disabled { opacity:0.4; cursor:not-allowed; }
+  .empty { text-align:center; padding:60px 20px; color:#9fb0c8; }
+  .empty h2 { color:#4cc9f0; }
+  .error { background:#4a1a1a; border-left:3px solid #e74c3c; padding:8px 10px; border-radius:4px; margin-bottom:8px; font-size:13px; }
+  kbd { background:#0f1116; border:1px solid #2a3350; padding:1px 5px; border-radius:4px; font-size:10px; opacity:.7; }
+</style></head>
+<body><div class="wrap">
+  <div class="topbar">
+    <div class="progress" id="progress">loading...</div>
+    <div class="progress"><kbd>a</kbd> accept all &nbsp;<kbd>r</kbd> reject all &nbsp;<kbd>n</kbd> next &nbsp;<kbd>1-9</kbd> toggle</div>
+  </div>
+  <div id="content"></div>
+</div>
+<script>
+let cur = null;
+let busy = false;
+
+async function apiNext(after) {
+  const url = '/cropper/next' + (after ? ('?after=' + encodeURIComponent(after)) : '');
+  const r = await fetch(url);
+  return await r.json();
+}
+
+async function apiAccept(post_id, idx, action) {
+  const r = await fetch('/cropper/accept', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({post_id, idx, action})
+  });
+  return await r.json();
+}
+
+async function apiReprocess(post_id) {
+  const r = await fetch('/cropper/reprocess?post_id=' + encodeURIComponent(post_id), {method:'POST'});
+  return await r.json();
+}
+
+function render() {
+  const c = document.getElementById('content');
+  if (!cur) { c.innerHTML = '<div class="empty">loading...</div>'; return; }
+  if (cur.done) {
+    c.innerHTML = '<div class="empty"><h2>All multi-card posts processed</h2><div>Total: ' + (cur.total||0) + ' &middot; processed: ' + (cur.total_processed||0) + '</div></div>';
+    document.getElementById('progress').textContent = 'Done — ' + (cur.total_processed||0) + '/' + (cur.total||0);
+    return;
+  }
+  document.getElementById('progress').textContent = 'Post ' + (cur.idx||'?') + '/' + (cur.total||'?') + ' — processed ' + (cur.total_processed||0);
+  const pid = cur.post_id;
+  let err = '';
+  if (cur.segment_note) err = '<div class="error">segmentation failed: ' + escapeHTML(cur.segment_note) + '</div>';
+  const tiles = (cur.subcards||[]).map(sc => {
+    const status = sc.status || 'pending';
+    const selA = status === 'accepted' ? ' sel' : '';
+    const selR = status === 'rejected' ? ' sel' : '';
+    return '<div class="tile ' + status + '" data-idx="' + sc.idx + '">' +
+      '<div class="idx">' + (sc.idx+1) + '</div>' +
+      '<img src="' + sc.image_url + '" alt="">' +
+      '<div class="btns">' +
+        '<button class="b-accept' + selA + '" onclick="decide(' + sc.idx + ',\'accept\')">Accept</button>' +
+        '<button class="b-reject' + selR + '" onclick="decide(' + sc.idx + ',\'reject\')">Reject</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  const meta = '<div class="meta">' +
+    '<b>r/' + escapeHTML(cur.subreddit||'') + '</b> &middot; ' + escapeHTML(cur.title||'') +
+    (cur.permalink ? ' &middot; <a target="_blank" href="' + escapeHTML(cur.permalink) + '">open on reddit</a>' : '') +
+    ' &middot; post_id: <code>' + escapeHTML(pid) + '</code>' +
+    '</div>';
+  const allDecided = (cur.subcards||[]).length > 0 && cur.subcards.every(s => s.status && s.status !== 'pending');
+  const nextDisabled = !allDecided && (cur.subcards||[]).length > 0;
+  c.innerHTML = meta + err +
+    '<div class="layout">' +
+      '<div class="left"><img src="' + cur.image_url + '" alt=""></div>' +
+      '<div class="right">' +
+        (tiles ? ('<div class="grid">' + tiles + '</div>') : '<div class="empty">No subcards produced by segmenter.</div>') +
+        '<div class="actions">' +
+          '<button class="a-all" onclick="acceptAll()">Accept All</button>' +
+          '<button class="a-none" onclick="rejectAll()">Reject All</button>' +
+          '<button class="a-repr" onclick="reprocess()">Reprocess</button>' +
+          '<button class="a-skip" onclick="skipPost()">Skip this post</button>' +
+          '<button class="a-next" onclick="nextPost()"' + (nextDisabled ? ' disabled' : '') + '>Next</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function escapeHTML(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function decide(idx, action) {
+  if (busy || !cur || !cur.post_id) return;
+  busy = true;
+  try {
+    const r = await apiAccept(cur.post_id, idx, action);
+    if (r && r.ok) {
+      for (const sc of (cur.subcards||[])) {
+        if (sc.idx === idx) { sc.status = r.status; sc.accepted_post_id = r.pseudo_post_id; }
+      }
+      render();
+    }
+  } finally { busy = false; }
+}
+
+async function acceptAll() {
+  if (!cur || !cur.subcards) return;
+  if (cur.subcards.length > 1) {
+    if (!confirm('Add ' + cur.subcards.length + ' crops to annotation queue?')) return;
+  }
+  for (const sc of cur.subcards) { await decide(sc.idx, 'accept'); }
+}
+
+async function rejectAll() {
+  if (!cur || !cur.subcards) return;
+  for (const sc of cur.subcards) { await decide(sc.idx, 'reject'); }
+}
+
+async function skipPost() {
+  await rejectAll();
+  await nextPost();
+}
+
+async function reprocess() {
+  if (!cur || !cur.post_id) return;
+  if (!confirm('Re-run segmentation on this post? Existing decisions will be preserved by idx.')) return;
+  busy = true;
+  document.getElementById('content').innerHTML = '<div class="empty">reprocessing...</div>';
+  try {
+    await apiReprocess(cur.post_id);
+    cur = await apiNext(null); // reload same post if still pending
+    // Find the same post_id if still present
+    render();
+  } finally { busy = false; }
+}
+
+async function nextPost() {
+  const after = cur && cur.post_id;
+  cur = await apiNext(after);
+  render();
+}
+
+async function firstLoad() {
+  cur = await apiNext(null);
+  render();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!cur || cur.done) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'a') { e.preventDefault(); acceptAll(); }
+  else if (k === 'r') { e.preventDefault(); rejectAll(); }
+  else if (k === 'n') { e.preventDefault(); nextPost(); }
+  else if (/^[1-9]$/.test(k)) {
+    const idx = parseInt(k, 10) - 1;
+    const sc = (cur.subcards||[]).find(s => s.idx === idx);
+    if (sc) {
+      // Toggle: pending/rejected -> accept; accepted -> reject.
+      decide(idx, sc.status === 'accepted' ? 'reject' : 'accept');
+    }
+  }
+});
+
+firstLoad();
 </script></body></html>
 """
 
