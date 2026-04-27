@@ -8,7 +8,7 @@
 ### Scan a binder page
 
 <p align="center">
-  <img src="data/demo/scan_demo.gif" width="320" alt="Binder page upload to identified cards in seconds"/>
+  <img src="data/demo/scan_demo.gif" width="400" alt="Binder page upload to identified cards in seconds"/>
 </p>
 
 Upload a photo of a binder page. 

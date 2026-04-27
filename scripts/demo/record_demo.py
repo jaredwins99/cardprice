@@ -19,7 +19,7 @@ from playwright.sync_api import sync_playwright
 
 OUT_DIR = Path("/home/godli/cardprice/data/demo")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-VIEW_W, VIEW_H = 414, 896  # iPhone-ish portrait
+VIEW_W, VIEW_H = 540, 1170  # higher-res iPhone-ish portrait for crisp GIF
 
 # Demo inputs
 SCAN_PATH = Path("/home/godli/cardprice/data/inbox/page_20260307_120653.jpg")
