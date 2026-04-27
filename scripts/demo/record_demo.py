@@ -137,24 +137,22 @@ def record_scan(page):
     """)
     time.sleep(1.2)
 
-    # Smooth scroll through the result grid so all 9 tiles + prices read
-    _smooth_scroll(page, 350, duration_s=2.2)
-    time.sleep(0.8)
-    _smooth_scroll(page, 250, duration_s=1.8)
-    time.sleep(1.0)
+    # Brief pan through the result grid so the 9 tiles read, then tap
+    # quickly — user wants the detail-page payoff to hit fast.
+    _smooth_scroll(page, 300, duration_s=1.6)
+    time.sleep(0.4)
 
     # Tap a result tile -> navigate to that card's detail page. Kingdra
     # ($9.30 in our scan) is the priciest WOTC card on the page so it has
     # a visually interesting detail page (prices, sales).
     page.evaluate("""
         () => {
-            // invPageTile_8 is bottom-right (Kingdra in this scan)
             const tile = document.getElementById('invPageTile_8');
             if (tile) tile.click();
         }
     """)
     page.wait_for_load_state("networkidle")
-    time.sleep(1.5)
+    time.sleep(1.2)
 
     # Smooth scroll to bring conditions + sales into view
     _smooth_scroll(page, 600, duration_s=2.5)
