@@ -38,15 +38,28 @@ def _hide_qr(page):
     """)
 
 
-def _slow_scroll(page, total_px, step_px=80, delay=0.45):
-    """Smooth scroll using small increments. Slower than wheel events."""
-    direction = 1 if total_px > 0 else -1
-    remaining = abs(total_px)
-    while remaining > 0:
-        step = min(step_px, remaining)
-        page.evaluate(f"window.scrollBy({{top: {step*direction}, behavior: 'instant'}})")
-        time.sleep(delay)
-        remaining -= step
+def _smooth_scroll(page, total_px, duration_s=2.5):
+    """Animate window.scrollBy continuously over duration_s. Renders as
+    smooth motion in the captured video — stepped JS scrolls look choppy
+    once compressed to 8-10fps GIF."""
+    page.evaluate(f"""
+        () => new Promise(resolve => {{
+            const total = {total_px};
+            const dur = {duration_s * 1000};
+            const start = performance.now();
+            const startY = window.scrollY;
+            function tick(t) {{
+                const k = Math.min(1, (t - start) / dur);
+                // ease-in-out
+                const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+                window.scrollTo(0, startY + total * e);
+                if (k < 1) requestAnimationFrame(tick);
+                else resolve();
+            }}
+            requestAnimationFrame(tick);
+        }})
+    """)
+    time.sleep(duration_s + 0.3)
 
 
 def record_search(page):
@@ -57,46 +70,39 @@ def record_search(page):
 
     # Pre-warm the names index so autocomplete fires on first keystroke
     page.evaluate("fetch('/names/all?lang=en').then(r=>r.json())")
-    time.sleep(1.0)
-
-    # Click search input + type slowly enough to see autocomplete populate
-    page.click('#searchName')
-    page.keyboard.type("char", delay=120)
     time.sleep(0.8)
-    page.keyboard.type("izard", delay=120)
-    # Wait for dropdown to actually render
+
+    # Type "charizard" at a brisk pace so the autocomplete narrative reads quick
+    page.click('#searchName')
+    page.keyboard.type("charizard", delay=85)
     page.wait_for_selector('#searchNameDropdown .ac-item', timeout=8000)
-    time.sleep(2.5)  # let user "see" the dropdown of charizards
+    time.sleep(1.6)  # let the autocomplete dropdown breathe
 
-    # Click the first autocomplete entry ("Charizard")
-    first_item = page.locator('#searchNameDropdown .ac-item').first
-    first_item.click()
-    time.sleep(2.5)  # results render below; let user see list
-
-    # Scroll a bit so the result tiles are visible
-    _slow_scroll(page, 350, step_px=70, delay=0.4)
-    time.sleep(1.5)
-
-    # Click the first result tile (top of search results) -> /card/<id>
+    # Tap the first autocomplete entry -> runs the full search
+    page.locator('#searchNameDropdown .ac-item').first.click()
     page.wait_for_selector('#searchResults .sr-card', timeout=8000)
+    time.sleep(1.5)  # let user see all 27 charizards
+
+    # Smooth scroll through results
+    _smooth_scroll(page, 250, duration_s=1.8)
+
+    # Tap the first result -> /card/<id>
     page.locator('#searchResults .sr-card').first.click()
-
-    # Detail page
     page.wait_for_load_state("networkidle")
-    time.sleep(2.0)
+    time.sleep(1.5)  # detail page settle
 
-    # Slow scroll down through the detail page (image, prices, sales)
-    _slow_scroll(page, 800, step_px=60, delay=0.4)
+    # Smooth scroll to prices/sales section
+    _smooth_scroll(page, 700, duration_s=3.5)
+    time.sleep(1.0)
+    _smooth_scroll(page, 500, duration_s=2.5)
     time.sleep(1.5)
-    _slow_scroll(page, 600, step_px=60, delay=0.4)
-    time.sleep(2.0)
 
 
 def record_scan(page):
     """Home -> upload WOTC page -> wait for scan -> show 9-card grid."""
     page.goto("http://127.0.0.1:8888/", wait_until="networkidle")
     _hide_qr(page)
-    time.sleep(1.5)
+    time.sleep(1.0)  # short home idle
 
     # Trigger upload
     assert SCAN_PATH.exists(), f"missing scan: {SCAN_PATH}"
@@ -111,22 +117,22 @@ def record_scan(page):
     except Exception:
         print("warn: tiles never reached 9; capturing whatever rendered")
 
-    time.sleep(1.5)
-
-    # Slow scroll to bring results into view
+    # Bring the result grid into view (the scan-result section is below the
+    # initial fold; smooth-scroll there immediately after results render).
     page.evaluate("""
         () => {
             const tile = document.querySelector('[id*="invPageTile_"]');
             if (tile) tile.scrollIntoView({behavior: 'smooth', block: 'start'});
         }
     """)
-    time.sleep(2.5)
+    time.sleep(2.0)
 
-    # Slow scroll through the result grid
-    _slow_scroll(page, 350, step_px=60, delay=0.5)
-    time.sleep(2.0)
-    _slow_scroll(page, 350, step_px=60, delay=0.5)
-    time.sleep(2.0)
+    # Smooth scroll through the result grid so all 9 tiles + prices read
+    _smooth_scroll(page, 350, duration_s=2.2)
+    time.sleep(1.2)
+    _smooth_scroll(page, 250, duration_s=1.8)
+    # Hold on the final state long enough for viewers to read it
+    time.sleep(3.0)
 
 
 def main():
