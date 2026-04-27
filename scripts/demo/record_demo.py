@@ -108,6 +108,16 @@ def record_scan(page):
     assert SCAN_PATH.exists(), f"missing scan: {SCAN_PATH}"
     page.set_input_files("#invPageGallery", str(SCAN_PATH))
 
+    # As soon as the scan starts, scroll so the spinner + timer counter
+    # is visible. This is the "loading" eye candy the user wants in frame.
+    page.wait_for_selector('#invSpinner', state='attached', timeout=5000)
+    page.evaluate("""
+        () => {
+            const sp = document.getElementById('invSpinner');
+            if (sp) sp.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+    """)
+
     # Wait for scan to complete
     try:
         page.wait_for_function(
@@ -117,22 +127,22 @@ def record_scan(page):
     except Exception:
         print("warn: tiles never reached 9; capturing whatever rendered")
 
-    # Bring the result grid into view (the scan-result section is below the
-    # initial fold; smooth-scroll there immediately after results render).
+    # Immediately on result render, jump down to the result grid — no idle
+    # pause. User asked to scroll down the moment the scan is there.
     page.evaluate("""
         () => {
             const tile = document.querySelector('[id*="invPageTile_"]');
             if (tile) tile.scrollIntoView({behavior: 'smooth', block: 'start'});
         }
     """)
-    time.sleep(2.0)
+    time.sleep(1.2)
 
     # Smooth scroll through the result grid so all 9 tiles + prices read
     _smooth_scroll(page, 350, duration_s=2.2)
-    time.sleep(1.2)
+    time.sleep(1.0)
     _smooth_scroll(page, 250, duration_s=1.8)
     # Hold on the final state long enough for viewers to read it
-    time.sleep(3.0)
+    time.sleep(2.5)
 
 
 def main():
