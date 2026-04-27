@@ -3694,7 +3694,7 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._send_html(SLIDE_SCAN_V7_HTML)
         elif self.path.startswith("/names/autocomplete"):
             self._handle_names_autocomplete()
-        elif self.path == "/names/all":
+        elif self.path.startswith("/names/all"):
             self._handle_names_all()
         elif self.path.startswith("/search-cards"):
             self._handle_search_cards()
