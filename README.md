@@ -23,6 +23,8 @@ Upload a photo of a binder page.
 When the scan finishes, all nine cards come back labeled with current market prices for each condition. 
 Tapping a card opens its detail page with sales history.
 
+---
+
 ### Search any card
 
 <p align="center">
