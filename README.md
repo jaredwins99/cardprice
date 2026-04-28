@@ -3,6 +3,14 @@
 
 *STATUS: Post-LLM*
 
+---
+
+## Overview
+
+Developed a system for identifying Pokemon cards comparable with state-of-the-art methods, including concurrent multi-card identification, variant detection (e.g., 1st edition), multiple language support, and individual-sales condition-level pricing.
+
+---
+
 ## Demos
 
 ### Scan a binder page
