@@ -7,7 +7,6 @@
 
 ## Linear Setup
 - API: `https://api.linear.app/graphql`
-- API Key: `***REDACTED***`
 - Team ID: `6853be95-2e18-4b0e-b739-df6047c2e865`
 - Script: `scripts/linear.sh` (search, create, update, states)
 - Always `export LINEAR_API_KEY` before using the script
