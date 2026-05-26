@@ -1,0 +1,195 @@
+{
+  "_meta": {
+    "description": "Calibration anchors for set_population: credible published estimates of Pokemon TCG print runs, graded-population totals, or packs sold. Used to calibrate and sanity-check the relative-population model (graded_pop / popularity). See docs/prior_art.md for methodology and citations.",
+    "generated": "2026-05-26",
+    "credibility_legend": {
+      "official": "Published by The Pokemon Company / WotC, or directly derived from an official figure.",
+      "well-sourced-estimate": "Hobbyist/analyst estimate built on a documented chain of reasoning and at least one verifiable input (pop report, official checkpoint, pull rate).",
+      "hobbyist-guess": "Round number with no documented derivation; treat as a weak prior only."
+    },
+    "warning": "A wrong anchor poisons calibration worse than a missing one. Several values below are explicitly flagged hobbyist-guess. Do NOT hard-anchor on those; use them only for order-of-magnitude sanity checks. The graded_pop_total anchors are the most reliable (directly countable from pop reports) but are NOT print runs -- grading rate is exactly the popularity bias the project is trying to correct for, so they are an endogenous cross-check, not a ground-truth divisor.",
+    "set_id_convention": "Matches dim_sets in the main repo. base1=Base, base2=Jungle, base3=Fossil, base4=Base Set 2, base5=Team Rocket, gym1=Gym Heroes, gym2=Gym Challenge, neo1=Neo Genesis, neo2=Neo Discovery, neo3=Neo Revelation, neo4=Neo Destiny, ex7=Team Rocket Returns."
+  },
+  "anchors": [
+    {
+      "set_id": "GLOBAL",
+      "set_name": "All Pokemon TCG (cumulative, all sets/languages)",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 75000000000,
+      "value_mid": 75000000000,
+      "value_high": 75000000000,
+      "source_url": "https://corporate.pokemon.co.jp/en/aboutus/figures/",
+      "source_credibility": "official",
+      "notes": "Official 'Pokemon in Figures' cumulative total: 75 billion cards printed worldwide since 1996, as of end of FY2024-25 (Mar 2025). This is the single hardest anchor available -- it caps the sum of all per-set estimates. ~44.6B (60%) printed since FY2020-21, confirming production is heavily back-loaded to the modern era."
+    },
+    {
+      "set_id": "GLOBAL",
+      "set_name": "Cumulative through March 2017",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 23600000000,
+      "value_mid": 23600000000,
+      "value_high": 23600000000,
+      "source_url": "https://corporate.pokemon.co.jp/en/aboutus/figures/",
+      "source_credibility": "official",
+      "notes": "Official cumulative checkpoint: 23.6B through Mar 2017. Useful as an upper bound for the SUM of all WOTC + early-modern sets. Other official checkpoints: ~43.2B (Mar 2022), 52.9B (Mar 2023), 64.9B (Mar 2024). Annual: 9.7B (FY22), 11.9B (FY23, record), 10.2B (FY24)."
+    },
+    {
+      "set_id": "neo3",
+      "set_name": "Neo Revelation (cumulative checkpoint context)",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": null,
+      "value_mid": 12000000000,
+      "value_high": null,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "well-sourced-estimate",
+      "notes": "12 billion CUMULATIVE cards printed end of 2001 (an official-ish checkpoint cited in the Elite Fourum thread), NOT Neo Revelation alone. Listed under neo3 because Neo Revelation (Sep 2001) is the set straddling that checkpoint. Per-set average implied by the thread: ~1.2B/set across the WOTC era. Do not read 12B as a single-set figure."
+    },
+    {
+      "set_id": "base1",
+      "set_name": "Base Set",
+      "print_variant": "1st_edition",
+      "estimate_type": "total_print_run",
+      "value_low": 200000,
+      "value_mid": 1500000,
+      "value_high": 16500000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "1st Edition Base is the smallest WOTC run -- printed in a very short window (WotC FAQ cited as '3 days') before Pokemania peaked. Elite Fourum derives ~10% of Base Set total as 1st Ed. Wide band: the popular '100,000 1st-Edition Charizards printed' figure (ogcards.com) has no documented source. The number here is total cards in the SET, not just Charizard. Treat as order-of-magnitude only."
+    },
+    {
+      "set_id": "base1",
+      "set_name": "Base Set",
+      "print_variant": "1st_edition",
+      "estimate_type": "graded_pop_total",
+      "value_low": 6115,
+      "value_mid": 6115,
+      "value_high": 6115,
+      "source_url": "https://ogcards.com/blogs/pokemon-cards/how-many-1st-edition-charizards-are-there",
+      "source_credibility": "well-sourced-estimate",
+      "notes": "1st Edition Base Charizard (#4) graded population across all companies = 6,115 (PSA 4,484 incl. 125 PSA-10; BGS thick 405 + thin 724; CGC 502). This is ONE card, not the whole set. Inflated by crack-and-resubmit. The article estimates <10,000 surviving copies of the Charizard. Use as a per-chase-card pop anchor, exactly the kind of signal the project's chase_graded_pop.json will collect."
+    },
+    {
+      "set_id": "base1",
+      "set_name": "Base Set",
+      "print_variant": "shadowless",
+      "estimate_type": "graded_pop_total",
+      "value_low": 13885,
+      "value_mid": 13885,
+      "value_high": 13885,
+      "source_url": "https://ogcards.com/blogs/pokemon-cards/how-many-shadowless-charizards",
+      "source_credibility": "well-sourced-estimate",
+      "notes": "Shadowless Base Charizard (#4) graded pop = 13,885 (PSA 10,635 incl. 58 PSA-10; CGC 1,571; BGS 1,679). Article estimates ~15,000+ surviving. One card. Note shadowless is rarer than Unlimited but more common than 1st Ed -- and shadowless graded pop > 1st-Ed graded pop, consistent with that ordering. Good ratio anchor: shadowless ~2.3x 1st-Ed Charizard graded pop."
+    },
+    {
+      "set_id": "base1",
+      "set_name": "Base Set",
+      "print_variant": "unlimited",
+      "estimate_type": "total_print_run",
+      "value_low": 1000000000,
+      "value_mid": 3000000000,
+      "value_high": 5000000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "Elite Fourum estimates ~3 billion cards for the entire Base Set (all variants, all languages), Unlimited being the overwhelming majority (print runs 2-7). Cross-checked against '2 million starter decks sold (1999)' as a lower-bound validation. Total-cards figure; divide by ~11 cards/pack and 15 holos for per-holo counts. Order-of-magnitude only."
+    },
+    {
+      "set_id": "base2",
+      "set_name": "Jungle",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 1000000000,
+      "value_mid": 1750000000,
+      "value_high": 2500000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~1.75 billion total cards (all languages), derived from official cumulative checkpoints divided across sets. WIP estimate flagged by the author as containing 'wild ass guesses'. Total cards, not packs."
+    },
+    {
+      "set_id": "base3",
+      "set_name": "Fossil",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 1000000000,
+      "value_mid": 1750000000,
+      "value_high": 2500000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~1.75 billion total cards, same checkpoint-division method as Jungle. WIP / low confidence."
+    },
+    {
+      "set_id": "base4",
+      "set_name": "Base Set 2",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 300000000,
+      "value_mid": 600000000,
+      "value_high": 1000000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~600 million total cards; lower than Base/Jungle/Fossil because it released into a cooling-demand period. Useful as a relative-ranking data point (Base Set 2 < the original three). WIP / low confidence."
+    },
+    {
+      "set_id": "base5",
+      "set_name": "Team Rocket",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 700000000,
+      "value_mid": 1100000000,
+      "value_high": 1500000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~1.1 billion total cards; high sustained interest kept the print run large. WIP / low confidence."
+    },
+    {
+      "set_id": "gym1",
+      "set_name": "Gym Heroes",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 500000000,
+      "value_mid": 850000000,
+      "value_high": 1200000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~850 million total cards (estimate also applied to Gym Challenge / gym2). Sustained-interest tier. WIP / low confidence."
+    },
+    {
+      "set_id": "neo1",
+      "set_name": "Neo Genesis",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 400000000,
+      "value_mid": 700000000,
+      "value_high": 1200000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~700 million total cards each for Neo Genesis/Discovery/Revelation, derived from the '12B cumulative end-2001 = ~1.2B/set avg' checkpoint. WIP / low confidence. Same per-set figure can be applied to neo2, neo3, neo4 absent better data."
+    },
+    {
+      "set_id": "ex7",
+      "set_name": "Team Rocket Returns",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 40000000,
+      "value_mid": 80000000,
+      "value_high": 150000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "~80 million total cards -> ~247,000 booster boxes (80M x 1/9 x 1/36) -> ~41,000 of each Gold Star Pokemon. Demonstrates the pull-rate x packs method end-to-end. EX era is much smaller per-set than WOTC. ~30% of EX-set print runs were precon theme decks (must subtract for booster-only math). WIP / low confidence."
+    },
+    {
+      "set_id": "MODERN_AVG",
+      "set_name": "Modern set average (EX/BW era ~200M; XY era ~150M cards/set)",
+      "print_variant": "na",
+      "estimate_type": "total_print_run",
+      "value_low": 150000000,
+      "value_mid": 200000000,
+      "value_high": 300000000,
+      "source_url": "https://www.elitefourum.com/t/an-elaborate-attempt-at-print-run-estimation-wip-5-8-18/20273",
+      "source_credibility": "hobbyist-guess",
+      "notes": "Per-set averages cited: ~200M cards/set (EX/BW era), ~150M cards/set (XY era). NOT specific to one set_id -- use as a modern-era baseline. NOTE these PRE-DATE the post-2020 explosion: Scarlet&Violet-era sets are far larger (FY2023 alone was 11.9B cards across the year's sets). Treat as a floor for modern, not current."
+    }
+  ]
+}

@@ -1,0 +1,1561 @@
+{
+  "generated_at": "2026-05-26T11:20:39.727325+00:00",
+  "window": {
+    "start": "202405",
+    "end": "202604",
+    "months": 24
+  },
+  "source": {
+    "pageviews": "Wikimedia Pageviews REST API (en.wikipedia, all-access, user agents)",
+    "article_existence_crosscheck": "Bulbapedia MediaWiki API (no pageview data available there)",
+    "user_agent": "cardprice-set-population/1.0 (https://github.com/; godlikehydraa@gmail.com) research bot; per-set demand-signal collection"
+  },
+  "coverage": {
+    "total_sets": 171,
+    "set_article": 1,
+    "mascot_card": 152,
+    "none": 18,
+    "with_nonzero_pageviews": 153
+  },
+  "sets": {
+    "base1": {
+      "set_name": "Base",
+      "release_date": "1999-01-09",
+      "resolved_article": "Base Set (Pokémon)",
+      "proxy_type": "set_article",
+      "bulbapedia_article": "Base Set (TCG)",
+      "pageviews_total": 18461,
+      "pageviews_per_month": 769.21
+    },
+    "base2": {
+      "set_name": "Jungle",
+      "release_date": "1999-06-16",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Jungle (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "basep": {
+      "set_name": "Wizards Black Star Promos",
+      "release_date": "1999-07-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Wizards Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "base3": {
+      "set_name": "Fossil",
+      "release_date": "1999-10-10",
+      "resolved_article": "Aerodactyl",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Fossil (TCG)",
+      "pageviews_total": 1342,
+      "pageviews_per_month": 55.92
+    },
+    "base4": {
+      "set_name": "Base Set 2",
+      "release_date": "2000-02-24",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Base Set 2 (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "base5": {
+      "set_name": "Team Rocket",
+      "release_date": "2000-04-24",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Team Rocket (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "gym1": {
+      "set_name": "Gym Heroes",
+      "release_date": "2000-08-14",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Gym Heroes (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "gym2": {
+      "set_name": "Gym Challenge",
+      "release_date": "2000-10-16",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Gym Challenge (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "neo1": {
+      "set_name": "Neo Genesis",
+      "release_date": "2000-12-16",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Neo Genesis (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "neo2": {
+      "set_name": "Neo Discovery",
+      "release_date": "2001-06-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Neo Discovery (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "si1": {
+      "set_name": "Southern Islands",
+      "release_date": "2001-07-31",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Southern Islands (TCG)",
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "neo3": {
+      "set_name": "Neo Revelation",
+      "release_date": "2001-09-21",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Neo Revelation (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "neo4": {
+      "set_name": "Neo Destiny",
+      "release_date": "2002-02-28",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Neo Destiny (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "base6": {
+      "set_name": "Legendary Collection",
+      "release_date": "2002-05-24",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Legendary Collection (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "ecard1": {
+      "set_name": "Expedition Base Set",
+      "release_date": "2002-09-15",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Expedition Base Set (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "bp": {
+      "set_name": "Best of Game",
+      "release_date": "2002-12-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Best of Game (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ecard2": {
+      "set_name": "Aquapolis",
+      "release_date": "2003-01-15",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Aquapolis (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "ecard3": {
+      "set_name": "Skyridge",
+      "release_date": "2003-05-12",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Skyridge (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "ex1": {
+      "set_name": "Ruby & Sapphire",
+      "release_date": "2003-07-01",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Ruby & Sapphire (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "ex2": {
+      "set_name": "Sandstorm",
+      "release_date": "2003-09-18",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Sandstorm (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "np": {
+      "set_name": "Nintendo Black Star Promos",
+      "release_date": "2003-10-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Nintendo Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex3": {
+      "set_name": "Dragon",
+      "release_date": "2003-11-24",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Dragon (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "ex4": {
+      "set_name": "Team Magma vs Team Aqua",
+      "release_date": "2004-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Team Magma vs Team Aqua (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex5": {
+      "set_name": "Hidden Legends",
+      "release_date": "2004-06-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Hidden Legends (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "tk1a": {
+      "set_name": "EX Trainer Kit Latias",
+      "release_date": "2004-06-01",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "tk1b": {
+      "set_name": "EX Trainer Kit Latios",
+      "release_date": "2004-06-01",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "ex6": {
+      "set_name": "FireRed & LeafGreen",
+      "release_date": "2004-09-01",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX FireRed & LeafGreen (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "pop1": {
+      "set_name": "POP Series 1",
+      "release_date": "2004-09-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 1 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex7": {
+      "set_name": "Team Rocket Returns",
+      "release_date": "2004-11-01",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Team Rocket Returns (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "ex8": {
+      "set_name": "Deoxys",
+      "release_date": "2005-02-01",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Deoxys (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "ex9": {
+      "set_name": "Emerald",
+      "release_date": "2005-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Emerald (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex10": {
+      "set_name": "Unseen Forces",
+      "release_date": "2005-08-01",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "EX Unseen Forces (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "pop2": {
+      "set_name": "POP Series 2",
+      "release_date": "2005-08-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 2 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex11": {
+      "set_name": "Delta Species",
+      "release_date": "2005-10-31",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Δ Delta Species (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "ex12": {
+      "set_name": "Legend Maker",
+      "release_date": "2006-02-01",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Legend Maker (TCG)",
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "tk2a": {
+      "set_name": "EX Trainer Kit 2 Plusle",
+      "release_date": "2006-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "tk2b": {
+      "set_name": "EX Trainer Kit 2 Minun",
+      "release_date": "2006-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop3": {
+      "set_name": "POP Series 3",
+      "release_date": "2006-04-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 3 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex13": {
+      "set_name": "Holon Phantoms",
+      "release_date": "2006-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Holon Phantoms (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex14": {
+      "set_name": "Crystal Guardians",
+      "release_date": "2006-08-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Crystal Guardians (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop4": {
+      "set_name": "POP Series 4",
+      "release_date": "2006-08-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 4 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ex15": {
+      "set_name": "Dragon Frontiers",
+      "release_date": "2006-11-01",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Dragon Frontiers (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "ex16": {
+      "set_name": "Power Keepers",
+      "release_date": "2007-02-02",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "EX Power Keepers (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop5": {
+      "set_name": "POP Series 5",
+      "release_date": "2007-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 5 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp1": {
+      "set_name": "Diamond & Pearl",
+      "release_date": "2007-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Diamond & Pearl (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dpp": {
+      "set_name": "DP Black Star Promos",
+      "release_date": "2007-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "DP Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp2": {
+      "set_name": "Mysterious Treasures",
+      "release_date": "2007-08-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Mysterious Treasures (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop6": {
+      "set_name": "POP Series 6",
+      "release_date": "2007-09-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 6 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp3": {
+      "set_name": "Secret Wonders",
+      "release_date": "2007-11-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Secret Wonders (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp4": {
+      "set_name": "Great Encounters",
+      "release_date": "2008-02-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Great Encounters (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop7": {
+      "set_name": "POP Series 7",
+      "release_date": "2008-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 7 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp5": {
+      "set_name": "Majestic Dawn",
+      "release_date": "2008-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Majestic Dawn (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp6": {
+      "set_name": "Legends Awakened",
+      "release_date": "2008-08-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Legends Awakened (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop8": {
+      "set_name": "POP Series 8",
+      "release_date": "2008-09-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 8 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "dp7": {
+      "set_name": "Stormfront",
+      "release_date": "2008-11-01",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Stormfront (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "pl1": {
+      "set_name": "Platinum",
+      "release_date": "2009-02-11",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Platinum (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pop9": {
+      "set_name": "POP Series 9",
+      "release_date": "2009-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "POP Series 9 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pl2": {
+      "set_name": "Rising Rivals",
+      "release_date": "2009-05-16",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Rising Rivals (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pl3": {
+      "set_name": "Supreme Victors",
+      "release_date": "2009-08-19",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Supreme Victors (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pl4": {
+      "set_name": "Arceus",
+      "release_date": "2009-11-04",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Arceus (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "ru1": {
+      "set_name": "Pokémon Rumble",
+      "release_date": "2009-12-02",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Pokémon Rumble (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "hgss1": {
+      "set_name": "HeartGold & SoulSilver",
+      "release_date": "2010-02-10",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "HeartGold & SoulSilver (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "hsp": {
+      "set_name": "HGSS Black Star Promos",
+      "release_date": "2010-02-10",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "HGSS Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "hgss2": {
+      "set_name": "HS—Unleashed",
+      "release_date": "2010-05-12",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "hgss3": {
+      "set_name": "HS—Undaunted",
+      "release_date": "2010-08-18",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "hgss4": {
+      "set_name": "HS—Triumphant",
+      "release_date": "2010-11-03",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "col1": {
+      "set_name": "Call of Legends",
+      "release_date": "2011-02-09",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Call of Legends (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bwp": {
+      "set_name": "BW Black Star Promos",
+      "release_date": "2011-03-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "BW Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw1": {
+      "set_name": "Black & White",
+      "release_date": "2011-04-25",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Black & White (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd11": {
+      "set_name": "McDonald's Collection 2011",
+      "release_date": "2011-06-17",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw2": {
+      "set_name": "Emerging Powers",
+      "release_date": "2011-08-31",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Emerging Powers (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw3": {
+      "set_name": "Noble Victories",
+      "release_date": "2011-11-16",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Noble Victories (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw4": {
+      "set_name": "Next Destinies",
+      "release_date": "2012-02-08",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Next Destinies (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "bw5": {
+      "set_name": "Dark Explorers",
+      "release_date": "2012-05-09",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Dark Explorers (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "mcd12": {
+      "set_name": "McDonald's Collection 2012",
+      "release_date": "2012-06-15",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2012 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw6": {
+      "set_name": "Dragons Exalted",
+      "release_date": "2012-08-15",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Dragons Exalted (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "dv1": {
+      "set_name": "Dragon Vault",
+      "release_date": "2012-10-05",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Dragon Vault (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "bw7": {
+      "set_name": "Boundaries Crossed",
+      "release_date": "2012-11-07",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Boundaries Crossed (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw8": {
+      "set_name": "Plasma Storm",
+      "release_date": "2013-02-06",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Plasma Storm (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw9": {
+      "set_name": "Plasma Freeze",
+      "release_date": "2013-05-08",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Plasma Freeze (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw10": {
+      "set_name": "Plasma Blast",
+      "release_date": "2013-08-14",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Plasma Blast (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xyp": {
+      "set_name": "XY Black Star Promos",
+      "release_date": "2013-10-12",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "XY Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "bw11": {
+      "set_name": "Legendary Treasures",
+      "release_date": "2013-11-06",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Legendary Treasures (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "xy0": {
+      "set_name": "Kalos Starter Set",
+      "release_date": "2013-11-08",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Kalos Starter Set (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy1": {
+      "set_name": "XY",
+      "release_date": "2014-02-05",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "XY (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy2": {
+      "set_name": "Flashfire",
+      "release_date": "2014-05-07",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Flashfire (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "mcd14": {
+      "set_name": "McDonald's Collection 2014",
+      "release_date": "2014-05-23",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2014 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy3": {
+      "set_name": "Furious Fists",
+      "release_date": "2014-08-13",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Furious Fists (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy4": {
+      "set_name": "Phantom Forces",
+      "release_date": "2014-11-05",
+      "resolved_article": "Gengar",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Phantom Forces (TCG)",
+      "pageviews_total": 219762,
+      "pageviews_per_month": 9156.75
+    },
+    "xy5": {
+      "set_name": "Primal Clash",
+      "release_date": "2015-02-04",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Primal Clash (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "dc1": {
+      "set_name": "Double Crisis",
+      "release_date": "2015-03-25",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Double Crisis (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy6": {
+      "set_name": "Roaring Skies",
+      "release_date": "2015-05-06",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Roaring Skies (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "xy7": {
+      "set_name": "Ancient Origins",
+      "release_date": "2015-08-12",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Ancient Origins (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy8": {
+      "set_name": "BREAKthrough",
+      "release_date": "2015-11-04",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "BREAKthrough (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd15": {
+      "set_name": "McDonald's Collection 2015",
+      "release_date": "2015-11-27",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2015 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy9": {
+      "set_name": "BREAKpoint",
+      "release_date": "2016-02-03",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "BREAKpoint (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "g1": {
+      "set_name": "Generations",
+      "release_date": "2016-02-22",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Generations (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "xy10": {
+      "set_name": "Fates Collide",
+      "release_date": "2016-05-02",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Fates Collide (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "xy11": {
+      "set_name": "Steam Siege",
+      "release_date": "2016-08-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Steam Siege (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd16": {
+      "set_name": "McDonald's Collection 2016",
+      "release_date": "2016-08-19",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2016 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "xy12": {
+      "set_name": "Evolutions",
+      "release_date": "2016-11-02",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Evolutions (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sm1": {
+      "set_name": "Sun & Moon",
+      "release_date": "2017-02-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Sun & Moon (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "smp": {
+      "set_name": "SM Black Star Promos",
+      "release_date": "2017-02-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "SM Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm2": {
+      "set_name": "Guardians Rising",
+      "release_date": "2017-05-05",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Guardians Rising (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm3": {
+      "set_name": "Burning Shadows",
+      "release_date": "2017-08-05",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Burning Shadows (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sm35": {
+      "set_name": "Shining Legends",
+      "release_date": "2017-10-06",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Shining Legends (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm4": {
+      "set_name": "Crimson Invasion",
+      "release_date": "2017-11-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Crimson Invasion (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd17": {
+      "set_name": "McDonald's Collection 2017",
+      "release_date": "2017-11-07",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2017 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm5": {
+      "set_name": "Ultra Prism",
+      "release_date": "2018-02-02",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Ultra Prism (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm6": {
+      "set_name": "Forbidden Light",
+      "release_date": "2018-05-04",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Forbidden Light (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm7": {
+      "set_name": "Celestial Storm",
+      "release_date": "2018-08-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Celestial Storm (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm75": {
+      "set_name": "Dragon Majesty",
+      "release_date": "2018-09-07",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Dragon Majesty (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "mcd18": {
+      "set_name": "McDonald's Collection 2018",
+      "release_date": "2018-10-16",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2018 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm8": {
+      "set_name": "Lost Thunder",
+      "release_date": "2018-11-02",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Lost Thunder (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm9": {
+      "set_name": "Team Up",
+      "release_date": "2019-02-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Team Up (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "det1": {
+      "set_name": "Detective Pikachu",
+      "release_date": "2019-04-05",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Detective Pikachu (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm10": {
+      "set_name": "Unbroken Bonds",
+      "release_date": "2019-05-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Unbroken Bonds (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm11": {
+      "set_name": "Unified Minds",
+      "release_date": "2019-08-02",
+      "resolved_article": "Mewtwo",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Unified Minds (TCG)",
+      "pageviews_total": 367036,
+      "pageviews_per_month": 15293.17
+    },
+    "sm115": {
+      "set_name": "Hidden Fates",
+      "release_date": "2019-08-23",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Hidden Fates (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sma": {
+      "set_name": "Hidden Fates Shiny Vault",
+      "release_date": "2019-08-23",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "mcd19": {
+      "set_name": "McDonald's Collection 2019",
+      "release_date": "2019-10-15",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2019 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sm12": {
+      "set_name": "Cosmic Eclipse",
+      "release_date": "2019-11-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Cosmic Eclipse (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swshp": {
+      "set_name": "SWSH Black Star Promos",
+      "release_date": "2019-11-15",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "SWSH Black Star Promos (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh1": {
+      "set_name": "Sword & Shield",
+      "release_date": "2020-02-07",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Sword & Shield (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh2": {
+      "set_name": "Rebel Clash",
+      "release_date": "2020-05-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Rebel Clash (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh3": {
+      "set_name": "Darkness Ablaze",
+      "release_date": "2020-08-14",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Darkness Ablaze (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "fut20": {
+      "set_name": "Pokémon Futsal Collection",
+      "release_date": "2020-09-11",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh35": {
+      "set_name": "Champion's Path",
+      "release_date": "2020-09-25",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Champion's Path (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh4": {
+      "set_name": "Vivid Voltage",
+      "release_date": "2020-11-13",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Vivid Voltage (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd21": {
+      "set_name": "McDonald's Collection 2021",
+      "release_date": "2021-02-09",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2021 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh45": {
+      "set_name": "Shining Fates",
+      "release_date": "2021-02-19",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Shining Fates (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh45sv": {
+      "set_name": "Shining Fates Shiny Vault",
+      "release_date": "2021-02-19",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh5": {
+      "set_name": "Battle Styles",
+      "release_date": "2021-03-19",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Battle Styles (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh6": {
+      "set_name": "Chilling Reign",
+      "release_date": "2021-06-18",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Chilling Reign (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh7": {
+      "set_name": "Evolving Skies",
+      "release_date": "2021-08-27",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Evolving Skies (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "cel25": {
+      "set_name": "Celebrations",
+      "release_date": "2021-10-08",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Celebrations (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "cel25c": {
+      "set_name": "Celebrations: Classic Collection",
+      "release_date": "2021-10-08",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh8": {
+      "set_name": "Fusion Strike",
+      "release_date": "2021-11-12",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Fusion Strike (TCG)",
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "swsh9": {
+      "set_name": "Brilliant Stars",
+      "release_date": "2022-02-25",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Brilliant Stars (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh9tg": {
+      "set_name": "Brilliant Stars Trainer Gallery",
+      "release_date": "2022-02-25",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh10": {
+      "set_name": "Astral Radiance",
+      "release_date": "2022-05-27",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Astral Radiance (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh10tg": {
+      "set_name": "Astral Radiance Trainer Gallery",
+      "release_date": "2022-05-27",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "pgo": {
+      "set_name": "Pokémon GO",
+      "release_date": "2022-07-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Pokémon GO (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "mcd22": {
+      "set_name": "McDonald's Collection 2022",
+      "release_date": "2022-08-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "McDonald's Collection 2022 (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh11": {
+      "set_name": "Lost Origin",
+      "release_date": "2022-09-09",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Lost Origin (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "swsh11tg": {
+      "set_name": "Lost Origin Trainer Gallery",
+      "release_date": "2022-09-09",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": null,
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "swsh12": {
+      "set_name": "Silver Tempest",
+      "release_date": "2022-11-11",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Silver Tempest (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "swsh12tg": {
+      "set_name": "Silver Tempest Trainer Gallery",
+      "release_date": "2022-11-11",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": null,
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "svp": {
+      "set_name": "Scarlet & Violet Black Star Promos",
+      "release_date": "2023-01-01",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "swsh12pt5": {
+      "set_name": "Crown Zenith",
+      "release_date": "2023-01-20",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Crown Zenith (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "swsh12pt5gg": {
+      "set_name": "Crown Zenith Galarian Gallery",
+      "release_date": "2023-01-20",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sv1": {
+      "set_name": "Scarlet & Violet",
+      "release_date": "2023-03-31",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Scarlet & Violet (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sve": {
+      "set_name": "Scarlet & Violet Energies",
+      "release_date": "2023-03-31",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": null,
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sv2": {
+      "set_name": "Paldea Evolved",
+      "release_date": "2023-06-09",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Paldea Evolved (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sv3": {
+      "set_name": "Obsidian Flames",
+      "release_date": "2023-08-11",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Obsidian Flames (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sv3pt5": {
+      "set_name": "151",
+      "release_date": "2023-09-22",
+      "resolved_article": "Mew",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "151 (TCG)",
+      "pageviews_total": 13746,
+      "pageviews_per_month": 572.75
+    },
+    "sv4": {
+      "set_name": "Paradox Rift",
+      "release_date": "2023-11-03",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Paradox Rift (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sv4pt5": {
+      "set_name": "Paldean Fates",
+      "release_date": "2024-01-26",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Paldean Fates (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 17128.5
+    },
+    "sv5": {
+      "set_name": "Temporal Forces",
+      "release_date": "2024-03-22",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Temporal Forces (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 55177.0
+    },
+    "sv6": {
+      "set_name": "Twilight Masquerade",
+      "release_date": "2024-05-24",
+      "resolved_article": null,
+      "proxy_type": "none",
+      "bulbapedia_article": "Twilight Masquerade (TCG)",
+      "pageviews_total": null,
+      "pageviews_per_month": null
+    },
+    "sv6pt5": {
+      "set_name": "Shrouded Fable",
+      "release_date": "2024-08-02",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Shrouded Fable (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 63059.43
+    },
+    "sv7": {
+      "set_name": "Stellar Crown",
+      "release_date": "2024-09-13",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Stellar Crown (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 66212.4
+    },
+    "sv8": {
+      "set_name": "Surging Sparks",
+      "release_date": "2024-11-08",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Surging Sparks (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 73569.33
+    },
+    "sv8pt5": {
+      "set_name": "Prismatic Evolutions",
+      "release_date": "2025-01-17",
+      "resolved_article": "Eevee",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Prismatic Evolutions (TCG)",
+      "pageviews_total": 360140,
+      "pageviews_per_month": 22508.75
+    },
+    "sv9": {
+      "set_name": "Journey Together",
+      "release_date": "2025-03-28",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Journey Together (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 29363.14
+    },
+    "sv10": {
+      "set_name": "Destined Rivals",
+      "release_date": "2025-05-30",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Destined Rivals (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 110354.0
+    },
+    "rsv10pt5": {
+      "set_name": "White Flare",
+      "release_date": "2025-07-18",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Black Bolt & White Flare (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 41108.4
+    },
+    "zsv10pt5": {
+      "set_name": "Black Bolt",
+      "release_date": "2025-07-18",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Black Bolt & White Flare (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 132424.8
+    },
+    "me1": {
+      "set_name": "Mega Evolution",
+      "release_date": "2025-09-26",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Mega Evolution (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 165531.0
+    },
+    "me2": {
+      "set_name": "Phantasmal Flames",
+      "release_date": "2025-11-14",
+      "resolved_article": "Charizard",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Phantasmal Flames (TCG)",
+      "pageviews_total": 411084,
+      "pageviews_per_month": 68514.0
+    },
+    "me2pt5": {
+      "set_name": "Ascended Heroes",
+      "release_date": "2026-01-30",
+      "resolved_article": "Pikachu",
+      "proxy_type": "mascot_card",
+      "bulbapedia_article": "Ascended Heroes (TCG)",
+      "pageviews_total": 1324248,
+      "pageviews_per_month": 331062.0
+    }
+  }
+}

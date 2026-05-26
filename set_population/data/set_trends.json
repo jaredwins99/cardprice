@@ -1,0 +1,57 @@
+{
+  "generated_at": "2026-05-26T11:23:59.829132+00:00",
+  "anchor_term": "Base Set pokemon",
+  "anchor_set_id": "base1",
+  "window": "last 5 years (today 5-y)",
+  "geo": "worldwide",
+  "sets": {
+    "base1": {
+      "set_name": "Base",
+      "query_term": "Base Set pokemon",
+      "interest_rescaled": 100.0,
+      "raw_batch_mean": 20.187
+    },
+    "base2": {
+      "set_name": "Jungle",
+      "query_term": "Jungle pokemon",
+      "interest_rescaled": 54.3874,
+      "raw_batch_mean": 10.5038
+    },
+    "basep": {
+      "set_name": "Wizards Black Star Promos",
+      "query_term": "Wizards Black Star Promos pokemon",
+      "interest_rescaled": 0.0198,
+      "raw_batch_mean": 0.0038
+    },
+    "base3": {
+      "set_name": "Fossil",
+      "query_term": "Fossil pokemon",
+      "interest_rescaled": 159.8419,
+      "raw_batch_mean": 30.8702
+    },
+    "base4": {
+      "set_name": "Base Set 2",
+      "query_term": "Base Set 2 pokemon",
+      "interest_rescaled": 10.2569,
+      "raw_batch_mean": 1.9809
+    },
+    "base5": {
+      "set_name": "Team Rocket",
+      "query_term": "Team Rocket pokemon",
+      "interest_rescaled": 186.4625,
+      "raw_batch_mean": 37.6412
+    },
+    "gym1": {
+      "set_name": "Gym Heroes",
+      "query_term": "Gym Heroes pokemon",
+      "interest_rescaled": 4.4621,
+      "raw_batch_mean": 0.9008
+    },
+    "gym2": {
+      "set_name": "Gym Challenge",
+      "query_term": "Gym Challenge pokemon",
+      "interest_rescaled": 10.7393,
+      "raw_batch_mean": 2.1679
+    }
+  }
+}
