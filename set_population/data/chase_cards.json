@@ -1,0 +1,6641 @@
+{
+  "generated_at": "2026-05-27T04:47:39.658247+00:00",
+  "selection_rule": "Per set: take the highest rarity tier present; rank its cards by latest representative market price (highest-value printing); fill from next-lower tiers only if fewer than top_n cards exist. tier_mixed flags sets where the top-N spans >1 rarity tier.",
+  "sets": {
+    "base1": {
+      "chase": [
+        {
+          "card_id": "base1-4/normal",
+          "card_number": "4",
+          "name": "Charizard",
+          "price": 515.6,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42382
+        },
+        {
+          "card_id": "base1-2/normal",
+          "card_number": "2",
+          "name": "Blastoise",
+          "price": 155.06,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42360
+        },
+        {
+          "card_id": "base1-15/normal",
+          "card_number": "15",
+          "name": "Venusaur",
+          "price": 133.07,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42355
+        }
+      ],
+      "release_date": "1999-01-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 101,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Base"
+    },
+    "base2": {
+      "chase": [
+        {
+          "card_id": "base2-11/normal",
+          "card_number": "11",
+          "name": "Snorlax",
+          "price": 298.86,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 45122
+        },
+        {
+          "card_id": "base2-12/normal",
+          "card_number": "12",
+          "name": "Vaporeon",
+          "price": 239.19,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 45123
+        },
+        {
+          "card_id": "base2-3/normal",
+          "card_number": "3",
+          "name": "Flareon",
+          "price": 163.71,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 45129
+        }
+      ],
+      "release_date": "1999-06-16",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 64,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Jungle"
+    },
+    "base3": {
+      "chase": [
+        {
+          "card_id": "base3-5/normal",
+          "card_number": "5",
+          "name": "Gengar",
+          "price": 314.92,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 106521
+        },
+        {
+          "card_id": "base3-4/normal",
+          "card_number": "4",
+          "name": "Dragonite",
+          "price": 269.54,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 106520
+        },
+        {
+          "card_id": "base3-2/normal",
+          "card_number": "2",
+          "name": "Articuno",
+          "price": 176.3,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 106518
+        }
+      ],
+      "release_date": "1999-10-10",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 62,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Fossil"
+    },
+    "base4": {
+      "chase": [
+        {
+          "card_id": "base4-4/normal",
+          "card_number": "4",
+          "name": "Charizard",
+          "price": 342.47,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42479
+        },
+        {
+          "card_id": "base4-2/normal",
+          "card_number": "2",
+          "name": "Blastoise",
+          "price": 103.5,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42464
+        },
+        {
+          "card_id": "base4-18/normal",
+          "card_number": "18",
+          "name": "Venusaur",
+          "price": 74.63,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 42462
+        }
+      ],
+      "release_date": "2000-02-24",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 130,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Base Set 2"
+    },
+    "base5": {
+      "chase": [
+        {
+          "card_id": "base5-4/normal",
+          "card_number": "4",
+          "name": "Dark Charizard",
+          "price": 674.66,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 84572
+        },
+        {
+          "card_id": "base5-3/normal",
+          "card_number": "3",
+          "name": "Dark Blastoise",
+          "price": 384.71,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 84568
+        },
+        {
+          "card_id": "base5-5/normal",
+          "card_number": "5",
+          "name": "Dark Dragonite",
+          "price": 292.62,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 84584
+        }
+      ],
+      "release_date": "2000-04-24",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 83,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Team Rocket"
+    },
+    "base6": {
+      "chase": [
+        {
+          "card_id": "base6-3/normal",
+          "card_number": "3",
+          "name": "Charizard",
+          "price": 2100.0,
+          "rarity": "Rare Holo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 84196
+        },
+        {
+          "card_id": "base6-4/normal",
+          "card_number": "4",
+          "name": "Dark Blastoise",
+          "price": 599.95,
+          "rarity": "Rare Holo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 84569
+        },
+        {
+          "card_id": "base6-18/normal",
+          "card_number": "18",
+          "name": "Venusaur",
+          "price": 499.99,
+          "rarity": "Rare Holo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 90313
+        }
+      ],
+      "release_date": "2002-05-24",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 110,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Legendary Collection"
+    },
+    "basep": {
+      "chase": [
+        {
+          "card_id": "basep-41/normal",
+          "card_number": "41",
+          "name": "Lucky Stadium",
+          "price": 1000.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 86894
+        },
+        {
+          "card_id": "basep-40/normal",
+          "card_number": "40",
+          "name": "Pok\u00e9mon Center",
+          "price": 575.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 88213
+        },
+        {
+          "card_id": "basep-1/normal",
+          "card_number": "1",
+          "name": "Pikachu",
+          "price": 300.0,
+          "rarity": "Promo",
+          "subtype": "1st Edition",
+          "tcg_product_id": 88065
+        }
+      ],
+      "release_date": "1999-07-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 53,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Wizards Black Star Promos"
+    },
+    "bp": {
+      "chase": [
+        {
+          "card_id": "bp-8/normal",
+          "card_number": "8",
+          "name": "Rocket's Mewtwo",
+          "price": 437.5,
+          "rarity": "Promo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 167080
+        },
+        {
+          "card_id": "bp-9/normal",
+          "card_number": "9",
+          "name": "Rocket's Hitmonchan",
+          "price": 107.65,
+          "rarity": "Promo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 167079
+        },
+        {
+          "card_id": "bp-7/normal",
+          "card_number": "7",
+          "name": "Dark Venusaur",
+          "price": 106.2,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 84666
+        }
+      ],
+      "release_date": "2002-12-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 9,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Best of Game"
+    },
+    "bw1": {
+      "chase": [
+        {
+          "card_id": "bw1-114/normal",
+          "card_number": "114",
+          "name": "Zekrom",
+          "price": 149.74,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90738
+        },
+        {
+          "card_id": "bw1-113/normal",
+          "card_number": "113",
+          "name": "Reshiram",
+          "price": 126.97,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88710
+        },
+        {
+          "card_id": "bw1-115/normal",
+          "card_number": "115",
+          "name": "Pikachu",
+          "price": 83.08,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88101
+        }
+      ],
+      "release_date": "2011-04-25",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 115,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Black & White"
+    },
+    "bw10": {
+      "chase": [
+        {
+          "card_id": "bw10-105/normal",
+          "card_number": "105",
+          "name": "Rare Candy",
+          "price": 152.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88598
+        },
+        {
+          "card_id": "bw10-103/normal",
+          "card_number": "103",
+          "name": "Virizion",
+          "price": 101.32,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90390
+        },
+        {
+          "card_id": "bw10-102/normal",
+          "card_number": "102",
+          "name": "Exeggcute",
+          "price": 100.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85351
+        }
+      ],
+      "release_date": "2013-08-14",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 105,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Plasma Blast"
+    },
+    "bw11": {
+      "chase": [
+        {
+          "card_id": "bw11-115/normal",
+          "card_number": "115",
+          "name": "Zekrom",
+          "price": 389.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90739
+        },
+        {
+          "card_id": "bw11-114/normal",
+          "card_number": "114",
+          "name": "Reshiram",
+          "price": 228.26,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88711
+        },
+        {
+          "card_id": "bw11-RC24/normal",
+          "card_number": "RC24",
+          "name": "Mew-EX",
+          "price": 166.38,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87413
+        }
+      ],
+      "release_date": "2013-11-06",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 140,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Legendary Treasures"
+    },
+    "bw2": {
+      "chase": [
+        {
+          "card_id": "bw2-97/normal",
+          "card_number": "97",
+          "name": "Thundurus",
+          "price": 26.62,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89906
+        },
+        {
+          "card_id": "bw2-98/normal",
+          "card_number": "98",
+          "name": "Tornadus",
+          "price": 18.37,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89977
+        },
+        {
+          "card_id": "bw2-67/normal",
+          "card_number": "67",
+          "name": "Zoroark",
+          "price": 4.73,
+          "rarity": "Rare Holo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 90750
+        }
+      ],
+      "release_date": "2011-08-31",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 98,
+        "tier_mixed": true,
+        "tier_used": 4
+      },
+      "set_name": "Emerging Powers"
+    },
+    "bw3": {
+      "chase": [
+        {
+          "card_id": "bw3-101/normal",
+          "card_number": "101",
+          "name": "N",
+          "price": 263.74,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87678
+        },
+        {
+          "card_id": "bw3-98/normal",
+          "card_number": "98",
+          "name": "Victini",
+          "price": 132.32,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90349
+        },
+        {
+          "card_id": "bw3-102/normal",
+          "card_number": "102",
+          "name": "Meowth",
+          "price": 81.36,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87325
+        }
+      ],
+      "release_date": "2011-11-16",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 102,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Noble Victories"
+    },
+    "bw4": {
+      "chase": [
+        {
+          "card_id": "bw4-103/normal",
+          "card_number": "103",
+          "name": "Hydreigon",
+          "price": 199.97,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86240
+        },
+        {
+          "card_id": "bw4-102/normal",
+          "card_number": "102",
+          "name": "Zoroark",
+          "price": 194.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90753
+        },
+        {
+          "card_id": "bw4-101/normal",
+          "card_number": "101",
+          "name": "Chandelure",
+          "price": 137.5,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84166
+        }
+      ],
+      "release_date": "2012-02-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 103,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Next Destinies"
+    },
+    "bw5": {
+      "chase": [
+        {
+          "card_id": "bw5-109/normal",
+          "card_number": "109",
+          "name": "Gardevoir",
+          "price": 544.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85638
+        },
+        {
+          "card_id": "bw5-111/normal",
+          "card_number": "111",
+          "name": "Pok\u00e9mon Catcher",
+          "price": 97.5,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88212
+        },
+        {
+          "card_id": "bw5-110/normal",
+          "card_number": "110",
+          "name": "Archeops",
+          "price": 71.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83610
+        }
+      ],
+      "release_date": "2012-05-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 111,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Dark Explorers"
+    },
+    "bw6": {
+      "chase": [
+        {
+          "card_id": "bw6-128/normal",
+          "card_number": "128",
+          "name": "Rayquaza",
+          "price": 549.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88630
+        },
+        {
+          "card_id": "bw6-127/normal",
+          "card_number": "127",
+          "name": "Krookodile",
+          "price": 199.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86544
+        },
+        {
+          "card_id": "bw6-125/normal",
+          "card_number": "125",
+          "name": "Serperior",
+          "price": 145.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89072
+        }
+      ],
+      "release_date": "2012-08-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 128,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Dragons Exalted"
+    },
+    "bw7": {
+      "chase": [
+        {
+          "card_id": "bw7-152/normal",
+          "card_number": "152",
+          "name": "Altaria",
+          "price": 153.81,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83521
+        },
+        {
+          "card_id": "bw7-151/normal",
+          "card_number": "151",
+          "name": "Terrakion",
+          "price": 124.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89888
+        },
+        {
+          "card_id": "bw7-150/normal",
+          "card_number": "150",
+          "name": "Golurk",
+          "price": 105.04,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85837
+        }
+      ],
+      "release_date": "2012-11-07",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 153,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Boundaries Crossed"
+    },
+    "bw8": {
+      "chase": [
+        {
+          "card_id": "bw8-136/normal",
+          "card_number": "136",
+          "name": "Charizard",
+          "price": 1000.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84193
+        },
+        {
+          "card_id": "bw8-137/normal",
+          "card_number": "137",
+          "name": "Blastoise",
+          "price": 476.23,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83897
+        },
+        {
+          "card_id": "bw8-138/normal",
+          "card_number": "138",
+          "name": "Random Receiver",
+          "price": 43.25,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88574
+        }
+      ],
+      "release_date": "2013-02-06",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 138,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Plasma Storm"
+    },
+    "bw9": {
+      "chase": [
+        {
+          "card_id": "bw9-122/normal",
+          "card_number": "122",
+          "name": "Ultra Ball",
+          "price": 789.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90135
+        },
+        {
+          "card_id": "bw9-120/normal",
+          "card_number": "120",
+          "name": "Garchomp",
+          "price": 487.45,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85626
+        },
+        {
+          "card_id": "bw9-119/normal",
+          "card_number": "119",
+          "name": "Garbodor",
+          "price": 175.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85617
+        }
+      ],
+      "release_date": "2013-05-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 122,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Plasma Freeze"
+    },
+    "bwp": {
+      "chase": [
+        {
+          "card_id": "bwp-BW50/normal",
+          "card_number": "BW50",
+          "name": "Tropical Beach",
+          "price": 499.99,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 90049
+        },
+        {
+          "card_id": "bwp-BW74/normal",
+          "card_number": "BW74",
+          "name": "Giratina",
+          "price": 499.99,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85739
+        },
+        {
+          "card_id": "bwp-BW95/normal",
+          "card_number": "BW95",
+          "name": "Champions Festival",
+          "price": 310.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 84162
+        }
+      ],
+      "release_date": "2011-03-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 99,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "BW Black Star Promos"
+    },
+    "cel25": {
+      "chase": [
+        {
+          "card_id": "cel25-7/normal",
+          "card_number": "7",
+          "name": "Flying Pikachu VMAX",
+          "price": 6.03,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250305
+        },
+        {
+          "card_id": "cel25-9/normal",
+          "card_number": "9",
+          "name": "Surfing Pikachu VMAX",
+          "price": 5.67,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250307
+        },
+        {
+          "card_id": "cel25-8/normal",
+          "card_number": "8",
+          "name": "Surfing Pikachu V",
+          "price": 3.69,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250306
+        }
+      ],
+      "release_date": "2021-10-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 25,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Celebrations"
+    },
+    "cel25c": {
+      "chase": [
+        {
+          "card_id": "cel25c-4_A/normal",
+          "card_number": "4",
+          "name": "Charizard",
+          "price": 181.41,
+          "rarity": "Classic Collection",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250320
+        },
+        {
+          "card_id": "cel25c-17_A/normal",
+          "card_number": "17",
+          "name": "Umbreon \u2605",
+          "price": 84.3,
+          "rarity": "Classic Collection",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250332
+        },
+        {
+          "card_id": "cel25c-66_A/normal",
+          "card_number": "66",
+          "name": "Shining Magikarp",
+          "price": 37.1,
+          "rarity": "Classic Collection",
+          "subtype": "Holofoil",
+          "tcg_product_id": 250327
+        }
+      ],
+      "release_date": "2021-10-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 25,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Celebrations: Classic Collection"
+    },
+    "col1": {
+      "chase": [
+        {
+          "card_id": "col1-SL10/normal",
+          "card_number": "SL10",
+          "name": "Rayquaza",
+          "price": 437.34,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88629
+        },
+        {
+          "card_id": "col1-SL11/normal",
+          "card_number": "SL11",
+          "name": "Suicune",
+          "price": 362.5,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89606
+        },
+        {
+          "card_id": "col1-SL7/normal",
+          "card_number": "SL7",
+          "name": "Lugia",
+          "price": 338.33,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86911
+        }
+      ],
+      "release_date": "2011-02-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 106,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Call of Legends"
+    },
+    "dc1": {
+      "chase": [
+        {
+          "card_id": "dc1-15/normal",
+          "card_number": "15",
+          "name": "Team Magma's Groudon-EX",
+          "price": 493.22,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 97061
+        },
+        {
+          "card_id": "dc1-6/normal",
+          "card_number": "6",
+          "name": "Team Aqua's Kyogre-EX",
+          "price": 442.99,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 97052
+        },
+        {
+          "card_id": "dc1-21/normal",
+          "card_number": "21",
+          "name": "Team Aqua's Sharpedo",
+          "price": 9.99,
+          "rarity": "Rare Holo",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 97067
+        }
+      ],
+      "release_date": "2015-03-25",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 34,
+        "tier_mixed": true,
+        "tier_used": 4
+      },
+      "set_name": "Double Crisis"
+    },
+    "det1": {
+      "chase": [
+        {
+          "card_id": "det1-5/normal",
+          "card_number": "5",
+          "name": "Charizard",
+          "price": 8.78,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 186007
+        },
+        {
+          "card_id": "det1-12/normal",
+          "card_number": "12",
+          "name": "Mewtwo",
+          "price": 7.0,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 186020
+        },
+        {
+          "card_id": "det1-17/normal",
+          "card_number": "17",
+          "name": "Ditto",
+          "price": 5.77,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 186025
+        }
+      ],
+      "release_date": "2019-04-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 18,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Detective Pikachu"
+    },
+    "dp1": {
+      "chase": [
+        {
+          "card_id": "dp1-121/normal",
+          "card_number": "121",
+          "name": "Infernape LV.X",
+          "price": 109.35,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86281
+        },
+        {
+          "card_id": "dp1-122/normal",
+          "card_number": "122",
+          "name": "Torterra LV.X",
+          "price": 87.4,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89989
+        },
+        {
+          "card_id": "dp1-120/normal",
+          "card_number": "120",
+          "name": "Empoleon LV.X",
+          "price": 56.57,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85206
+        }
+      ],
+      "release_date": "2007-05-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 130,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Diamond & Pearl"
+    },
+    "dp2": {
+      "chase": [
+        {
+          "card_id": "dp2-122/normal",
+          "card_number": "122",
+          "name": "Lucario LV.X",
+          "price": 58.12,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86889
+        },
+        {
+          "card_id": "dp2-124/normal",
+          "card_number": "124",
+          "name": "Time-Space Distortion",
+          "price": 54.71,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89920
+        },
+        {
+          "card_id": "dp2-123/normal",
+          "card_number": "123",
+          "name": "Magmortar LV.X",
+          "price": 46.02,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87063
+        }
+      ],
+      "release_date": "2007-08-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 124,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Mysterious Treasures"
+    },
+    "dp3": {
+      "chase": [
+        {
+          "card_id": "dp3-15/normal",
+          "card_number": "15",
+          "name": "Mew",
+          "price": 145.1,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87403
+        },
+        {
+          "card_id": "dp3-3/normal",
+          "card_number": "3",
+          "name": "Charizard",
+          "price": 138.41,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84189
+        },
+        {
+          "card_id": "dp3-131/normal",
+          "card_number": "131",
+          "name": "Gardevoir LV.X",
+          "price": 90.57,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85643
+        }
+      ],
+      "release_date": "2007-11-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 132,
+        "tier_mixed": true,
+        "tier_used": 4
+      },
+      "set_name": "Secret Wonders"
+    },
+    "dp4": {
+      "chase": [
+        {
+          "card_id": "dp4-105/normal",
+          "card_number": "105",
+          "name": "Dialga LV.X",
+          "price": 125.0,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84812
+        },
+        {
+          "card_id": "dp4-106/normal",
+          "card_number": "106",
+          "name": "Palkia LV.X",
+          "price": 109.99,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87919
+        },
+        {
+          "card_id": "dp4-104/normal",
+          "card_number": "104",
+          "name": "Darkrai LV.X",
+          "price": 85.12,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84711
+        }
+      ],
+      "release_date": "2008-02-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 106,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Great Encounters"
+    },
+    "dp5": {
+      "chase": [
+        {
+          "card_id": "dp5-99/normal",
+          "card_number": "99",
+          "name": "Leafeon LV.X",
+          "price": 340.0,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86684
+        },
+        {
+          "card_id": "dp5-98/normal",
+          "card_number": "98",
+          "name": "Glaceon LV.X",
+          "price": 220.0,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85750
+        },
+        {
+          "card_id": "dp5-97/normal",
+          "card_number": "97",
+          "name": "Garchomp LV.X",
+          "price": 162.5,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85631
+        }
+      ],
+      "release_date": "2008-05-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 100,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Majestic Dawn"
+    },
+    "dp6": {
+      "chase": [
+        {
+          "card_id": "dp6-144/normal",
+          "card_number": "144",
+          "name": "Mewtwo LV.X",
+          "price": 181.0,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87433
+        },
+        {
+          "card_id": "dp6-141/normal",
+          "card_number": "141",
+          "name": "Gliscor LV.X",
+          "price": 107.82,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85777
+        },
+        {
+          "card_id": "dp6-140/normal",
+          "card_number": "140",
+          "name": "Azelf LV.X",
+          "price": 101.26,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83677
+        }
+      ],
+      "release_date": "2008-08-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 146,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Legends Awakened"
+    },
+    "dp7": {
+      "chase": [
+        {
+          "card_id": "dp7-103/normal",
+          "card_number": "103",
+          "name": "Charizard",
+          "price": 700.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84190
+        },
+        {
+          "card_id": "dp7-101/normal",
+          "card_number": "101",
+          "name": "Charmander",
+          "price": 186.76,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84216
+        },
+        {
+          "card_id": "dp7-102/normal",
+          "card_number": "102",
+          "name": "Charmeleon",
+          "price": 64.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84232
+        }
+      ],
+      "release_date": "2008-11-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 106,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Stormfront"
+    },
+    "dpp": {
+      "chase": [
+        {
+          "card_id": "dpp-DP47/normal",
+          "card_number": "DP47",
+          "name": "Rayquaza C LV.X",
+          "price": 224.42,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88641
+        },
+        {
+          "card_id": "dpp-DP45/normal",
+          "card_number": "DP45",
+          "name": "Charizard G LV.X",
+          "price": 121.3,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84202
+        },
+        {
+          "card_id": "dpp-DP12/normal",
+          "card_number": "DP12",
+          "name": "Lucario LV.X",
+          "price": 105.24,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86890
+        }
+      ],
+      "release_date": "2007-05-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 51,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "DP Black Star Promos"
+    },
+    "dv1": {
+      "chase": [
+        {
+          "card_id": "dv1-11/normal",
+          "card_number": "11",
+          "name": "Rayquaza",
+          "price": 30.04,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88631
+        },
+        {
+          "card_id": "dv1-5/normal",
+          "card_number": "5",
+          "name": "Dragonite",
+          "price": 15.27,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84915
+        },
+        {
+          "card_id": "dv1-4/normal",
+          "card_number": "4",
+          "name": "Dragonair",
+          "price": 9.64,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84903
+        }
+      ],
+      "release_date": "2012-10-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 21,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Dragon Vault"
+    },
+    "ecard1": {
+      "chase": [
+        {
+          "card_id": "ecard1-13/normal",
+          "card_number": "13",
+          "name": "Gengar",
+          "price": 555.0,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85671
+        },
+        {
+          "card_id": "ecard1-20/normal",
+          "card_number": "20",
+          "name": "Mewtwo",
+          "price": 500.98,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87418
+        },
+        {
+          "card_id": "ecard1-6/normal",
+          "card_number": "6",
+          "name": "Charizard",
+          "price": 500.0,
+          "rarity": "Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84183
+        }
+      ],
+      "release_date": "2002-09-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 165,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Expedition Base Set"
+    },
+    "ecard2": {
+      "chase": [
+        {
+          "card_id": "ecard2-149/normal",
+          "card_number": "149",
+          "name": "Lugia",
+          "price": 699.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86905
+        },
+        {
+          "card_id": "ecard2-150/normal",
+          "card_number": "150",
+          "name": "Nidoking",
+          "price": 512.5,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87695
+        },
+        {
+          "card_id": "ecard2-148/normal",
+          "card_number": "148",
+          "name": "Kingdra",
+          "price": 205.34,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86444
+        }
+      ],
+      "release_date": "2003-01-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 178,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Aquapolis"
+    },
+    "ecard3": {
+      "chase": [
+        {
+          "card_id": "ecard3-146/normal",
+          "card_number": "146",
+          "name": "Charizard",
+          "price": 1200.0,
+          "rarity": "Rare Secret",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 84186
+        },
+        {
+          "card_id": "ecard3-147/normal",
+          "card_number": "147",
+          "name": "Crobat",
+          "price": 700.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84485
+        },
+        {
+          "card_id": "ecard3-149/normal",
+          "card_number": "149",
+          "name": "Ho-oh",
+          "price": 400.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86121
+        }
+      ],
+      "release_date": "2003-05-12",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 182,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Skyridge"
+    },
+    "ex1": {
+      "chase": [
+        {
+          "card_id": "ex1-101/normal",
+          "card_number": "101",
+          "name": "Mewtwo ex",
+          "price": 188.9,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87428
+        },
+        {
+          "card_id": "ex1-99/normal",
+          "card_number": "99",
+          "name": "Lapras ex",
+          "price": 108.6,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86626
+        },
+        {
+          "card_id": "ex1-102/normal",
+          "card_number": "102",
+          "name": "Scyther ex",
+          "price": 99.03,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89007
+        }
+      ],
+      "release_date": "2003-07-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 109,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Ruby & Sapphire"
+    },
+    "ex10": {
+      "chase": [
+        {
+          "card_id": "ex10-115/normal",
+          "card_number": "115",
+          "name": "Suicune \u2605",
+          "price": 535.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89608
+        },
+        {
+          "card_id": "ex10-113/normal",
+          "card_number": "113",
+          "name": "Entei \u2605",
+          "price": 500.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85275
+        },
+        {
+          "card_id": "ex10-117/normal",
+          "card_number": "117",
+          "name": "Celebi ex",
+          "price": 499.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84150
+        }
+      ],
+      "release_date": "2005-08-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 145,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Unseen Forces"
+    },
+    "ex11": {
+      "chase": [
+        {
+          "card_id": "ex11-112/normal",
+          "card_number": "112",
+          "name": "Kyogre \u2605",
+          "price": 2100.98,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86552
+        },
+        {
+          "card_id": "ex11-113/normal",
+          "card_number": "113",
+          "name": "Metagross \u2605",
+          "price": 1562.48,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87345
+        },
+        {
+          "card_id": "ex11-111/normal",
+          "card_number": "111",
+          "name": "Groudon \u2605",
+          "price": 441.69,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85927
+        }
+      ],
+      "release_date": "2005-10-31",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 114,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Delta Species"
+    },
+    "ex12": {
+      "chase": [
+        {
+          "card_id": "ex12-91/normal",
+          "card_number": "91",
+          "name": "Regirock \u2605",
+          "price": 545.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88673
+        },
+        {
+          "card_id": "ex12-90/normal",
+          "card_number": "90",
+          "name": "Regice \u2605",
+          "price": 501.24,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88658
+        },
+        {
+          "card_id": "ex12-92/normal",
+          "card_number": "92",
+          "name": "Registeel \u2605",
+          "price": 300.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88678
+        }
+      ],
+      "release_date": "2006-02-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 93,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Legend Maker"
+    },
+    "ex13": {
+      "chase": [
+        {
+          "card_id": "ex13-104/normal",
+          "card_number": "104",
+          "name": "Pikachu \u2605",
+          "price": 3200.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88111
+        },
+        {
+          "card_id": "ex13-103/normal",
+          "card_number": "103",
+          "name": "Mewtwo \u2605",
+          "price": 1400.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87427
+        },
+        {
+          "card_id": "ex13-102/normal",
+          "card_number": "102",
+          "name": "Gyarados \u2605 \u03b4",
+          "price": 1000.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86003
+        }
+      ],
+      "release_date": "2006-05-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 111,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Holon Phantoms"
+    },
+    "ex14": {
+      "chase": [
+        {
+          "card_id": "ex14-100/normal",
+          "card_number": "100",
+          "name": "Celebi \u2605",
+          "price": 950.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84149
+        },
+        {
+          "card_id": "ex14-99/normal",
+          "card_number": "99",
+          "name": "Alakazam \u2605",
+          "price": 835.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83502
+        },
+        {
+          "card_id": "ex14-98/normal",
+          "card_number": "98",
+          "name": "Swampert ex",
+          "price": 202.5,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89683
+        }
+      ],
+      "release_date": "2006-08-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 100,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Crystal Guardians"
+    },
+    "ex15": {
+      "chase": [
+        {
+          "card_id": "ex15-100/normal",
+          "card_number": "100",
+          "name": "Charizard \u2605 \u03b4",
+          "price": 2400.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84198
+        },
+        {
+          "card_id": "ex15-101/normal",
+          "card_number": "101",
+          "name": "Mew \u2605 \u03b4",
+          "price": 1700.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87408
+        },
+        {
+          "card_id": "ex15-97/normal",
+          "card_number": "97",
+          "name": "Rayquaza ex \u03b4",
+          "price": 330.0,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88647
+        }
+      ],
+      "release_date": "2006-11-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 101,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Dragon Frontiers"
+    },
+    "ex16": {
+      "chase": [
+        {
+          "card_id": "ex16-100/normal",
+          "card_number": "100",
+          "name": "Flareon \u2605",
+          "price": 1499.98,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85503
+        },
+        {
+          "card_id": "ex16-101/normal",
+          "card_number": "101",
+          "name": "Jolteon \u2605",
+          "price": 1402.48,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86351
+        },
+        {
+          "card_id": "ex16-102/normal",
+          "card_number": "102",
+          "name": "Vaporeon \u2605",
+          "price": 446.65,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90292
+        }
+      ],
+      "release_date": "2007-02-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 108,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Power Keepers"
+    },
+    "ex2": {
+      "chase": [
+        {
+          "card_id": "ex2-96/normal",
+          "card_number": "96",
+          "name": "Gardevoir ex",
+          "price": 159.32,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85641
+        },
+        {
+          "card_id": "ex2-99/normal",
+          "card_number": "99",
+          "name": "Typhlosion ex",
+          "price": 159.21,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90111
+        },
+        {
+          "card_id": "ex2-98/normal",
+          "card_number": "98",
+          "name": "Raichu ex",
+          "price": 146.84,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88525
+        }
+      ],
+      "release_date": "2003-09-18",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 100,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Sandstorm"
+    },
+    "ex3": {
+      "chase": [
+        {
+          "card_id": "ex3-100/normal",
+          "card_number": "100",
+          "name": "Charizard",
+          "price": 802.5,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84187
+        },
+        {
+          "card_id": "ex3-98/normal",
+          "card_number": "98",
+          "name": "Charmander",
+          "price": 200.6,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84208
+        },
+        {
+          "card_id": "ex3-99/normal",
+          "card_number": "99",
+          "name": "Charmeleon",
+          "price": 85.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84225
+        }
+      ],
+      "release_date": "2003-11-24",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 100,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Dragon"
+    },
+    "ex4": {
+      "chase": [
+        {
+          "card_id": "ex4-94/normal",
+          "card_number": "94",
+          "name": "Suicune ex",
+          "price": 324.99,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89611
+        },
+        {
+          "card_id": "ex4-91/normal",
+          "card_number": "91",
+          "name": "Entei ex",
+          "price": 270.0,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85278
+        },
+        {
+          "card_id": "ex4-93/normal",
+          "card_number": "93",
+          "name": "Sceptile ex",
+          "price": 219.99,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88954
+        }
+      ],
+      "release_date": "2004-03-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 97,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Team Magma vs Team Aqua"
+    },
+    "ex5": {
+      "chase": [
+        {
+          "card_id": "ex5-96/normal",
+          "card_number": "96",
+          "name": "Ninetales ex",
+          "price": 209.78,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87782
+        },
+        {
+          "card_id": "ex5-94/normal",
+          "card_number": "94",
+          "name": "Kyogre ex",
+          "price": 154.78,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86556
+        },
+        {
+          "card_id": "ex5-97/normal",
+          "card_number": "97",
+          "name": "Regice ex",
+          "price": 149.37,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88659
+        }
+      ],
+      "release_date": "2004-06-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 102,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Hidden Legends"
+    },
+    "ex6": {
+      "chase": [
+        {
+          "card_id": "ex6-116/normal",
+          "card_number": "116",
+          "name": "Zapdos ex",
+          "price": 279.99,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90723
+        },
+        {
+          "card_id": "ex6-115/normal",
+          "card_number": "115",
+          "name": "Moltres ex",
+          "price": 222.99,
+          "rarity": "Rare Secret",
+          "subtype": "Normal",
+          "tcg_product_id": 87566
+        },
+        {
+          "card_id": "ex6-114/normal",
+          "card_number": "114",
+          "name": "Articuno ex",
+          "price": 107.23,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83654
+        }
+      ],
+      "release_date": "2004-09-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 116,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "FireRed & LeafGreen"
+    },
+    "ex7": {
+      "chase": [
+        {
+          "card_id": "ex7-108/normal",
+          "card_number": "108",
+          "name": "Torchic \u2605",
+          "price": 2499.99,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89965
+        },
+        {
+          "card_id": "ex7-109/normal",
+          "card_number": "109",
+          "name": "Treecko \u2605",
+          "price": 2400.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90046
+        },
+        {
+          "card_id": "ex7-107/normal",
+          "card_number": "107",
+          "name": "Mudkip \u2605",
+          "price": 417.99,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87616
+        }
+      ],
+      "release_date": "2004-11-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 111,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Team Rocket Returns"
+    },
+    "ex8": {
+      "chase": [
+        {
+          "card_id": "ex8-107/normal",
+          "card_number": "107",
+          "name": "Rayquaza \u2605",
+          "price": 2500.99,
+          "rarity": "Rare Holo Star",
+          "subtype": "Normal",
+          "tcg_product_id": 88636
+        },
+        {
+          "card_id": "ex8-105/normal",
+          "card_number": "105",
+          "name": "Latias \u2605",
+          "price": 2300.0,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86658
+        },
+        {
+          "card_id": "ex8-106/normal",
+          "card_number": "106",
+          "name": "Latios \u2605",
+          "price": 649.5,
+          "rarity": "Rare Holo Star",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86672
+        }
+      ],
+      "release_date": "2005-02-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 108,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Deoxys"
+    },
+    "ex9": {
+      "chase": [
+        {
+          "card_id": "ex9-96/normal",
+          "card_number": "96",
+          "name": "Milotic ex",
+          "price": 409.43,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87460
+        },
+        {
+          "card_id": "ex9-100/normal",
+          "card_number": "100",
+          "name": "Registeel ex",
+          "price": 219.98,
+          "rarity": "Rare Holo EX",
+          "subtype": "Normal",
+          "tcg_product_id": 88680
+        },
+        {
+          "card_id": "ex9-98/normal",
+          "card_number": "98",
+          "name": "Regice ex",
+          "price": 189.78,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88660
+        }
+      ],
+      "release_date": "2005-05-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 107,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Emerald"
+    },
+    "g1": {
+      "chase": [
+        {
+          "card_id": "g1-12/normal",
+          "card_number": "12",
+          "name": "M Charizard-EX",
+          "price": 146.39,
+          "rarity": "Rare Holo EX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 113670
+        },
+        {
+          "card_id": "g1-RC32/normal",
+          "card_number": "RC32",
+          "name": "Sylveon-EX",
+          "price": 126.17,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 113764
+        },
+        {
+          "card_id": "g1-RC28/normal",
+          "card_number": "RC28",
+          "name": "Flareon-EX",
+          "price": 123.7,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 113748
+        }
+      ],
+      "release_date": "2016-02-22",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 115,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Generations"
+    },
+    "gym1": {
+      "chase": [
+        {
+          "card_id": "gym1-14/normal",
+          "card_number": "14",
+          "name": "Sabrina's Gengar",
+          "price": 601.75,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 88874
+        },
+        {
+          "card_id": "gym1-13/normal",
+          "card_number": "13",
+          "name": "Rocket's Scyther",
+          "price": 238.32,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 88788
+        },
+        {
+          "card_id": "gym1-4/normal",
+          "card_number": "4",
+          "name": "Erika's Dragonair",
+          "price": 200.91,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 85290
+        }
+      ],
+      "release_date": "2000-08-14",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 132,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Gym Heroes"
+    },
+    "gym2": {
+      "chase": [
+        {
+          "card_id": "gym2-2/normal",
+          "card_number": "2",
+          "name": "Blaine's Charizard",
+          "price": 852.01,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 83861
+        },
+        {
+          "card_id": "gym2-14/normal",
+          "card_number": "14",
+          "name": "Rocket's Mewtwo",
+          "price": 450.96,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 88777
+        },
+        {
+          "card_id": "gym2-5/normal",
+          "card_number": "5",
+          "name": "Giovanni's Gyarados",
+          "price": 352.24,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 85710
+        }
+      ],
+      "release_date": "2000-10-16",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 132,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Gym Challenge"
+    },
+    "hgss1": {
+      "chase": [
+        {
+          "card_id": "hgss1-113/normal",
+          "card_number": "113",
+          "name": "Lugia LEGEND",
+          "price": 204.33,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86918
+        },
+        {
+          "card_id": "hgss1-114/normal",
+          "card_number": "114",
+          "name": "Lugia LEGEND",
+          "price": 192.06,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86917
+        },
+        {
+          "card_id": "hgss1-111/normal",
+          "card_number": "111",
+          "name": "Ho-Oh LEGEND",
+          "price": 172.63,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86133
+        }
+      ],
+      "release_date": "2010-02-10",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 124,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "HeartGold & SoulSilver"
+    },
+    "hgss2": {
+      "chase": [
+        {
+          "card_id": "hgss2-92/normal",
+          "card_number": "92",
+          "name": "Raikou & Suicune LEGEND",
+          "price": 179.44,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88539
+        },
+        {
+          "card_id": "hgss2-93/normal",
+          "card_number": "93",
+          "name": "Raikou & Suicune LEGEND",
+          "price": 158.82,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88538
+        },
+        {
+          "card_id": "hgss2-TWO/normal",
+          "card_number": "TWO",
+          "name": "Alph Lithograph",
+          "price": 122.07,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83510
+        }
+      ],
+      "release_date": "2010-05-12",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 96,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "HS\u2014Unleashed"
+    },
+    "hgss3": {
+      "chase": [
+        {
+          "card_id": "hgss3-90/normal",
+          "card_number": "90",
+          "name": "Rayquaza & Deoxys LEGEND",
+          "price": 224.9,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88637
+        },
+        {
+          "card_id": "hgss3-89/normal",
+          "card_number": "89",
+          "name": "Rayquaza & Deoxys LEGEND",
+          "price": 197.35,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88638
+        },
+        {
+          "card_id": "hgss3-88/normal",
+          "card_number": "88",
+          "name": "Kyogre & Groudon LEGEND",
+          "price": 124.23,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86553
+        }
+      ],
+      "release_date": "2010-08-18",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 91,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "HS\u2014Undaunted"
+    },
+    "hgss4": {
+      "chase": [
+        {
+          "card_id": "hgss4-99/normal",
+          "card_number": "99",
+          "name": "Darkrai & Cresselia LEGEND",
+          "price": 141.47,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84705
+        },
+        {
+          "card_id": "hgss4-100/normal",
+          "card_number": "100",
+          "name": "Darkrai & Cresselia LEGEND",
+          "price": 119.17,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 84704
+        },
+        {
+          "card_id": "hgss4-101/normal",
+          "card_number": "101",
+          "name": "Palkia & Dialga LEGEND",
+          "price": 110.02,
+          "rarity": "LEGEND",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87914
+        }
+      ],
+      "release_date": "2010-11-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 103,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "HS\u2014Triumphant"
+    },
+    "hsp": {
+      "chase": [
+        {
+          "card_id": "hsp-HGSS18/normal",
+          "card_number": "HGSS18",
+          "name": "Tropical Tidal Wave",
+          "price": 599.95,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90052
+        },
+        {
+          "card_id": "hsp-HGSS02/normal",
+          "card_number": "HGSS02",
+          "name": "Lugia",
+          "price": 63.99,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86909
+        },
+        {
+          "card_id": "hsp-HGSS01/normal",
+          "card_number": "HGSS01",
+          "name": "Ho-Oh",
+          "price": 49.98,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86125
+        }
+      ],
+      "release_date": "2010-02-10",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 25,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "HGSS Black Star Promos"
+    },
+    "mcd11": {
+      "chase": [
+        {
+          "card_id": "mcd11-9/normal",
+          "card_number": "9",
+          "name": "Zorua",
+          "price": 8.65,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 90758
+        },
+        {
+          "card_id": "mcd11-2/normal",
+          "card_number": "2",
+          "name": "Maractus",
+          "price": 6.9,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 87189
+        },
+        {
+          "card_id": "mcd11-4/normal",
+          "card_number": "4",
+          "name": "Oshawott",
+          "price": 5.73,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 87893
+        }
+      ],
+      "release_date": "2011-06-17",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2011"
+    },
+    "mcd12": {
+      "chase": [
+        {
+          "card_id": "mcd12-9/normal",
+          "card_number": "9",
+          "name": "Purrloin",
+          "price": 13.38,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 88463
+        },
+        {
+          "card_id": "mcd12-6/normal",
+          "card_number": "6",
+          "name": "Emolga",
+          "price": 10.21,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 85193
+        },
+        {
+          "card_id": "mcd12-10/normal",
+          "card_number": "10",
+          "name": "Scraggy",
+          "price": 9.41,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 88986
+        }
+      ],
+      "release_date": "2012-06-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2012"
+    },
+    "mcd14": {
+      "chase": [
+        {
+          "card_id": "mcd14-5/normal",
+          "card_number": "5",
+          "name": "Pikachu",
+          "price": 31.28,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110410
+        },
+        {
+          "card_id": "mcd14-1/normal",
+          "card_number": "1",
+          "name": "Weedle",
+          "price": 13.76,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110406
+        },
+        {
+          "card_id": "mcd14-3/normal",
+          "card_number": "3",
+          "name": "Fennekin",
+          "price": 13.75,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110408
+        }
+      ],
+      "release_date": "2014-05-23",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2014"
+    },
+    "mcd15": {
+      "chase": [
+        {
+          "card_id": "mcd15-6/normal",
+          "card_number": "6",
+          "name": "Pikachu",
+          "price": 32.13,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110424
+        },
+        {
+          "card_id": "mcd15-12/normal",
+          "card_number": "12",
+          "name": "Skitty",
+          "price": 16.44,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110432
+        },
+        {
+          "card_id": "mcd15-5/normal",
+          "card_number": "5",
+          "name": "Mudkip",
+          "price": 16.2,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 110427
+        }
+      ],
+      "release_date": "2015-11-27",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2015"
+    },
+    "mcd16": {
+      "chase": [
+        {
+          "card_id": "mcd16-10/normal",
+          "card_number": "10",
+          "name": "Dedenne",
+          "price": 35.66,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 275066
+        },
+        {
+          "card_id": "mcd16-11/normal",
+          "card_number": "11",
+          "name": "Meowth",
+          "price": 34.99,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 275067
+        },
+        {
+          "card_id": "mcd16-7/normal",
+          "card_number": "7",
+          "name": "Scraggy",
+          "price": 29.0,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 275063
+        }
+      ],
+      "release_date": "2016-08-19",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 11,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2016"
+    },
+    "mcd17": {
+      "chase": [
+        {
+          "card_id": "mcd17-5/normal",
+          "card_number": "5",
+          "name": "Pikachu",
+          "price": 20.96,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 152685
+        },
+        {
+          "card_id": "mcd17-1/normal",
+          "card_number": "1",
+          "name": "Rowlet",
+          "price": 6.19,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 152681
+        },
+        {
+          "card_id": "mcd17-3/normal",
+          "card_number": "3",
+          "name": "Litten",
+          "price": 5.47,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 152683
+        }
+      ],
+      "release_date": "2017-11-07",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2017"
+    },
+    "mcd18": {
+      "chase": [
+        {
+          "card_id": "mcd18-2/normal",
+          "card_number": "2",
+          "name": "Psyduck",
+          "price": 43.97,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 180451
+        },
+        {
+          "card_id": "mcd18-4/normal",
+          "card_number": "4",
+          "name": "Pikachu",
+          "price": 26.92,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 180452
+        },
+        {
+          "card_id": "mcd18-7/normal",
+          "card_number": "7",
+          "name": "Cubone",
+          "price": 24.09,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 180455
+        }
+      ],
+      "release_date": "2018-10-16",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2018"
+    },
+    "mcd19": {
+      "chase": [
+        {
+          "card_id": "mcd19-6/normal",
+          "card_number": "6",
+          "name": "Pikachu",
+          "price": 19.67,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 200967
+        },
+        {
+          "card_id": "mcd19-5/normal",
+          "card_number": "5",
+          "name": "Lapras",
+          "price": 18.1,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 200966
+        },
+        {
+          "card_id": "mcd19-12/normal",
+          "card_number": "12",
+          "name": "Eevee",
+          "price": 17.34,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 200977
+        }
+      ],
+      "release_date": "2019-10-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2019"
+    },
+    "mcd21": {
+      "chase": [
+        {
+          "card_id": "mcd21-25/normal",
+          "card_number": "25",
+          "name": "Pikachu",
+          "price": 21.55,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 232339
+        },
+        {
+          "card_id": "mcd21-1/normal",
+          "card_number": "1",
+          "name": "Bulbasaur",
+          "price": 3.99,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 232316
+        },
+        {
+          "card_id": "mcd21-17/normal",
+          "card_number": "17",
+          "name": "Squirtle",
+          "price": 3.66,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 232331
+        }
+      ],
+      "release_date": "2021-02-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 25,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2021"
+    },
+    "mcd22": {
+      "chase": [
+        {
+          "card_id": "mcd22-7/normal",
+          "card_number": "7",
+          "name": "Pikachu",
+          "price": 4.2,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 282523
+        },
+        {
+          "card_id": "mcd22-4/normal",
+          "card_number": "4",
+          "name": "Growlithe",
+          "price": 1.03,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 281503
+        },
+        {
+          "card_id": "mcd22-15/normal",
+          "card_number": "15",
+          "name": "Smeargle",
+          "price": 0.7,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 281500
+        }
+      ],
+      "release_date": "2022-08-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 15,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "McDonald's Collection 2022"
+    },
+    "me1": {
+      "chase": [
+        {
+          "card_id": "me1-188/normal",
+          "card_number": "188",
+          "name": "Mega Lucario ex",
+          "price": 280.04,
+          "rarity": "Mega Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 654527
+        },
+        {
+          "card_id": "me1-187/normal",
+          "card_number": "187",
+          "name": "Mega Gardevoir ex",
+          "price": 221.86,
+          "rarity": "Mega Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 654526
+        },
+        {
+          "card_id": "me1-178/normal",
+          "card_number": "178",
+          "name": "Mega Gardevoir ex",
+          "price": 174.77,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 654517
+        }
+      ],
+      "release_date": "2025-09-26",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 188,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Mega Evolution"
+    },
+    "me2": {
+      "chase": [
+        {
+          "card_id": "me2-125/normal",
+          "card_number": "125",
+          "name": "Mega Charizard X ex",
+          "price": 618.0,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 662184
+        },
+        {
+          "card_id": "me2-130/normal",
+          "card_number": "130",
+          "name": "Mega Charizard X ex",
+          "price": 388.43,
+          "rarity": "Mega Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 662185
+        },
+        {
+          "card_id": "me2-129/normal",
+          "card_number": "129",
+          "name": "Dawn",
+          "price": 32.55,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 662150
+        }
+      ],
+      "release_date": "2025-11-14",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 130,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Phantasmal Flames"
+    },
+    "me2pt5": {
+      "chase": [
+        {
+          "card_id": "me2pt5-284/normal",
+          "card_number": "284",
+          "name": "Mega Gengar ex",
+          "price": 903.98,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 676096
+        },
+        {
+          "card_id": "me2pt5-290/normal",
+          "card_number": "290",
+          "name": "Mega Dragonite ex",
+          "price": 572.22,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 676102
+        },
+        {
+          "card_id": "me2pt5-294/normal",
+          "card_number": "294",
+          "name": "Mega Charizard Y ex",
+          "price": 544.23,
+          "rarity": "Mega Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 676106
+        }
+      ],
+      "release_date": "2026-01-30",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 295,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Ascended Heroes"
+    },
+    "neo1": {
+      "chase": [
+        {
+          "card_id": "neo1-9/normal",
+          "card_number": "9",
+          "name": "Lugia",
+          "price": 1800.0,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 86903
+        },
+        {
+          "card_id": "neo1-17/normal",
+          "card_number": "17",
+          "name": "Typhlosion",
+          "price": 322.33,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 90098
+        },
+        {
+          "card_id": "neo1-12/normal",
+          "card_number": "12",
+          "name": "Pichu",
+          "price": 267.5,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 88011
+        }
+      ],
+      "release_date": "2000-12-16",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 111,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Neo Genesis"
+    },
+    "neo2": {
+      "chase": [
+        {
+          "card_id": "neo2-13/normal",
+          "card_number": "13",
+          "name": "Umbreon",
+          "price": 1799.99,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 90137
+        },
+        {
+          "card_id": "neo2-12/normal",
+          "card_number": "12",
+          "name": "Tyranitar",
+          "price": 400.65,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 90113
+        },
+        {
+          "card_id": "neo2-1/normal",
+          "card_number": "1",
+          "name": "Espeon",
+          "price": 384.47,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 85316
+        }
+      ],
+      "release_date": "2001-06-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 75,
+        "tier_mixed": false,
+        "tier_used": 3
+      },
+      "set_name": "Neo Discovery"
+    },
+    "neo3": {
+      "chase": [
+        {
+          "card_id": "neo3-65/normal",
+          "card_number": "65",
+          "name": "Shining Gyarados",
+          "price": 1200.0,
+          "rarity": "Rare Shining",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 89164
+        },
+        {
+          "card_id": "neo3-66/normal",
+          "card_number": "66",
+          "name": "Shining Magikarp",
+          "price": 549.0,
+          "rarity": "Rare Shining",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 89166
+        },
+        {
+          "card_id": "neo3-13/normal",
+          "card_number": "13",
+          "name": "Raikou",
+          "price": 500.0,
+          "rarity": "Rare Holo",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 88529
+        }
+      ],
+      "release_date": "2001-09-21",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 66,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Neo Revelation"
+    },
+    "neo4": {
+      "chase": [
+        {
+          "card_id": "neo4-107/normal",
+          "card_number": "107",
+          "name": "Shining Charizard",
+          "price": 3998.99,
+          "rarity": "Rare Shining",
+          "subtype": "Unlimited Holofoil",
+          "tcg_product_id": 89163
+        },
+        {
+          "card_id": "neo4-109/normal",
+          "card_number": "109",
+          "name": "Shining Mewtwo",
+          "price": 913.32,
+          "rarity": "Rare Shining",
+          "subtype": "Unlimited Holofoil",
+          "tcg_product_id": 89167
+        },
+        {
+          "card_id": "neo4-113/normal",
+          "card_number": "113",
+          "name": "Shining Tyranitar",
+          "price": 700.0,
+          "rarity": "Rare Shining",
+          "subtype": "1st Edition Holofoil",
+          "tcg_product_id": 89171
+        }
+      ],
+      "release_date": "2002-02-28",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 113,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Neo Destiny"
+    },
+    "np": {
+      "chase": [
+        {
+          "card_id": "np-7/normal",
+          "card_number": "7",
+          "name": "Treecko",
+          "price": 374.95,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90036
+        },
+        {
+          "card_id": "np-39/normal",
+          "card_number": "39",
+          "name": "Rayquaza ex",
+          "price": 311.49,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88644
+        },
+        {
+          "card_id": "np-23/normal",
+          "card_number": "23",
+          "name": "Metang",
+          "price": 295.24,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 87374
+        }
+      ],
+      "release_date": "2003-10-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 36,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Nintendo Black Star Promos"
+    },
+    "pgo": {
+      "chase": [
+        {
+          "card_id": "pgo-79/normal",
+          "card_number": "79",
+          "name": "Mewtwo VSTAR",
+          "price": 39.69,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 277011
+        },
+        {
+          "card_id": "pgo-81/normal",
+          "card_number": "81",
+          "name": "Dragonite VSTAR",
+          "price": 37.45,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 277014
+        },
+        {
+          "card_id": "pgo-86/normal",
+          "card_number": "86",
+          "name": "Mewtwo VSTAR",
+          "price": 25.56,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 277024
+        }
+      ],
+      "release_date": "2022-07-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 88,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Pok\u00e9mon GO"
+    },
+    "pl1": {
+      "chase": [
+        {
+          "card_id": "pl1-130/normal",
+          "card_number": "130",
+          "name": "Scyther",
+          "price": 23.76,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89002
+        },
+        {
+          "card_id": "pl1-129/normal",
+          "card_number": "129",
+          "name": "Hitmonchan",
+          "price": 21.2,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86094
+        },
+        {
+          "card_id": "pl1-128/normal",
+          "card_number": "128",
+          "name": "Electabuzz",
+          "price": 15.71,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85116
+        }
+      ],
+      "release_date": "2009-02-11",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 133,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Platinum"
+    },
+    "pl2": {
+      "chase": [
+        {
+          "card_id": "pl2-112/normal",
+          "card_number": "112",
+          "name": "Pikachu",
+          "price": 148.16,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88091
+        },
+        {
+          "card_id": "pl2-113/normal",
+          "card_number": "113",
+          "name": "Flying Pikachu",
+          "price": 120.95,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85535
+        },
+        {
+          "card_id": "pl2-114/normal",
+          "card_number": "114",
+          "name": "Surfing Pikachu",
+          "price": 115.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 89644
+        }
+      ],
+      "release_date": "2009-05-16",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 120,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Rising Rivals"
+    },
+    "pl3": {
+      "chase": [
+        {
+          "card_id": "pl3-149/normal",
+          "card_number": "149",
+          "name": "Moltres",
+          "price": 200.74,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87563
+        },
+        {
+          "card_id": "pl3-150/normal",
+          "card_number": "150",
+          "name": "Zapdos",
+          "price": 192.05,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90719
+        },
+        {
+          "card_id": "pl3-148/normal",
+          "card_number": "148",
+          "name": "Articuno",
+          "price": 131.73,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83651
+        }
+      ],
+      "release_date": "2009-08-19",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 153,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Supreme Victors"
+    },
+    "pl4": {
+      "chase": [
+        {
+          "card_id": "pl4-97/normal",
+          "card_number": "97",
+          "name": "Gengar LV.X",
+          "price": 320.66,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85682
+        },
+        {
+          "card_id": "pl4-98/normal",
+          "card_number": "98",
+          "name": "Salamence LV.X",
+          "price": 67.33,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88906
+        },
+        {
+          "card_id": "pl4-95/normal",
+          "card_number": "95",
+          "name": "Arceus LV.X",
+          "price": 65.48,
+          "rarity": "Rare Holo LV.X",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83603
+        }
+      ],
+      "release_date": "2009-11-04",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 111,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Arceus"
+    },
+    "pop1": {
+      "chase": [
+        {
+          "card_id": "pop1-17/normal",
+          "card_number": "17",
+          "name": "Tyranitar ex",
+          "price": 108.22,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90124
+        },
+        {
+          "card_id": "pop1-3/normal",
+          "card_number": "3",
+          "name": "Rayquaza",
+          "price": 53.8,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88624
+        },
+        {
+          "card_id": "pop1-16/normal",
+          "card_number": "16",
+          "name": "Armaldo ex",
+          "price": 47.34,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83623
+        }
+      ],
+      "release_date": "2004-09-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 1"
+    },
+    "pop2": {
+      "chase": [
+        {
+          "card_id": "pop2-17/normal",
+          "card_number": "17",
+          "name": "Celebi ex",
+          "price": 39.99,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 84151
+        },
+        {
+          "card_id": "pop2-1/normal",
+          "card_number": "1",
+          "name": "Entei",
+          "price": 32.6,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85271
+        },
+        {
+          "card_id": "pop2-6/normal",
+          "card_number": "6",
+          "name": "Venusaur",
+          "price": 28.84,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90317
+        }
+      ],
+      "release_date": "2005-08-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 2"
+    },
+    "pop3": {
+      "chase": [
+        {
+          "card_id": "pop3-1/normal",
+          "card_number": "1",
+          "name": "Blastoise",
+          "price": 149.99,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 83891
+        },
+        {
+          "card_id": "pop3-17/normal",
+          "card_number": "17",
+          "name": "Ho-Oh ex",
+          "price": 61.48,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 86129
+        },
+        {
+          "card_id": "pop3-4/normal",
+          "card_number": "4",
+          "name": "Minun",
+          "price": 42.35,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87487
+        }
+      ],
+      "release_date": "2006-04-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 3"
+    },
+    "pop4": {
+      "chase": [
+        {
+          "card_id": "pop4-1/normal",
+          "card_number": "1",
+          "name": "Chimecho \u03b4",
+          "price": 569.07,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 84298
+        },
+        {
+          "card_id": "pop4-17/normal",
+          "card_number": "17",
+          "name": "Deoxys ex",
+          "price": 299.0,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 84774
+        },
+        {
+          "card_id": "pop4-5/normal",
+          "card_number": "5",
+          "name": "Sceptile",
+          "price": 159.99,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 88948
+        }
+      ],
+      "release_date": "2006-08-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 4"
+    },
+    "pop5": {
+      "chase": [
+        {
+          "card_id": "pop5-16/normal",
+          "card_number": "16",
+          "name": "Espeon \u2605",
+          "price": 1900.0,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 85329
+        },
+        {
+          "card_id": "pop5-3/normal",
+          "card_number": "3",
+          "name": "Mew \u03b4",
+          "price": 248.0,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87407
+        },
+        {
+          "card_id": "pop5-2/normal",
+          "card_number": "2",
+          "name": "Lugia",
+          "price": 107.0,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86907
+        }
+      ],
+      "release_date": "2007-03-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 5"
+    },
+    "pop6": {
+      "chase": [
+        {
+          "card_id": "pop6-2/normal",
+          "card_number": "2",
+          "name": "Lucario",
+          "price": 16.48,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 86874
+        },
+        {
+          "card_id": "pop6-3/normal",
+          "card_number": "3",
+          "name": "Manaphy",
+          "price": 8.37,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 87144
+        },
+        {
+          "card_id": "pop6-4/normal",
+          "card_number": "4",
+          "name": "Pachirisu",
+          "price": 2.81,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 87898
+        }
+      ],
+      "release_date": "2007-09-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 6"
+    },
+    "pop7": {
+      "chase": [
+        {
+          "card_id": "pop7-3/normal",
+          "card_number": "3",
+          "name": "Latias",
+          "price": 22.5,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 86652
+        },
+        {
+          "card_id": "pop7-2/normal",
+          "card_number": "2",
+          "name": "Gallade",
+          "price": 18.66,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 85605
+        },
+        {
+          "card_id": "pop7-4/normal",
+          "card_number": "4",
+          "name": "Latios",
+          "price": 15.49,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 86666
+        }
+      ],
+      "release_date": "2008-03-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 7"
+    },
+    "pop8": {
+      "chase": [
+        {
+          "card_id": "pop8-2/normal",
+          "card_number": "2",
+          "name": "Lucario",
+          "price": 18.49,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 86877
+        },
+        {
+          "card_id": "pop8-3/normal",
+          "card_number": "3",
+          "name": "Luxray",
+          "price": 7.47,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 86948
+        },
+        {
+          "card_id": "pop8-5/normal",
+          "card_number": "5",
+          "name": "Yanmega",
+          "price": 5.34,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90691
+        }
+      ],
+      "release_date": "2008-09-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 8"
+    },
+    "pop9": {
+      "chase": [
+        {
+          "card_id": "pop9-1/normal",
+          "card_number": "1",
+          "name": "Garchomp",
+          "price": 35.94,
+          "rarity": "Rare",
+          "subtype": "Normal",
+          "tcg_product_id": 85622
+        },
+        {
+          "card_id": "pop9-3/normal",
+          "card_number": "3",
+          "name": "Raichu",
+          "price": 10.07,
+          "rarity": "Rare",
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 88514
+        },
+        {
+          "card_id": "pop9-4/normal",
+          "card_number": "4",
+          "name": "Regigigas",
+          "price": 5.8,
+          "rarity": "Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 88664
+        }
+      ],
+      "release_date": "2009-03-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 17,
+        "tier_mixed": false,
+        "tier_used": 2
+      },
+      "set_name": "POP Series 9"
+    },
+    "rsv10pt5": {
+      "chase": [
+        {
+          "card_id": "rsv10pt5-173/normal",
+          "card_number": "173",
+          "name": "Reshiram ex",
+          "price": 346.43,
+          "rarity": "Black White Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642289
+        },
+        {
+          "card_id": "rsv10pt5-166/normal",
+          "card_number": "166",
+          "name": "Reshiram ex",
+          "price": 150.8,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642283
+        },
+        {
+          "card_id": "rsv10pt5-169/normal",
+          "card_number": "169",
+          "name": "Hydreigon ex",
+          "price": 71.49,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642286
+        }
+      ],
+      "release_date": "2025-07-18",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 173,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "White Flare"
+    },
+    "ru1": {
+      "chase": [
+        {
+          "card_id": "ru1-7/normal",
+          "card_number": "7",
+          "name": "Pikachu",
+          "price": 539.99,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 88096
+        },
+        {
+          "card_id": "ru1-9/normal",
+          "card_number": "9",
+          "name": "Mewtwo",
+          "price": 324.97,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 87423
+        },
+        {
+          "card_id": "ru1-3/normal",
+          "card_number": "3",
+          "name": "Ninetales",
+          "price": 249.99,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 87775
+        }
+      ],
+      "release_date": "2009-12-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 16,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Pok\u00e9mon Rumble"
+    },
+    "si1": {
+      "chase": [
+        {
+          "card_id": "si1-1/normal",
+          "card_number": "1",
+          "name": "Mew",
+          "price": 299.61,
+          "rarity": null,
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 46466
+        },
+        {
+          "card_id": "si1-14/normal",
+          "card_number": "14",
+          "name": "Slowking",
+          "price": 149.06,
+          "rarity": null,
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 46471
+        },
+        {
+          "card_id": "si1-4/normal",
+          "card_number": "4",
+          "name": "Togepi",
+          "price": 120.28,
+          "rarity": null,
+          "subtype": "Reverse Holofoil",
+          "tcg_product_id": 46478
+        }
+      ],
+      "release_date": "2001-07-31",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 18,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Southern Islands"
+    },
+    "sm1": {
+      "chase": [
+        {
+          "card_id": "sm1-154/normal",
+          "card_number": "154",
+          "name": "Umbreon-GX",
+          "price": 110.16,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 127193
+        },
+        {
+          "card_id": "sm1-152/normal",
+          "card_number": "152",
+          "name": "Espeon-GX",
+          "price": 40.11,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 127191
+        },
+        {
+          "card_id": "sm1-161/normal",
+          "card_number": "161",
+          "name": "Ultra Ball",
+          "price": 32.54,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 127200
+        }
+      ],
+      "release_date": "2017-02-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 163,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Sun & Moon"
+    },
+    "sm10": {
+      "chase": [
+        {
+          "card_id": "sm10-217/normal",
+          "card_number": "217",
+          "name": "Reshiram & Charizard-GX",
+          "price": 196.77,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 189319
+        },
+        {
+          "card_id": "sm10-225/normal",
+          "card_number": "225",
+          "name": "Gardevoir & Sylveon-GX",
+          "price": 129.57,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 189317
+        },
+        {
+          "card_id": "sm10-218/normal",
+          "card_number": "218",
+          "name": "Blastoise-GX",
+          "price": 97.63,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 189100
+        }
+      ],
+      "release_date": "2019-05-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 234,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Unbroken Bonds"
+    },
+    "sm11": {
+      "chase": [
+        {
+          "card_id": "sm11-242/normal",
+          "card_number": "242",
+          "name": "Mewtwo & Mew-GX",
+          "price": 372.51,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 194999
+        },
+        {
+          "card_id": "sm11-239/normal",
+          "card_number": "239",
+          "name": "Slowpoke & Psyduck-GX",
+          "price": 147.17,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 194956
+        },
+        {
+          "card_id": "sm11-241/normal",
+          "card_number": "241",
+          "name": "Raichu & Alolan Raichu-GX",
+          "price": 124.62,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 194980
+        }
+      ],
+      "release_date": "2019-08-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 258,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Unified Minds"
+    },
+    "sm115": {
+      "chase": [
+        {
+          "card_id": "sm115-68/normal",
+          "card_number": "68",
+          "name": "Jessie & James",
+          "price": 54.94,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197732
+        },
+        {
+          "card_id": "sm115-69/normal",
+          "card_number": "69",
+          "name": "Moltres & Zapdos & Articuno-GX",
+          "price": 33.75,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197728
+        },
+        {
+          "card_id": "sm115-44/normal",
+          "card_number": "44",
+          "name": "Moltres & Zapdos & Articuno-GX",
+          "price": 32.97,
+          "rarity": "Rare Holo GX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197688
+        }
+      ],
+      "release_date": "2019-08-23",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 69,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Hidden Fates"
+    },
+    "sm12": {
+      "chase": [
+        {
+          "card_id": "sm12-259/normal",
+          "card_number": "259",
+          "name": "Reshiram & Zekrom-GX",
+          "price": 186.13,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 201620
+        },
+        {
+          "card_id": "sm12-241/normal",
+          "card_number": "241",
+          "name": "Pikachu",
+          "price": 121.58,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 201352
+        },
+        {
+          "card_id": "sm12-254/normal",
+          "card_number": "254",
+          "name": "Solgaleo & Lunala-GX",
+          "price": 116.72,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 201614
+        }
+      ],
+      "release_date": "2019-11-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 271,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Cosmic Eclipse"
+    },
+    "sm2": {
+      "chase": [
+        {
+          "card_id": "sm2-158/normal",
+          "card_number": "158",
+          "name": "Sylveon-GX",
+          "price": 126.27,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 131008
+        },
+        {
+          "card_id": "sm2-150/normal",
+          "card_number": "150",
+          "name": "Alolan Ninetales-GX",
+          "price": 67.23,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 130922
+        },
+        {
+          "card_id": "sm2-146/normal",
+          "card_number": "146",
+          "name": "Decidueye-GX",
+          "price": 34.87,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 131054
+        }
+      ],
+      "release_date": "2017-05-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 169,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Guardians Rising"
+    },
+    "sm3": {
+      "chase": [
+        {
+          "card_id": "sm3-150/normal",
+          "card_number": "150",
+          "name": "Charizard-GX",
+          "price": 484.09,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 138497
+        },
+        {
+          "card_id": "sm3-169/normal",
+          "card_number": "169",
+          "name": "Fairy Energy",
+          "price": 78.03,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 138637
+        },
+        {
+          "card_id": "sm3-168/normal",
+          "card_number": "168",
+          "name": "Darkness Energy",
+          "price": 47.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 138636
+        }
+      ],
+      "release_date": "2017-08-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 169,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Burning Shadows"
+    },
+    "sm35": {
+      "chase": [
+        {
+          "card_id": "sm35-78/normal",
+          "card_number": "78",
+          "name": "Mewtwo-GX",
+          "price": 535.82,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 146698
+        },
+        {
+          "card_id": "sm35-40/normal",
+          "card_number": "40",
+          "name": "Shining Mew",
+          "price": 84.97,
+          "rarity": "Rare Shining",
+          "subtype": "Holofoil",
+          "tcg_product_id": 146699
+        },
+        {
+          "card_id": "sm35-56/normal",
+          "card_number": "56",
+          "name": "Shining Rayquaza",
+          "price": 70.99,
+          "rarity": "Rare Shining",
+          "subtype": "Holofoil",
+          "tcg_product_id": 146719
+        }
+      ],
+      "release_date": "2017-10-06",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 78,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Shining Legends"
+    },
+    "sm4": {
+      "chase": [
+        {
+          "card_id": "sm4-112/normal",
+          "card_number": "112",
+          "name": "Gyarados-GX",
+          "price": 53.57,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 149127
+        },
+        {
+          "card_id": "sm4-124/normal",
+          "card_number": "124",
+          "name": "Water Energy",
+          "price": 13.52,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 149149
+        },
+        {
+          "card_id": "sm4-115/normal",
+          "card_number": "115",
+          "name": "Buzzwole-GX",
+          "price": 13.18,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 149133
+        }
+      ],
+      "release_date": "2017-11-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 124,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Crimson Invasion"
+    },
+    "sm5": {
+      "chase": [
+        {
+          "card_id": "sm5-157/normal",
+          "card_number": "157",
+          "name": "Leafeon-GX",
+          "price": 86.86,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 157773
+        },
+        {
+          "card_id": "sm5-159/normal",
+          "card_number": "159",
+          "name": "Glaceon-GX",
+          "price": 71.19,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 157775
+        },
+        {
+          "card_id": "sm5-173/normal",
+          "card_number": "173",
+          "name": "Solgaleo-GX",
+          "price": 56.56,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 157789
+        }
+      ],
+      "release_date": "2018-02-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 172,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Ultra Prism"
+    },
+    "sm6": {
+      "chase": [
+        {
+          "card_id": "sm6-135/normal",
+          "card_number": "135",
+          "name": "Lucario-GX",
+          "price": 119.13,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 165781
+        },
+        {
+          "card_id": "sm6-133/normal",
+          "card_number": "133",
+          "name": "Greninja-GX",
+          "price": 100.26,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 165675
+        },
+        {
+          "card_id": "sm6-138/normal",
+          "card_number": "138",
+          "name": "Dialga-GX",
+          "price": 78.76,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 165740
+        }
+      ],
+      "release_date": "2018-05-04",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 146,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Forbidden Light"
+    },
+    "sm7": {
+      "chase": [
+        {
+          "card_id": "sm7-177/normal",
+          "card_number": "177",
+          "name": "Rayquaza-GX",
+          "price": 240.48,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 170938
+        },
+        {
+          "card_id": "sm7-170/normal",
+          "card_number": "170",
+          "name": "Blaziken-GX",
+          "price": 69.03,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 170843
+        },
+        {
+          "card_id": "sm7-171/normal",
+          "card_number": "171",
+          "name": "Articuno-GX",
+          "price": 59.35,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 170848
+        }
+      ],
+      "release_date": "2018-08-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 183,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Celestial Storm"
+    },
+    "sm75": {
+      "chase": [
+        {
+          "card_id": "sm75-78/normal",
+          "card_number": "78",
+          "name": "Ultra Necrozma-GX",
+          "price": 92.47,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 175508
+        },
+        {
+          "card_id": "sm75-71/normal",
+          "card_number": "71",
+          "name": "Reshiram-GX",
+          "price": 75.51,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 175501
+        },
+        {
+          "card_id": "sm75-74/normal",
+          "card_number": "74",
+          "name": "White Kyurem-GX",
+          "price": 57.34,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 175504
+        }
+      ],
+      "release_date": "2018-09-07",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 79,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Dragon Majesty"
+    },
+    "sm8": {
+      "chase": [
+        {
+          "card_id": "sm8-227/normal",
+          "card_number": "227",
+          "name": "Lugia-GX",
+          "price": 221.06,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 178982
+        },
+        {
+          "card_id": "sm8-226/normal",
+          "card_number": "226",
+          "name": "Mimikyu-GX",
+          "price": 206.3,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 178970
+        },
+        {
+          "card_id": "sm8-223/normal",
+          "card_number": "223",
+          "name": "Tyranitar-GX",
+          "price": 101.15,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 178936
+        }
+      ],
+      "release_date": "2018-11-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 236,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Lost Thunder"
+    },
+    "sm9": {
+      "chase": [
+        {
+          "card_id": "sm9-186/normal",
+          "card_number": "186",
+          "name": "Gengar & Mimikyu-GX",
+          "price": 332.43,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 183831
+        },
+        {
+          "card_id": "sm9-191/normal",
+          "card_number": "191",
+          "name": "Eevee & Snorlax-GX",
+          "price": 223.29,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 183909
+        },
+        {
+          "card_id": "sm9-184/normal",
+          "card_number": "184",
+          "name": "Pikachu & Zekrom-GX",
+          "price": 209.22,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 183806
+        }
+      ],
+      "release_date": "2019-02-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 196,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Team Up"
+    },
+    "sma": {
+      "chase": [
+        {
+          "card_id": "sma-SV49/normal",
+          "card_number": "SV49",
+          "name": "Charizard-GX",
+          "price": 582.48,
+          "rarity": "Rare Shiny GX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197780
+        },
+        {
+          "card_id": "sma-SV69/normal",
+          "card_number": "SV69",
+          "name": "Umbreon-GX",
+          "price": 219.14,
+          "rarity": "Rare Shiny GX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197823
+        },
+        {
+          "card_id": "sma-SV76/normal",
+          "card_number": "SV76",
+          "name": "Sylveon-GX",
+          "price": 159.44,
+          "rarity": "Rare Shiny GX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 197830
+        }
+      ],
+      "release_date": "2019-08-23",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 94,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Hidden Fates Shiny Vault"
+    },
+    "smp": {
+      "chase": [
+        {
+          "card_id": "smp-SM78/normal",
+          "card_number": "SM78",
+          "name": "Champions Festival",
+          "price": 250.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 179428
+        },
+        {
+          "card_id": "smp-SM148/normal",
+          "card_number": "SM148",
+          "name": "Champions Festival",
+          "price": 249.99,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 175064
+        },
+        {
+          "card_id": "smp-SM231/normal",
+          "card_number": "SM231",
+          "name": "Champions Festival",
+          "price": 239.99,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 198360
+        }
+      ],
+      "release_date": "2017-02-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 250,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "SM Black Star Promos"
+    },
+    "sv1": {
+      "chase": [
+        {
+          "card_id": "sv1-245/normal",
+          "card_number": "245",
+          "name": "Gardevoir ex",
+          "price": 61.87,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 486623
+        },
+        {
+          "card_id": "sv1-251/normal",
+          "card_number": "251",
+          "name": "Miriam",
+          "price": 22.98,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 487061
+        },
+        {
+          "card_id": "sv1-244/normal",
+          "card_number": "244",
+          "name": "Miraidon ex",
+          "price": 19.23,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 485259
+        }
+      ],
+      "release_date": "2023-03-31",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 258,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Scarlet & Violet"
+    },
+    "sv10": {
+      "chase": [
+        {
+          "card_id": "sv10-231/normal",
+          "card_number": "231",
+          "name": "Team Rocket's Mewtwo ex",
+          "price": 447.71,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 633031
+        },
+        {
+          "card_id": "sv10-232/normal",
+          "card_number": "232",
+          "name": "Cynthia's Garchomp ex",
+          "price": 193.01,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 633032
+        },
+        {
+          "card_id": "sv10-230/normal",
+          "card_number": "230",
+          "name": "Ethan's Ho-Oh ex",
+          "price": 145.85,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 633030
+        }
+      ],
+      "release_date": "2025-05-30",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 244,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Destined Rivals"
+    },
+    "sv2": {
+      "chase": [
+        {
+          "card_id": "sv2-269/normal",
+          "card_number": "269",
+          "name": "Iono",
+          "price": 50.45,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 497689
+        },
+        {
+          "card_id": "sv2-259/normal",
+          "card_number": "259",
+          "name": "Chi-Yu ex",
+          "price": 35.68,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 497678
+        },
+        {
+          "card_id": "sv2-262/normal",
+          "card_number": "262",
+          "name": "Tinkaton ex",
+          "price": 34.94,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 497681
+        }
+      ],
+      "release_date": "2023-06-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 279,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Paldea Evolved"
+    },
+    "sv3": {
+      "chase": [
+        {
+          "card_id": "sv3-223/normal",
+          "card_number": "223",
+          "name": "Charizard ex",
+          "price": 78.23,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 509980
+        },
+        {
+          "card_id": "sv3-228/normal",
+          "card_number": "228",
+          "name": "Charizard ex",
+          "price": 38.53,
+          "rarity": "Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 509989
+        },
+        {
+          "card_id": "sv3-225/normal",
+          "card_number": "225",
+          "name": "Pidgeot ex",
+          "price": 14.56,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 509983
+        }
+      ],
+      "release_date": "2023-08-11",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 230,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Obsidian Flames"
+    },
+    "sv3pt5": {
+      "chase": [
+        {
+          "card_id": "sv3pt5-199/normal",
+          "card_number": "199",
+          "name": "Charizard ex",
+          "price": 337.66,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 517045
+        },
+        {
+          "card_id": "sv3pt5-200/normal",
+          "card_number": "200",
+          "name": "Blastoise ex",
+          "price": 135.78,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 517046
+        },
+        {
+          "card_id": "sv3pt5-198/normal",
+          "card_number": "198",
+          "name": "Venusaur ex",
+          "price": 102.27,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 517044
+        }
+      ],
+      "release_date": "2023-09-22",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 207,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "151"
+    },
+    "sv4": {
+      "chase": [
+        {
+          "card_id": "sv4-253/normal",
+          "card_number": "253",
+          "name": "Altaria ex",
+          "price": 41.52,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 523934
+        },
+        {
+          "card_id": "sv4-251/normal",
+          "card_number": "251",
+          "name": "Roaring Moon ex",
+          "price": 32.83,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 523932
+        },
+        {
+          "card_id": "sv4-245/normal",
+          "card_number": "245",
+          "name": "Garchomp ex",
+          "price": 26.81,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 523926
+        }
+      ],
+      "release_date": "2023-11-03",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 266,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Paradox Rift"
+    },
+    "sv4pt5": {
+      "chase": [
+        {
+          "card_id": "sv4pt5-232/normal",
+          "card_number": "232",
+          "name": "Mew ex",
+          "price": 541.17,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 534919
+        },
+        {
+          "card_id": "sv4pt5-234/normal",
+          "card_number": "234",
+          "name": "Charizard ex",
+          "price": 218.16,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 535090
+        },
+        {
+          "card_id": "sv4pt5-233/normal",
+          "card_number": "233",
+          "name": "Gardevoir ex",
+          "price": 116.92,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 535085
+        }
+      ],
+      "release_date": "2024-01-26",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 245,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Paldean Fates"
+    },
+    "sv5": {
+      "chase": [
+        {
+          "card_id": "sv5-208/normal",
+          "card_number": "208",
+          "name": "Raging Bolt ex",
+          "price": 60.82,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 542929
+        },
+        {
+          "card_id": "sv5-211/normal",
+          "card_number": "211",
+          "name": "Morty's Conviction",
+          "price": 41.94,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 542932
+        },
+        {
+          "card_id": "sv5-205/normal",
+          "card_number": "205",
+          "name": "Walking Wake ex",
+          "price": 35.44,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 542926
+        }
+      ],
+      "release_date": "2024-03-22",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 218,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Temporal Forces"
+    },
+    "sv6": {
+      "chase": [
+        {
+          "card_id": "sv6-214/normal",
+          "card_number": "214",
+          "name": "Greninja ex",
+          "price": 281.31,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 550258
+        },
+        {
+          "card_id": "sv6-220/normal",
+          "card_number": "220",
+          "name": "Perrin",
+          "price": 108.19,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 550264
+        },
+        {
+          "card_id": "sv6-217/normal",
+          "card_number": "217",
+          "name": "Carmine",
+          "price": 56.87,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 550261
+        }
+      ],
+      "release_date": "2024-05-24",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 226,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Twilight Masquerade"
+    },
+    "sv6pt5": {
+      "chase": [
+        {
+          "card_id": "sv6pt5-92/normal",
+          "card_number": "92",
+          "name": "Fezandipiti ex",
+          "price": 45.74,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 560403
+        },
+        {
+          "card_id": "sv6pt5-98/normal",
+          "card_number": "98",
+          "name": "Basic Darkness Energy",
+          "price": 44.73,
+          "rarity": "Hyper Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 560409
+        },
+        {
+          "card_id": "sv6pt5-94/normal",
+          "card_number": "94",
+          "name": "Cassiopeia",
+          "price": 35.52,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 560405
+        }
+      ],
+      "release_date": "2024-08-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 99,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Shrouded Fable"
+    },
+    "sv7": {
+      "chase": [
+        {
+          "card_id": "sv7-169/normal",
+          "card_number": "169",
+          "name": "Dachsbun ex",
+          "price": 37.82,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 567476
+        },
+        {
+          "card_id": "sv7-170/normal",
+          "card_number": "170",
+          "name": "Terapagos ex",
+          "price": 31.71,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 567478
+        },
+        {
+          "card_id": "sv7-167/normal",
+          "card_number": "167",
+          "name": "Hydrapple ex",
+          "price": 21.32,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 567472
+        }
+      ],
+      "release_date": "2024-09-13",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 175,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Stellar Crown"
+    },
+    "sv8": {
+      "chase": [
+        {
+          "card_id": "sv8-238/normal",
+          "card_number": "238",
+          "name": "Pikachu ex",
+          "price": 254.14,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 590027
+        },
+        {
+          "card_id": "sv8-239/normal",
+          "card_number": "239",
+          "name": "Latias ex",
+          "price": 167.41,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 589985
+        },
+        {
+          "card_id": "sv8-237/normal",
+          "card_number": "237",
+          "name": "Milotic ex",
+          "price": 92.98,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 590006
+        }
+      ],
+      "release_date": "2024-11-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 252,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Surging Sparks"
+    },
+    "sv8pt5": {
+      "chase": [
+        {
+          "card_id": "sv8pt5-161/normal",
+          "card_number": "161",
+          "name": "Umbreon ex",
+          "price": 1085.32,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 610516
+        },
+        {
+          "card_id": "sv8pt5-156/normal",
+          "card_number": "156",
+          "name": "Sylveon ex",
+          "price": 305.29,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 610511
+        },
+        {
+          "card_id": "sv8pt5-144/normal",
+          "card_number": "144",
+          "name": "Leafeon ex",
+          "price": 241.4,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 610499
+        }
+      ],
+      "release_date": "2025-01-17",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 180,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Prismatic Evolutions"
+    },
+    "sv9": {
+      "chase": [
+        {
+          "card_id": "sv9-184/normal",
+          "card_number": "184",
+          "name": "Lillie's Clefairy ex",
+          "price": 121.84,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 623611
+        },
+        {
+          "card_id": "sv9-187/normal",
+          "card_number": "187",
+          "name": "Salamence ex",
+          "price": 58.14,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 623614
+        },
+        {
+          "card_id": "sv9-185/normal",
+          "card_number": "185",
+          "name": "N's Zoroark ex",
+          "price": 52.11,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 623612
+        }
+      ],
+      "release_date": "2025-03-28",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 190,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Journey Together"
+    },
+    "sve": {
+      "chase": [
+        {
+          "card_id": "sve-6/normal",
+          "card_number": "6",
+          "name": "Basic Fighting Energy",
+          "price": 0.43,
+          "rarity": "Common",
+          "subtype": "Holofoil",
+          "tcg_product_id": 475430
+        },
+        {
+          "card_id": "sve-10/normal",
+          "card_number": "10",
+          "name": "Basic Fire Energy",
+          "price": 0.2,
+          "rarity": "Common",
+          "subtype": "Holofoil",
+          "tcg_product_id": 578863
+        },
+        {
+          "card_id": "sve-15/normal",
+          "card_number": "15",
+          "name": "Basic Darkness Energy",
+          "price": 0.2,
+          "rarity": "Common",
+          "subtype": "Holofoil",
+          "tcg_product_id": 578868
+        }
+      ],
+      "release_date": "2023-03-31",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 16,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Scarlet & Violet Energies"
+    },
+    "svp": {
+      "chase": [
+        {
+          "card_id": "svp-85/normal",
+          "card_number": "85",
+          "name": "Pikachu with Grey Felt Hat",
+          "price": 612.04,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 518861
+        },
+        {
+          "card_id": "svp-150/normal",
+          "card_number": "150",
+          "name": "Paradise Resort",
+          "price": 570.98,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 578146
+        },
+        {
+          "card_id": "svp-45/normal",
+          "card_number": "45",
+          "name": "Paradise Resort",
+          "price": 549.98,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 518863
+        }
+      ],
+      "release_date": "2023-01-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 156,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Scarlet & Violet Black Star Promos"
+    },
+    "swsh1": {
+      "chase": [
+        {
+          "card_id": "swsh1-206/normal",
+          "card_number": "206",
+          "name": "Snorlax VMAX",
+          "price": 76.95,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 208459
+        },
+        {
+          "card_id": "swsh1-208/normal",
+          "card_number": "208",
+          "name": "Marnie",
+          "price": 18.36,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 208497
+        },
+        {
+          "card_id": "swsh1-216/normal",
+          "card_number": "216",
+          "name": "Quick Ball",
+          "price": 16.78,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 208512
+        }
+      ],
+      "release_date": "2020-02-07",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 216,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Sword & Shield"
+    },
+    "swsh10": {
+      "chase": [
+        {
+          "card_id": "swsh10-198/normal",
+          "card_number": "198",
+          "name": "Origin Forme Dialga VSTAR",
+          "price": 12.51,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272452
+        },
+        {
+          "card_id": "swsh10-194/normal",
+          "card_number": "194",
+          "name": "Machamp VMAX",
+          "price": 11.95,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272448
+        },
+        {
+          "card_id": "swsh10-192/normal",
+          "card_number": "192",
+          "name": "Origin Forme Palkia VSTAR",
+          "price": 11.47,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272446
+        }
+      ],
+      "release_date": "2022-05-27",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 216,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Astral Radiance"
+    },
+    "swsh10tg": {
+      "chase": [
+        {
+          "card_id": "swsh10tg-TG13/normal",
+          "card_number": "TG13",
+          "name": "Starmie V",
+          "price": 96.48,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272484
+        },
+        {
+          "card_id": "swsh10tg-TG23/normal",
+          "card_number": "TG23",
+          "name": "Garchomp V",
+          "price": 61.25,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272495
+        },
+        {
+          "card_id": "swsh10tg-TG21/normal",
+          "card_number": "TG21",
+          "name": "Zacian V",
+          "price": 15.73,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 272493
+        }
+      ],
+      "release_date": "2022-05-27",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 30,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Astral Radiance Trainer Gallery"
+    },
+    "swsh11": {
+      "chase": [
+        {
+          "card_id": "swsh11-201/normal",
+          "card_number": "201",
+          "name": "Giratina VSTAR",
+          "price": 24.1,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284156
+        },
+        {
+          "card_id": "swsh11-212/normal",
+          "card_number": "212",
+          "name": "Giratina VSTAR",
+          "price": 14.06,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284167
+        },
+        {
+          "card_id": "swsh11-199/normal",
+          "card_number": "199",
+          "name": "Aerodactyl VSTAR",
+          "price": 12.29,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284154
+        }
+      ],
+      "release_date": "2022-09-09",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 217,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Lost Origin"
+    },
+    "swsh11tg": {
+      "chase": [
+        {
+          "card_id": "swsh11tg-TG17/normal",
+          "card_number": "TG17",
+          "name": "Pikachu VMAX",
+          "price": 76.46,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284283
+        },
+        {
+          "card_id": "swsh11tg-TG16/normal",
+          "card_number": "TG16",
+          "name": "Pikachu V",
+          "price": 68.35,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284278
+        },
+        {
+          "card_id": "swsh11tg-TG06/normal",
+          "card_number": "TG06",
+          "name": "Gengar",
+          "price": 37.86,
+          "rarity": "Trainer Gallery Rare Holo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 284266
+        }
+      ],
+      "release_date": "2022-09-09",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 30,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Lost Origin Trainer Gallery"
+    },
+    "swsh12": {
+      "chase": [
+        {
+          "card_id": "swsh12-202/normal",
+          "card_number": "202",
+          "name": "Lugia VSTAR",
+          "price": 34.62,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 451995
+        },
+        {
+          "card_id": "swsh12-211/normal",
+          "card_number": "211",
+          "name": "Lugia VSTAR",
+          "price": 20.91,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 452009
+        },
+        {
+          "card_id": "swsh12-197/normal",
+          "card_number": "197",
+          "name": "Alolan Vulpix VSTAR",
+          "price": 18.0,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 451987
+        }
+      ],
+      "release_date": "2022-11-11",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 215,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Silver Tempest"
+    },
+    "swsh12pt5": {
+      "chase": [
+        {
+          "card_id": "swsh12pt5-160/normal",
+          "card_number": "160",
+          "name": "Pikachu",
+          "price": 33.9,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 478103
+        },
+        {
+          "card_id": "swsh12pt5-147/normal",
+          "card_number": "147",
+          "name": "Elesa's Sparkle",
+          "price": 15.04,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 477241
+        },
+        {
+          "card_id": "swsh12pt5-20/normal",
+          "card_number": "20",
+          "name": "Radiant Charizard",
+          "price": 11.1,
+          "rarity": "Radiant Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 478098
+        }
+      ],
+      "release_date": "2023-01-20",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 160,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Crown Zenith"
+    },
+    "swsh12pt5gg": {
+      "chase": [
+        {
+          "card_id": "swsh12pt5gg-GG69/normal",
+          "card_number": "GG69",
+          "name": "Giratina VSTAR",
+          "price": 218.54,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 478100
+        },
+        {
+          "card_id": "swsh12pt5gg-GG70/normal",
+          "card_number": "GG70",
+          "name": "Arceus VSTAR",
+          "price": 120.76,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 478101
+        },
+        {
+          "card_id": "swsh12pt5gg-GG68/normal",
+          "card_number": "GG68",
+          "name": "Origin Forme Dialga VSTAR",
+          "price": 99.11,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 478099
+        }
+      ],
+      "release_date": "2023-01-20",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 70,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Crown Zenith Galarian Gallery"
+    },
+    "swsh12tg": {
+      "chase": [
+        {
+          "card_id": "swsh12tg-TG20/normal",
+          "card_number": "TG20",
+          "name": "Rayquaza VMAX",
+          "price": 101.4,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 452034
+        },
+        {
+          "card_id": "swsh12tg-TG15/normal",
+          "card_number": "TG15",
+          "name": "Blaziken VMAX",
+          "price": 28.44,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 452031
+        },
+        {
+          "card_id": "swsh12tg-TG14/normal",
+          "card_number": "TG14",
+          "name": "Blaziken V",
+          "price": 22.72,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 452030
+        }
+      ],
+      "release_date": "2022-11-11",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 30,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Silver Tempest Trainer Gallery"
+    },
+    "swsh2": {
+      "chase": [
+        {
+          "card_id": "swsh2-200/normal",
+          "card_number": "200",
+          "name": "Boss's Orders",
+          "price": 35.37,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 213257
+        },
+        {
+          "card_id": "swsh2-197/normal",
+          "card_number": "197",
+          "name": "Dragapult VMAX",
+          "price": 19.42,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 213181
+        },
+        {
+          "card_id": "swsh2-194/normal",
+          "card_number": "194",
+          "name": "Cinderace VMAX",
+          "price": 16.21,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 213114
+        }
+      ],
+      "release_date": "2020-05-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 209,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Rebel Clash"
+    },
+    "swsh3": {
+      "chase": [
+        {
+          "card_id": "swsh3-190/normal",
+          "card_number": "190",
+          "name": "Butterfree VMAX",
+          "price": 13.52,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 219312
+        },
+        {
+          "card_id": "swsh3-194/normal",
+          "card_number": "194",
+          "name": "Salamence VMAX",
+          "price": 13.04,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 219320
+        },
+        {
+          "card_id": "swsh3-192/normal",
+          "card_number": "192",
+          "name": "Eternatus VMAX",
+          "price": 10.01,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 219318
+        }
+      ],
+      "release_date": "2020-08-14",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 201,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Darkness Ablaze"
+    },
+    "swsh35": {
+      "chase": [
+        {
+          "card_id": "swsh35-79/normal",
+          "card_number": "79",
+          "name": "Charizard V",
+          "price": 254.83,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 223078
+        },
+        {
+          "card_id": "swsh35-74/normal",
+          "card_number": "74",
+          "name": "Charizard VMAX",
+          "price": 180.8,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 223073
+        },
+        {
+          "card_id": "swsh35-76/normal",
+          "card_number": "76",
+          "name": "Gardevoir VMAX",
+          "price": 14.5,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 223075
+        }
+      ],
+      "release_date": "2020-09-25",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 80,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Champion's Path"
+    },
+    "swsh4": {
+      "chase": [
+        {
+          "card_id": "swsh4-188/normal",
+          "card_number": "188",
+          "name": "Pikachu VMAX",
+          "price": 138.95,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 226434
+        },
+        {
+          "card_id": "swsh4-191/normal",
+          "card_number": "191",
+          "name": "Togekiss VMAX",
+          "price": 12.01,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 226599
+        },
+        {
+          "card_id": "swsh4-196/normal",
+          "card_number": "196",
+          "name": "Nessa",
+          "price": 9.52,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 226525
+        }
+      ],
+      "release_date": "2020-11-13",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 203,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Vivid Voltage"
+    },
+    "swsh45": {
+      "chase": [
+        {
+          "card_id": "swsh45-72/normal",
+          "card_number": "72",
+          "name": "Skyla",
+          "price": 10.36,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232527
+        },
+        {
+          "card_id": "swsh45-70/normal",
+          "card_number": "70",
+          "name": "Pok\u00e9 Kid",
+          "price": 7.46,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232531
+        },
+        {
+          "card_id": "swsh45-73/normal",
+          "card_number": "73",
+          "name": "Alcremie VMAX",
+          "price": 5.04,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232525
+        }
+      ],
+      "release_date": "2021-02-19",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 73,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Shining Fates"
+    },
+    "swsh45sv": {
+      "chase": [
+        {
+          "card_id": "swsh45sv-SV022/normal",
+          "card_number": "SV022",
+          "name": "Suicune",
+          "price": 11.05,
+          "rarity": "Rare Shiny",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232371
+        },
+        {
+          "card_id": "swsh45sv-SV047/normal",
+          "card_number": "SV047",
+          "name": "Galarian Ponyta",
+          "price": 8.79,
+          "rarity": "Rare Shiny",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232408
+        },
+        {
+          "card_id": "swsh45sv-SV039/normal",
+          "card_number": "SV039",
+          "name": "Yamper",
+          "price": 8.08,
+          "rarity": "Rare Shiny",
+          "subtype": "Holofoil",
+          "tcg_product_id": 232395
+        }
+      ],
+      "release_date": "2021-02-19",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 122,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Shining Fates Shiny Vault"
+    },
+    "swsh5": {
+      "chase": [
+        {
+          "card_id": "swsh5-170/normal",
+          "card_number": "170",
+          "name": "Rapid Strike Urshifu VMAX",
+          "price": 70.91,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 234093
+        },
+        {
+          "card_id": "swsh5-168/normal",
+          "card_number": "168",
+          "name": "Single Strike Urshifu VMAX",
+          "price": 32.23,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 234088
+        },
+        {
+          "card_id": "swsh5-179/normal",
+          "card_number": "179",
+          "name": "Houndoom",
+          "price": 22.46,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 234104
+        }
+      ],
+      "release_date": "2021-03-19",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 183,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Battle Styles"
+    },
+    "swsh6": {
+      "chase": [
+        {
+          "card_id": "swsh6-201/normal",
+          "card_number": "201",
+          "name": "Blaziken VMAX",
+          "price": 349.82,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 241673
+        },
+        {
+          "card_id": "swsh6-224/normal",
+          "card_number": "224",
+          "name": "Snorlax",
+          "price": 103.82,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 241875
+        },
+        {
+          "card_id": "swsh6-205/normal",
+          "card_number": "205",
+          "name": "Shadow Rider Calyrex VMAX",
+          "price": 72.93,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 241740
+        }
+      ],
+      "release_date": "2021-06-18",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 233,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Chilling Reign"
+    },
+    "swsh7": {
+      "chase": [
+        {
+          "card_id": "swsh7-215/normal",
+          "card_number": "215",
+          "name": "Umbreon VMAX",
+          "price": 1679.22,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 246723
+        },
+        {
+          "card_id": "swsh7-218/normal",
+          "card_number": "218",
+          "name": "Rayquaza VMAX",
+          "price": 656.92,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 246733
+        },
+        {
+          "card_id": "swsh7-212/normal",
+          "card_number": "212",
+          "name": "Sylveon VMAX",
+          "price": 334.53,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 246704
+        }
+      ],
+      "release_date": "2021-08-27",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 237,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Evolving Skies"
+    },
+    "swsh8": {
+      "chase": [
+        {
+          "card_id": "swsh8-271/normal",
+          "card_number": "271",
+          "name": "Gengar VMAX",
+          "price": 732.65,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 253266
+        },
+        {
+          "card_id": "swsh8-270/normal",
+          "card_number": "270",
+          "name": "Espeon VMAX",
+          "price": 295.22,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 253265
+        },
+        {
+          "card_id": "swsh8-269/normal",
+          "card_number": "269",
+          "name": "Mew VMAX",
+          "price": 180.63,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 253177
+        }
+      ],
+      "release_date": "2021-11-12",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 284,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Fusion Strike"
+    },
+    "swsh9": {
+      "chase": [
+        {
+          "card_id": "swsh9-174/normal",
+          "card_number": "174",
+          "name": "Charizard VSTAR",
+          "price": 62.91,
+          "rarity": "Rare Rainbow",
+          "subtype": "Holofoil",
+          "tcg_product_id": 263893
+        },
+        {
+          "card_id": "swsh9-186/normal",
+          "card_number": "186",
+          "name": "Ultra Ball",
+          "price": 26.05,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 263907
+        },
+        {
+          "card_id": "swsh9-184/normal",
+          "card_number": "184",
+          "name": "Arceus VSTAR",
+          "price": 14.56,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 263904
+        }
+      ],
+      "release_date": "2022-02-25",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 186,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Brilliant Stars"
+    },
+    "swsh9tg": {
+      "chase": [
+        {
+          "card_id": "swsh9tg-TG23/normal",
+          "card_number": "TG23",
+          "name": "Umbreon VMAX",
+          "price": 74.23,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 264206
+        },
+        {
+          "card_id": "swsh9tg-TG15/normal",
+          "card_number": "TG15",
+          "name": "Sylveon VMAX",
+          "price": 57.41,
+          "rarity": "Rare Holo VMAX",
+          "subtype": "Holofoil",
+          "tcg_product_id": 264208
+        },
+        {
+          "card_id": "swsh9tg-TG16/normal",
+          "card_number": "TG16",
+          "name": "Mimikyu V",
+          "price": 54.14,
+          "rarity": "Rare Holo V",
+          "subtype": "Holofoil",
+          "tcg_product_id": 264221
+        }
+      ],
+      "release_date": "2022-02-25",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 30,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Brilliant Stars Trainer Gallery"
+    },
+    "swshp": {
+      "chase": [
+        {
+          "card_id": "swshp-SWSH296/normal",
+          "card_number": "SWSH296",
+          "name": "Champions Festival",
+          "price": 475.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 503454
+        },
+        {
+          "card_id": "swshp-SWSH177/normal",
+          "card_number": "SWSH177",
+          "name": "Special Delivery Bidoof",
+          "price": 421.79,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 247386
+        },
+        {
+          "card_id": "swshp-SWSH074/normal",
+          "card_number": "SWSH074",
+          "name": "Special Delivery Pikachu",
+          "price": 293.52,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 227646
+        }
+      ],
+      "release_date": "2019-11-15",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 304,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "SWSH Black Star Promos"
+    },
+    "tk1a": {
+      "chase": [
+        {
+          "card_id": "tk1a-4/normal",
+          "card_number": "4",
+          "name": "Latias",
+          "price": 9.07,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 86650
+        },
+        {
+          "card_id": "tk1a-2/normal",
+          "card_number": "2",
+          "name": "Combusken",
+          "price": 0.52,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 84403
+        },
+        {
+          "card_id": "tk1a-5/normal",
+          "card_number": "5",
+          "name": "Numel",
+          "price": 0.46,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 87808
+        }
+      ],
+      "release_date": "2004-06-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 10,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "EX Trainer Kit Latias"
+    },
+    "tk1b": {
+      "chase": [
+        {
+          "card_id": "tk1b-2/normal",
+          "card_number": "2",
+          "name": "Latios",
+          "price": 8.12,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 86664
+        },
+        {
+          "card_id": "tk1b-6/normal",
+          "card_number": "6",
+          "name": "Pikachu",
+          "price": 2.81,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 88079
+        },
+        {
+          "card_id": "tk1b-3/normal",
+          "card_number": "3",
+          "name": "Linoone",
+          "price": 0.46,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 86805
+        }
+      ],
+      "release_date": "2004-06-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 8,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "EX Trainer Kit Latios"
+    },
+    "tk2a": {
+      "chase": [
+        {
+          "card_id": "tk2a-6/normal",
+          "card_number": "6",
+          "name": "Plusle",
+          "price": 10.07,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 88166
+        },
+        {
+          "card_id": "tk2a-12/normal",
+          "card_number": "12",
+          "name": "Psychic Energy",
+          "price": 0.7,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 88420
+        },
+        {
+          "card_id": "tk2a-11/normal",
+          "card_number": "11",
+          "name": "Lightning Energy",
+          "price": 0.64,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 86763
+        }
+      ],
+      "release_date": "2006-03-01",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 12,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "EX Trainer Kit 2 Plusle"
+    },
+    "tk2b": {
+      "chase": [
+        {
+          "card_id": "tk2b-6/normal",
+          "card_number": "6",
+          "name": "Minun",
+          "price": 9.92,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 87486
+        },
+        {
+          "card_id": "tk2b-1/normal",
+          "card_number": "1",
+          "name": "Arcanine",
+          "price": 6.08,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 83583
+        },
+        {
+          "card_id": "tk2b-3/normal",
+          "card_number": "3",
+          "name": "Charmeleon",
+          "price": 1.31,
+          "rarity": "Uncommon",
+          "subtype": "Normal",
+          "tcg_product_id": 84228
+        }
+      ],
+      "release_date": "2006-03-01",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 12,
+        "tier_mixed": true,
+        "tier_used": 1
+      },
+      "set_name": "EX Trainer Kit 2 Minun"
+    },
+    "xy0": {
+      "chase": [
+        {
+          "card_id": "xy0-26/normal",
+          "card_number": "26",
+          "name": "Snorlax",
+          "price": 33.45,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 89394
+        },
+        {
+          "card_id": "xy0-29/normal",
+          "card_number": "29",
+          "name": "Bidoof",
+          "price": 8.28,
+          "rarity": null,
+          "subtype": "Normal",
+          "tcg_product_id": 83831
+        },
+        {
+          "card_id": "xy0-14/normal",
+          "card_number": "14",
+          "name": "Greninja",
+          "price": 7.94,
+          "rarity": null,
+          "subtype": "Holofoil",
+          "tcg_product_id": 85903
+        }
+      ],
+      "release_date": "2013-11-08",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 39,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "Kalos Starter Set"
+    },
+    "xy1": {
+      "chase": [
+        {
+          "card_id": "xy1-142/normal",
+          "card_number": "142",
+          "name": "Blastoise-EX",
+          "price": 138.95,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 83902
+        },
+        {
+          "card_id": "xy1-146/normal",
+          "card_number": "146",
+          "name": "Xerneas-EX",
+          "price": 89.63,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90672
+        },
+        {
+          "card_id": "xy1-141/normal",
+          "card_number": "141",
+          "name": "Venusaur-EX",
+          "price": 85.97,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 90325
+        }
+      ],
+      "release_date": "2014-02-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 146,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "XY"
+    },
+    "xy10": {
+      "chase": [
+        {
+          "card_id": "xy10-119/normal",
+          "card_number": "119",
+          "name": "Umbreon-EX",
+          "price": 140.31,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 117891
+        },
+        {
+          "card_id": "xy10-125/normal",
+          "card_number": "125",
+          "name": "Alakazam-EX",
+          "price": 111.19,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 117896
+        },
+        {
+          "card_id": "xy10-118/normal",
+          "card_number": "118",
+          "name": "M Alakazam-EX",
+          "price": 83.52,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 117890
+        }
+      ],
+      "release_date": "2016-05-02",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 125,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Fates Collide"
+    },
+    "xy11": {
+      "chase": [
+        {
+          "card_id": "xy11-116/normal",
+          "card_number": "116",
+          "name": "Gardevoir-EX",
+          "price": 83.26,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 121240
+        },
+        {
+          "card_id": "xy11-112/normal",
+          "card_number": "112",
+          "name": "M Gardevoir-EX",
+          "price": 48.6,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 121236
+        },
+        {
+          "card_id": "xy11-115/normal",
+          "card_number": "115",
+          "name": "Volcanion-EX",
+          "price": 32.89,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 121239
+        }
+      ],
+      "release_date": "2016-08-03",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 116,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Steam Siege"
+    },
+    "xy12": {
+      "chase": [
+        {
+          "card_id": "xy12-111/normal",
+          "card_number": "111",
+          "name": "Surfing Pikachu",
+          "price": 7.84,
+          "rarity": "Rare Secret",
+          "subtype": "Normal",
+          "tcg_product_id": 124124
+        },
+        {
+          "card_id": "xy12-110/normal",
+          "card_number": "110",
+          "name": "Flying Pikachu",
+          "price": 5.47,
+          "rarity": "Rare Secret",
+          "subtype": "Normal",
+          "tcg_product_id": 124123
+        },
+        {
+          "card_id": "xy12-109/normal",
+          "card_number": "109",
+          "name": "\u30ca\u30c3\u30b7\u30fc[Exeggutor]",
+          "price": 2.18,
+          "rarity": "Rare Secret",
+          "subtype": "Normal",
+          "tcg_product_id": 124122
+        }
+      ],
+      "release_date": "2016-11-02",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 113,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Evolutions"
+    },
+    "xy2": {
+      "chase": [
+        {
+          "card_id": "xy2-108/normal",
+          "card_number": "108",
+          "name": "M Charizard-EX",
+          "price": 561.26,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 91246
+        },
+        {
+          "card_id": "xy2-107/normal",
+          "card_number": "107",
+          "name": "M Charizard-EX",
+          "price": 261.92,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 91245
+        },
+        {
+          "card_id": "xy2-109/normal",
+          "card_number": "109",
+          "name": "M Kangaskhan-EX",
+          "price": 50.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 91247
+        }
+      ],
+      "release_date": "2014-05-07",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 109,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Flashfire"
+    },
+    "xy3": {
+      "chase": [
+        {
+          "card_id": "xy3-113/normal",
+          "card_number": "113",
+          "name": "M Lucario-EX",
+          "price": 169.86,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 92292
+        },
+        {
+          "card_id": "xy3-107/normal",
+          "card_number": "107",
+          "name": "Lucario-EX",
+          "price": 150.95,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 92290
+        },
+        {
+          "card_id": "xy3-108/normal",
+          "card_number": "108",
+          "name": "Dragonite-EX",
+          "price": 110.45,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 92254
+        }
+      ],
+      "release_date": "2014-08-13",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 113,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "Furious Fists"
+    },
+    "xy4": {
+      "chase": [
+        {
+          "card_id": "xy4-122/normal",
+          "card_number": "122",
+          "name": "Dialga-EX",
+          "price": 1083.33,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 94689
+        },
+        {
+          "card_id": "xy4-121/normal",
+          "card_number": "121",
+          "name": "M Gengar-EX",
+          "price": 650.0,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 94688
+        },
+        {
+          "card_id": "xy4-120/normal",
+          "card_number": "120",
+          "name": "M Manectric-EX",
+          "price": 62.87,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 94687
+        }
+      ],
+      "release_date": "2014-11-05",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 122,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Phantom Forces"
+    },
+    "xy5": {
+      "chase": [
+        {
+          "card_id": "xy5-163/normal",
+          "card_number": "163",
+          "name": "Switch",
+          "price": 21.16,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 96061
+        },
+        {
+          "card_id": "xy5-161/normal",
+          "card_number": "161",
+          "name": "Dive Ball",
+          "price": 16.9,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 96059
+        },
+        {
+          "card_id": "xy5-162/normal",
+          "card_number": "162",
+          "name": "Enhanced Hammer",
+          "price": 11.84,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 96060
+        }
+      ],
+      "release_date": "2015-02-04",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 164,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Primal Clash"
+    },
+    "xy6": {
+      "chase": [
+        {
+          "card_id": "xy6-105/normal",
+          "card_number": "105",
+          "name": "M Rayquaza-EX",
+          "price": 321.54,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 98141
+        },
+        {
+          "card_id": "xy6-104/normal",
+          "card_number": "104",
+          "name": "Rayquaza-EX",
+          "price": 126.18,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 98140
+        },
+        {
+          "card_id": "xy6-102/normal",
+          "card_number": "102",
+          "name": "M Latios-EX",
+          "price": 99.99,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 98138
+        }
+      ],
+      "release_date": "2015-05-06",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 110,
+        "tier_mixed": false,
+        "tier_used": 4
+      },
+      "set_name": "Roaring Skies"
+    },
+    "xy7": {
+      "chase": [
+        {
+          "card_id": "xy7-98/normal",
+          "card_number": "98",
+          "name": "M Rayquaza-EX",
+          "price": 944.46,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 101520
+        },
+        {
+          "card_id": "xy7-97/normal",
+          "card_number": "97",
+          "name": "Primal Groudon-EX",
+          "price": 329.9,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 101519
+        },
+        {
+          "card_id": "xy7-96/normal",
+          "card_number": "96",
+          "name": "Primal Kyogre-EX",
+          "price": 268.36,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 101518
+        }
+      ],
+      "release_date": "2015-08-12",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 100,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Ancient Origins"
+    },
+    "xy8": {
+      "chase": [
+        {
+          "card_id": "xy8-163/normal",
+          "card_number": "163",
+          "name": "Mewtwo-EX",
+          "price": 178.33,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 107282
+        },
+        {
+          "card_id": "xy8-160/normal",
+          "card_number": "160",
+          "name": "M Mewtwo-EX",
+          "price": 160.85,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 107279
+        },
+        {
+          "card_id": "xy8-159/normal",
+          "card_number": "159",
+          "name": "M Mewtwo-EX",
+          "price": 137.04,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 107276
+        }
+      ],
+      "release_date": "2015-11-04",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 164,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "BREAKthrough"
+    },
+    "xy9": {
+      "chase": [
+        {
+          "card_id": "xy9-123/normal",
+          "card_number": "123",
+          "name": "Gyarados-EX",
+          "price": 188.08,
+          "rarity": "Rare Secret",
+          "subtype": "Holofoil",
+          "tcg_product_id": 111531
+        },
+        {
+          "card_id": "xy9-115/normal",
+          "card_number": "115",
+          "name": "M Gyarados-EX",
+          "price": 106.04,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 111533
+        },
+        {
+          "card_id": "xy9-117/normal",
+          "card_number": "117",
+          "name": "Espeon-EX",
+          "price": 75.01,
+          "rarity": "Rare Ultra",
+          "subtype": "Holofoil",
+          "tcg_product_id": 111558
+        }
+      ],
+      "release_date": "2016-02-03",
+      "selection": {
+        "fallback": true,
+        "n_priced_cards": 123,
+        "tier_mixed": true,
+        "tier_used": 5
+      },
+      "set_name": "BREAKpoint"
+    },
+    "xyp": {
+      "chase": [
+        {
+          "card_id": "xyp-XY176/normal",
+          "card_number": "XY176",
+          "name": "Champions Festival",
+          "price": 450.0,
+          "rarity": "Promo",
+          "subtype": "Normal",
+          "tcg_product_id": 199321
+        },
+        {
+          "card_id": "xyp-XY27/normal",
+          "card_number": "XY27",
+          "name": "Champions Festival",
+          "price": 350.0,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 96390
+        },
+        {
+          "card_id": "xyp-XY60/normal",
+          "card_number": "XY60",
+          "name": "Gyarados",
+          "price": 308.02,
+          "rarity": "Promo",
+          "subtype": "Holofoil",
+          "tcg_product_id": 102802
+        }
+      ],
+      "release_date": "2013-10-12",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 210,
+        "tier_mixed": false,
+        "tier_used": 0
+      },
+      "set_name": "XY Black Star Promos"
+    },
+    "zsv10pt5": {
+      "chase": [
+        {
+          "card_id": "zsv10pt5-172/normal",
+          "card_number": "172",
+          "name": "Zekrom ex",
+          "price": 355.51,
+          "rarity": "Black White Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642623
+        },
+        {
+          "card_id": "zsv10pt5-166/normal",
+          "card_number": "166",
+          "name": "Zekrom ex",
+          "price": 203.34,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642618
+        },
+        {
+          "card_id": "zsv10pt5-165/normal",
+          "card_number": "165",
+          "name": "Kyurem ex",
+          "price": 65.9,
+          "rarity": "Special Illustration Rare",
+          "subtype": "Holofoil",
+          "tcg_product_id": 642617
+        }
+      ],
+      "release_date": "2025-07-18",
+      "selection": {
+        "fallback": false,
+        "n_priced_cards": 172,
+        "tier_mixed": false,
+        "tier_used": 5
+      },
+      "set_name": "Black Bolt"
+    }
+  },
+  "summary": {
+    "sets_with_chase": 170,
+    "sets_with_mixed_tiers": 19,
+    "sets_without_priced_cards": 1
+  }
+}

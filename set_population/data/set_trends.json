@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-26T11:23:59.829132+00:00",
+  "generated_at": "2026-05-27T05:19:55.238010+00:00",
   "anchor_term": "Base Set pokemon",
   "anchor_set_id": "base1",
   "window": "last 5 years (today 5-y)",
@@ -9,49 +9,1027 @@
       "set_name": "Base",
       "query_term": "Base Set pokemon",
       "interest_rescaled": 100.0,
-      "raw_batch_mean": 20.187
+      "raw_batch_mean": 7.7863
     },
     "base2": {
       "set_name": "Jungle",
       "query_term": "Jungle pokemon",
-      "interest_rescaled": 54.3874,
-      "raw_batch_mean": 10.5038
+      "interest_rescaled": 54.4509,
+      "raw_batch_mean": 10.3893
     },
     "basep": {
       "set_name": "Wizards Black Star Promos",
       "query_term": "Wizards Black Star Promos pokemon",
-      "interest_rescaled": 0.0198,
-      "raw_batch_mean": 0.0038
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
     },
     "base3": {
       "set_name": "Fossil",
       "query_term": "Fossil pokemon",
-      "interest_rescaled": 159.8419,
-      "raw_batch_mean": 30.8702
+      "interest_rescaled": 159.6519,
+      "raw_batch_mean": 30.4618
     },
     "base4": {
       "set_name": "Base Set 2",
       "query_term": "Base Set 2 pokemon",
-      "interest_rescaled": 10.2569,
-      "raw_batch_mean": 1.9809
+      "interest_rescaled": 10.222,
+      "raw_batch_mean": 1.9504
     },
     "base5": {
       "set_name": "Team Rocket",
       "query_term": "Team Rocket pokemon",
-      "interest_rescaled": 186.4625,
-      "raw_batch_mean": 37.6412
+      "interest_rescaled": 186.3774,
+      "raw_batch_mean": 37.5458
     },
     "gym1": {
       "set_name": "Gym Heroes",
       "query_term": "Gym Heroes pokemon",
-      "interest_rescaled": 4.4621,
-      "raw_batch_mean": 0.9008
+      "interest_rescaled": 4.2819,
+      "raw_batch_mean": 0.8626
     },
     "gym2": {
       "set_name": "Gym Challenge",
       "query_term": "Gym Challenge pokemon",
-      "interest_rescaled": 10.7393,
-      "raw_batch_mean": 2.1679
+      "interest_rescaled": 10.7806,
+      "raw_batch_mean": 2.1718
+    },
+    "neo1": {
+      "set_name": "Neo Genesis",
+      "query_term": "Neo Genesis pokemon",
+      "interest_rescaled": 9.4733,
+      "raw_batch_mean": 1.9084
+    },
+    "neo2": {
+      "set_name": "Neo Discovery",
+      "query_term": "Neo Discovery pokemon",
+      "interest_rescaled": 2.4062,
+      "raw_batch_mean": 0.4847
+    },
+    "si1": {
+      "set_name": "Southern Islands",
+      "query_term": "Southern Islands pokemon",
+      "interest_rescaled": 1.5726,
+      "raw_batch_mean": 0.3168
+    },
+    "neo3": {
+      "set_name": "Neo Revelation",
+      "query_term": "Neo Revelation pokemon",
+      "interest_rescaled": 2.0083,
+      "raw_batch_mean": 0.4046
+    },
+    "neo4": {
+      "set_name": "Neo Destiny",
+      "query_term": "Neo Destiny pokemon",
+      "interest_rescaled": 4.2251,
+      "raw_batch_mean": 0.8511
+    },
+    "base6": {
+      "set_name": "Legendary Collection",
+      "query_term": "Legendary Collection pokemon",
+      "interest_rescaled": 11.3111,
+      "raw_batch_mean": 2.2786
+    },
+    "ecard1": {
+      "set_name": "Expedition Base Set",
+      "query_term": "Expedition Base Set pokemon",
+      "interest_rescaled": 0.2842,
+      "raw_batch_mean": 0.0573
+    },
+    "bp": {
+      "set_name": "Best of Game",
+      "query_term": "Best of Game pokemon",
+      "interest_rescaled": 26.5252,
+      "raw_batch_mean": 5.3435
+    },
+    "ecard2": {
+      "set_name": "Aquapolis",
+      "query_term": "Aquapolis pokemon",
+      "interest_rescaled": 3.4104,
+      "raw_batch_mean": 0.687
+    },
+    "ecard3": {
+      "set_name": "Skyridge",
+      "query_term": "Skyridge pokemon",
+      "interest_rescaled": 6.8776,
+      "raw_batch_mean": 1.3855
+    },
+    "ex1": {
+      "set_name": "Ruby & Sapphire",
+      "query_term": "Ruby & Sapphire pokemon",
+      "interest_rescaled": 0.8147,
+      "raw_batch_mean": 0.1641
+    },
+    "ex2": {
+      "set_name": "Sandstorm",
+      "query_term": "Sandstorm pokemon",
+      "interest_rescaled": 17.0519,
+      "raw_batch_mean": 3.4351
+    },
+    "np": {
+      "set_name": "Nintendo Black Star Promos",
+      "query_term": "Nintendo Black Star Promos pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "ex3": {
+      "set_name": "Dragon",
+      "query_term": "Dragon pokemon",
+      "interest_rescaled": 567.8363,
+      "raw_batch_mean": 29.6489
+    },
+    "ex4": {
+      "set_name": "Team Magma vs Team Aqua",
+      "query_term": "Team Magma vs Team Aqua pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "ex5": {
+      "set_name": "Hidden Legends",
+      "query_term": "Hidden Legends pokemon",
+      "interest_rescaled": 0.2193,
+      "raw_batch_mean": 0.0115
+    },
+    "tk1a": {
+      "set_name": "EX Trainer Kit Latias",
+      "query_term": "EX Trainer Kit Latias pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "tk1b": {
+      "set_name": "EX Trainer Kit Latios",
+      "query_term": "EX Trainer Kit Latios pokemon",
+      "interest_rescaled": 0.0189,
+      "raw_batch_mean": 0.0038
+    },
+    "ex6": {
+      "set_name": "FireRed & LeafGreen",
+      "query_term": "FireRed & LeafGreen pokemon",
+      "interest_rescaled": 0.2653,
+      "raw_batch_mean": 0.0534
+    },
+    "pop1": {
+      "set_name": "POP Series 1",
+      "query_term": "POP Series 1 pokemon",
+      "interest_rescaled": 0.1137,
+      "raw_batch_mean": 0.0229
+    },
+    "ex7": {
+      "set_name": "Team Rocket Returns",
+      "query_term": "Team Rocket Returns pokemon",
+      "interest_rescaled": 1.061,
+      "raw_batch_mean": 0.2137
+    },
+    "ex8": {
+      "set_name": "Deoxys",
+      "query_term": "Deoxys pokemon",
+      "interest_rescaled": 79.7145,
+      "raw_batch_mean": 4.0496
+    },
+    "ex9": {
+      "set_name": "Emerald",
+      "query_term": "Emerald pokemon",
+      "interest_rescaled": 961.6078,
+      "raw_batch_mean": 48.8511
+    },
+    "ex10": {
+      "set_name": "Unseen Forces",
+      "query_term": "Unseen Forces pokemon",
+      "interest_rescaled": 0.1503,
+      "raw_batch_mean": 0.0076
+    },
+    "pop2": {
+      "set_name": "POP Series 2",
+      "query_term": "POP Series 2 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "ex11": {
+      "set_name": "Delta Species",
+      "query_term": "Delta Species pokemon",
+      "interest_rescaled": 6.8397,
+      "raw_batch_mean": 1.3779
+    },
+    "ex12": {
+      "set_name": "Legend Maker",
+      "query_term": "Legend Maker pokemon",
+      "interest_rescaled": 0.7958,
+      "raw_batch_mean": 0.1603
+    },
+    "tk2a": {
+      "set_name": "EX Trainer Kit 2 Plusle",
+      "query_term": "EX Trainer Kit 2 Plusle pokemon",
+      "interest_rescaled": 0.0568,
+      "raw_batch_mean": 0.0115
+    },
+    "tk2b": {
+      "set_name": "EX Trainer Kit 2 Minun",
+      "query_term": "EX Trainer Kit 2 Minun pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "pop3": {
+      "set_name": "POP Series 3",
+      "query_term": "POP Series 3 pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "ex13": {
+      "set_name": "Holon Phantoms",
+      "query_term": "Holon Phantoms pokemon",
+      "interest_rescaled": 1.2315,
+      "raw_batch_mean": 0.2481
+    },
+    "ex14": {
+      "set_name": "Crystal Guardians",
+      "query_term": "Crystal Guardians pokemon",
+      "interest_rescaled": 1.1747,
+      "raw_batch_mean": 0.2366
+    },
+    "pop4": {
+      "set_name": "POP Series 4",
+      "query_term": "POP Series 4 pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "ex15": {
+      "set_name": "Dragon Frontiers",
+      "query_term": "Dragon Frontiers pokemon",
+      "interest_rescaled": 1.0042,
+      "raw_batch_mean": 0.2023
+    },
+    "ex16": {
+      "set_name": "Power Keepers",
+      "query_term": "Power Keepers pokemon",
+      "interest_rescaled": 0.5684,
+      "raw_batch_mean": 0.1145
+    },
+    "pop5": {
+      "set_name": "POP Series 5",
+      "query_term": "POP Series 5 pokemon",
+      "interest_rescaled": 0.1705,
+      "raw_batch_mean": 0.0344
+    },
+    "dp1": {
+      "set_name": "Diamond & Pearl",
+      "query_term": "Diamond & Pearl pokemon",
+      "interest_rescaled": 1.8947,
+      "raw_batch_mean": 0.3817
+    },
+    "dpp": {
+      "set_name": "DP Black Star Promos",
+      "query_term": "DP Black Star Promos pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "dp2": {
+      "set_name": "Mysterious Treasures",
+      "query_term": "Mysterious Treasures pokemon",
+      "interest_rescaled": 0.2842,
+      "raw_batch_mean": 0.0573
+    },
+    "pop6": {
+      "set_name": "POP Series 6",
+      "query_term": "POP Series 6 pokemon",
+      "interest_rescaled": 0.0568,
+      "raw_batch_mean": 0.0115
+    },
+    "dp3": {
+      "set_name": "Secret Wonders",
+      "query_term": "Secret Wonders pokemon",
+      "interest_rescaled": 0.2084,
+      "raw_batch_mean": 0.042
+    },
+    "dp4": {
+      "set_name": "Great Encounters",
+      "query_term": "Great Encounters pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "pop7": {
+      "set_name": "POP Series 7",
+      "query_term": "POP Series 7 pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "dp5": {
+      "set_name": "Majestic Dawn",
+      "query_term": "Majestic Dawn pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "dp6": {
+      "set_name": "Legends Awakened",
+      "query_term": "Legends Awakened pokemon",
+      "interest_rescaled": 0.0947,
+      "raw_batch_mean": 0.0191
+    },
+    "pop8": {
+      "set_name": "POP Series 8",
+      "query_term": "POP Series 8 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "dp7": {
+      "set_name": "Stormfront",
+      "query_term": "Stormfront pokemon",
+      "interest_rescaled": 0.0939,
+      "raw_batch_mean": 0.0076
+    },
+    "pl1": {
+      "set_name": "Platinum",
+      "query_term": "Platinum pokemon",
+      "interest_rescaled": 563.4444,
+      "raw_batch_mean": 45.8282
+    },
+    "pop9": {
+      "set_name": "POP Series 9",
+      "query_term": "POP Series 9 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "pl2": {
+      "set_name": "Rising Rivals",
+      "query_term": "Rising Rivals pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "pl3": {
+      "set_name": "Supreme Victors",
+      "query_term": "Supreme Victors pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "pl4": {
+      "set_name": "Arceus",
+      "query_term": "Arceus pokemon",
+      "interest_rescaled": 6527.7778,
+      "raw_batch_mean": 4.4847
+    },
+    "ru1": {
+      "set_name": "Pok\u00e9mon Rumble",
+      "query_term": "Pok\u00e9mon Rumble",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "hgss1": {
+      "set_name": "HeartGold & SoulSilver",
+      "query_term": "HeartGold & SoulSilver pokemon",
+      "interest_rescaled": 0.3221,
+      "raw_batch_mean": 0.0649
+    },
+    "hsp": {
+      "set_name": "HGSS Black Star Promos",
+      "query_term": "HGSS Black Star Promos pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "hgss2": {
+      "set_name": "HS\u2014Unleashed",
+      "query_term": "HS\u2014Unleashed pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "hgss3": {
+      "set_name": "HS\u2014Undaunted",
+      "query_term": "HS\u2014Undaunted pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "hgss4": {
+      "set_name": "HS\u2014Triumphant",
+      "query_term": "HS\u2014Triumphant pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "col1": {
+      "set_name": "Call of Legends",
+      "query_term": "Call of Legends pokemon",
+      "interest_rescaled": 1.7431,
+      "raw_batch_mean": 0.3511
+    },
+    "bwp": {
+      "set_name": "BW Black Star Promos",
+      "query_term": "BW Black Star Promos pokemon",
+      "interest_rescaled": 0.0189,
+      "raw_batch_mean": 0.0038
+    },
+    "bw1": {
+      "set_name": "Black & White",
+      "query_term": "Black & White pokemon",
+      "interest_rescaled": 9.9091,
+      "raw_batch_mean": 1.9962
+    },
+    "mcd11": {
+      "set_name": "McDonald's Collection 2011",
+      "query_term": "McDonald's Collection 2011 pokemon",
+      "interest_rescaled": 0.019,
+      "raw_batch_mean": 0.0038
+    },
+    "bw2": {
+      "set_name": "Emerging Powers",
+      "query_term": "Emerging Powers pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "bw3": {
+      "set_name": "Noble Victories",
+      "query_term": "Noble Victories pokemon",
+      "interest_rescaled": 0.0569,
+      "raw_batch_mean": 0.0115
+    },
+    "bw4": {
+      "set_name": "Next Destinies",
+      "query_term": "Next Destinies pokemon",
+      "interest_rescaled": 0.1895,
+      "raw_batch_mean": 0.0382
+    },
+    "bw5": {
+      "set_name": "Dark Explorers",
+      "query_term": "Dark Explorers pokemon",
+      "interest_rescaled": 0.2085,
+      "raw_batch_mean": 0.042
+    },
+    "mcd12": {
+      "set_name": "McDonald's Collection 2012",
+      "query_term": "McDonald's Collection 2012 pokemon",
+      "interest_rescaled": 0.019,
+      "raw_batch_mean": 0.0038
+    },
+    "bw6": {
+      "set_name": "Dragons Exalted",
+      "query_term": "Dragons Exalted pokemon",
+      "interest_rescaled": 0.2464,
+      "raw_batch_mean": 0.0496
+    },
+    "dv1": {
+      "set_name": "Dragon Vault",
+      "query_term": "Dragon Vault pokemon",
+      "interest_rescaled": 0.2464,
+      "raw_batch_mean": 0.0496
+    },
+    "bw7": {
+      "set_name": "Boundaries Crossed",
+      "query_term": "Boundaries Crossed pokemon",
+      "interest_rescaled": 0.0758,
+      "raw_batch_mean": 0.0153
+    },
+    "bw8": {
+      "set_name": "Plasma Storm",
+      "query_term": "Plasma Storm pokemon",
+      "interest_rescaled": 0.9473,
+      "raw_batch_mean": 0.1908
+    },
+    "bw9": {
+      "set_name": "Plasma Freeze",
+      "query_term": "Plasma Freeze pokemon",
+      "interest_rescaled": 0.2084,
+      "raw_batch_mean": 0.042
+    },
+    "bw10": {
+      "set_name": "Plasma Blast",
+      "query_term": "Plasma Blast pokemon",
+      "interest_rescaled": 0.2653,
+      "raw_batch_mean": 0.0534
+    },
+    "xyp": {
+      "set_name": "XY Black Star Promos",
+      "query_term": "XY Black Star Promos pokemon",
+      "interest_rescaled": 0.0779,
+      "raw_batch_mean": 0.0153
+    },
+    "bw11": {
+      "set_name": "Legendary Treasures",
+      "query_term": "Legendary Treasures pokemon",
+      "interest_rescaled": 2.085,
+      "raw_batch_mean": 0.4084
+    },
+    "xy0": {
+      "set_name": "Kalos Starter Set",
+      "query_term": "Kalos Starter Set pokemon",
+      "interest_rescaled": 0.0195,
+      "raw_batch_mean": 0.0038
+    },
+    "xy1": {
+      "set_name": "XY",
+      "query_term": "XY pokemon",
+      "interest_rescaled": 236.9057,
+      "raw_batch_mean": 46.4046
+    },
+    "xy2": {
+      "set_name": "Flashfire",
+      "query_term": "Flashfire pokemon",
+      "interest_rescaled": 2.5583,
+      "raw_batch_mean": 0.5153
+    },
+    "mcd14": {
+      "set_name": "McDonald's Collection 2014",
+      "query_term": "McDonald's Collection 2014 pokemon",
+      "interest_rescaled": 0.019,
+      "raw_batch_mean": 0.0038
+    },
+    "xy3": {
+      "set_name": "Furious Fists",
+      "query_term": "Furious Fists pokemon",
+      "interest_rescaled": 0.4359,
+      "raw_batch_mean": 0.0878
+    },
+    "xy4": {
+      "set_name": "Phantom Forces",
+      "query_term": "Phantom Forces pokemon",
+      "interest_rescaled": 2.1793,
+      "raw_batch_mean": 0.4389
+    },
+    "xy5": {
+      "set_name": "Primal Clash",
+      "query_term": "Primal Clash pokemon",
+      "interest_rescaled": 1.8757,
+      "raw_batch_mean": 0.3779
+    },
+    "dc1": {
+      "set_name": "Double Crisis",
+      "query_term": "Double Crisis pokemon",
+      "interest_rescaled": 0.5495,
+      "raw_batch_mean": 0.1107
+    },
+    "xy6": {
+      "set_name": "Roaring Skies",
+      "query_term": "Roaring Skies pokemon",
+      "interest_rescaled": 3.0693,
+      "raw_batch_mean": 0.6183
+    },
+    "xy7": {
+      "set_name": "Ancient Origins",
+      "query_term": "Ancient Origins pokemon",
+      "interest_rescaled": 2.6715,
+      "raw_batch_mean": 0.5382
+    },
+    "xy8": {
+      "set_name": "BREAKthrough",
+      "query_term": "BREAKthrough pokemon",
+      "interest_rescaled": 8.5638,
+      "raw_batch_mean": 1.7252
+    },
+    "mcd15": {
+      "set_name": "McDonald's Collection 2015",
+      "query_term": "McDonald's Collection 2015 pokemon",
+      "interest_rescaled": 0.0189,
+      "raw_batch_mean": 0.0038
+    },
+    "xy9": {
+      "set_name": "BREAKpoint",
+      "query_term": "BREAKpoint pokemon",
+      "interest_rescaled": 2.8799,
+      "raw_batch_mean": 0.5802
+    },
+    "g1": {
+      "set_name": "Generations",
+      "query_term": "Generations pokemon",
+      "interest_rescaled": 56.8208,
+      "raw_batch_mean": 11.4466
+    },
+    "xy10": {
+      "set_name": "Fates Collide",
+      "query_term": "Fates Collide pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "xy11": {
+      "set_name": "Steam Siege",
+      "query_term": "Steam Siege pokemon",
+      "interest_rescaled": 0.1032,
+      "raw_batch_mean": 0.0038
+    },
+    "mcd16": {
+      "set_name": "McDonald's Collection 2016",
+      "query_term": "McDonald's Collection 2016 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "xy12": {
+      "set_name": "Evolutions",
+      "query_term": "Evolutions pokemon",
+      "interest_rescaled": 408.3591,
+      "raw_batch_mean": 15.1031
+    },
+    "sm1": {
+      "set_name": "Sun & Moon",
+      "query_term": "Sun & Moon pokemon",
+      "interest_rescaled": 14.2099,
+      "raw_batch_mean": 2.8626
+    },
+    "smp": {
+      "set_name": "SM Black Star Promos",
+      "query_term": "SM Black Star Promos pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "sm2": {
+      "set_name": "Guardians Rising",
+      "query_term": "Guardians Rising pokemon",
+      "interest_rescaled": 0.8715,
+      "raw_batch_mean": 0.1756
+    },
+    "sm3": {
+      "set_name": "Burning Shadows",
+      "query_term": "Burning Shadows pokemon",
+      "interest_rescaled": 4.4714,
+      "raw_batch_mean": 0.9008
+    },
+    "sm35": {
+      "set_name": "Shining Legends",
+      "query_term": "Shining Legends pokemon",
+      "interest_rescaled": 8.7723,
+      "raw_batch_mean": 1.7672
+    },
+    "sm4": {
+      "set_name": "Crimson Invasion",
+      "query_term": "Crimson Invasion pokemon",
+      "interest_rescaled": 1.8378,
+      "raw_batch_mean": 0.3702
+    },
+    "mcd17": {
+      "set_name": "McDonald's Collection 2017",
+      "query_term": "McDonald's Collection 2017 pokemon",
+      "interest_rescaled": 0.0568,
+      "raw_batch_mean": 0.0115
+    },
+    "sm5": {
+      "set_name": "Ultra Prism",
+      "query_term": "Ultra Prism pokemon",
+      "interest_rescaled": 2.5009,
+      "raw_batch_mean": 0.5038
+    },
+    "sm6": {
+      "set_name": "Forbidden Light",
+      "query_term": "Forbidden Light pokemon",
+      "interest_rescaled": 0.6252,
+      "raw_batch_mean": 0.126
+    },
+    "sm7": {
+      "set_name": "Celestial Storm",
+      "query_term": "Celestial Storm pokemon",
+      "interest_rescaled": 0.8526,
+      "raw_batch_mean": 0.1718
+    },
+    "sm75": {
+      "set_name": "Dragon Majesty",
+      "query_term": "Dragon Majesty pokemon",
+      "interest_rescaled": 0.6631,
+      "raw_batch_mean": 0.1336
+    },
+    "mcd18": {
+      "set_name": "McDonald's Collection 2018",
+      "query_term": "McDonald's Collection 2018 pokemon",
+      "interest_rescaled": 0.0189,
+      "raw_batch_mean": 0.0038
+    },
+    "sm8": {
+      "set_name": "Lost Thunder",
+      "query_term": "Lost Thunder pokemon",
+      "interest_rescaled": 1.516,
+      "raw_batch_mean": 0.3053
+    },
+    "sm9": {
+      "set_name": "Team Up",
+      "query_term": "Team Up pokemon",
+      "interest_rescaled": 20.6178,
+      "raw_batch_mean": 4.1527
+    },
+    "det1": {
+      "set_name": "Detective Pikachu",
+      "query_term": "Detective Pikachu pokemon",
+      "interest_rescaled": 56.4146,
+      "raw_batch_mean": 11.3626
+    },
+    "sm10": {
+      "set_name": "Unbroken Bonds",
+      "query_term": "Unbroken Bonds pokemon",
+      "interest_rescaled": 4.0932,
+      "raw_batch_mean": 0.8244
+    },
+    "sm11": {
+      "set_name": "Unified Minds",
+      "query_term": "Unified Minds pokemon",
+      "interest_rescaled": 3.2778,
+      "raw_batch_mean": 0.6603
+    },
+    "sm115": {
+      "set_name": "Hidden Fates",
+      "query_term": "Hidden Fates pokemon",
+      "interest_rescaled": 19.136,
+      "raw_batch_mean": 3.855
+    },
+    "sma": {
+      "set_name": "Hidden Fates Shiny Vault",
+      "query_term": "Hidden Fates Shiny Vault pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "mcd19": {
+      "set_name": "McDonald's Collection 2019",
+      "query_term": "McDonald's Collection 2019 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "sm12": {
+      "set_name": "Cosmic Eclipse",
+      "query_term": "Cosmic Eclipse pokemon",
+      "interest_rescaled": 7.9386,
+      "raw_batch_mean": 1.5992
+    },
+    "swshp": {
+      "set_name": "SWSH Black Star Promos",
+      "query_term": "SWSH Black Star Promos pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "swsh1": {
+      "set_name": "Sword & Shield",
+      "query_term": "Sword & Shield pokemon",
+      "interest_rescaled": 22.7927,
+      "raw_batch_mean": 4.5916
+    },
+    "swsh2": {
+      "set_name": "Rebel Clash",
+      "query_term": "Rebel Clash pokemon",
+      "interest_rescaled": 4.4146,
+      "raw_batch_mean": 0.8893
+    },
+    "swsh3": {
+      "set_name": "Darkness Ablaze",
+      "query_term": "Darkness Ablaze pokemon",
+      "interest_rescaled": 12.9759,
+      "raw_batch_mean": 2.6145
+    },
+    "fut20": {
+      "set_name": "Pok\u00e9mon Futsal Collection",
+      "query_term": "Pok\u00e9mon Futsal Collection",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "swsh35": {
+      "set_name": "Champion's Path",
+      "query_term": "Champion's Path pokemon",
+      "interest_rescaled": 5.8534,
+      "raw_batch_mean": 1.1794
+    },
+    "swsh4": {
+      "set_name": "Vivid Voltage",
+      "query_term": "Vivid Voltage pokemon",
+      "interest_rescaled": 18.9619,
+      "raw_batch_mean": 3.8206
+    },
+    "mcd21": {
+      "set_name": "McDonald's Collection 2021",
+      "query_term": "McDonald's Collection 2021 pokemon",
+      "interest_rescaled": 0.0189,
+      "raw_batch_mean": 0.0038
+    },
+    "swsh45": {
+      "set_name": "Shining Fates",
+      "query_term": "Shining Fates pokemon",
+      "interest_rescaled": 31.9568,
+      "raw_batch_mean": 6.4389
+    },
+    "swsh45sv": {
+      "set_name": "Shining Fates Shiny Vault",
+      "query_term": "Shining Fates Shiny Vault pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "swsh5": {
+      "set_name": "Battle Styles",
+      "query_term": "Battle Styles pokemon",
+      "interest_rescaled": 13.8284,
+      "raw_batch_mean": 2.7863
+    },
+    "swsh6": {
+      "set_name": "Chilling Reign",
+      "query_term": "Chilling Reign pokemon",
+      "interest_rescaled": 22.5983,
+      "raw_batch_mean": 1.5802
+    },
+    "swsh7": {
+      "set_name": "Evolving Skies",
+      "query_term": "Evolving Skies pokemon",
+      "interest_rescaled": 56.7686,
+      "raw_batch_mean": 3.9695
+    },
+    "cel25": {
+      "set_name": "Celebrations",
+      "query_term": "Celebrations pokemon",
+      "interest_rescaled": 109.8253,
+      "raw_batch_mean": 7.6794
+    },
+    "cel25c": {
+      "set_name": "Celebrations: Classic Collection",
+      "query_term": "Celebrations: Classic Collection pokemon",
+      "interest_rescaled": 0.4913,
+      "raw_batch_mean": 0.0344
+    },
+    "swsh8": {
+      "set_name": "Fusion Strike",
+      "query_term": "Fusion Strike pokemon",
+      "interest_rescaled": 35.0568,
+      "raw_batch_mean": 7.0649
+    },
+    "swsh9": {
+      "set_name": "Brilliant Stars",
+      "query_term": "Brilliant Stars pokemon",
+      "interest_rescaled": 40.625,
+      "raw_batch_mean": 8.187
+    },
+    "swsh9tg": {
+      "set_name": "Brilliant Stars Trainer Gallery",
+      "query_term": "Brilliant Stars Trainer Gallery pokemon",
+      "interest_rescaled": 0.1136,
+      "raw_batch_mean": 0.0229
+    },
+    "swsh10": {
+      "set_name": "Astral Radiance",
+      "query_term": "Astral Radiance pokemon",
+      "interest_rescaled": 27.7083,
+      "raw_batch_mean": 5.584
+    },
+    "swsh10tg": {
+      "set_name": "Astral Radiance Trainer Gallery",
+      "query_term": "Astral Radiance Trainer Gallery pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "pgo": {
+      "set_name": "Pok\u00e9mon GO",
+      "query_term": "Pok\u00e9mon GO",
+      "interest_rescaled": 1318.8794,
+      "raw_batch_mean": 41.3282
+    },
+    "mcd22": {
+      "set_name": "McDonald's Collection 2022",
+      "query_term": "McDonald's Collection 2022 pokemon",
+      "interest_rescaled": 0.0,
+      "raw_batch_mean": 0.0
+    },
+    "swsh11": {
+      "set_name": "Lost Origin",
+      "query_term": "Lost Origin pokemon",
+      "interest_rescaled": 36.419,
+      "raw_batch_mean": 1.1412
+    },
+    "swsh11tg": {
+      "set_name": "Lost Origin Trainer Gallery",
+      "query_term": "Lost Origin Trainer Gallery pokemon",
+      "interest_rescaled": 0.1326,
+      "raw_batch_mean": 0.0267
+    },
+    "swsh12": {
+      "set_name": "Silver Tempest",
+      "query_term": "Silver Tempest pokemon",
+      "interest_rescaled": 34.6591,
+      "raw_batch_mean": 6.9847
+    },
+    "swsh12tg": {
+      "set_name": "Silver Tempest Trainer Gallery",
+      "query_term": "Silver Tempest Trainer Gallery pokemon",
+      "interest_rescaled": 0.2083,
+      "raw_batch_mean": 0.042
+    },
+    "svp": {
+      "set_name": "Scarlet & Violet Black Star Promos",
+      "query_term": "Scarlet & Violet Black Star Promos pokemon",
+      "interest_rescaled": 0.0379,
+      "raw_batch_mean": 0.0076
+    },
+    "swsh12pt5": {
+      "set_name": "Crown Zenith",
+      "query_term": "Crown Zenith pokemon",
+      "interest_rescaled": 56.7613,
+      "raw_batch_mean": 9.084
+    },
+    "swsh12pt5gg": {
+      "set_name": "Crown Zenith Galarian Gallery",
+      "query_term": "Crown Zenith Galarian Gallery pokemon",
+      "interest_rescaled": 0.3816,
+      "raw_batch_mean": 0.0611
+    },
+    "sv1": {
+      "set_name": "Scarlet & Violet",
+      "query_term": "Scarlet & Violet pokemon",
+      "interest_rescaled": 50.7274,
+      "raw_batch_mean": 8.1183
+    },
+    "sve": {
+      "set_name": "Scarlet & Violet Energies",
+      "query_term": "Scarlet & Violet Energies pokemon",
+      "interest_rescaled": 0.0238,
+      "raw_batch_mean": 0.0038
+    },
+    "sv2": {
+      "set_name": "Paldea Evolved",
+      "query_term": "Paldea Evolved pokemon",
+      "interest_rescaled": 24.2983,
+      "raw_batch_mean": 1.1565
+    },
+    "sv3": {
+      "set_name": "Obsidian Flames",
+      "query_term": "Obsidian Flames pokemon",
+      "interest_rescaled": 38.332,
+      "raw_batch_mean": 1.8244
+    },
+    "sv3pt5": {
+      "set_name": "151",
+      "query_term": "151 pokemon",
+      "interest_rescaled": 407.6985,
+      "raw_batch_mean": 19.4046
+    },
+    "sv4": {
+      "set_name": "Paradox Rift",
+      "query_term": "Paradox Rift pokemon",
+      "interest_rescaled": 29.0297,
+      "raw_batch_mean": 1.3817
+    },
+    "sv4pt5": {
+      "set_name": "Paldean Fates",
+      "query_term": "Paldean Fates pokemon",
+      "interest_rescaled": 34.9242,
+      "raw_batch_mean": 7.0382
+    },
+    "sv5": {
+      "set_name": "Temporal Forces",
+      "query_term": "Temporal Forces pokemon",
+      "interest_rescaled": 23.9205,
+      "raw_batch_mean": 4.8206
+    },
+    "sv6": {
+      "set_name": "Twilight Masquerade",
+      "query_term": "Twilight Masquerade pokemon",
+      "interest_rescaled": 25.1136,
+      "raw_batch_mean": 5.0611
+    },
+    "sv6pt5": {
+      "set_name": "Shrouded Fable",
+      "query_term": "Shrouded Fable pokemon",
+      "interest_rescaled": 18.2765,
+      "raw_batch_mean": 3.6832
+    },
+    "sv7": {
+      "set_name": "Stellar Crown",
+      "query_term": "Stellar Crown pokemon",
+      "interest_rescaled": 30.6373,
+      "raw_batch_mean": 2.3855
+    },
+    "sv8": {
+      "set_name": "Surging Sparks",
+      "query_term": "Surging Sparks pokemon",
+      "interest_rescaled": 52.598,
+      "raw_batch_mean": 4.0954
+    },
+    "sv8pt5": {
+      "set_name": "Prismatic Evolutions",
+      "query_term": "Prismatic Evolutions pokemon",
+      "interest_rescaled": 60.098,
+      "raw_batch_mean": 4.6794
+    },
+    "sv9": {
+      "set_name": "Journey Together",
+      "query_term": "Journey Together pokemon",
+      "interest_rescaled": 50.8333,
+      "raw_batch_mean": 3.958
+    },
+    "sv10": {
+      "set_name": "Destined Rivals",
+      "query_term": "Destined Rivals pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
+    },
+    "rsv10pt5": {
+      "set_name": "White Flare",
+      "query_term": "White Flare pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
+    },
+    "zsv10pt5": {
+      "set_name": "Black Bolt",
+      "query_term": "Black Bolt pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
+    },
+    "me1": {
+      "set_name": "Mega Evolution",
+      "query_term": "Mega Evolution pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
+    },
+    "me2": {
+      "set_name": "Phantasmal Flames",
+      "query_term": "Phantasmal Flames pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
+    },
+    "me2pt5": {
+      "set_name": "Ascended Heroes",
+      "query_term": "Ascended Heroes pokemon",
+      "interest_rescaled": null,
+      "raw_batch_mean": null
     }
   }
 }
