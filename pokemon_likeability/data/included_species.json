@@ -1,0 +1,2409 @@
+{
+  "generated_at": "2026-06-07T18:51:07Z",
+  "method": "z(log1p max_card_price) + z(log1p sales_count), top 300",
+  "count": 300,
+  "species_ids": [
+    25,
+    6,
+    150,
+    384,
+    130,
+    197,
+    151,
+    248,
+    381,
+    380,
+    249,
+    134,
+    196,
+    133,
+    255,
+    143,
+    94,
+    136,
+    135,
+    129,
+    778,
+    448,
+    376,
+    483,
+    382,
+    282,
+    26,
+    65,
+    252,
+    149,
+    212,
+    251,
+    646,
+    144,
+    9,
+    59,
+    3,
+    229,
+    169,
+    4,
+    700,
+    643,
+    38,
+    494,
+    445,
+    470,
+    146,
+    35,
+    68,
+    201,
+    250,
+    208,
+    145,
+    34,
+    54,
+    491,
+    244,
+    644,
+    487,
+    79,
+    245,
+    383,
+    484,
+    658,
+    471,
+    257,
+    148,
+    121,
+    37,
+    359,
+    7,
+    386,
+    52,
+    82,
+    131,
+    230,
+    123,
+    350,
+    76,
+    39,
+    243,
+    447,
+    157,
+    571,
+    164,
+    228,
+    103,
+    141,
+    181,
+    77,
+    1,
+    377,
+    258,
+    58,
+    93,
+    334,
+    147,
+    215,
+    373,
+    160,
+    12,
+    101,
+    132,
+    375,
+    649,
+    888,
+    115,
+    219,
+    15,
+    92,
+    87,
+    399,
+    635,
+    53,
+    358,
+    199,
+    142,
+    176,
+    492,
+    5,
+    319,
+    62,
+    36,
+    1017,
+    81,
+    107,
+    405,
+    719,
+    479,
+    647,
+    392,
+    78,
+    128,
+    102,
+    254,
+    18,
+    493,
+    8,
+    125,
+    194,
+    378,
+    791,
+    385,
+    205,
+    330,
+    112,
+    31,
+    95,
+    395,
+    609,
+    303,
+    80,
+    569,
+    110,
+    89,
+    887,
+    183,
+    242,
+    124,
+    45,
+    40,
+    403,
+    200,
+    97,
+    11,
+    105,
+    56,
+    802,
+    178,
+    939,
+    232,
+    898,
+    701,
+    184,
+    877,
+    13,
+    214,
+    281,
+    310,
+    51,
+    63,
+    354,
+    478,
+    485,
+    61,
+    100,
+    302,
+    497,
+    75,
+    172,
+    185,
+    227,
+    10,
+    861,
+    96,
+    800,
+    198,
+    50,
+    306,
+    171,
+    117,
+    892,
+    166,
+    41,
+    154,
+    180,
+    175,
+    379,
+    127,
+    120,
+    55,
+    2,
+    233,
+    260,
+    537,
+    66,
+    488,
+    323,
+    111,
+    104,
+    57,
+    717,
+    807,
+    221,
+    553,
+    20,
+    716,
+    67,
+    311,
+    308,
+    113,
+    27,
+    715,
+    561,
+    19,
+    462,
+    642,
+    155,
+    71,
+    137,
+    355,
+    24,
+    126,
+    623,
+    641,
+    321,
+    937,
+    202,
+    44,
+    206,
+    721,
+    280,
+    88,
+    356,
+    86,
+    140,
+    246,
+    333,
+    28,
+    486,
+    312,
+    640,
+    247,
+    235,
+    428,
+    809,
+    209,
+    1024,
+    193,
+    964,
+    74,
+    114,
+    179,
+    371,
+    500,
+    21,
+    84,
+    475,
+    186,
+    22,
+    64,
+    466,
+    604,
+    42,
+    477,
+    393,
+    702,
+    106,
+    213,
+    253,
+    33,
+    43,
+    560,
+    139,
+    645,
+    570,
+    454,
+    217,
+    472,
+    14
+  ],
+  "details": [
+    {
+      "id": 25,
+      "name": "Pikachu",
+      "max_price": 3200.0,
+      "sales": 2543,
+      "score": 5.343255443206233
+    },
+    {
+      "id": 6,
+      "name": "Charizard",
+      "max_price": 6502.49,
+      "sales": 1363,
+      "score": 5.212543982369669
+    },
+    {
+      "id": 150,
+      "name": "Mewtwo",
+      "max_price": 2001.98,
+      "sales": 1061,
+      "score": 4.267564886507143
+    },
+    {
+      "id": 384,
+      "name": "Rayquaza",
+      "max_price": 2500.99,
+      "sales": 690,
+      "score": 4.014903479237324
+    },
+    {
+      "id": 130,
+      "name": "Gyarados",
+      "max_price": 1999.99,
+      "sales": 718,
+      "score": 3.914429761659448
+    },
+    {
+      "id": 197,
+      "name": "Umbreon",
+      "max_price": 2499.99,
+      "sales": 515,
+      "score": 3.7507176127258433
+    },
+    {
+      "id": 151,
+      "name": "Mew",
+      "max_price": 1700.0,
+      "sales": 648,
+      "score": 3.7227209193906123
+    },
+    {
+      "id": 248,
+      "name": "Tyranitar",
+      "max_price": 1700.0,
+      "sales": 634,
+      "score": 3.7030109246165033
+    },
+    {
+      "id": 381,
+      "name": "Latios",
+      "max_price": 2800.0,
+      "sales": 417,
+      "score": 3.6294966768274377
+    },
+    {
+      "id": 380,
+      "name": "Latias",
+      "max_price": 2707.04,
+      "sales": 418,
+      "score": 3.6110569059775663
+    },
+    {
+      "id": 249,
+      "name": "Lugia",
+      "max_price": 2499.99,
+      "sales": 441,
+      "score": 3.6108109159625608
+    },
+    {
+      "id": 134,
+      "name": "Vaporeon",
+      "max_price": 1999.99,
+      "sales": 506,
+      "score": 3.598684037426271
+    },
+    {
+      "id": 196,
+      "name": "Espeon",
+      "max_price": 2000.0,
+      "sales": 475,
+      "score": 3.541662980078787
+    },
+    {
+      "id": 133,
+      "name": "Eevee",
+      "max_price": 499.99,
+      "sales": 1200,
+      "score": 3.5329380181969556
+    },
+    {
+      "id": 255,
+      "name": "Torchic",
+      "max_price": 2499.99,
+      "sales": 390,
+      "score": 3.500001928583311
+    },
+    {
+      "id": 143,
+      "name": "Snorlax",
+      "max_price": 797.47,
+      "sales": 772,
+      "score": 3.419173090384641
+    },
+    {
+      "id": 94,
+      "name": "Gengar",
+      "max_price": 983.67,
+      "sales": 658,
+      "score": 3.4028958633577187
+    },
+    {
+      "id": 136,
+      "name": "Flareon",
+      "max_price": 1499.98,
+      "sales": 491,
+      "score": 3.396056740517949
+    },
+    {
+      "id": 135,
+      "name": "Jolteon",
+      "max_price": 1402.48,
+      "sales": 513,
+      "score": 3.3946017379209144
+    },
+    {
+      "id": 129,
+      "name": "Magikarp",
+      "max_price": 1018.22,
+      "sales": 619,
+      "score": 3.3688078821155187
+    },
+    {
+      "id": 778,
+      "name": "Mimikyu",
+      "max_price": 1335.6,
+      "sales": 500,
+      "score": 3.3416489827353697
+    },
+    {
+      "id": 448,
+      "name": "Lucario",
+      "max_price": 722.97,
+      "sales": 755,
+      "score": 3.3392944246729703
+    },
+    {
+      "id": 376,
+      "name": "Metagross",
+      "max_price": 1562.48,
+      "sales": 422,
+      "score": 3.2843842788615802
+    },
+    {
+      "id": 483,
+      "name": "Dialga",
+      "max_price": 1112.48,
+      "sales": 514,
+      "score": 3.2550890526975316
+    },
+    {
+      "id": 382,
+      "name": "Kyogre",
+      "max_price": 2100.98,
+      "sales": 333,
+      "score": 3.2515127389778575
+    },
+    {
+      "id": 282,
+      "name": "Gardevoir",
+      "max_price": 620.09,
+      "sales": 758,
+      "score": 3.249326467661654
+    },
+    {
+      "id": 26,
+      "name": "Raichu",
+      "max_price": 457.5,
+      "sales": 876,
+      "score": 3.19468730922431
+    },
+    {
+      "id": 65,
+      "name": "Alakazam",
+      "max_price": 1149.99,
+      "sales": 435,
+      "score": 3.124804206801734
+    },
+    {
+      "id": 252,
+      "name": "Treecko",
+      "max_price": 2400.0,
+      "sales": 263,
+      "score": 3.1201214025482216
+    },
+    {
+      "id": 149,
+      "name": "Dragonite",
+      "max_price": 593.99,
+      "sales": 670,
+      "score": 3.111745554034206
+    },
+    {
+      "id": 212,
+      "name": "Scizor",
+      "max_price": 999.99,
+      "sales": 454,
+      "score": 3.0781344057602062
+    },
+    {
+      "id": 251,
+      "name": "Celebi",
+      "max_price": 1200.0,
+      "sales": 393,
+      "score": 3.0592148018294703
+    },
+    {
+      "id": 646,
+      "name": "Kyurem",
+      "max_price": 595.99,
+      "sales": 603,
+      "score": 3.018717619785191
+    },
+    {
+      "id": 144,
+      "name": "Articuno",
+      "max_price": 605.0,
+      "sales": 591,
+      "score": 3.0097228759745276
+    },
+    {
+      "id": 9,
+      "name": "Blastoise",
+      "max_price": 599.95,
+      "sales": 590,
+      "score": 3.0030875041867597
+    },
+    {
+      "id": 59,
+      "name": "Arcanine",
+      "max_price": 650.0,
+      "sales": 549,
+      "score": 2.9869307047143865
+    },
+    {
+      "id": 3,
+      "name": "Venusaur",
+      "max_price": 499.99,
+      "sales": 650,
+      "score": 2.979445697298522
+    },
+    {
+      "id": 229,
+      "name": "Houndoom",
+      "max_price": 600.0,
+      "sales": 572,
+      "score": 2.9751832221118804
+    },
+    {
+      "id": 169,
+      "name": "Crobat",
+      "max_price": 700.0,
+      "sales": 503,
+      "score": 2.9531534844682317
+    },
+    {
+      "id": 4,
+      "name": "Charmander",
+      "max_price": 384.0,
+      "sales": 685,
+      "score": 2.8660508024607276
+    },
+    {
+      "id": 700,
+      "name": "Sylveon",
+      "max_price": 738.05,
+      "sales": 418,
+      "score": 2.8184758043392293
+    },
+    {
+      "id": 643,
+      "name": "Reshiram",
+      "max_price": 480.32,
+      "sales": 540,
+      "score": 2.787713538181623
+    },
+    {
+      "id": 38,
+      "name": "Ninetales",
+      "max_price": 300.0,
+      "sales": 724,
+      "score": 2.7658040739306395
+    },
+    {
+      "id": 494,
+      "name": "Victini",
+      "max_price": 512.5,
+      "sales": 495,
+      "score": 2.7487228318878163
+    },
+    {
+      "id": 445,
+      "name": "Garchomp",
+      "max_price": 499.95,
+      "sales": 491,
+      "score": 2.726302711062071
+    },
+    {
+      "id": 470,
+      "name": "Leafeon",
+      "max_price": 489.0,
+      "sales": 492,
+      "score": 2.7146490525035576
+    },
+    {
+      "id": 146,
+      "name": "Moltres",
+      "max_price": 498.88,
+      "sales": 476,
+      "score": 2.697013777394264
+    },
+    {
+      "id": 35,
+      "name": "Clefairy",
+      "max_price": 334.0,
+      "sales": 620,
+      "score": 2.6911753649597046
+    },
+    {
+      "id": 68,
+      "name": "Machamp",
+      "max_price": 349.99,
+      "sales": 584,
+      "score": 2.6656585197697713
+    },
+    {
+      "id": 201,
+      "name": "Unown",
+      "max_price": 124.99,
+      "sales": 1140,
+      "score": 2.6441314421525592
+    },
+    {
+      "id": 250,
+      "name": "Ho-Oh",
+      "max_price": 475.0,
+      "sales": 463,
+      "score": 2.6421641126462703
+    },
+    {
+      "id": 208,
+      "name": "Steelix",
+      "max_price": 500.0,
+      "sales": 446,
+      "score": 2.639670229781582
+    },
+    {
+      "id": 145,
+      "name": "Zapdos",
+      "max_price": 279.99,
+      "sales": 650,
+      "score": 2.626513069966359
+    },
+    {
+      "id": 34,
+      "name": "Nidoking",
+      "max_price": 999.0,
+      "sales": 273,
+      "score": 2.619146682578389
+    },
+    {
+      "id": 54,
+      "name": "Psyduck",
+      "max_price": 349.0,
+      "sales": 545,
+      "score": 2.6015782752844254
+    },
+    {
+      "id": 491,
+      "name": "Darkrai",
+      "max_price": 499.99,
+      "sales": 415,
+      "score": 2.5746983365597234
+    },
+    {
+      "id": 244,
+      "name": "Entei",
+      "max_price": 600.51,
+      "sales": 361,
+      "score": 2.560634667783982
+    },
+    {
+      "id": 644,
+      "name": "Zekrom",
+      "max_price": 486.33,
+      "sales": 405,
+      "score": 2.535834490219872
+    },
+    {
+      "id": 487,
+      "name": "Giratina",
+      "max_price": 709.09,
+      "sales": 312,
+      "score": 2.5304669444613976
+    },
+    {
+      "id": 79,
+      "name": "Slowpoke",
+      "max_price": 281.79,
+      "sales": 580,
+      "score": 2.5275940980897795
+    },
+    {
+      "id": 245,
+      "name": "Suicune",
+      "max_price": 555.0,
+      "sales": 357,
+      "score": 2.502574770391583
+    },
+    {
+      "id": 383,
+      "name": "Groudon",
+      "max_price": 570.49,
+      "sales": 350,
+      "score": 2.5014985004780597
+    },
+    {
+      "id": 484,
+      "name": "Palkia",
+      "max_price": 500.0,
+      "sales": 380,
+      "score": 2.4952785328404157
+    },
+    {
+      "id": 658,
+      "name": "Greninja",
+      "max_price": 412.97,
+      "sales": 430,
+      "score": 2.4902676789053535
+    },
+    {
+      "id": 471,
+      "name": "Glaceon",
+      "max_price": 381.64,
+      "sales": 452,
+      "score": 2.4872307457597036
+    },
+    {
+      "id": 257,
+      "name": "Blaziken",
+      "max_price": 409.87,
+      "sales": 425,
+      "score": 2.4751337528729653
+    },
+    {
+      "id": 148,
+      "name": "Dragonair",
+      "max_price": 395.01,
+      "sales": 420,
+      "score": 2.441980030265964
+    },
+    {
+      "id": 121,
+      "name": "Starmie",
+      "max_price": 345.99,
+      "sales": 457,
+      "score": 2.4374626459710784
+    },
+    {
+      "id": 37,
+      "name": "Vulpix",
+      "max_price": 143.79,
+      "sales": 814,
+      "score": 2.4249106428752745
+    },
+    {
+      "id": 359,
+      "name": "Absol",
+      "max_price": 395.0,
+      "sales": 410,
+      "score": 2.420237412536287
+    },
+    {
+      "id": 7,
+      "name": "Squirtle",
+      "max_price": 350.99,
+      "sales": 433,
+      "score": 2.3975473293812266
+    },
+    {
+      "id": 386,
+      "name": "Deoxys",
+      "max_price": 397.5,
+      "sales": 397,
+      "score": 2.3950288930117374
+    },
+    {
+      "id": 52,
+      "name": "Meowth",
+      "max_price": 120.0,
+      "sales": 879,
+      "score": 2.38471312659948
+    },
+    {
+      "id": 82,
+      "name": "Magneton",
+      "max_price": 225.0,
+      "sales": 566,
+      "score": 2.3687319154457884
+    },
+    {
+      "id": 131,
+      "name": "Lapras",
+      "max_price": 152.88,
+      "sales": 734,
+      "score": 2.368693393268847
+    },
+    {
+      "id": 230,
+      "name": "Kingdra",
+      "max_price": 395.0,
+      "sales": 385,
+      "score": 2.363518163492848
+    },
+    {
+      "id": 123,
+      "name": "Scyther",
+      "max_price": 350.0,
+      "sales": 413,
+      "score": 2.3531879433813185
+    },
+    {
+      "id": 350,
+      "name": "Milotic",
+      "max_price": 409.43,
+      "sales": 365,
+      "score": 2.3372762799547395
+    },
+    {
+      "id": 76,
+      "name": "Golem",
+      "max_price": 484.99,
+      "sales": 325,
+      "score": 2.3358080358644813
+    },
+    {
+      "id": 39,
+      "name": "Jigglypuff",
+      "max_price": 240.87,
+      "sales": 500,
+      "score": 2.2983029078251116
+    },
+    {
+      "id": 243,
+      "name": "Raikou",
+      "max_price": 599.99,
+      "sales": 269,
+      "score": 2.295090131934068
+    },
+    {
+      "id": 447,
+      "name": "Riolu",
+      "max_price": 250.0,
+      "sales": 474,
+      "score": 2.2727520054368293
+    },
+    {
+      "id": 157,
+      "name": "Typhlosion",
+      "max_price": 380.0,
+      "sales": 350,
+      "score": 2.2540424367213037
+    },
+    {
+      "id": 571,
+      "name": "Zoroark",
+      "max_price": 221.07,
+      "sales": 497,
+      "score": 2.2407478688135374
+    },
+    {
+      "id": 164,
+      "name": "Noctowl",
+      "max_price": 631.04,
+      "sales": 236,
+      "score": 2.2080129521265963
+    },
+    {
+      "id": 228,
+      "name": "Houndour",
+      "max_price": 250.0,
+      "sales": 436,
+      "score": 2.197391021281646
+    },
+    {
+      "id": 103,
+      "name": "Exeggutor",
+      "max_price": 128.44,
+      "sales": 675,
+      "score": 2.187505374517914
+    },
+    {
+      "id": 141,
+      "name": "Kabutops",
+      "max_price": 674.99,
+      "sales": 216,
+      "score": 2.1693603709739335
+    },
+    {
+      "id": 181,
+      "name": "Ampharos",
+      "max_price": 248.41,
+      "sales": 424,
+      "score": 2.168346842047767
+    },
+    {
+      "id": 77,
+      "name": "Ponyta",
+      "max_price": 200.0,
+      "sales": 484,
+      "score": 2.1559988420350957
+    },
+    {
+      "id": 1,
+      "name": "Bulbasaur",
+      "max_price": 249.99,
+      "sales": 415,
+      "score": 2.152856016262043
+    },
+    {
+      "id": 377,
+      "name": "Regirock",
+      "max_price": 545.0,
+      "sales": 239,
+      "score": 2.1300701873753414
+    },
+    {
+      "id": 258,
+      "name": "Mudkip",
+      "max_price": 474.99,
+      "sales": 260,
+      "score": 2.1221324427008645
+    },
+    {
+      "id": 58,
+      "name": "Growlithe",
+      "max_price": 124.0,
+      "sales": 642,
+      "score": 2.1209685442236
+    },
+    {
+      "id": 93,
+      "name": "Haunter",
+      "max_price": 199.99,
+      "sales": 462,
+      "score": 2.1140120386310732
+    },
+    {
+      "id": 334,
+      "name": "Altaria",
+      "max_price": 187.5,
+      "sales": 481,
+      "score": 2.1112036385553377
+    },
+    {
+      "id": 147,
+      "name": "Dratini",
+      "max_price": 179.99,
+      "sales": 487,
+      "score": 2.097571277422376
+    },
+    {
+      "id": 215,
+      "name": "Sneasel",
+      "max_price": 248.33,
+      "sales": 387,
+      "score": 2.0858287293606446
+    },
+    {
+      "id": 373,
+      "name": "Salamence",
+      "max_price": 245.02,
+      "sales": 381,
+      "score": 2.063586399608658
+    },
+    {
+      "id": 160,
+      "name": "Feraligatr",
+      "max_price": 354.97,
+      "sales": 280,
+      "score": 2.011533394061116
+    },
+    {
+      "id": 12,
+      "name": "Butterfree",
+      "max_price": 199.99,
+      "sales": 410,
+      "score": 2.006337894273284
+    },
+    {
+      "id": 101,
+      "name": "Electrode",
+      "max_price": 118.5,
+      "sales": 578,
+      "score": 1.9987481029205485
+    },
+    {
+      "id": 132,
+      "name": "Ditto",
+      "max_price": 184.66,
+      "sales": 427,
+      "score": 1.9945469468453103
+    },
+    {
+      "id": 375,
+      "name": "Metang",
+      "max_price": 295.24,
+      "sales": 311,
+      "score": 1.9940126465492134
+    },
+    {
+      "id": 649,
+      "name": "Genesect",
+      "max_price": 301.0,
+      "sales": 304,
+      "score": 1.9852570996608618
+    },
+    {
+      "id": 888,
+      "name": "Zacian",
+      "max_price": 178.79,
+      "sales": 430,
+      "score": 1.9812516114845198
+    },
+    {
+      "id": 115,
+      "name": "Kangaskhan",
+      "max_price": 138.77,
+      "sales": 508,
+      "score": 1.9779157103199951
+    },
+    {
+      "id": 219,
+      "name": "Magcargo",
+      "max_price": 219.0,
+      "sales": 371,
+      "score": 1.9713856005216095
+    },
+    {
+      "id": 15,
+      "name": "Beedrill",
+      "max_price": 199.99,
+      "sales": 393,
+      "score": 1.9681589512997268
+    },
+    {
+      "id": 92,
+      "name": "Gastly",
+      "max_price": 122.5,
+      "sales": 529,
+      "score": 1.9389233555300818
+    },
+    {
+      "id": 87,
+      "name": "Dewgong",
+      "max_price": 389.99,
+      "sales": 242,
+      "score": 1.937486638359227
+    },
+    {
+      "id": 399,
+      "name": "Bidoof",
+      "max_price": 424.03,
+      "sales": 220,
+      "score": 1.9026652025935236
+    },
+    {
+      "id": 635,
+      "name": "Hydreigon",
+      "max_price": 205.0,
+      "sales": 356,
+      "score": 1.8940566835856694
+    },
+    {
+      "id": 53,
+      "name": "Persian",
+      "max_price": 130.0,
+      "sales": 479,
+      "score": 1.8853467871084428
+    },
+    {
+      "id": 358,
+      "name": "Chimecho",
+      "max_price": 569.07,
+      "sales": 175,
+      "score": 1.8760792777324566
+    },
+    {
+      "id": 199,
+      "name": "Slowking",
+      "max_price": 209.16,
+      "sales": 338,
+      "score": 1.859499830553189
+    },
+    {
+      "id": 142,
+      "name": "Aerodactyl",
+      "max_price": 182.79,
+      "sales": 360,
+      "score": 1.834499401567519
+    },
+    {
+      "id": 176,
+      "name": "Togetic",
+      "max_price": 399.99,
+      "sales": 210,
+      "score": 1.825279458968839
+    },
+    {
+      "id": 492,
+      "name": "Shaymin",
+      "max_price": 129.99,
+      "sales": 448,
+      "score": 1.824959051361335
+    },
+    {
+      "id": 5,
+      "name": "Charmeleon",
+      "max_price": 110.1,
+      "sales": 495,
+      "score": 1.8144207989681223
+    },
+    {
+      "id": 319,
+      "name": "Sharpedo",
+      "max_price": 172.99,
+      "sales": 356,
+      "score": 1.790985488094074
+    },
+    {
+      "id": 62,
+      "name": "Poliwrath",
+      "max_price": 300.0,
+      "sales": 244,
+      "score": 1.7852503771777897
+    },
+    {
+      "id": 36,
+      "name": "Clefable",
+      "max_price": 153.97,
+      "sales": 379,
+      "score": 1.7767597704721698
+    },
+    {
+      "id": 1017,
+      "name": "Ogerpon",
+      "max_price": 98.0,
+      "sales": 500,
+      "score": 1.7531087048612677
+    },
+    {
+      "id": 81,
+      "name": "Magnemite",
+      "max_price": 76.89,
+      "sales": 584,
+      "score": 1.746833903353319
+    },
+    {
+      "id": 107,
+      "name": "Hitmonchan",
+      "max_price": 249.95,
+      "sales": 264,
+      "score": 1.7451815096030219
+    },
+    {
+      "id": 405,
+      "name": "Luxray",
+      "max_price": 135.28,
+      "sales": 399,
+      "score": 1.7446797326029317
+    },
+    {
+      "id": 719,
+      "name": "Diancie",
+      "max_price": 295.99,
+      "sales": 235,
+      "score": 1.743238487843212
+    },
+    {
+      "id": 479,
+      "name": "Rotom",
+      "max_price": 49.45,
+      "sales": 780,
+      "score": 1.7429267759527967
+    },
+    {
+      "id": 647,
+      "name": "Keldeo",
+      "max_price": 248.99,
+      "sales": 260,
+      "score": 1.7290958469839581
+    },
+    {
+      "id": 392,
+      "name": "Infernape",
+      "max_price": 300.0,
+      "sales": 229,
+      "score": 1.7281487661076265
+    },
+    {
+      "id": 78,
+      "name": "Rapidash",
+      "max_price": 96.21,
+      "sales": 490,
+      "score": 1.7237499405727708
+    },
+    {
+      "id": 128,
+      "name": "Tauros",
+      "max_price": 99.99,
+      "sales": 476,
+      "score": 1.7208876484053617
+    },
+    {
+      "id": 102,
+      "name": "Exeggcute",
+      "max_price": 100.0,
+      "sales": 475,
+      "score": 1.7190513148440076
+    },
+    {
+      "id": 254,
+      "name": "Sceptile",
+      "max_price": 222.0,
+      "sales": 273,
+      "score": 1.703298422973707
+    },
+    {
+      "id": 18,
+      "name": "Pidgeot",
+      "max_price": 128.61,
+      "sales": 393,
+      "score": 1.7003926311963509
+    },
+    {
+      "id": 493,
+      "name": "Arceus",
+      "max_price": 139.0,
+      "sales": 372,
+      "score": 1.6979527174432993
+    },
+    {
+      "id": 8,
+      "name": "Wartortle",
+      "max_price": 190.0,
+      "sales": 300,
+      "score": 1.6937014614926542
+    },
+    {
+      "id": 125,
+      "name": "Electabuzz",
+      "max_price": 109.24,
+      "sales": 435,
+      "score": 1.6931466831317379
+    },
+    {
+      "id": 194,
+      "name": "Wooper",
+      "max_price": 125.65,
+      "sales": 395,
+      "score": 1.6908687408973702
+    },
+    {
+      "id": 378,
+      "name": "Regice",
+      "max_price": 669.99,
+      "sales": 127,
+      "score": 1.687738646714015
+    },
+    {
+      "id": 791,
+      "name": "Solgaleo",
+      "max_price": 375.45,
+      "sales": 188,
+      "score": 1.6872171408585808
+    },
+    {
+      "id": 385,
+      "name": "Jirachi",
+      "max_price": 169.36,
+      "sales": 317,
+      "score": 1.6735608306094947
+    },
+    {
+      "id": 205,
+      "name": "Forretress",
+      "max_price": 178.1,
+      "sales": 306,
+      "score": 1.6722784928229728
+    },
+    {
+      "id": 330,
+      "name": "Flygon",
+      "max_price": 151.5,
+      "sales": 337,
+      "score": 1.6610947958621796
+    },
+    {
+      "id": 112,
+      "name": "Rhydon",
+      "max_price": 250.0,
+      "sales": 240,
+      "score": 1.6595019717459363
+    },
+    {
+      "id": 31,
+      "name": "Nidoqueen",
+      "max_price": 278.23,
+      "sales": 223,
+      "score": 1.658438125679878
+    },
+    {
+      "id": 95,
+      "name": "Onix",
+      "max_price": 100.0,
+      "sales": 437,
+      "score": 1.643855424894633
+    },
+    {
+      "id": 395,
+      "name": "Empoleon",
+      "max_price": 169.84,
+      "sales": 306,
+      "score": 1.6434607151576073
+    },
+    {
+      "id": 609,
+      "name": "Chandelure",
+      "max_price": 137.5,
+      "sales": 350,
+      "score": 1.636433717058787
+    },
+    {
+      "id": 303,
+      "name": "Mawile",
+      "max_price": 71.49,
+      "sales": 541,
+      "score": 1.6339804654916779
+    },
+    {
+      "id": 80,
+      "name": "Slowbro",
+      "max_price": 128.91,
+      "sales": 363,
+      "score": 1.6302247484548207
+    },
+    {
+      "id": 569,
+      "name": "Garbodor",
+      "max_price": 183.32,
+      "sales": 286,
+      "score": 1.628927128274347
+    },
+    {
+      "id": 110,
+      "name": "Weezing",
+      "max_price": 100.82,
+      "sales": 421,
+      "score": 1.6151566025665167
+    },
+    {
+      "id": 89,
+      "name": "Muk",
+      "max_price": 106.41,
+      "sales": 403,
+      "score": 1.6083792537999555
+    },
+    {
+      "id": 887,
+      "name": "Dragapult",
+      "max_price": 182.05,
+      "sales": 275,
+      "score": 1.5893852510351174
+    },
+    {
+      "id": 183,
+      "name": "Marill",
+      "max_price": 116.85,
+      "sales": 370,
+      "score": 1.5879768417177245
+    },
+    {
+      "id": 242,
+      "name": "Blissey",
+      "max_price": 175.0,
+      "sales": 275,
+      "score": 1.5654144051934031
+    },
+    {
+      "id": 124,
+      "name": "Jynx",
+      "max_price": 92.48,
+      "sales": 419,
+      "score": 1.5587049171490093
+    },
+    {
+      "id": 45,
+      "name": "Vileplume",
+      "max_price": 123.97,
+      "sales": 341,
+      "score": 1.5502171961913702
+    },
+    {
+      "id": 40,
+      "name": "Wigglytuff",
+      "max_price": 82.99,
+      "sales": 444,
+      "score": 1.5456272425364355
+    },
+    {
+      "id": 403,
+      "name": "Shinx",
+      "max_price": 103.42,
+      "sales": 374,
+      "score": 1.523824797628693
+    },
+    {
+      "id": 200,
+      "name": "Misdreavus",
+      "max_price": 136.68,
+      "sales": 305,
+      "score": 1.5088059804539582
+    },
+    {
+      "id": 97,
+      "name": "Hypno",
+      "max_price": 117.5,
+      "sales": 335,
+      "score": 1.5017746752763692
+    },
+    {
+      "id": 11,
+      "name": "Metapod",
+      "max_price": 125.0,
+      "sales": 321,
+      "score": 1.500764137183088
+    },
+    {
+      "id": 105,
+      "name": "Marowak",
+      "max_price": 126.72,
+      "sales": 318,
+      "score": 1.5005792014902628
+    },
+    {
+      "id": 56,
+      "name": "Mankey",
+      "max_price": 90.0,
+      "sales": 396,
+      "score": 1.4913933527456986
+    },
+    {
+      "id": 802,
+      "name": "Marshadow",
+      "max_price": 237.39,
+      "sales": 206,
+      "score": 1.4905931660840621
+    },
+    {
+      "id": 178,
+      "name": "Xatu",
+      "max_price": 200.0,
+      "sales": 229,
+      "score": 1.4816950157567987
+    },
+    {
+      "id": 939,
+      "name": "Bellibolt",
+      "max_price": 189.99,
+      "sales": 235,
+      "score": 1.4737924329108778
+    },
+    {
+      "id": 232,
+      "name": "Donphan",
+      "max_price": 199.95,
+      "sales": 227,
+      "score": 1.4736496021539491
+    },
+    {
+      "id": 898,
+      "name": "Calyrex",
+      "max_price": 116.5,
+      "sales": 324,
+      "score": 1.46651823197272
+    },
+    {
+      "id": 701,
+      "name": "Hawlucha",
+      "max_price": 123.0,
+      "sales": 311,
+      "score": 1.4624850142032364
+    },
+    {
+      "id": 184,
+      "name": "Azumarill",
+      "max_price": 140.0,
+      "sales": 284,
+      "score": 1.4590916395271236
+    },
+    {
+      "id": 877,
+      "name": "Morpeko",
+      "max_price": 55.04,
+      "sales": 526,
+      "score": 1.4515266657043742
+    },
+    {
+      "id": 13,
+      "name": "Weedle",
+      "max_price": 109.95,
+      "sales": 330,
+      "score": 1.4480441544199423
+    },
+    {
+      "id": 214,
+      "name": "Heracross",
+      "max_price": 99.59,
+      "sales": 350,
+      "score": 1.44124012885915
+    },
+    {
+      "id": 281,
+      "name": "Kirlia",
+      "max_price": 70.0,
+      "sales": 435,
+      "score": 1.424614574564126
+    },
+    {
+      "id": 310,
+      "name": "Manectric",
+      "max_price": 87.49,
+      "sales": 371,
+      "score": 1.4155366233987419
+    },
+    {
+      "id": 51,
+      "name": "Dugtrio",
+      "max_price": 73.74,
+      "sales": 414,
+      "score": 1.411330761624738
+    },
+    {
+      "id": 63,
+      "name": "Abra",
+      "max_price": 149.99,
+      "sales": 255,
+      "score": 1.4038816371724796
+    },
+    {
+      "id": 354,
+      "name": "Banette",
+      "max_price": 102.5,
+      "sales": 329,
+      "score": 1.4028867759977035
+    },
+    {
+      "id": 478,
+      "name": "Froslass",
+      "max_price": 150.0,
+      "sales": 253,
+      "score": 1.3968333292728823
+    },
+    {
+      "id": 485,
+      "name": "Heatran",
+      "max_price": 107.73,
+      "sales": 315,
+      "score": 1.3937931049464634
+    },
+    {
+      "id": 61,
+      "name": "Poliwhirl",
+      "max_price": 135.0,
+      "sales": 270,
+      "score": 1.3915305959370046
+    },
+    {
+      "id": 100,
+      "name": "Voltorb",
+      "max_price": 47.47,
+      "sales": 541,
+      "score": 1.3883212312309143
+    },
+    {
+      "id": 302,
+      "name": "Sableye",
+      "max_price": 72.5,
+      "sales": 408,
+      "score": 1.3879574734947862
+    },
+    {
+      "id": 497,
+      "name": "Serperior",
+      "max_price": 145.99,
+      "sales": 253,
+      "score": 1.380406178221857
+    },
+    {
+      "id": 75,
+      "name": "Graveler",
+      "max_price": 99.98,
+      "sales": 326,
+      "score": 1.379588702671807
+    },
+    {
+      "id": 172,
+      "name": "Pichu",
+      "max_price": 267.5,
+      "sales": 167,
+      "score": 1.3745130561530043
+    },
+    {
+      "id": 185,
+      "name": "Sudowoodo",
+      "max_price": 150.0,
+      "sales": 245,
+      "score": 1.3679089976247527
+    },
+    {
+      "id": 227,
+      "name": "Skarmory",
+      "max_price": 78.5,
+      "sales": 375,
+      "score": 1.3598171219742137
+    },
+    {
+      "id": 10,
+      "name": "Caterpie",
+      "max_price": 99.99,
+      "sales": 318,
+      "score": 1.3572626526313165
+    },
+    {
+      "id": 861,
+      "name": "Grimmsnarl",
+      "max_price": 170.0,
+      "sales": 220,
+      "score": 1.346963800914211
+    },
+    {
+      "id": 96,
+      "name": "Drowzee",
+      "max_price": 82.6,
+      "sales": 357,
+      "score": 1.3461710260176423
+    },
+    {
+      "id": 800,
+      "name": "Necrozma",
+      "max_price": 93.61,
+      "sales": 326,
+      "score": 1.3398201526207636
+    },
+    {
+      "id": 198,
+      "name": "Murkrow",
+      "max_price": 75.5,
+      "sales": 376,
+      "score": 1.3387406249034215
+    },
+    {
+      "id": 50,
+      "name": "Diglett",
+      "max_price": 65.57,
+      "sales": 413,
+      "score": 1.3384978496223692
+    },
+    {
+      "id": 306,
+      "name": "Aggron",
+      "max_price": 93.73,
+      "sales": 324,
+      "score": 1.3350489276628261
+    },
+    {
+      "id": 171,
+      "name": "Lanturn",
+      "max_price": 98.0,
+      "sales": 313,
+      "score": 1.3308376475150934
+    },
+    {
+      "id": 117,
+      "name": "Seadra",
+      "max_price": 109.63,
+      "sales": 288,
+      "score": 1.3236420503907669
+    },
+    {
+      "id": 892,
+      "name": "Urshifu",
+      "max_price": 81.81,
+      "sales": 350,
+      "score": 1.322528861386176
+    },
+    {
+      "id": 166,
+      "name": "Ledian",
+      "max_price": 202.79,
+      "sales": 189,
+      "score": 1.3174311813578117
+    },
+    {
+      "id": 41,
+      "name": "Zubat",
+      "max_price": 69.98,
+      "sales": 385,
+      "score": 1.3143543798125985
+    },
+    {
+      "id": 154,
+      "name": "Meganium",
+      "max_price": 157.5,
+      "sales": 223,
+      "score": 1.312820791689417
+    },
+    {
+      "id": 180,
+      "name": "Flaaffy",
+      "max_price": 74.0,
+      "sales": 370,
+      "score": 1.3121546170728764
+    },
+    {
+      "id": 175,
+      "name": "Togepi",
+      "max_price": 120.28,
+      "sales": 266,
+      "score": 1.3081759296135613
+    },
+    {
+      "id": 379,
+      "name": "Registeel",
+      "max_price": 320.64,
+      "sales": 137,
+      "score": 1.306938936389944
+    },
+    {
+      "id": 127,
+      "name": "Pinsir",
+      "max_price": 87.27,
+      "sales": 329,
+      "score": 1.305740052822401
+    },
+    {
+      "id": 120,
+      "name": "Staryu",
+      "max_price": 59.99,
+      "sales": 421,
+      "score": 1.302365514120248
+    },
+    {
+      "id": 55,
+      "name": "Golduck",
+      "max_price": 99.95,
+      "sales": 299,
+      "score": 1.3015192433942837
+    },
+    {
+      "id": 2,
+      "name": "Ivysaur",
+      "max_price": 96.28,
+      "sales": 304,
+      "score": 1.293856937651261
+    },
+    {
+      "id": 233,
+      "name": "Porygon2",
+      "max_price": 156.98,
+      "sales": 215,
+      "score": 1.277945785690863
+    },
+    {
+      "id": 260,
+      "name": "Swampert",
+      "max_price": 206.86,
+      "sales": 178,
+      "score": 1.2755986952237472
+    },
+    {
+      "id": 537,
+      "name": "Seismitoad",
+      "max_price": 237.9,
+      "sales": 160,
+      "score": 1.2647574297947128
+    },
+    {
+      "id": 66,
+      "name": "Machop",
+      "max_price": 69.99,
+      "sales": 364,
+      "score": 1.2638813130962987
+    },
+    {
+      "id": 488,
+      "name": "Cresselia",
+      "max_price": 145.04,
+      "sales": 223,
+      "score": 1.2628507677041854
+    },
+    {
+      "id": 323,
+      "name": "Camerupt",
+      "max_price": 86.45,
+      "sales": 315,
+      "score": 1.2608633161364535
+    },
+    {
+      "id": 111,
+      "name": "Rhyhorn",
+      "max_price": 75.99,
+      "sales": 343,
+      "score": 1.259845425044186
+    },
+    {
+      "id": 104,
+      "name": "Cubone",
+      "max_price": 80.5,
+      "sales": 330,
+      "score": 1.2597722038734511
+    },
+    {
+      "id": 57,
+      "name": "Primeape",
+      "max_price": 79.99,
+      "sales": 331,
+      "score": 1.2586673951387415
+    },
+    {
+      "id": 717,
+      "name": "Yveltal",
+      "max_price": 78.33,
+      "sales": 335,
+      "score": 1.2568520937063905
+    },
+    {
+      "id": 807,
+      "name": "Zeraora",
+      "max_price": 63.44,
+      "sales": 385,
+      "score": 1.2553578766348643
+    },
+    {
+      "id": 221,
+      "name": "Piloswine",
+      "max_price": 200.0,
+      "sales": 177,
+      "score": 1.25005280051293
+    },
+    {
+      "id": 553,
+      "name": "Krookodile",
+      "max_price": 199.99,
+      "sales": 176,
+      "score": 1.2449305443719578
+    },
+    {
+      "id": 20,
+      "name": "Raticate",
+      "max_price": 62.0,
+      "sales": 386,
+      "score": 1.2439030088076815
+    },
+    {
+      "id": 716,
+      "name": "Xerneas",
+      "max_price": 97.0,
+      "sales": 284,
+      "score": 1.2370589132911909
+    },
+    {
+      "id": 67,
+      "name": "Machoke",
+      "max_price": 79.99,
+      "sales": 318,
+      "score": 1.2225658003033155
+    },
+    {
+      "id": 311,
+      "name": "Plusle",
+      "max_price": 117.49,
+      "sales": 243,
+      "score": 1.212556112038232
+    },
+    {
+      "id": 308,
+      "name": "Medicham",
+      "max_price": 76.06,
+      "sales": 324,
+      "score": 1.209048891126844
+    },
+    {
+      "id": 113,
+      "name": "Chansey",
+      "max_price": 61.85,
+      "sales": 365,
+      "score": 1.192023424154969
+    },
+    {
+      "id": 27,
+      "name": "Sandshrew",
+      "max_price": 75.57,
+      "sales": 318,
+      "score": 1.1883139835900356
+    },
+    {
+      "id": 715,
+      "name": "Noivern",
+      "max_price": 73.77,
+      "sales": 319,
+      "score": 1.1766239436661714
+    },
+    {
+      "id": 561,
+      "name": "Sigilyph",
+      "max_price": 118.58,
+      "sales": 232,
+      "score": 1.1764524402456478
+    },
+    {
+      "id": 19,
+      "name": "Rattata",
+      "max_price": 63.89,
+      "sales": 350,
+      "score": 1.1736971239140648
+    },
+    {
+      "id": 462,
+      "name": "Magnezone",
+      "max_price": 51.85,
+      "sales": 398,
+      "score": 1.1642817353586743
+    },
+    {
+      "id": 642,
+      "name": "Thundurus",
+      "max_price": 155.0,
+      "sales": 191,
+      "score": 1.163794785434741
+    },
+    {
+      "id": 155,
+      "name": "Cyndaquil",
+      "max_price": 65.0,
+      "sales": 342,
+      "score": 1.1632110285118176
+    },
+    {
+      "id": 71,
+      "name": "Victreebel",
+      "max_price": 149.99,
+      "sales": 194,
+      "score": 1.1578850246234675
+    },
+    {
+      "id": 137,
+      "name": "Porygon",
+      "max_price": 70.16,
+      "sales": 323,
+      "score": 1.1576489017847282
+    },
+    {
+      "id": 355,
+      "name": "Duskull",
+      "max_price": 89.94,
+      "sales": 272,
+      "score": 1.1525467231147366
+    },
+    {
+      "id": 24,
+      "name": "Arbok",
+      "max_price": 72.22,
+      "sales": 315,
+      "score": 1.1524699063732082
+    },
+    {
+      "id": 126,
+      "name": "Magmar",
+      "max_price": 55.78,
+      "sales": 374,
+      "score": 1.15199029871345
+    },
+    {
+      "id": 623,
+      "name": "Golurk",
+      "max_price": 111.8,
+      "sales": 234,
+      "score": 1.1485529425155865
+    },
+    {
+      "id": 641,
+      "name": "Tornadus",
+      "max_price": 105.55,
+      "sales": 243,
+      "score": 1.1477305963996227
+    },
+    {
+      "id": 321,
+      "name": "Wailord",
+      "max_price": 103.4,
+      "sales": 245,
+      "score": 1.1426673191043908
+    },
+    {
+      "id": 937,
+      "name": "Ceruledge",
+      "max_price": 244.3,
+      "sales": 135,
+      "score": 1.1283754428137431
+    },
+    {
+      "id": 202,
+      "name": "Wobbuffet",
+      "max_price": 81.26,
+      "sales": 283,
+      "score": 1.1270243029439537
+    },
+    {
+      "id": 44,
+      "name": "Gloom",
+      "max_price": 46.84,
+      "sales": 408,
+      "score": 1.125868374932943
+    },
+    {
+      "id": 206,
+      "name": "Dunsparce",
+      "max_price": 79.99,
+      "sales": 285,
+      "score": 1.123870581822387
+    },
+    {
+      "id": 721,
+      "name": "Volcanion",
+      "max_price": 68.61,
+      "sales": 314,
+      "score": 1.1187468032591803
+    },
+    {
+      "id": 280,
+      "name": "Ralts",
+      "max_price": 39.04,
+      "sales": 456,
+      "score": 1.1175342601477476
+    },
+    {
+      "id": 88,
+      "name": "Grimer",
+      "max_price": 58.19,
+      "sales": 348,
+      "score": 1.1124183657593212
+    },
+    {
+      "id": 356,
+      "name": "Dusclops",
+      "max_price": 103.98,
+      "sales": 235,
+      "score": 1.1085408485680086
+    },
+    {
+      "id": 86,
+      "name": "Seel",
+      "max_price": 79.24,
+      "sales": 280,
+      "score": 1.1022517724520227
+    },
+    {
+      "id": 140,
+      "name": "Kabuto",
+      "max_price": 137.0,
+      "sales": 193,
+      "score": 1.0983331170669584
+    },
+    {
+      "id": 246,
+      "name": "Larvitar",
+      "max_price": 44.56,
+      "sales": 406,
+      "score": 1.0916344101541293
+    },
+    {
+      "id": 333,
+      "name": "Swablu",
+      "max_price": 49.99,
+      "sales": 374,
+      "score": 1.0863466958336971
+    },
+    {
+      "id": 28,
+      "name": "Sandslash",
+      "max_price": 70.0,
+      "sales": 298,
+      "score": 1.0836993133718695
+    },
+    {
+      "id": 486,
+      "name": "Regigigas",
+      "max_price": 100.49,
+      "sales": 232,
+      "score": 1.0763431733618263
+    },
+    {
+      "id": 312,
+      "name": "Minun",
+      "max_price": 87.01,
+      "sales": 255,
+      "score": 1.0744490178942596
+    },
+    {
+      "id": 640,
+      "name": "Virizion",
+      "max_price": 101.32,
+      "sales": 229,
+      "score": 1.0696016443813448
+    },
+    {
+      "id": 247,
+      "name": "Pupitar",
+      "max_price": 59.99,
+      "sales": 324,
+      "score": 1.0663087623063965
+    },
+    {
+      "id": 235,
+      "name": "Smeargle",
+      "max_price": 119.97,
+      "sales": 203,
+      "score": 1.063373190770226
+    },
+    {
+      "id": 428,
+      "name": "Lopunny",
+      "max_price": 99.35,
+      "sales": 230,
+      "score": 1.0616572890604308
+    },
+    {
+      "id": 809,
+      "name": "Melmetal",
+      "max_price": 81.33,
+      "sales": 263,
+      "score": 1.0615427292852089
+    },
+    {
+      "id": 209,
+      "name": "Snubbull",
+      "max_price": 68.95,
+      "sales": 293,
+      "score": 1.0593642811963724
+    },
+    {
+      "id": 1024,
+      "name": "Terapagos",
+      "max_price": 153.54,
+      "sales": 170,
+      "score": 1.053366095294579
+    },
+    {
+      "id": 193,
+      "name": "Yanma",
+      "max_price": 86.85,
+      "sales": 249,
+      "score": 1.0519032548736085
+    },
+    {
+      "id": 964,
+      "name": "Palafin",
+      "max_price": 129.71,
+      "sales": 190,
+      "score": 1.0511234435255536
+    },
+    {
+      "id": 74,
+      "name": "Geodude",
+      "max_price": 47.6,
+      "sales": 365,
+      "score": 1.035091347806996
+    },
+    {
+      "id": 114,
+      "name": "Tangela",
+      "max_price": 34.36,
+      "sales": 449,
+      "score": 1.0277208622878806
+    },
+    {
+      "id": 179,
+      "name": "Mareep",
+      "max_price": 41.57,
+      "sales": 394,
+      "score": 1.023156471843348
+    },
+    {
+      "id": 371,
+      "name": "Bagon",
+      "max_price": 70.45,
+      "sales": 277,
+      "score": 1.0217378446996004
+    },
+    {
+      "id": 500,
+      "name": "Emboar",
+      "max_price": 136.85,
+      "sales": 177,
+      "score": 1.0198744166094509
+    },
+    {
+      "id": 21,
+      "name": "Spearow",
+      "max_price": 64.5,
+      "sales": 293,
+      "score": 1.019247075272083
+    },
+    {
+      "id": 84,
+      "name": "Doduo",
+      "max_price": 55.71,
+      "sales": 323,
+      "score": 1.019116449319228
+    },
+    {
+      "id": 475,
+      "name": "Gallade",
+      "max_price": 67.34,
+      "sales": 284,
+      "score": 1.0170525859905475
+    },
+    {
+      "id": 186,
+      "name": "Politoed",
+      "max_price": 299.99,
+      "sales": 103,
+      "score": 1.0107863745066241
+    },
+    {
+      "id": 22,
+      "name": "Fearow",
+      "max_price": 79.01,
+      "sales": 252,
+      "score": 1.0056314216335076
+    },
+    {
+      "id": 64,
+      "name": "Kadabra",
+      "max_price": 145.51,
+      "sales": 167,
+      "score": 1.0048024065125016
+    },
+    {
+      "id": 466,
+      "name": "Electivire",
+      "max_price": 66.84,
+      "sales": 281,
+      "score": 1.0030065936253347
+    },
+    {
+      "id": 604,
+      "name": "Eelektross",
+      "max_price": 100.0,
+      "sales": 213,
+      "score": 0.9965092034090877
+    },
+    {
+      "id": 42,
+      "name": "Golbat",
+      "max_price": 54.14,
+      "sales": 320,
+      "score": 0.9935738138182009
+    },
+    {
+      "id": 477,
+      "name": "Dusknoir",
+      "max_price": 95.13,
+      "sales": 219,
+      "score": 0.9913390356215723
+    },
+    {
+      "id": 393,
+      "name": "Piplup",
+      "max_price": 56.61,
+      "sales": 309,
+      "score": 0.9888041217581813
+    },
+    {
+      "id": 702,
+      "name": "Dedenne",
+      "max_price": 40.36,
+      "sales": 385,
+      "score": 0.9847259966122592
+    },
+    {
+      "id": 106,
+      "name": "Hitmonlee",
+      "max_price": 100.0,
+      "sales": 210,
+      "score": 0.9837493459175596
+    },
+    {
+      "id": 213,
+      "name": "Shuckle",
+      "max_price": 87.0,
+      "sales": 229,
+      "score": 0.97758349033812
+    },
+    {
+      "id": 253,
+      "name": "Grovyle",
+      "max_price": 99.97,
+      "sales": 208,
+      "score": 0.9749602709539874
+    },
+    {
+      "id": 33,
+      "name": "Nidorino",
+      "max_price": 85.0,
+      "sales": 231,
+      "score": 0.9713775700272047
+    },
+    {
+      "id": 43,
+      "name": "Oddish",
+      "max_price": 32.5,
+      "sales": 434,
+      "score": 0.9641007952427175
+    },
+    {
+      "id": 560,
+      "name": "Scrafty",
+      "max_price": 100.25,
+      "sales": 204,
+      "score": 0.9591849931566669
+    },
+    {
+      "id": 139,
+      "name": "Omastar",
+      "max_price": 80.0,
+      "sales": 237,
+      "score": 0.9578972603575271
+    },
+    {
+      "id": 645,
+      "name": "Landorus",
+      "max_price": 194.95,
+      "sales": 130,
+      "score": 0.9574276139769355
+    },
+    {
+      "id": 570,
+      "name": "Zorua",
+      "max_price": 49.09,
+      "sales": 327,
+      "score": 0.9544467384023532
+    },
+    {
+      "id": 454,
+      "name": "Toxicroak",
+      "max_price": 67.49,
+      "sales": 264,
+      "score": 0.9526302288528825
+    },
+    {
+      "id": 217,
+      "name": "Ursaring",
+      "max_price": 92.13,
+      "sales": 214,
+      "score": 0.9512104218466453
+    },
+    {
+      "id": 472,
+      "name": "Gliscor",
+      "max_price": 107.82,
+      "sales": 190,
+      "score": 0.9392588574896114
+    },
+    {
+      "id": 14,
+      "name": "Kakuna",
+      "max_price": 51.91,
+      "sales": 308,
+      "score": 0.9339426552657295
+    }
+  ]
+}

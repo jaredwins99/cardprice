@@ -1,0 +1,8208 @@
+{
+  "generated_at": "2026-06-07T18:54:47Z",
+  "condition": "Lightly Played",
+  "source": "data/justtcg_prices.db (per-card per-condition aggregate)",
+  "note": "Mean across all LP prices for any card depicting this species. Skewed by chase cards.",
+  "species": {
+    "1": {
+      "name": "Bulbasaur",
+      "n_cards_with_lp": 85,
+      "mean_lp": 45.46,
+      "median_lp": 21.97,
+      "min_lp": 1.04,
+      "max_lp": 350.0
+    },
+    "2": {
+      "name": "Ivysaur",
+      "n_cards_with_lp": 56,
+      "mean_lp": 20.99,
+      "median_lp": 10.83,
+      "min_lp": 0.59,
+      "max_lp": 137.99
+    },
+    "3": {
+      "name": "Venusaur",
+      "n_cards_with_lp": 132,
+      "mean_lp": 61.1,
+      "median_lp": 25.91,
+      "min_lp": 0.94,
+      "max_lp": 475.0
+    },
+    "4": {
+      "name": "Charmander",
+      "n_cards_with_lp": 121,
+      "mean_lp": 27.71,
+      "median_lp": 12.49,
+      "min_lp": 0.21,
+      "max_lp": 194.52
+    },
+    "5": {
+      "name": "Charmeleon",
+      "n_cards_with_lp": 88,
+      "mean_lp": 22.2,
+      "median_lp": 9.89,
+      "min_lp": 0.63,
+      "max_lp": 106.0
+    },
+    "6": {
+      "name": "Charizard",
+      "n_cards_with_lp": 327,
+      "mean_lp": 156.05,
+      "median_lp": 46.14,
+      "min_lp": 0.24,
+      "max_lp": 2400.0
+    },
+    "7": {
+      "name": "Squirtle",
+      "n_cards_with_lp": 104,
+      "mean_lp": 45.98,
+      "median_lp": 16.0,
+      "min_lp": 0.96,
+      "max_lp": 409.67
+    },
+    "8": {
+      "name": "Wartortle",
+      "n_cards_with_lp": 58,
+      "mean_lp": 21.89,
+      "median_lp": 7.12,
+      "min_lp": 0.51,
+      "max_lp": 146.66
+    },
+    "9": {
+      "name": "Blastoise",
+      "n_cards_with_lp": 151,
+      "mean_lp": 79.46,
+      "median_lp": 35.57,
+      "min_lp": 1.42,
+      "max_lp": 599.95
+    },
+    "10": {
+      "name": "Caterpie",
+      "n_cards_with_lp": 22,
+      "mean_lp": 15.06,
+      "median_lp": 8.24,
+      "min_lp": 0.41,
+      "max_lp": 81.15
+    },
+    "11": {
+      "name": "Metapod",
+      "n_cards_with_lp": 24,
+      "mean_lp": 12.13,
+      "median_lp": 3.58,
+      "min_lp": 0.2,
+      "max_lp": 72.77
+    },
+    "12": {
+      "name": "Butterfree",
+      "n_cards_with_lp": 48,
+      "mean_lp": 21.9,
+      "median_lp": 11.7,
+      "min_lp": 0.75,
+      "max_lp": 137.25
+    },
+    "13": {
+      "name": "Weedle",
+      "n_cards_with_lp": 22,
+      "mean_lp": 15.29,
+      "median_lp": 5.27,
+      "min_lp": 0.24,
+      "max_lp": 69.19
+    },
+    "14": {
+      "name": "Kakuna",
+      "n_cards_with_lp": 26,
+      "mean_lp": 10.75,
+      "median_lp": 2.34,
+      "min_lp": 0.2,
+      "max_lp": 51.51
+    },
+    "15": {
+      "name": "Beedrill",
+      "n_cards_with_lp": 55,
+      "mean_lp": 22.82,
+      "median_lp": 7.1,
+      "min_lp": 0.33,
+      "max_lp": 185.0
+    },
+    "16": {
+      "name": "Pidgey",
+      "n_cards_with_lp": 39,
+      "mean_lp": 6.86,
+      "median_lp": 4.24,
+      "min_lp": 0.35,
+      "max_lp": 26.31
+    },
+    "17": {
+      "name": "Pidgeotto",
+      "n_cards_with_lp": 50,
+      "mean_lp": 9.46,
+      "median_lp": 6.37,
+      "min_lp": 0.28,
+      "max_lp": 74.75
+    },
+    "18": {
+      "name": "Pidgeot",
+      "n_cards_with_lp": 77,
+      "mean_lp": 21.37,
+      "median_lp": 10.79,
+      "min_lp": 0.48,
+      "max_lp": 110.55
+    },
+    "19": {
+      "name": "Rattata",
+      "n_cards_with_lp": 34,
+      "mean_lp": 15.31,
+      "median_lp": 5.72,
+      "min_lp": 0.23,
+      "max_lp": 76.12
+    },
+    "20": {
+      "name": "Raticate",
+      "n_cards_with_lp": 40,
+      "mean_lp": 11.47,
+      "median_lp": 3.08,
+      "min_lp": 0.32,
+      "max_lp": 56.49
+    },
+    "21": {
+      "name": "Spearow",
+      "n_cards_with_lp": 26,
+      "mean_lp": 8.75,
+      "median_lp": 3.3,
+      "min_lp": 0.2,
+      "max_lp": 52.1
+    },
+    "22": {
+      "name": "Fearow",
+      "n_cards_with_lp": 34,
+      "mean_lp": 25.38,
+      "median_lp": 28.29,
+      "min_lp": 0.63,
+      "max_lp": 64.09
+    },
+    "23": {
+      "name": "Ekans",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.46,
+      "median_lp": 2.27,
+      "min_lp": 0.28,
+      "max_lp": 16.51
+    },
+    "24": {
+      "name": "Arbok",
+      "n_cards_with_lp": 43,
+      "mean_lp": 14.41,
+      "median_lp": 8.16,
+      "min_lp": 0.43,
+      "max_lp": 55.21
+    },
+    "25": {
+      "name": "Pikachu",
+      "n_cards_with_lp": 507,
+      "mean_lp": 51.68,
+      "median_lp": 16.96,
+      "min_lp": 0.53,
+      "max_lp": 872.76
+    },
+    "26": {
+      "name": "Raichu",
+      "n_cards_with_lp": 199,
+      "mean_lp": 42.97,
+      "median_lp": 17.39,
+      "min_lp": 0.38,
+      "max_lp": 454.87
+    },
+    "27": {
+      "name": "Sandshrew",
+      "n_cards_with_lp": 35,
+      "mean_lp": 12.73,
+      "median_lp": 7.25,
+      "min_lp": 0.31,
+      "max_lp": 54.32
+    },
+    "28": {
+      "name": "Sandslash",
+      "n_cards_with_lp": 35,
+      "mean_lp": 15.75,
+      "median_lp": 7.05,
+      "min_lp": 0.45,
+      "max_lp": 83.8
+    },
+    "29": {
+      "name": "Nidoran-F",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "30": {
+      "name": "Nidorina",
+      "n_cards_with_lp": 24,
+      "mean_lp": 12.48,
+      "median_lp": 3.18,
+      "min_lp": 0.28,
+      "max_lp": 59.55
+    },
+    "31": {
+      "name": "Nidoqueen",
+      "n_cards_with_lp": 52,
+      "mean_lp": 23.19,
+      "median_lp": 17.54,
+      "min_lp": 1.08,
+      "max_lp": 200.0
+    },
+    "32": {
+      "name": "Nidoran-M",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "33": {
+      "name": "Nidorino",
+      "n_cards_with_lp": 26,
+      "mean_lp": 12.23,
+      "median_lp": 3.07,
+      "min_lp": 0.28,
+      "max_lp": 91.38
+    },
+    "34": {
+      "name": "Nidoking",
+      "n_cards_with_lp": 57,
+      "mean_lp": 46.03,
+      "median_lp": 20.95,
+      "min_lp": 1.13,
+      "max_lp": 600.0
+    },
+    "35": {
+      "name": "Clefairy",
+      "n_cards_with_lp": 83,
+      "mean_lp": 16.88,
+      "median_lp": 4.92,
+      "min_lp": 0.4,
+      "max_lp": 180.98
+    },
+    "36": {
+      "name": "Clefable",
+      "n_cards_with_lp": 41,
+      "mean_lp": 26.91,
+      "median_lp": 22.35,
+      "min_lp": 0.63,
+      "max_lp": 95.7
+    },
+    "37": {
+      "name": "Vulpix",
+      "n_cards_with_lp": 118,
+      "mean_lp": 15.4,
+      "median_lp": 5.42,
+      "min_lp": 0.38,
+      "max_lp": 120.74
+    },
+    "38": {
+      "name": "Ninetales",
+      "n_cards_with_lp": 138,
+      "mean_lp": 35.36,
+      "median_lp": 16.28,
+      "min_lp": 0.49,
+      "max_lp": 268.42
+    },
+    "39": {
+      "name": "Jigglypuff",
+      "n_cards_with_lp": 73,
+      "mean_lp": 24.84,
+      "median_lp": 11.75,
+      "min_lp": 0.4,
+      "max_lp": 196.0
+    },
+    "40": {
+      "name": "Wigglytuff",
+      "n_cards_with_lp": 56,
+      "mean_lp": 16.93,
+      "median_lp": 8.59,
+      "min_lp": 0.98,
+      "max_lp": 80.0
+    },
+    "41": {
+      "name": "Zubat",
+      "n_cards_with_lp": 40,
+      "mean_lp": 11.4,
+      "median_lp": 7.9,
+      "min_lp": 0.24,
+      "max_lp": 62.0
+    },
+    "42": {
+      "name": "Golbat",
+      "n_cards_with_lp": 38,
+      "mean_lp": 15.61,
+      "median_lp": 7.53,
+      "min_lp": 0.59,
+      "max_lp": 49.7
+    },
+    "43": {
+      "name": "Oddish",
+      "n_cards_with_lp": 49,
+      "mean_lp": 9.02,
+      "median_lp": 4.28,
+      "min_lp": 0.48,
+      "max_lp": 34.63
+    },
+    "44": {
+      "name": "Gloom",
+      "n_cards_with_lp": 48,
+      "mean_lp": 12.65,
+      "median_lp": 4.08,
+      "min_lp": 0.5,
+      "max_lp": 98.69
+    },
+    "45": {
+      "name": "Vileplume",
+      "n_cards_with_lp": 73,
+      "mean_lp": 28.02,
+      "median_lp": 19.8,
+      "min_lp": 1.38,
+      "max_lp": 99.2
+    },
+    "46": {
+      "name": "Paras",
+      "n_cards_with_lp": 16,
+      "mean_lp": 6.49,
+      "median_lp": 3.08,
+      "min_lp": 0.23,
+      "max_lp": 18.22
+    },
+    "47": {
+      "name": "Parasect",
+      "n_cards_with_lp": 10,
+      "mean_lp": 9.17,
+      "median_lp": 10.09,
+      "min_lp": 0.99,
+      "max_lp": 19.23
+    },
+    "48": {
+      "name": "Venonat",
+      "n_cards_with_lp": 12,
+      "mean_lp": 15.59,
+      "median_lp": 9.83,
+      "min_lp": 0.26,
+      "max_lp": 60.8
+    },
+    "49": {
+      "name": "Venomoth",
+      "n_cards_with_lp": 33,
+      "mean_lp": 12.12,
+      "median_lp": 5.04,
+      "min_lp": 0.35,
+      "max_lp": 49.89
+    },
+    "50": {
+      "name": "Diglett",
+      "n_cards_with_lp": 30,
+      "mean_lp": 12.06,
+      "median_lp": 2.54,
+      "min_lp": 0.26,
+      "max_lp": 80.06
+    },
+    "51": {
+      "name": "Dugtrio",
+      "n_cards_with_lp": 55,
+      "mean_lp": 14.76,
+      "median_lp": 8.02,
+      "min_lp": 0.94,
+      "max_lp": 54.63
+    },
+    "52": {
+      "name": "Meowth",
+      "n_cards_with_lp": 91,
+      "mean_lp": 21.96,
+      "median_lp": 9.27,
+      "min_lp": 0.28,
+      "max_lp": 137.62
+    },
+    "53": {
+      "name": "Persian",
+      "n_cards_with_lp": 61,
+      "mean_lp": 30.87,
+      "median_lp": 12.77,
+      "min_lp": 0.34,
+      "max_lp": 130.58
+    },
+    "54": {
+      "name": "Psyduck",
+      "n_cards_with_lp": 105,
+      "mean_lp": 46.14,
+      "median_lp": 19.07,
+      "min_lp": 0.53,
+      "max_lp": 425.0
+    },
+    "55": {
+      "name": "Golduck",
+      "n_cards_with_lp": 41,
+      "mean_lp": 18.73,
+      "median_lp": 4.2,
+      "min_lp": 0.2,
+      "max_lp": 92.5
+    },
+    "56": {
+      "name": "Mankey",
+      "n_cards_with_lp": 25,
+      "mean_lp": 16.36,
+      "median_lp": 8.26,
+      "min_lp": 0.28,
+      "max_lp": 77.48
+    },
+    "57": {
+      "name": "Primeape",
+      "n_cards_with_lp": 44,
+      "mean_lp": 13.83,
+      "median_lp": 2.76,
+      "min_lp": 0.57,
+      "max_lp": 72.45
+    },
+    "58": {
+      "name": "Growlithe",
+      "n_cards_with_lp": 80,
+      "mean_lp": 18.55,
+      "median_lp": 9.27,
+      "min_lp": 0.32,
+      "max_lp": 99.58
+    },
+    "59": {
+      "name": "Arcanine",
+      "n_cards_with_lp": 103,
+      "mean_lp": 61.75,
+      "median_lp": 13.94,
+      "min_lp": 0.26,
+      "max_lp": 593.99
+    },
+    "60": {
+      "name": "Poliwag",
+      "n_cards_with_lp": 22,
+      "mean_lp": 15.14,
+      "median_lp": 12.94,
+      "min_lp": 0.36,
+      "max_lp": 59.99
+    },
+    "61": {
+      "name": "Poliwhirl",
+      "n_cards_with_lp": 35,
+      "mean_lp": 18.23,
+      "median_lp": 6.83,
+      "min_lp": 0.9,
+      "max_lp": 75.0
+    },
+    "62": {
+      "name": "Poliwrath",
+      "n_cards_with_lp": 51,
+      "mean_lp": 29.6,
+      "median_lp": 20.49,
+      "min_lp": 1.17,
+      "max_lp": 249.5
+    },
+    "63": {
+      "name": "Abra",
+      "n_cards_with_lp": 35,
+      "mean_lp": 16.08,
+      "median_lp": 4.75,
+      "min_lp": 0.56,
+      "max_lp": 88.99
+    },
+    "64": {
+      "name": "Kadabra",
+      "n_cards_with_lp": 26,
+      "mean_lp": 19.37,
+      "median_lp": 7.53,
+      "min_lp": 0.77,
+      "max_lp": 117.5
+    },
+    "65": {
+      "name": "Alakazam",
+      "n_cards_with_lp": 85,
+      "mean_lp": 64.37,
+      "median_lp": 45.1,
+      "min_lp": 1.17,
+      "max_lp": 1000.0
+    },
+    "66": {
+      "name": "Machop",
+      "n_cards_with_lp": 25,
+      "mean_lp": 13.47,
+      "median_lp": 6.62,
+      "min_lp": 0.24,
+      "max_lp": 58.33
+    },
+    "67": {
+      "name": "Machoke",
+      "n_cards_with_lp": 47,
+      "mean_lp": 9.93,
+      "median_lp": 3.43,
+      "min_lp": 0.31,
+      "max_lp": 56.74
+    },
+    "68": {
+      "name": "Machamp",
+      "n_cards_with_lp": 114,
+      "mean_lp": 30.28,
+      "median_lp": 12.07,
+      "min_lp": 0.51,
+      "max_lp": 195.5
+    },
+    "69": {
+      "name": "Bellsprout",
+      "n_cards_with_lp": 24,
+      "mean_lp": 13.77,
+      "median_lp": 9.93,
+      "min_lp": 0.25,
+      "max_lp": 48.89
+    },
+    "70": {
+      "name": "Weepinbell",
+      "n_cards_with_lp": 24,
+      "mean_lp": 7.17,
+      "median_lp": 4.18,
+      "min_lp": 0.14,
+      "max_lp": 23.21
+    },
+    "71": {
+      "name": "Victreebel",
+      "n_cards_with_lp": 34,
+      "mean_lp": 19.18,
+      "median_lp": 14.0,
+      "min_lp": 2.82,
+      "max_lp": 63.36
+    },
+    "72": {
+      "name": "Tentacool",
+      "n_cards_with_lp": 36,
+      "mean_lp": 9.05,
+      "median_lp": 5.28,
+      "min_lp": 0.27,
+      "max_lp": 52.7
+    },
+    "73": {
+      "name": "Tentacruel",
+      "n_cards_with_lp": 29,
+      "mean_lp": 29.03,
+      "median_lp": 16.44,
+      "min_lp": 0.45,
+      "max_lp": 102.3
+    },
+    "74": {
+      "name": "Geodude",
+      "n_cards_with_lp": 24,
+      "mean_lp": 9.35,
+      "median_lp": 2.71,
+      "min_lp": 0.18,
+      "max_lp": 69.98
+    },
+    "75": {
+      "name": "Graveler",
+      "n_cards_with_lp": 26,
+      "mean_lp": 12.39,
+      "median_lp": 3.45,
+      "min_lp": 0.27,
+      "max_lp": 79.7
+    },
+    "76": {
+      "name": "Golem",
+      "n_cards_with_lp": 46,
+      "mean_lp": 32.52,
+      "median_lp": 10.95,
+      "min_lp": 0.73,
+      "max_lp": 390.0
+    },
+    "77": {
+      "name": "Ponyta",
+      "n_cards_with_lp": 54,
+      "mean_lp": 12.98,
+      "median_lp": 2.99,
+      "min_lp": 0.25,
+      "max_lp": 111.03
+    },
+    "78": {
+      "name": "Rapidash",
+      "n_cards_with_lp": 70,
+      "mean_lp": 17.7,
+      "median_lp": 7.97,
+      "min_lp": 0.34,
+      "max_lp": 91.9
+    },
+    "79": {
+      "name": "Slowpoke",
+      "n_cards_with_lp": 103,
+      "mean_lp": 30.87,
+      "median_lp": 10.89,
+      "min_lp": 0.35,
+      "max_lp": 236.11
+    },
+    "80": {
+      "name": "Slowbro",
+      "n_cards_with_lp": 67,
+      "mean_lp": 27.95,
+      "median_lp": 21.46,
+      "min_lp": 0.88,
+      "max_lp": 143.5
+    },
+    "81": {
+      "name": "Magnemite",
+      "n_cards_with_lp": 65,
+      "mean_lp": 11.21,
+      "median_lp": 6.19,
+      "min_lp": 0.23,
+      "max_lp": 55.55
+    },
+    "82": {
+      "name": "Magneton",
+      "n_cards_with_lp": 112,
+      "mean_lp": 22.69,
+      "median_lp": 12.66,
+      "min_lp": 0.32,
+      "max_lp": 180.0
+    },
+    "83": {
+      "name": "Farfetchd",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "84": {
+      "name": "Doduo",
+      "n_cards_with_lp": 24,
+      "mean_lp": 9.47,
+      "median_lp": 3.36,
+      "min_lp": 0.24,
+      "max_lp": 47.15
+    },
+    "85": {
+      "name": "Dodrio",
+      "n_cards_with_lp": 23,
+      "mean_lp": 9.65,
+      "median_lp": 2.95,
+      "min_lp": 0.31,
+      "max_lp": 62.94
+    },
+    "86": {
+      "name": "Seel",
+      "n_cards_with_lp": 15,
+      "mean_lp": 21.24,
+      "median_lp": 16.37,
+      "min_lp": 0.35,
+      "max_lp": 60.58
+    },
+    "87": {
+      "name": "Dewgong",
+      "n_cards_with_lp": 31,
+      "mean_lp": 19.48,
+      "median_lp": 4.8,
+      "min_lp": 1.14,
+      "max_lp": 269.58
+    },
+    "88": {
+      "name": "Grimer",
+      "n_cards_with_lp": 30,
+      "mean_lp": 13.59,
+      "median_lp": 4.76,
+      "min_lp": 0.26,
+      "max_lp": 53.74
+    },
+    "89": {
+      "name": "Muk",
+      "n_cards_with_lp": 74,
+      "mean_lp": 20.24,
+      "median_lp": 9.1,
+      "min_lp": 0.35,
+      "max_lp": 116.32
+    },
+    "90": {
+      "name": "Shellder",
+      "n_cards_with_lp": 14,
+      "mean_lp": 5.93,
+      "median_lp": 7.9,
+      "min_lp": 0.44,
+      "max_lp": 13.57
+    },
+    "91": {
+      "name": "Cloyster",
+      "n_cards_with_lp": 24,
+      "mean_lp": 18.84,
+      "median_lp": 16.68,
+      "min_lp": 0.87,
+      "max_lp": 68.72
+    },
+    "92": {
+      "name": "Gastly",
+      "n_cards_with_lp": 76,
+      "mean_lp": 19.01,
+      "median_lp": 4.83,
+      "min_lp": 0.35,
+      "max_lp": 154.43
+    },
+    "93": {
+      "name": "Haunter",
+      "n_cards_with_lp": 88,
+      "mean_lp": 27.3,
+      "median_lp": 11.19,
+      "min_lp": 0.35,
+      "max_lp": 147.0
+    },
+    "94": {
+      "name": "Gengar",
+      "n_cards_with_lp": 180,
+      "mean_lp": 158.61,
+      "median_lp": 46.84,
+      "min_lp": 1.2,
+      "max_lp": 1103.0
+    },
+    "95": {
+      "name": "Onix",
+      "n_cards_with_lp": 51,
+      "mean_lp": 15.74,
+      "median_lp": 4.95,
+      "min_lp": 0.28,
+      "max_lp": 78.36
+    },
+    "96": {
+      "name": "Drowzee",
+      "n_cards_with_lp": 27,
+      "mean_lp": 22.67,
+      "median_lp": 3.02,
+      "min_lp": 0.34,
+      "max_lp": 64.9
+    },
+    "97": {
+      "name": "Hypno",
+      "n_cards_with_lp": 66,
+      "mean_lp": 24.32,
+      "median_lp": 12.4,
+      "min_lp": 0.1,
+      "max_lp": 106.86
+    },
+    "98": {
+      "name": "Krabby",
+      "n_cards_with_lp": 14,
+      "mean_lp": 3.64,
+      "median_lp": 1.54,
+      "min_lp": 0.25,
+      "max_lp": 10.98
+    },
+    "99": {
+      "name": "Kingler",
+      "n_cards_with_lp": 22,
+      "mean_lp": 14.36,
+      "median_lp": 11.99,
+      "min_lp": 0.98,
+      "max_lp": 49.23
+    },
+    "100": {
+      "name": "Voltorb",
+      "n_cards_with_lp": 47,
+      "mean_lp": 12.25,
+      "median_lp": 4.84,
+      "min_lp": 0.28,
+      "max_lp": 69.98
+    },
+    "101": {
+      "name": "Electrode",
+      "n_cards_with_lp": 84,
+      "mean_lp": 19.96,
+      "median_lp": 10.15,
+      "min_lp": 0.22,
+      "max_lp": 119.99
+    },
+    "102": {
+      "name": "Exeggcute",
+      "n_cards_with_lp": 36,
+      "mean_lp": 13.83,
+      "median_lp": 5.13,
+      "min_lp": 0.22,
+      "max_lp": 75.4
+    },
+    "103": {
+      "name": "Exeggutor",
+      "n_cards_with_lp": 57,
+      "mean_lp": 21.95,
+      "median_lp": 12.79,
+      "min_lp": 0.71,
+      "max_lp": 122.84
+    },
+    "104": {
+      "name": "Cubone",
+      "n_cards_with_lp": 45,
+      "mean_lp": 22.95,
+      "median_lp": 10.02,
+      "min_lp": 0.42,
+      "max_lp": 77.25
+    },
+    "105": {
+      "name": "Marowak",
+      "n_cards_with_lp": 36,
+      "mean_lp": 20.76,
+      "median_lp": 19.05,
+      "min_lp": 0.37,
+      "max_lp": 96.24
+    },
+    "106": {
+      "name": "Hitmonlee",
+      "n_cards_with_lp": 37,
+      "mean_lp": 16.52,
+      "median_lp": 5.4,
+      "min_lp": 0.11,
+      "max_lp": 89.66
+    },
+    "107": {
+      "name": "Hitmonchan",
+      "n_cards_with_lp": 42,
+      "mean_lp": 33.24,
+      "median_lp": 14.23,
+      "min_lp": 0.28,
+      "max_lp": 208.82
+    },
+    "108": {
+      "name": "Lickitung",
+      "n_cards_with_lp": 29,
+      "mean_lp": 14.74,
+      "median_lp": 12.92,
+      "min_lp": 0.45,
+      "max_lp": 70.59
+    },
+    "109": {
+      "name": "Koffing",
+      "n_cards_with_lp": 45,
+      "mean_lp": 6.99,
+      "median_lp": 3.2,
+      "min_lp": 0.3,
+      "max_lp": 27.36
+    },
+    "110": {
+      "name": "Weezing",
+      "n_cards_with_lp": 53,
+      "mean_lp": 12.34,
+      "median_lp": 4.3,
+      "min_lp": 0.84,
+      "max_lp": 66.06
+    },
+    "111": {
+      "name": "Rhyhorn",
+      "n_cards_with_lp": 31,
+      "mean_lp": 12.38,
+      "median_lp": 6.48,
+      "min_lp": 0.28,
+      "max_lp": 65.83
+    },
+    "112": {
+      "name": "Rhydon",
+      "n_cards_with_lp": 28,
+      "mean_lp": 32.13,
+      "median_lp": 18.75,
+      "min_lp": 1.05,
+      "max_lp": 230.0
+    },
+    "113": {
+      "name": "Chansey",
+      "n_cards_with_lp": 59,
+      "mean_lp": 15.24,
+      "median_lp": 6.08,
+      "min_lp": 0.41,
+      "max_lp": 50.78
+    },
+    "114": {
+      "name": "Tangela",
+      "n_cards_with_lp": 33,
+      "mean_lp": 9.1,
+      "median_lp": 3.84,
+      "min_lp": 0.27,
+      "max_lp": 34.96
+    },
+    "115": {
+      "name": "Kangaskhan",
+      "n_cards_with_lp": 60,
+      "mean_lp": 14.79,
+      "median_lp": 9.86,
+      "min_lp": 0.44,
+      "max_lp": 61.33
+    },
+    "116": {
+      "name": "Horsea",
+      "n_cards_with_lp": 38,
+      "mean_lp": 10.13,
+      "median_lp": 4.09,
+      "min_lp": 0.33,
+      "max_lp": 36.52
+    },
+    "117": {
+      "name": "Seadra",
+      "n_cards_with_lp": 44,
+      "mean_lp": 14.52,
+      "median_lp": 3.46,
+      "min_lp": 0.59,
+      "max_lp": 80.06
+    },
+    "118": {
+      "name": "Goldeen",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.01,
+      "median_lp": 4.51,
+      "min_lp": 0.25,
+      "max_lp": 17.36
+    },
+    "119": {
+      "name": "Seaking",
+      "n_cards_with_lp": 16,
+      "mean_lp": 6.63,
+      "median_lp": 3.58,
+      "min_lp": 0.73,
+      "max_lp": 24.93
+    },
+    "120": {
+      "name": "Staryu",
+      "n_cards_with_lp": 30,
+      "mean_lp": 7.95,
+      "median_lp": 4.46,
+      "min_lp": 0.31,
+      "max_lp": 34.99
+    },
+    "121": {
+      "name": "Starmie",
+      "n_cards_with_lp": 46,
+      "mean_lp": 26.63,
+      "median_lp": 22.5,
+      "min_lp": 0.54,
+      "max_lp": 100.81
+    },
+    "122": {
+      "name": "Mr-Mime",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "123": {
+      "name": "Scyther",
+      "n_cards_with_lp": 84,
+      "mean_lp": 25.58,
+      "median_lp": 9.24,
+      "min_lp": 0.14,
+      "max_lp": 157.49
+    },
+    "124": {
+      "name": "Jynx",
+      "n_cards_with_lp": 42,
+      "mean_lp": 10.64,
+      "median_lp": 3.37,
+      "min_lp": 0.36,
+      "max_lp": 52.63
+    },
+    "125": {
+      "name": "Electabuzz",
+      "n_cards_with_lp": 48,
+      "mean_lp": 16.44,
+      "median_lp": 9.81,
+      "min_lp": 0.32,
+      "max_lp": 80.0
+    },
+    "126": {
+      "name": "Magmar",
+      "n_cards_with_lp": 33,
+      "mean_lp": 11.68,
+      "median_lp": 4.46,
+      "min_lp": 0.24,
+      "max_lp": 38.1
+    },
+    "127": {
+      "name": "Pinsir",
+      "n_cards_with_lp": 41,
+      "mean_lp": 13.14,
+      "median_lp": 10.79,
+      "min_lp": 0.27,
+      "max_lp": 54.21
+    },
+    "128": {
+      "name": "Tauros",
+      "n_cards_with_lp": 43,
+      "mean_lp": 11.3,
+      "median_lp": 5.63,
+      "min_lp": 0.32,
+      "max_lp": 66.98
+    },
+    "129": {
+      "name": "Magikarp",
+      "n_cards_with_lp": 125,
+      "mean_lp": 62.95,
+      "median_lp": 9.26,
+      "min_lp": 0.24,
+      "max_lp": 746.99
+    },
+    "130": {
+      "name": "Gyarados",
+      "n_cards_with_lp": 186,
+      "mean_lp": 89.15,
+      "median_lp": 24.43,
+      "min_lp": 0.5,
+      "max_lp": 1399.0
+    },
+    "131": {
+      "name": "Lapras",
+      "n_cards_with_lp": 109,
+      "mean_lp": 18.88,
+      "median_lp": 6.43,
+      "min_lp": 0.22,
+      "max_lp": 177.5
+    },
+    "132": {
+      "name": "Ditto",
+      "n_cards_with_lp": 117,
+      "mean_lp": 60.11,
+      "median_lp": 44.17,
+      "min_lp": 1.69,
+      "max_lp": 249.99
+    },
+    "133": {
+      "name": "Eevee",
+      "n_cards_with_lp": 226,
+      "mean_lp": 26.82,
+      "median_lp": 7.3,
+      "min_lp": 0.38,
+      "max_lp": 399.95
+    },
+    "134": {
+      "name": "Vaporeon",
+      "n_cards_with_lp": 128,
+      "mean_lp": 52.69,
+      "median_lp": 16.66,
+      "min_lp": 0.37,
+      "max_lp": 839.94
+    },
+    "135": {
+      "name": "Jolteon",
+      "n_cards_with_lp": 133,
+      "mean_lp": 50.71,
+      "median_lp": 17.19,
+      "min_lp": 0.32,
+      "max_lp": 1701.21
+    },
+    "136": {
+      "name": "Flareon",
+      "n_cards_with_lp": 137,
+      "mean_lp": 60.42,
+      "median_lp": 16.89,
+      "min_lp": 0.31,
+      "max_lp": 1999.95
+    },
+    "137": {
+      "name": "Porygon",
+      "n_cards_with_lp": 35,
+      "mean_lp": 8.89,
+      "median_lp": 2.52,
+      "min_lp": 0.27,
+      "max_lp": 67.03
+    },
+    "138": {
+      "name": "Omanyte",
+      "n_cards_with_lp": 29,
+      "mean_lp": 15.91,
+      "median_lp": 5.61,
+      "min_lp": 0.36,
+      "max_lp": 82.11
+    },
+    "139": {
+      "name": "Omastar",
+      "n_cards_with_lp": 35,
+      "mean_lp": 15.14,
+      "median_lp": 7.78,
+      "min_lp": 0.74,
+      "max_lp": 93.1
+    },
+    "140": {
+      "name": "Kabuto",
+      "n_cards_with_lp": 30,
+      "mean_lp": 13.81,
+      "median_lp": 9.55,
+      "min_lp": 0.38,
+      "max_lp": 52.79
+    },
+    "141": {
+      "name": "Kabutops",
+      "n_cards_with_lp": 57,
+      "mean_lp": 89.58,
+      "median_lp": 24.13,
+      "min_lp": 0.56,
+      "max_lp": 599.0
+    },
+    "142": {
+      "name": "Aerodactyl",
+      "n_cards_with_lp": 70,
+      "mean_lp": 22.4,
+      "median_lp": 6.71,
+      "min_lp": 0.52,
+      "max_lp": 159.46
+    },
+    "143": {
+      "name": "Snorlax",
+      "n_cards_with_lp": 166,
+      "mean_lp": 59.01,
+      "median_lp": 22.22,
+      "min_lp": 0.26,
+      "max_lp": 650.0
+    },
+    "144": {
+      "name": "Articuno",
+      "n_cards_with_lp": 111,
+      "mean_lp": 41.47,
+      "median_lp": 14.34,
+      "min_lp": 0.66,
+      "max_lp": 400.0
+    },
+    "145": {
+      "name": "Zapdos",
+      "n_cards_with_lp": 106,
+      "mean_lp": 45.43,
+      "median_lp": 13.4,
+      "min_lp": 0.55,
+      "max_lp": 316.88
+    },
+    "146": {
+      "name": "Moltres",
+      "n_cards_with_lp": 94,
+      "mean_lp": 65.03,
+      "median_lp": 15.44,
+      "min_lp": 0.82,
+      "max_lp": 439.84
+    },
+    "147": {
+      "name": "Dratini",
+      "n_cards_with_lp": 78,
+      "mean_lp": 17.75,
+      "median_lp": 4.28,
+      "min_lp": 0.26,
+      "max_lp": 144.74
+    },
+    "148": {
+      "name": "Dragonair",
+      "n_cards_with_lp": 103,
+      "mean_lp": 32.74,
+      "median_lp": 8.9,
+      "min_lp": 0.15,
+      "max_lp": 244.62
+    },
+    "149": {
+      "name": "Dragonite",
+      "n_cards_with_lp": 152,
+      "mean_lp": 110.63,
+      "median_lp": 38.28,
+      "min_lp": 0.51,
+      "max_lp": 691.19
+    },
+    "150": {
+      "name": "Mewtwo",
+      "n_cards_with_lp": 227,
+      "mean_lp": 102.93,
+      "median_lp": 39.57,
+      "min_lp": 0.35,
+      "max_lp": 896.01
+    },
+    "151": {
+      "name": "Mew",
+      "n_cards_with_lp": 142,
+      "mean_lp": 105.85,
+      "median_lp": 61.52,
+      "min_lp": 1.62,
+      "max_lp": 623.08
+    },
+    "152": {
+      "name": "Chikorita",
+      "n_cards_with_lp": 48,
+      "mean_lp": 9.27,
+      "median_lp": 4.23,
+      "min_lp": 0.34,
+      "max_lp": 31.1
+    },
+    "153": {
+      "name": "Bayleef",
+      "n_cards_with_lp": 34,
+      "mean_lp": 6.62,
+      "median_lp": 1.96,
+      "min_lp": 0.44,
+      "max_lp": 29.4
+    },
+    "154": {
+      "name": "Meganium",
+      "n_cards_with_lp": 57,
+      "mean_lp": 39.3,
+      "median_lp": 28.89,
+      "min_lp": 1.17,
+      "max_lp": 128.47
+    },
+    "155": {
+      "name": "Cyndaquil",
+      "n_cards_with_lp": 62,
+      "mean_lp": 10.82,
+      "median_lp": 6.29,
+      "min_lp": 0.36,
+      "max_lp": 50.5
+    },
+    "156": {
+      "name": "Quilava",
+      "n_cards_with_lp": 40,
+      "mean_lp": 8.85,
+      "median_lp": 3.64,
+      "min_lp": 0.63,
+      "max_lp": 45.81
+    },
+    "157": {
+      "name": "Typhlosion",
+      "n_cards_with_lp": 83,
+      "mean_lp": 78.68,
+      "median_lp": 39.68,
+      "min_lp": 1.46,
+      "max_lp": 475.0
+    },
+    "158": {
+      "name": "Totodile",
+      "n_cards_with_lp": 46,
+      "mean_lp": 14.82,
+      "median_lp": 9.66,
+      "min_lp": 0.46,
+      "max_lp": 49.91
+    },
+    "159": {
+      "name": "Croconaw",
+      "n_cards_with_lp": 32,
+      "mean_lp": 10.57,
+      "median_lp": 3.78,
+      "min_lp": 0.48,
+      "max_lp": 47.24
+    },
+    "160": {
+      "name": "Feraligatr",
+      "n_cards_with_lp": 70,
+      "mean_lp": 73.01,
+      "median_lp": 53.0,
+      "min_lp": 1.04,
+      "max_lp": 287.88
+    },
+    "161": {
+      "name": "Sentret",
+      "n_cards_with_lp": 20,
+      "mean_lp": 11.58,
+      "median_lp": 5.83,
+      "min_lp": 0.32,
+      "max_lp": 31.77
+    },
+    "162": {
+      "name": "Furret",
+      "n_cards_with_lp": 22,
+      "mean_lp": 20.44,
+      "median_lp": 12.13,
+      "min_lp": 1.31,
+      "max_lp": 101.23
+    },
+    "163": {
+      "name": "Hoothoot",
+      "n_cards_with_lp": 15,
+      "mean_lp": 7.37,
+      "median_lp": 5.23,
+      "min_lp": 0.2,
+      "max_lp": 24.9
+    },
+    "164": {
+      "name": "Noctowl",
+      "n_cards_with_lp": 20,
+      "mean_lp": 86.14,
+      "median_lp": 9.73,
+      "min_lp": 0.56,
+      "max_lp": 470.0
+    },
+    "165": {
+      "name": "Ledyba",
+      "n_cards_with_lp": 21,
+      "mean_lp": 12.31,
+      "median_lp": 4.9,
+      "min_lp": 0.34,
+      "max_lp": 41.3
+    },
+    "166": {
+      "name": "Ledian",
+      "n_cards_with_lp": 30,
+      "mean_lp": 17.71,
+      "median_lp": 11.3,
+      "min_lp": 0.92,
+      "max_lp": 124.97
+    },
+    "167": {
+      "name": "Spinarak",
+      "n_cards_with_lp": 20,
+      "mean_lp": 8.13,
+      "median_lp": 6.4,
+      "min_lp": 0.28,
+      "max_lp": 21.17
+    },
+    "168": {
+      "name": "Ariados",
+      "n_cards_with_lp": 18,
+      "mean_lp": 16.74,
+      "median_lp": 9.48,
+      "min_lp": 1.88,
+      "max_lp": 61.7
+    },
+    "169": {
+      "name": "Crobat",
+      "n_cards_with_lp": 75,
+      "mean_lp": 44.17,
+      "median_lp": 13.11,
+      "min_lp": 0.37,
+      "max_lp": 700.0
+    },
+    "170": {
+      "name": "Chinchou",
+      "n_cards_with_lp": 30,
+      "mean_lp": 6.64,
+      "median_lp": 3.06,
+      "min_lp": 0.28,
+      "max_lp": 41.7
+    },
+    "171": {
+      "name": "Lanturn",
+      "n_cards_with_lp": 36,
+      "mean_lp": 11.88,
+      "median_lp": 4.95,
+      "min_lp": 0.52,
+      "max_lp": 63.75
+    },
+    "172": {
+      "name": "Pichu",
+      "n_cards_with_lp": 62,
+      "mean_lp": 40.98,
+      "median_lp": 36.96,
+      "min_lp": 3.22,
+      "max_lp": 210.51
+    },
+    "173": {
+      "name": "Cleffa",
+      "n_cards_with_lp": 45,
+      "mean_lp": 14.76,
+      "median_lp": 9.77,
+      "min_lp": 0.67,
+      "max_lp": 68.95
+    },
+    "174": {
+      "name": "Igglybuff",
+      "n_cards_with_lp": 37,
+      "mean_lp": 14.12,
+      "median_lp": 6.92,
+      "min_lp": 2.79,
+      "max_lp": 81.59
+    },
+    "175": {
+      "name": "Togepi",
+      "n_cards_with_lp": 48,
+      "mean_lp": 21.62,
+      "median_lp": 14.37,
+      "min_lp": 0.56,
+      "max_lp": 97.76
+    },
+    "176": {
+      "name": "Togetic",
+      "n_cards_with_lp": 37,
+      "mean_lp": 55.72,
+      "median_lp": 52.92,
+      "min_lp": 0.5,
+      "max_lp": 296.99
+    },
+    "177": {
+      "name": "Natu",
+      "n_cards_with_lp": 37,
+      "mean_lp": 7.33,
+      "median_lp": 3.71,
+      "min_lp": 0.24,
+      "max_lp": 34.63
+    },
+    "178": {
+      "name": "Xatu",
+      "n_cards_with_lp": 24,
+      "mean_lp": 15.14,
+      "median_lp": 4.33,
+      "min_lp": 0.34,
+      "max_lp": 99.99
+    },
+    "179": {
+      "name": "Mareep",
+      "n_cards_with_lp": 60,
+      "mean_lp": 7.38,
+      "median_lp": 3.93,
+      "min_lp": 0.3,
+      "max_lp": 38.68
+    },
+    "180": {
+      "name": "Flaaffy",
+      "n_cards_with_lp": 56,
+      "mean_lp": 8.9,
+      "median_lp": 4.95,
+      "min_lp": 0.38,
+      "max_lp": 44.02
+    },
+    "181": {
+      "name": "Ampharos",
+      "n_cards_with_lp": 83,
+      "mean_lp": 40.55,
+      "median_lp": 27.21,
+      "min_lp": 1.42,
+      "max_lp": 190.0
+    },
+    "182": {
+      "name": "Bellossom",
+      "n_cards_with_lp": 34,
+      "mean_lp": 20.77,
+      "median_lp": 18.48,
+      "min_lp": 1.95,
+      "max_lp": 85.86
+    },
+    "183": {
+      "name": "Marill",
+      "n_cards_with_lp": 45,
+      "mean_lp": 18.93,
+      "median_lp": 6.63,
+      "min_lp": 0.47,
+      "max_lp": 78.52
+    },
+    "184": {
+      "name": "Azumarill",
+      "n_cards_with_lp": 45,
+      "mean_lp": 20.63,
+      "median_lp": 10.48,
+      "min_lp": 0.63,
+      "max_lp": 98.32
+    },
+    "185": {
+      "name": "Sudowoodo",
+      "n_cards_with_lp": 26,
+      "mean_lp": 27.01,
+      "median_lp": 16.88,
+      "min_lp": 0.92,
+      "max_lp": 178.8
+    },
+    "186": {
+      "name": "Politoed",
+      "n_cards_with_lp": 27,
+      "mean_lp": 52.28,
+      "median_lp": 19.73,
+      "min_lp": 0.76,
+      "max_lp": 250.0
+    },
+    "187": {
+      "name": "Hoppip",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.87,
+      "median_lp": 5.65,
+      "min_lp": 0.33,
+      "max_lp": 28.26
+    },
+    "188": {
+      "name": "Skiploom",
+      "n_cards_with_lp": 12,
+      "mean_lp": 10.68,
+      "median_lp": 14.64,
+      "min_lp": 0.46,
+      "max_lp": 29.97
+    },
+    "189": {
+      "name": "Jumpluff",
+      "n_cards_with_lp": 27,
+      "mean_lp": 18.12,
+      "median_lp": 12.95,
+      "min_lp": 2.83,
+      "max_lp": 59.69
+    },
+    "190": {
+      "name": "Aipom",
+      "n_cards_with_lp": 14,
+      "mean_lp": 11.0,
+      "median_lp": 6.3,
+      "min_lp": 0.47,
+      "max_lp": 23.11
+    },
+    "191": {
+      "name": "Sunkern",
+      "n_cards_with_lp": 12,
+      "mean_lp": 6.43,
+      "median_lp": 7.23,
+      "min_lp": 0.28,
+      "max_lp": 21.63
+    },
+    "192": {
+      "name": "Sunflora",
+      "n_cards_with_lp": 20,
+      "mean_lp": 10.66,
+      "median_lp": 10.97,
+      "min_lp": 0.69,
+      "max_lp": 29.87
+    },
+    "193": {
+      "name": "Yanma",
+      "n_cards_with_lp": 24,
+      "mean_lp": 17.15,
+      "median_lp": 13.79,
+      "min_lp": 0.19,
+      "max_lp": 61.53
+    },
+    "194": {
+      "name": "Wooper",
+      "n_cards_with_lp": 56,
+      "mean_lp": 22.68,
+      "median_lp": 8.14,
+      "min_lp": 0.69,
+      "max_lp": 136.11
+    },
+    "195": {
+      "name": "Quagsire",
+      "n_cards_with_lp": 52,
+      "mean_lp": 13.98,
+      "median_lp": 8.77,
+      "min_lp": 0.65,
+      "max_lp": 59.06
+    },
+    "196": {
+      "name": "Espeon",
+      "n_cards_with_lp": 110,
+      "mean_lp": 87.12,
+      "median_lp": 31.72,
+      "min_lp": 1.72,
+      "max_lp": 495.0
+    },
+    "197": {
+      "name": "Umbreon",
+      "n_cards_with_lp": 128,
+      "mean_lp": 187.26,
+      "median_lp": 58.26,
+      "min_lp": 4.93,
+      "max_lp": 1525.17
+    },
+    "198": {
+      "name": "Murkrow",
+      "n_cards_with_lp": 29,
+      "mean_lp": 7.46,
+      "median_lp": 3.05,
+      "min_lp": 0.31,
+      "max_lp": 59.0
+    },
+    "199": {
+      "name": "Slowking",
+      "n_cards_with_lp": 63,
+      "mean_lp": 41.13,
+      "median_lp": 39.93,
+      "min_lp": 1.14,
+      "max_lp": 181.33
+    },
+    "200": {
+      "name": "Misdreavus",
+      "n_cards_with_lp": 36,
+      "mean_lp": 15.71,
+      "median_lp": 6.27,
+      "min_lp": 0.24,
+      "max_lp": 91.96
+    },
+    "201": {
+      "name": "Unown",
+      "n_cards_with_lp": 181,
+      "mean_lp": 11.57,
+      "median_lp": 5.33,
+      "min_lp": 0.37,
+      "max_lp": 98.0
+    },
+    "202": {
+      "name": "Wobbuffet",
+      "n_cards_with_lp": 50,
+      "mean_lp": 11.78,
+      "median_lp": 5.94,
+      "min_lp": 0.57,
+      "max_lp": 68.64
+    },
+    "203": {
+      "name": "Girafarig",
+      "n_cards_with_lp": 20,
+      "mean_lp": 7.01,
+      "median_lp": 5.35,
+      "min_lp": 0.46,
+      "max_lp": 24.99
+    },
+    "204": {
+      "name": "Pineco",
+      "n_cards_with_lp": 11,
+      "mean_lp": 7.93,
+      "median_lp": 7.89,
+      "min_lp": 0.33,
+      "max_lp": 25.79
+    },
+    "205": {
+      "name": "Forretress",
+      "n_cards_with_lp": 32,
+      "mean_lp": 20.29,
+      "median_lp": 9.28,
+      "min_lp": 0.59,
+      "max_lp": 229.99
+    },
+    "206": {
+      "name": "Dunsparce",
+      "n_cards_with_lp": 18,
+      "mean_lp": 17.6,
+      "median_lp": 3.77,
+      "min_lp": 0.33,
+      "max_lp": 62.77
+    },
+    "207": {
+      "name": "Gligar",
+      "n_cards_with_lp": 14,
+      "mean_lp": 6.8,
+      "median_lp": 4.3,
+      "min_lp": 0.27,
+      "max_lp": 20.0
+    },
+    "208": {
+      "name": "Steelix",
+      "n_cards_with_lp": 65,
+      "mean_lp": 48.83,
+      "median_lp": 17.14,
+      "min_lp": 0.64,
+      "max_lp": 500.0
+    },
+    "209": {
+      "name": "Snubbull",
+      "n_cards_with_lp": 9,
+      "mean_lp": 12.77,
+      "median_lp": 8.8,
+      "min_lp": 0.25,
+      "max_lp": 31.11
+    },
+    "210": {
+      "name": "Granbull",
+      "n_cards_with_lp": 14,
+      "mean_lp": 9.5,
+      "median_lp": 2.71,
+      "min_lp": 0.38,
+      "max_lp": 35.0
+    },
+    "211": {
+      "name": "Qwilfish",
+      "n_cards_with_lp": 10,
+      "mean_lp": 9.85,
+      "median_lp": 2.25,
+      "min_lp": 0.4,
+      "max_lp": 29.2
+    },
+    "212": {
+      "name": "Scizor",
+      "n_cards_with_lp": 84,
+      "mean_lp": 50.56,
+      "median_lp": 16.12,
+      "min_lp": 1.2,
+      "max_lp": 595.34
+    },
+    "213": {
+      "name": "Shuckle",
+      "n_cards_with_lp": 31,
+      "mean_lp": 17.83,
+      "median_lp": 10.63,
+      "min_lp": 0.73,
+      "max_lp": 73.26
+    },
+    "214": {
+      "name": "Heracross",
+      "n_cards_with_lp": 52,
+      "mean_lp": 24.19,
+      "median_lp": 12.77,
+      "min_lp": 0.63,
+      "max_lp": 129.99
+    },
+    "215": {
+      "name": "Sneasel",
+      "n_cards_with_lp": 27,
+      "mean_lp": 9.12,
+      "median_lp": 3.24,
+      "min_lp": 0.24,
+      "max_lp": 47.92
+    },
+    "216": {
+      "name": "Teddiursa",
+      "n_cards_with_lp": 22,
+      "mean_lp": 9.51,
+      "median_lp": 3.58,
+      "min_lp": 0.3,
+      "max_lp": 70.98
+    },
+    "217": {
+      "name": "Ursaring",
+      "n_cards_with_lp": 29,
+      "mean_lp": 27.15,
+      "median_lp": 17.78,
+      "min_lp": 1.07,
+      "max_lp": 99.99
+    },
+    "218": {
+      "name": "Slugma",
+      "n_cards_with_lp": 36,
+      "mean_lp": 12.49,
+      "median_lp": 12.99,
+      "min_lp": 0.28,
+      "max_lp": 34.57
+    },
+    "219": {
+      "name": "Magcargo",
+      "n_cards_with_lp": 46,
+      "mean_lp": 19.53,
+      "median_lp": 9.44,
+      "min_lp": 0.56,
+      "max_lp": 133.0
+    },
+    "220": {
+      "name": "Swinub",
+      "n_cards_with_lp": 18,
+      "mean_lp": 25.46,
+      "median_lp": 5.64,
+      "min_lp": 0.28,
+      "max_lp": 189.99
+    },
+    "221": {
+      "name": "Piloswine",
+      "n_cards_with_lp": 23,
+      "mean_lp": 31.62,
+      "median_lp": 18.0,
+      "min_lp": 0.32,
+      "max_lp": 200.0
+    },
+    "222": {
+      "name": "Corsola",
+      "n_cards_with_lp": 25,
+      "mean_lp": 6.48,
+      "median_lp": 4.8,
+      "min_lp": 0.28,
+      "max_lp": 14.9
+    },
+    "223": {
+      "name": "Remoraid",
+      "n_cards_with_lp": 14,
+      "mean_lp": 11.81,
+      "median_lp": 13.44,
+      "min_lp": 0.3,
+      "max_lp": 36.56
+    },
+    "224": {
+      "name": "Octillery",
+      "n_cards_with_lp": 29,
+      "mean_lp": 13.42,
+      "median_lp": 5.48,
+      "min_lp": 1.38,
+      "max_lp": 61.44
+    },
+    "225": {
+      "name": "Delibird",
+      "n_cards_with_lp": 17,
+      "mean_lp": 30.62,
+      "median_lp": 19.93,
+      "min_lp": 0.44,
+      "max_lp": 67.5
+    },
+    "226": {
+      "name": "Mantine",
+      "n_cards_with_lp": 14,
+      "mean_lp": 22.86,
+      "median_lp": 17.37,
+      "min_lp": 1.23,
+      "max_lp": 89.99
+    },
+    "227": {
+      "name": "Skarmory",
+      "n_cards_with_lp": 55,
+      "mean_lp": 16.66,
+      "median_lp": 13.64,
+      "min_lp": 0.41,
+      "max_lp": 62.36
+    },
+    "228": {
+      "name": "Houndour",
+      "n_cards_with_lp": 83,
+      "mean_lp": 19.32,
+      "median_lp": 10.19,
+      "min_lp": 0.32,
+      "max_lp": 139.24
+    },
+    "229": {
+      "name": "Houndoom",
+      "n_cards_with_lp": 115,
+      "mean_lp": 59.8,
+      "median_lp": 24.44,
+      "min_lp": 0.61,
+      "max_lp": 399.99
+    },
+    "230": {
+      "name": "Kingdra",
+      "n_cards_with_lp": 74,
+      "mean_lp": 36.9,
+      "median_lp": 13.13,
+      "min_lp": 1.74,
+      "max_lp": 446.0
+    },
+    "231": {
+      "name": "Phanpy",
+      "n_cards_with_lp": 41,
+      "mean_lp": 7.14,
+      "median_lp": 5.13,
+      "min_lp": 0.26,
+      "max_lp": 32.28
+    },
+    "232": {
+      "name": "Donphan",
+      "n_cards_with_lp": 33,
+      "mean_lp": 18.52,
+      "median_lp": 7.43,
+      "min_lp": 0.41,
+      "max_lp": 105.93
+    },
+    "233": {
+      "name": "Porygon2",
+      "n_cards_with_lp": 31,
+      "mean_lp": 28.93,
+      "median_lp": 16.14,
+      "min_lp": 0.37,
+      "max_lp": 95.81
+    },
+    "234": {
+      "name": "Stantler",
+      "n_cards_with_lp": 6,
+      "mean_lp": 18.1,
+      "median_lp": 24.06,
+      "min_lp": 2.65,
+      "max_lp": 35.0
+    },
+    "235": {
+      "name": "Smeargle",
+      "n_cards_with_lp": 38,
+      "mean_lp": 14.21,
+      "median_lp": 7.87,
+      "min_lp": 0.49,
+      "max_lp": 73.69
+    },
+    "236": {
+      "name": "Tyrogue",
+      "n_cards_with_lp": 12,
+      "mean_lp": 10.17,
+      "median_lp": 5.77,
+      "min_lp": 0.43,
+      "max_lp": 30.47
+    },
+    "237": {
+      "name": "Hitmontop",
+      "n_cards_with_lp": 31,
+      "mean_lp": 10.47,
+      "median_lp": 5.5,
+      "min_lp": 0.35,
+      "max_lp": 63.73
+    },
+    "238": {
+      "name": "Smoochum",
+      "n_cards_with_lp": 17,
+      "mean_lp": 10.78,
+      "median_lp": 9.8,
+      "min_lp": 0.75,
+      "max_lp": 32.1
+    },
+    "239": {
+      "name": "Elekid",
+      "n_cards_with_lp": 34,
+      "mean_lp": 10.85,
+      "median_lp": 6.74,
+      "min_lp": 0.66,
+      "max_lp": 47.4
+    },
+    "240": {
+      "name": "Magby",
+      "n_cards_with_lp": 26,
+      "mean_lp": 20.19,
+      "median_lp": 6.39,
+      "min_lp": 0.34,
+      "max_lp": 89.65
+    },
+    "241": {
+      "name": "Miltank",
+      "n_cards_with_lp": 33,
+      "mean_lp": 10.5,
+      "median_lp": 2.84,
+      "min_lp": 0.31,
+      "max_lp": 45.11
+    },
+    "242": {
+      "name": "Blissey",
+      "n_cards_with_lp": 30,
+      "mean_lp": 38.77,
+      "median_lp": 34.11,
+      "min_lp": 2.52,
+      "max_lp": 136.99
+    },
+    "243": {
+      "name": "Raikou",
+      "n_cards_with_lp": 52,
+      "mean_lp": 99.61,
+      "median_lp": 39.47,
+      "min_lp": 1.53,
+      "max_lp": 1100.0
+    },
+    "244": {
+      "name": "Entei",
+      "n_cards_with_lp": 55,
+      "mean_lp": 65.27,
+      "median_lp": 19.29,
+      "min_lp": 0.39,
+      "max_lp": 990.0
+    },
+    "245": {
+      "name": "Suicune",
+      "n_cards_with_lp": 73,
+      "mean_lp": 75.75,
+      "median_lp": 21.32,
+      "min_lp": 1.01,
+      "max_lp": 649.99
+    },
+    "246": {
+      "name": "Larvitar",
+      "n_cards_with_lp": 60,
+      "mean_lp": 11.15,
+      "median_lp": 4.18,
+      "min_lp": 0.26,
+      "max_lp": 41.67
+    },
+    "247": {
+      "name": "Pupitar",
+      "n_cards_with_lp": 39,
+      "mean_lp": 8.83,
+      "median_lp": 5.3,
+      "min_lp": 0.21,
+      "max_lp": 39.15
+    },
+    "248": {
+      "name": "Tyranitar",
+      "n_cards_with_lp": 113,
+      "mean_lp": 176.64,
+      "median_lp": 68.28,
+      "min_lp": 1.38,
+      "max_lp": 3900.0
+    },
+    "249": {
+      "name": "Lugia",
+      "n_cards_with_lp": 99,
+      "mean_lp": 137.0,
+      "median_lp": 37.06,
+      "min_lp": 0.59,
+      "max_lp": 1299.96
+    },
+    "250": {
+      "name": "Ho-Oh",
+      "n_cards_with_lp": 85,
+      "mean_lp": 56.15,
+      "median_lp": 19.34,
+      "min_lp": 0.78,
+      "max_lp": 378.23
+    },
+    "251": {
+      "name": "Celebi",
+      "n_cards_with_lp": 73,
+      "mean_lp": 89.53,
+      "median_lp": 24.39,
+      "min_lp": 1.51,
+      "max_lp": 750.0
+    },
+    "252": {
+      "name": "Treecko",
+      "n_cards_with_lp": 46,
+      "mean_lp": 64.09,
+      "median_lp": 3.64,
+      "min_lp": 0.32,
+      "max_lp": 2250.0
+    },
+    "253": {
+      "name": "Grovyle",
+      "n_cards_with_lp": 39,
+      "mean_lp": 10.75,
+      "median_lp": 2.68,
+      "min_lp": 0.4,
+      "max_lp": 77.0
+    },
+    "254": {
+      "name": "Sceptile",
+      "n_cards_with_lp": 73,
+      "mean_lp": 30.57,
+      "median_lp": 10.07,
+      "min_lp": 1.4,
+      "max_lp": 218.58
+    },
+    "255": {
+      "name": "Torchic",
+      "n_cards_with_lp": 53,
+      "mean_lp": 8.4,
+      "median_lp": 6.24,
+      "min_lp": 0.33,
+      "max_lp": 33.85
+    },
+    "256": {
+      "name": "Combusken",
+      "n_cards_with_lp": 35,
+      "mean_lp": 8.09,
+      "median_lp": 4.84,
+      "min_lp": 0.39,
+      "max_lp": 59.98
+    },
+    "257": {
+      "name": "Blaziken",
+      "n_cards_with_lp": 97,
+      "mean_lp": 33.8,
+      "median_lp": 13.82,
+      "min_lp": 1.32,
+      "max_lp": 309.32
+    },
+    "258": {
+      "name": "Mudkip",
+      "n_cards_with_lp": 67,
+      "mean_lp": 16.38,
+      "median_lp": 7.53,
+      "min_lp": 0.34,
+      "max_lp": 71.16
+    },
+    "259": {
+      "name": "Marshtomp",
+      "n_cards_with_lp": 42,
+      "mean_lp": 9.95,
+      "median_lp": 2.04,
+      "min_lp": 0.39,
+      "max_lp": 71.7
+    },
+    "260": {
+      "name": "Swampert",
+      "n_cards_with_lp": 49,
+      "mean_lp": 35.38,
+      "median_lp": 18.38,
+      "min_lp": 1.11,
+      "max_lp": 201.71
+    },
+    "261": {
+      "name": "Poochyena",
+      "n_cards_with_lp": 56,
+      "mean_lp": 4.26,
+      "median_lp": 3.45,
+      "min_lp": 0.28,
+      "max_lp": 17.77
+    },
+    "262": {
+      "name": "Mightyena",
+      "n_cards_with_lp": 57,
+      "mean_lp": 8.83,
+      "median_lp": 5.0,
+      "min_lp": 0.46,
+      "max_lp": 55.52
+    },
+    "263": {
+      "name": "Zigzagoon",
+      "n_cards_with_lp": 15,
+      "mean_lp": 5.09,
+      "median_lp": 5.14,
+      "min_lp": 0.53,
+      "max_lp": 13.59
+    },
+    "264": {
+      "name": "Linoone",
+      "n_cards_with_lp": 14,
+      "mean_lp": 6.07,
+      "median_lp": 3.97,
+      "min_lp": 0.48,
+      "max_lp": 12.78
+    },
+    "265": {
+      "name": "Wurmple",
+      "n_cards_with_lp": 18,
+      "mean_lp": 3.25,
+      "median_lp": 1.37,
+      "min_lp": 0.2,
+      "max_lp": 9.78
+    },
+    "266": {
+      "name": "Silcoon",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.08,
+      "median_lp": 3.97,
+      "min_lp": 0.64,
+      "max_lp": 6.2
+    },
+    "267": {
+      "name": "Beautifly",
+      "n_cards_with_lp": 16,
+      "mean_lp": 11.46,
+      "median_lp": 11.02,
+      "min_lp": 0.83,
+      "max_lp": 27.98
+    },
+    "268": {
+      "name": "Cascoon",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.47,
+      "median_lp": 4.26,
+      "min_lp": 0.84,
+      "max_lp": 9.34
+    },
+    "269": {
+      "name": "Dustox",
+      "n_cards_with_lp": 14,
+      "mean_lp": 12.25,
+      "median_lp": 4.48,
+      "min_lp": 0.51,
+      "max_lp": 57.51
+    },
+    "270": {
+      "name": "Lotad",
+      "n_cards_with_lp": 26,
+      "mean_lp": 7.58,
+      "median_lp": 5.0,
+      "min_lp": 0.24,
+      "max_lp": 55.65
+    },
+    "271": {
+      "name": "Lombre",
+      "n_cards_with_lp": 20,
+      "mean_lp": 3.61,
+      "median_lp": 1.76,
+      "min_lp": 0.27,
+      "max_lp": 13.73
+    },
+    "272": {
+      "name": "Ludicolo",
+      "n_cards_with_lp": 32,
+      "mean_lp": 11.66,
+      "median_lp": 7.18,
+      "min_lp": 0.69,
+      "max_lp": 39.15
+    },
+    "273": {
+      "name": "Seedot",
+      "n_cards_with_lp": 18,
+      "mean_lp": 3.54,
+      "median_lp": 1.24,
+      "min_lp": 0.19,
+      "max_lp": 14.32
+    },
+    "274": {
+      "name": "Nuzleaf",
+      "n_cards_with_lp": 20,
+      "mean_lp": 4.33,
+      "median_lp": 2.52,
+      "min_lp": 0.31,
+      "max_lp": 11.22
+    },
+    "275": {
+      "name": "Shiftry",
+      "n_cards_with_lp": 34,
+      "mean_lp": 10.53,
+      "median_lp": 7.92,
+      "min_lp": 0.51,
+      "max_lp": 37.27
+    },
+    "276": {
+      "name": "Taillow",
+      "n_cards_with_lp": 18,
+      "mean_lp": 3.33,
+      "median_lp": 3.18,
+      "min_lp": 0.2,
+      "max_lp": 11.08
+    },
+    "277": {
+      "name": "Swellow",
+      "n_cards_with_lp": 20,
+      "mean_lp": 5.44,
+      "median_lp": 1.69,
+      "min_lp": 0.37,
+      "max_lp": 19.96
+    },
+    "278": {
+      "name": "Wingull",
+      "n_cards_with_lp": 18,
+      "mean_lp": 3.25,
+      "median_lp": 2.44,
+      "min_lp": 0.3,
+      "max_lp": 19.39
+    },
+    "279": {
+      "name": "Pelipper",
+      "n_cards_with_lp": 20,
+      "mean_lp": 9.06,
+      "median_lp": 4.24,
+      "min_lp": 0.27,
+      "max_lp": 33.25
+    },
+    "280": {
+      "name": "Ralts",
+      "n_cards_with_lp": 70,
+      "mean_lp": 7.79,
+      "median_lp": 4.33,
+      "min_lp": 0.32,
+      "max_lp": 47.41
+    },
+    "281": {
+      "name": "Kirlia",
+      "n_cards_with_lp": 53,
+      "mean_lp": 10.18,
+      "median_lp": 3.84,
+      "min_lp": 0.32,
+      "max_lp": 48.98
+    },
+    "282": {
+      "name": "Gardevoir",
+      "n_cards_with_lp": 132,
+      "mean_lp": 54.1,
+      "median_lp": 23.66,
+      "min_lp": 1.32,
+      "max_lp": 693.66
+    },
+    "283": {
+      "name": "Surskit",
+      "n_cards_with_lp": 12,
+      "mean_lp": 2.54,
+      "median_lp": 0.7,
+      "min_lp": 0.2,
+      "max_lp": 8.19
+    },
+    "284": {
+      "name": "Masquerain",
+      "n_cards_with_lp": 10,
+      "mean_lp": 3.33,
+      "median_lp": 0.89,
+      "min_lp": 0.26,
+      "max_lp": 9.42
+    },
+    "285": {
+      "name": "Shroomish",
+      "n_cards_with_lp": 17,
+      "mean_lp": 5.98,
+      "median_lp": 2.93,
+      "min_lp": 0.43,
+      "max_lp": 19.12
+    },
+    "286": {
+      "name": "Breloom",
+      "n_cards_with_lp": 19,
+      "mean_lp": 8.76,
+      "median_lp": 3.4,
+      "min_lp": 0.39,
+      "max_lp": 35.65
+    },
+    "287": {
+      "name": "Slakoth",
+      "n_cards_with_lp": 26,
+      "mean_lp": 5.45,
+      "median_lp": 3.82,
+      "min_lp": 0.3,
+      "max_lp": 16.5
+    },
+    "288": {
+      "name": "Vigoroth",
+      "n_cards_with_lp": 8,
+      "mean_lp": 4.84,
+      "median_lp": 4.24,
+      "min_lp": 0.56,
+      "max_lp": 12.98
+    },
+    "289": {
+      "name": "Slaking",
+      "n_cards_with_lp": 15,
+      "mean_lp": 8.91,
+      "median_lp": 9.61,
+      "min_lp": 1.91,
+      "max_lp": 20.63
+    },
+    "290": {
+      "name": "Nincada",
+      "n_cards_with_lp": 16,
+      "mean_lp": 3.28,
+      "median_lp": 2.35,
+      "min_lp": 0.24,
+      "max_lp": 16.98
+    },
+    "291": {
+      "name": "Ninjask",
+      "n_cards_with_lp": 17,
+      "mean_lp": 7.69,
+      "median_lp": 8.92,
+      "min_lp": 0.52,
+      "max_lp": 16.82
+    },
+    "292": {
+      "name": "Shedinja",
+      "n_cards_with_lp": 12,
+      "mean_lp": 18.86,
+      "median_lp": 20.54,
+      "min_lp": 2.2,
+      "max_lp": 45.24
+    },
+    "293": {
+      "name": "Whismur",
+      "n_cards_with_lp": 25,
+      "mean_lp": 4.13,
+      "median_lp": 2.77,
+      "min_lp": 0.28,
+      "max_lp": 13.49
+    },
+    "294": {
+      "name": "Loudred",
+      "n_cards_with_lp": 13,
+      "mean_lp": 6.1,
+      "median_lp": 5.11,
+      "min_lp": 0.37,
+      "max_lp": 14.22
+    },
+    "295": {
+      "name": "Exploud",
+      "n_cards_with_lp": 14,
+      "mean_lp": 18.8,
+      "median_lp": 15.7,
+      "min_lp": 0.56,
+      "max_lp": 45.52
+    },
+    "296": {
+      "name": "Makuhita",
+      "n_cards_with_lp": 26,
+      "mean_lp": 4.16,
+      "median_lp": 2.13,
+      "min_lp": 0.28,
+      "max_lp": 11.5
+    },
+    "297": {
+      "name": "Hariyama",
+      "n_cards_with_lp": 20,
+      "mean_lp": 11.18,
+      "median_lp": 6.33,
+      "min_lp": 0.54,
+      "max_lp": 60.24
+    },
+    "298": {
+      "name": "Azurill",
+      "n_cards_with_lp": 18,
+      "mean_lp": 13.85,
+      "median_lp": 8.38,
+      "min_lp": 6.41,
+      "max_lp": 38.97
+    },
+    "299": {
+      "name": "Nosepass",
+      "n_cards_with_lp": 10,
+      "mean_lp": 4.46,
+      "median_lp": 4.78,
+      "min_lp": 0.49,
+      "max_lp": 10.33
+    },
+    "300": {
+      "name": "Skitty",
+      "n_cards_with_lp": 52,
+      "mean_lp": 5.56,
+      "median_lp": 3.99,
+      "min_lp": 0.35,
+      "max_lp": 18.17
+    },
+    "301": {
+      "name": "Delcatty",
+      "n_cards_with_lp": 23,
+      "mean_lp": 14.81,
+      "median_lp": 5.67,
+      "min_lp": 0.61,
+      "max_lp": 65.09
+    },
+    "302": {
+      "name": "Sableye",
+      "n_cards_with_lp": 64,
+      "mean_lp": 16.66,
+      "median_lp": 6.9,
+      "min_lp": 0.36,
+      "max_lp": 112.36
+    },
+    "303": {
+      "name": "Mawile",
+      "n_cards_with_lp": 67,
+      "mean_lp": 7.68,
+      "median_lp": 5.66,
+      "min_lp": 0.23,
+      "max_lp": 42.93
+    },
+    "304": {
+      "name": "Aron",
+      "n_cards_with_lp": 66,
+      "mean_lp": 3.82,
+      "median_lp": 1.52,
+      "min_lp": 0.28,
+      "max_lp": 17.71
+    },
+    "305": {
+      "name": "Lairon",
+      "n_cards_with_lp": 36,
+      "mean_lp": 4.11,
+      "median_lp": 3.63,
+      "min_lp": 0.28,
+      "max_lp": 16.43
+    },
+    "306": {
+      "name": "Aggron",
+      "n_cards_with_lp": 50,
+      "mean_lp": 19.05,
+      "median_lp": 13.72,
+      "min_lp": 1.56,
+      "max_lp": 73.53
+    },
+    "307": {
+      "name": "Meditite",
+      "n_cards_with_lp": 20,
+      "mean_lp": 2.96,
+      "median_lp": 3.78,
+      "min_lp": 0.06,
+      "max_lp": 9.44
+    },
+    "308": {
+      "name": "Medicham",
+      "n_cards_with_lp": 16,
+      "mean_lp": 6.99,
+      "median_lp": 6.39,
+      "min_lp": 0.34,
+      "max_lp": 15.32
+    },
+    "309": {
+      "name": "Electrike",
+      "n_cards_with_lp": 51,
+      "mean_lp": 3.88,
+      "median_lp": 2.31,
+      "min_lp": 0.23,
+      "max_lp": 18.79
+    },
+    "310": {
+      "name": "Manectric",
+      "n_cards_with_lp": 48,
+      "mean_lp": 13.19,
+      "median_lp": 9.34,
+      "min_lp": 0.43,
+      "max_lp": 75.68
+    },
+    "311": {
+      "name": "Plusle",
+      "n_cards_with_lp": 44,
+      "mean_lp": 26.92,
+      "median_lp": 16.34,
+      "min_lp": 1.09,
+      "max_lp": 96.98
+    },
+    "312": {
+      "name": "Minun",
+      "n_cards_with_lp": 48,
+      "mean_lp": 22.14,
+      "median_lp": 11.44,
+      "min_lp": 1.12,
+      "max_lp": 77.95
+    },
+    "313": {
+      "name": "Volbeat",
+      "n_cards_with_lp": 12,
+      "mean_lp": 5.97,
+      "median_lp": 6.44,
+      "min_lp": 0.54,
+      "max_lp": 20.0
+    },
+    "314": {
+      "name": "Illumise",
+      "n_cards_with_lp": 10,
+      "mean_lp": 4.76,
+      "median_lp": 2.47,
+      "min_lp": 0.23,
+      "max_lp": 21.9
+    },
+    "315": {
+      "name": "Roselia",
+      "n_cards_with_lp": 10,
+      "mean_lp": 7.63,
+      "median_lp": 8.48,
+      "min_lp": 0.63,
+      "max_lp": 17.23
+    },
+    "316": {
+      "name": "Gulpin",
+      "n_cards_with_lp": 19,
+      "mean_lp": 5.99,
+      "median_lp": 4.32,
+      "min_lp": 0.28,
+      "max_lp": 20.5
+    },
+    "317": {
+      "name": "Swalot",
+      "n_cards_with_lp": 10,
+      "mean_lp": 5.43,
+      "median_lp": 5.08,
+      "min_lp": 1.06,
+      "max_lp": 10.72
+    },
+    "318": {
+      "name": "Carvanha",
+      "n_cards_with_lp": 30,
+      "mean_lp": 4.22,
+      "median_lp": 2.78,
+      "min_lp": 0.24,
+      "max_lp": 19.64
+    },
+    "319": {
+      "name": "Sharpedo",
+      "n_cards_with_lp": 50,
+      "mean_lp": 13.24,
+      "median_lp": 6.69,
+      "min_lp": 0.56,
+      "max_lp": 124.98
+    },
+    "320": {
+      "name": "Wailmer",
+      "n_cards_with_lp": 20,
+      "mean_lp": 5.99,
+      "median_lp": 1.87,
+      "min_lp": 0.32,
+      "max_lp": 27.7
+    },
+    "321": {
+      "name": "Wailord",
+      "n_cards_with_lp": 25,
+      "mean_lp": 20.25,
+      "median_lp": 13.63,
+      "min_lp": 1.39,
+      "max_lp": 99.71
+    },
+    "322": {
+      "name": "Numel",
+      "n_cards_with_lp": 45,
+      "mean_lp": 5.34,
+      "median_lp": 3.51,
+      "min_lp": 0.26,
+      "max_lp": 21.59
+    },
+    "323": {
+      "name": "Camerupt",
+      "n_cards_with_lp": 29,
+      "mean_lp": 11.3,
+      "median_lp": 7.66,
+      "min_lp": 0.42,
+      "max_lp": 60.0
+    },
+    "324": {
+      "name": "Torkoal",
+      "n_cards_with_lp": 25,
+      "mean_lp": 10.81,
+      "median_lp": 8.66,
+      "min_lp": 0.32,
+      "max_lp": 36.54
+    },
+    "325": {
+      "name": "Spoink",
+      "n_cards_with_lp": 24,
+      "mean_lp": 5.9,
+      "median_lp": 3.16,
+      "min_lp": 0.2,
+      "max_lp": 65.0
+    },
+    "326": {
+      "name": "Grumpig",
+      "n_cards_with_lp": 16,
+      "mean_lp": 7.15,
+      "median_lp": 7.49,
+      "min_lp": 0.32,
+      "max_lp": 15.97
+    },
+    "327": {
+      "name": "Spinda",
+      "n_cards_with_lp": 18,
+      "mean_lp": 5.61,
+      "median_lp": 1.41,
+      "min_lp": 0.3,
+      "max_lp": 17.39
+    },
+    "328": {
+      "name": "Trapinch",
+      "n_cards_with_lp": 44,
+      "mean_lp": 4.76,
+      "median_lp": 2.11,
+      "min_lp": 0.28,
+      "max_lp": 16.82
+    },
+    "329": {
+      "name": "Vibrava",
+      "n_cards_with_lp": 36,
+      "mean_lp": 4.53,
+      "median_lp": 2.49,
+      "min_lp": 0.31,
+      "max_lp": 20.29
+    },
+    "330": {
+      "name": "Flygon",
+      "n_cards_with_lp": 43,
+      "mean_lp": 36.6,
+      "median_lp": 23.72,
+      "min_lp": 1.06,
+      "max_lp": 165.69
+    },
+    "331": {
+      "name": "Cacnea",
+      "n_cards_with_lp": 14,
+      "mean_lp": 2.82,
+      "median_lp": 3.76,
+      "min_lp": 0.26,
+      "max_lp": 8.6
+    },
+    "332": {
+      "name": "Cacturne",
+      "n_cards_with_lp": 16,
+      "mean_lp": 8.1,
+      "median_lp": 8.02,
+      "min_lp": 0.36,
+      "max_lp": 19.73
+    },
+    "333": {
+      "name": "Swablu",
+      "n_cards_with_lp": 48,
+      "mean_lp": 7.55,
+      "median_lp": 3.86,
+      "min_lp": 0.25,
+      "max_lp": 45.26
+    },
+    "334": {
+      "name": "Altaria",
+      "n_cards_with_lp": 65,
+      "mean_lp": 16.85,
+      "median_lp": 10.21,
+      "min_lp": 0.57,
+      "max_lp": 148.11
+    },
+    "335": {
+      "name": "Zangoose",
+      "n_cards_with_lp": 38,
+      "mean_lp": 7.97,
+      "median_lp": 3.2,
+      "min_lp": 0.31,
+      "max_lp": 28.24
+    },
+    "336": {
+      "name": "Seviper",
+      "n_cards_with_lp": 21,
+      "mean_lp": 7.12,
+      "median_lp": 6.58,
+      "min_lp": 0.57,
+      "max_lp": 35.79
+    },
+    "337": {
+      "name": "Lunatone",
+      "n_cards_with_lp": 12,
+      "mean_lp": 10.0,
+      "median_lp": 8.36,
+      "min_lp": 0.7,
+      "max_lp": 25.3
+    },
+    "338": {
+      "name": "Solrock",
+      "n_cards_with_lp": 14,
+      "mean_lp": 12.19,
+      "median_lp": 13.28,
+      "min_lp": 0.83,
+      "max_lp": 28.1
+    },
+    "339": {
+      "name": "Barboach",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.75,
+      "median_lp": 4.38,
+      "min_lp": 0.27,
+      "max_lp": 4.68
+    },
+    "340": {
+      "name": "Whiscash",
+      "n_cards_with_lp": 16,
+      "mean_lp": 5.46,
+      "median_lp": 5.34,
+      "min_lp": 0.32,
+      "max_lp": 13.53
+    },
+    "341": {
+      "name": "Corphish",
+      "n_cards_with_lp": 32,
+      "mean_lp": 3.68,
+      "median_lp": 3.12,
+      "min_lp": 0.23,
+      "max_lp": 13.47
+    },
+    "342": {
+      "name": "Crawdaunt",
+      "n_cards_with_lp": 24,
+      "mean_lp": 14.57,
+      "median_lp": 8.83,
+      "min_lp": 0.94,
+      "max_lp": 44.2
+    },
+    "343": {
+      "name": "Baltoy",
+      "n_cards_with_lp": 34,
+      "mean_lp": 3.31,
+      "median_lp": 2.66,
+      "min_lp": 0.21,
+      "max_lp": 16.62
+    },
+    "344": {
+      "name": "Claydol",
+      "n_cards_with_lp": 32,
+      "mean_lp": 10.97,
+      "median_lp": 7.38,
+      "min_lp": 0.28,
+      "max_lp": 44.16
+    },
+    "345": {
+      "name": "Lileep",
+      "n_cards_with_lp": 20,
+      "mean_lp": 4.03,
+      "median_lp": 3.89,
+      "min_lp": 0.36,
+      "max_lp": 10.74
+    },
+    "346": {
+      "name": "Cradily",
+      "n_cards_with_lp": 20,
+      "mean_lp": 15.6,
+      "median_lp": 7.33,
+      "min_lp": 1.09,
+      "max_lp": 79.78
+    },
+    "347": {
+      "name": "Anorith",
+      "n_cards_with_lp": 20,
+      "mean_lp": 4.52,
+      "median_lp": 4.75,
+      "min_lp": 0.4,
+      "max_lp": 12.94
+    },
+    "348": {
+      "name": "Armaldo",
+      "n_cards_with_lp": 17,
+      "mean_lp": 23.13,
+      "median_lp": 10.64,
+      "min_lp": 4.88,
+      "max_lp": 100.22
+    },
+    "349": {
+      "name": "Feebas",
+      "n_cards_with_lp": 26,
+      "mean_lp": 7.38,
+      "median_lp": 2.81,
+      "min_lp": 0.28,
+      "max_lp": 29.46
+    },
+    "350": {
+      "name": "Milotic",
+      "n_cards_with_lp": 50,
+      "mean_lp": 39.57,
+      "median_lp": 10.84,
+      "min_lp": 1.08,
+      "max_lp": 409.43
+    },
+    "351": {
+      "name": "Castform",
+      "n_cards_with_lp": 62,
+      "mean_lp": 8.1,
+      "median_lp": 4.13,
+      "min_lp": 1.12,
+      "max_lp": 29.18
+    },
+    "352": {
+      "name": "Kecleon",
+      "n_cards_with_lp": 18,
+      "mean_lp": 4.45,
+      "median_lp": 1.98,
+      "min_lp": 0.26,
+      "max_lp": 18.77
+    },
+    "353": {
+      "name": "Shuppet",
+      "n_cards_with_lp": 19,
+      "mean_lp": 5.82,
+      "median_lp": 1.83,
+      "min_lp": 0.25,
+      "max_lp": 46.81
+    },
+    "354": {
+      "name": "Banette",
+      "n_cards_with_lp": 38,
+      "mean_lp": 12.47,
+      "median_lp": 7.1,
+      "min_lp": 0.6,
+      "max_lp": 96.23
+    },
+    "355": {
+      "name": "Duskull",
+      "n_cards_with_lp": 45,
+      "mean_lp": 11.76,
+      "median_lp": 3.42,
+      "min_lp": 0.21,
+      "max_lp": 94.32
+    },
+    "356": {
+      "name": "Dusclops",
+      "n_cards_with_lp": 21,
+      "mean_lp": 21.36,
+      "median_lp": 18.0,
+      "min_lp": 0.5,
+      "max_lp": 76.08
+    },
+    "357": {
+      "name": "Tropius",
+      "n_cards_with_lp": 23,
+      "mean_lp": 6.69,
+      "median_lp": 2.22,
+      "min_lp": 0.35,
+      "max_lp": 21.7
+    },
+    "358": {
+      "name": "Chimecho",
+      "n_cards_with_lp": 16,
+      "mean_lp": 27.62,
+      "median_lp": 4.22,
+      "min_lp": 0.92,
+      "max_lp": 350.0
+    },
+    "359": {
+      "name": "Absol",
+      "n_cards_with_lp": 54,
+      "mean_lp": 36.29,
+      "median_lp": 14.7,
+      "min_lp": 2.09,
+      "max_lp": 164.86
+    },
+    "360": {
+      "name": "Wynaut",
+      "n_cards_with_lp": 16,
+      "mean_lp": 5.26,
+      "median_lp": 3.69,
+      "min_lp": 1.2,
+      "max_lp": 13.78
+    },
+    "361": {
+      "name": "Snorunt",
+      "n_cards_with_lp": 25,
+      "mean_lp": 6.24,
+      "median_lp": 6.0,
+      "min_lp": 0.33,
+      "max_lp": 17.1
+    },
+    "362": {
+      "name": "Glalie",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.61,
+      "median_lp": 5.74,
+      "min_lp": 0.51,
+      "max_lp": 20.02
+    },
+    "363": {
+      "name": "Spheal",
+      "n_cards_with_lp": 37,
+      "mean_lp": 6.15,
+      "median_lp": 3.07,
+      "min_lp": 0.34,
+      "max_lp": 17.75
+    },
+    "364": {
+      "name": "Sealeo",
+      "n_cards_with_lp": 22,
+      "mean_lp": 3.15,
+      "median_lp": 1.39,
+      "min_lp": 0.34,
+      "max_lp": 12.53
+    },
+    "365": {
+      "name": "Walrein",
+      "n_cards_with_lp": 15,
+      "mean_lp": 14.16,
+      "median_lp": 9.61,
+      "min_lp": 1.3,
+      "max_lp": 51.57
+    },
+    "366": {
+      "name": "Clamperl",
+      "n_cards_with_lp": 16,
+      "mean_lp": 3.63,
+      "median_lp": 3.8,
+      "min_lp": 0.31,
+      "max_lp": 8.05
+    },
+    "367": {
+      "name": "Huntail",
+      "n_cards_with_lp": 10,
+      "mean_lp": 3.65,
+      "median_lp": 2.25,
+      "min_lp": 0.44,
+      "max_lp": 10.73
+    },
+    "368": {
+      "name": "Gorebyss",
+      "n_cards_with_lp": 12,
+      "mean_lp": 5.81,
+      "median_lp": 2.96,
+      "min_lp": 0.44,
+      "max_lp": 19.23
+    },
+    "369": {
+      "name": "Relicanth",
+      "n_cards_with_lp": 24,
+      "mean_lp": 7.8,
+      "median_lp": 2.92,
+      "min_lp": 0.27,
+      "max_lp": 46.47
+    },
+    "370": {
+      "name": "Luvdisc",
+      "n_cards_with_lp": 16,
+      "mean_lp": 4.78,
+      "median_lp": 1.95,
+      "min_lp": 0.33,
+      "max_lp": 15.0
+    },
+    "371": {
+      "name": "Bagon",
+      "n_cards_with_lp": 34,
+      "mean_lp": 9.29,
+      "median_lp": 2.59,
+      "min_lp": 0.25,
+      "max_lp": 63.14
+    },
+    "372": {
+      "name": "Shelgon",
+      "n_cards_with_lp": 38,
+      "mean_lp": 4.96,
+      "median_lp": 3.59,
+      "min_lp": 0.41,
+      "max_lp": 16.2
+    },
+    "373": {
+      "name": "Salamence",
+      "n_cards_with_lp": 61,
+      "mean_lp": 37.11,
+      "median_lp": 19.55,
+      "min_lp": 1.06,
+      "max_lp": 187.49
+    },
+    "374": {
+      "name": "Beldum",
+      "n_cards_with_lp": 33,
+      "mean_lp": 3.74,
+      "median_lp": 1.93,
+      "min_lp": 0.2,
+      "max_lp": 18.67
+    },
+    "375": {
+      "name": "Metang",
+      "n_cards_with_lp": 21,
+      "mean_lp": 19.25,
+      "median_lp": 2.82,
+      "min_lp": 0.32,
+      "max_lp": 279.95
+    },
+    "376": {
+      "name": "Metagross",
+      "n_cards_with_lp": 80,
+      "mean_lp": 40.62,
+      "median_lp": 10.87,
+      "min_lp": 1.12,
+      "max_lp": 1562.48
+    },
+    "377": {
+      "name": "Regirock",
+      "n_cards_with_lp": 19,
+      "mean_lp": 36.34,
+      "median_lp": 4.0,
+      "min_lp": 1.35,
+      "max_lp": 182.43
+    },
+    "378": {
+      "name": "Regice",
+      "n_cards_with_lp": 12,
+      "mean_lp": 241.14,
+      "median_lp": 30.73,
+      "min_lp": 2.96,
+      "max_lp": 1250.0
+    },
+    "379": {
+      "name": "Registeel",
+      "n_cards_with_lp": 15,
+      "mean_lp": 42.49,
+      "median_lp": 32.63,
+      "min_lp": 1.62,
+      "max_lp": 139.94
+    },
+    "380": {
+      "name": "Latias",
+      "n_cards_with_lp": 81,
+      "mean_lp": 108.48,
+      "median_lp": 19.96,
+      "min_lp": 1.94,
+      "max_lp": 2293.5
+    },
+    "381": {
+      "name": "Latios",
+      "n_cards_with_lp": 68,
+      "mean_lp": 82.93,
+      "median_lp": 19.07,
+      "min_lp": 3.02,
+      "max_lp": 2800.0
+    },
+    "382": {
+      "name": "Kyogre",
+      "n_cards_with_lp": 63,
+      "mean_lp": 76.99,
+      "median_lp": 38.36,
+      "min_lp": 0.5,
+      "max_lp": 348.91
+    },
+    "383": {
+      "name": "Groudon",
+      "n_cards_with_lp": 70,
+      "mean_lp": 94.38,
+      "median_lp": 75.23,
+      "min_lp": 0.46,
+      "max_lp": 474.83
+    },
+    "384": {
+      "name": "Rayquaza",
+      "n_cards_with_lp": 173,
+      "mean_lp": 113.56,
+      "median_lp": 44.92,
+      "min_lp": 0.41,
+      "max_lp": 749.99
+    },
+    "385": {
+      "name": "Jirachi",
+      "n_cards_with_lp": 65,
+      "mean_lp": 31.68,
+      "median_lp": 19.07,
+      "min_lp": 3.04,
+      "max_lp": 142.32
+    },
+    "386": {
+      "name": "Deoxys",
+      "n_cards_with_lp": 104,
+      "mean_lp": 58.75,
+      "median_lp": 41.57,
+      "min_lp": 0.15,
+      "max_lp": 350.0
+    },
+    "387": {
+      "name": "Turtwig",
+      "n_cards_with_lp": 34,
+      "mean_lp": 4.82,
+      "median_lp": 4.45,
+      "min_lp": 0.27,
+      "max_lp": 12.47
+    },
+    "388": {
+      "name": "Grotle",
+      "n_cards_with_lp": 9,
+      "mean_lp": 5.92,
+      "median_lp": 2.93,
+      "min_lp": 0.28,
+      "max_lp": 14.14
+    },
+    "389": {
+      "name": "Torterra",
+      "n_cards_with_lp": 28,
+      "mean_lp": 12.3,
+      "median_lp": 6.72,
+      "min_lp": 1.31,
+      "max_lp": 73.11
+    },
+    "390": {
+      "name": "Chimchar",
+      "n_cards_with_lp": 28,
+      "mean_lp": 1.91,
+      "median_lp": 1.37,
+      "min_lp": 0.1,
+      "max_lp": 7.61
+    },
+    "391": {
+      "name": "Monferno",
+      "n_cards_with_lp": 14,
+      "mean_lp": 1.45,
+      "median_lp": 1.93,
+      "min_lp": 0.28,
+      "max_lp": 3.42
+    },
+    "392": {
+      "name": "Infernape",
+      "n_cards_with_lp": 37,
+      "mean_lp": 19.45,
+      "median_lp": 4.86,
+      "min_lp": 0.74,
+      "max_lp": 153.19
+    },
+    "393": {
+      "name": "Piplup",
+      "n_cards_with_lp": 47,
+      "mean_lp": 11.72,
+      "median_lp": 7.94,
+      "min_lp": 0.35,
+      "max_lp": 55.15
+    },
+    "394": {
+      "name": "Prinplup",
+      "n_cards_with_lp": 6,
+      "mean_lp": 2.01,
+      "median_lp": 2.91,
+      "min_lp": 0.31,
+      "max_lp": 4.55
+    },
+    "395": {
+      "name": "Empoleon",
+      "n_cards_with_lp": 39,
+      "mean_lp": 22.07,
+      "median_lp": 5.9,
+      "min_lp": 0.99,
+      "max_lp": 207.0
+    },
+    "396": {
+      "name": "Starly",
+      "n_cards_with_lp": 4,
+      "mean_lp": 5.39,
+      "median_lp": 9.72,
+      "min_lp": 0.16,
+      "max_lp": 10.14
+    },
+    "397": {
+      "name": "Staravia",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "398": {
+      "name": "Staraptor",
+      "n_cards_with_lp": 14,
+      "mean_lp": 8.43,
+      "median_lp": 5.43,
+      "min_lp": 0.46,
+      "max_lp": 29.4
+    },
+    "399": {
+      "name": "Bidoof",
+      "n_cards_with_lp": 23,
+      "mean_lp": 33.31,
+      "median_lp": 3.07,
+      "min_lp": 0.33,
+      "max_lp": 333.33
+    },
+    "400": {
+      "name": "Bibarel",
+      "n_cards_with_lp": 6,
+      "mean_lp": 19.62,
+      "median_lp": 2.66,
+      "min_lp": 1.49,
+      "max_lp": 55.15
+    },
+    "401": {
+      "name": "Kricketot",
+      "n_cards_with_lp": 4,
+      "mean_lp": 1.13,
+      "median_lp": 1.36,
+      "min_lp": 0.22,
+      "max_lp": 2.54
+    },
+    "402": {
+      "name": "Kricketune",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.32,
+      "median_lp": 5.17,
+      "min_lp": 0.78,
+      "max_lp": 6.6
+    },
+    "403": {
+      "name": "Shinx",
+      "n_cards_with_lp": 26,
+      "mean_lp": 12.97,
+      "median_lp": 4.33,
+      "min_lp": 0.28,
+      "max_lp": 102.77
+    },
+    "404": {
+      "name": "Luxio",
+      "n_cards_with_lp": 15,
+      "mean_lp": 5.99,
+      "median_lp": 4.01,
+      "min_lp": 0.4,
+      "max_lp": 39.99
+    },
+    "405": {
+      "name": "Luxray",
+      "n_cards_with_lp": 35,
+      "mean_lp": 14.35,
+      "median_lp": 8.83,
+      "min_lp": 1.38,
+      "max_lp": 116.42
+    },
+    "406": {
+      "name": "Budew",
+      "n_cards_with_lp": 13,
+      "mean_lp": 7.97,
+      "median_lp": 7.18,
+      "min_lp": 2.74,
+      "max_lp": 12.58
+    },
+    "407": {
+      "name": "Roserade",
+      "n_cards_with_lp": 29,
+      "mean_lp": 7.83,
+      "median_lp": 4.83,
+      "min_lp": 0.48,
+      "max_lp": 25.97
+    },
+    "408": {
+      "name": "Cranidos",
+      "n_cards_with_lp": 6,
+      "mean_lp": 2.78,
+      "median_lp": 2.25,
+      "min_lp": 0.25,
+      "max_lp": 6.09
+    },
+    "409": {
+      "name": "Rampardos",
+      "n_cards_with_lp": 8,
+      "mean_lp": 5.49,
+      "median_lp": 5.86,
+      "min_lp": 1.24,
+      "max_lp": 9.07
+    },
+    "410": {
+      "name": "Shieldon",
+      "n_cards_with_lp": 6,
+      "mean_lp": 1.94,
+      "median_lp": 1.24,
+      "min_lp": 0.25,
+      "max_lp": 4.38
+    },
+    "411": {
+      "name": "Bastiodon",
+      "n_cards_with_lp": 3,
+      "mean_lp": 24.55,
+      "median_lp": 6.36,
+      "min_lp": 4.59,
+      "max_lp": 62.69
+    },
+    "412": {
+      "name": "Burmy",
+      "n_cards_with_lp": 8,
+      "mean_lp": 1.7,
+      "median_lp": 0.75,
+      "min_lp": 0.28,
+      "max_lp": 5.34
+    },
+    "413": {
+      "name": "Wormadam",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "414": {
+      "name": "Mothim",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "415": {
+      "name": "Combee",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "416": {
+      "name": "Vespiquen",
+      "n_cards_with_lp": 3,
+      "mean_lp": 1.12,
+      "median_lp": 1.22,
+      "min_lp": 0.56,
+      "max_lp": 1.58
+    },
+    "417": {
+      "name": "Pachirisu",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.88,
+      "median_lp": 5.7,
+      "min_lp": 0.4,
+      "max_lp": 14.57
+    },
+    "418": {
+      "name": "Buizel",
+      "n_cards_with_lp": 6,
+      "mean_lp": 3.97,
+      "median_lp": 2.83,
+      "min_lp": 0.24,
+      "max_lp": 13.9
+    },
+    "419": {
+      "name": "Floatzel",
+      "n_cards_with_lp": 10,
+      "mean_lp": 12.09,
+      "median_lp": 1.91,
+      "min_lp": 0.44,
+      "max_lp": 54.09
+    },
+    "420": {
+      "name": "Cherubi",
+      "n_cards_with_lp": 18,
+      "mean_lp": 3.52,
+      "median_lp": 1.2,
+      "min_lp": 0.27,
+      "max_lp": 8.31
+    },
+    "421": {
+      "name": "Cherrim",
+      "n_cards_with_lp": 11,
+      "mean_lp": 13.71,
+      "median_lp": 5.0,
+      "min_lp": 0.43,
+      "max_lp": 53.96
+    },
+    "422": {
+      "name": "Shellos",
+      "n_cards_with_lp": 10,
+      "mean_lp": 2.67,
+      "median_lp": 2.64,
+      "min_lp": 0.25,
+      "max_lp": 8.02
+    },
+    "423": {
+      "name": "Gastrodon",
+      "n_cards_with_lp": 10,
+      "mean_lp": 4.59,
+      "median_lp": 5.75,
+      "min_lp": 1.35,
+      "max_lp": 7.08
+    },
+    "424": {
+      "name": "Ambipom",
+      "n_cards_with_lp": 4,
+      "mean_lp": 1.96,
+      "median_lp": 1.98,
+      "min_lp": 0.31,
+      "max_lp": 3.6
+    },
+    "425": {
+      "name": "Drifloon",
+      "n_cards_with_lp": 15,
+      "mean_lp": 13.15,
+      "median_lp": 2.04,
+      "min_lp": 0.28,
+      "max_lp": 67.5
+    },
+    "426": {
+      "name": "Drifblim",
+      "n_cards_with_lp": 13,
+      "mean_lp": 2.7,
+      "median_lp": 2.46,
+      "min_lp": 0.53,
+      "max_lp": 7.52
+    },
+    "427": {
+      "name": "Buneary",
+      "n_cards_with_lp": 17,
+      "mean_lp": 2.02,
+      "median_lp": 1.3,
+      "min_lp": 0.28,
+      "max_lp": 5.75
+    },
+    "428": {
+      "name": "Lopunny",
+      "n_cards_with_lp": 29,
+      "mean_lp": 4.47,
+      "median_lp": 3.27,
+      "min_lp": 0.28,
+      "max_lp": 19.98
+    },
+    "429": {
+      "name": "Mismagius",
+      "n_cards_with_lp": 27,
+      "mean_lp": 10.36,
+      "median_lp": 3.5,
+      "min_lp": 0.43,
+      "max_lp": 46.89
+    },
+    "430": {
+      "name": "Honchkrow",
+      "n_cards_with_lp": 20,
+      "mean_lp": 6.39,
+      "median_lp": 2.74,
+      "min_lp": 0.38,
+      "max_lp": 32.92
+    },
+    "431": {
+      "name": "Glameow",
+      "n_cards_with_lp": 7,
+      "mean_lp": 1.73,
+      "median_lp": 1.66,
+      "min_lp": 0.33,
+      "max_lp": 4.58
+    },
+    "432": {
+      "name": "Purugly",
+      "n_cards_with_lp": 4,
+      "mean_lp": 1.93,
+      "median_lp": 2.16,
+      "min_lp": 0.32,
+      "max_lp": 3.83
+    },
+    "433": {
+      "name": "Chingling",
+      "n_cards_with_lp": 8,
+      "mean_lp": 6.55,
+      "median_lp": 5.49,
+      "min_lp": 2.4,
+      "max_lp": 11.74
+    },
+    "434": {
+      "name": "Stunky",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.91,
+      "median_lp": 7.02,
+      "min_lp": 0.39,
+      "max_lp": 7.78
+    },
+    "435": {
+      "name": "Skuntank",
+      "n_cards_with_lp": 7,
+      "mean_lp": 19.44,
+      "median_lp": 8.58,
+      "min_lp": 2.24,
+      "max_lp": 53.08
+    },
+    "436": {
+      "name": "Bronzor",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.05,
+      "median_lp": 5.53,
+      "min_lp": 0.9,
+      "max_lp": 5.69
+    },
+    "437": {
+      "name": "Bronzong",
+      "n_cards_with_lp": 20,
+      "mean_lp": 4.17,
+      "median_lp": 2.69,
+      "min_lp": 0.52,
+      "max_lp": 12.53
+    },
+    "438": {
+      "name": "Bonsly",
+      "n_cards_with_lp": 6,
+      "mean_lp": 32.12,
+      "median_lp": 46.72,
+      "min_lp": 16.46,
+      "max_lp": 49.5
+    },
+    "439": {
+      "name": "Mime-Jr",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "440": {
+      "name": "Happiny",
+      "n_cards_with_lp": 24,
+      "mean_lp": 6.53,
+      "median_lp": 5.7,
+      "min_lp": 1.4,
+      "max_lp": 12.65
+    },
+    "441": {
+      "name": "Chatot",
+      "n_cards_with_lp": 7,
+      "mean_lp": 6.67,
+      "median_lp": 8.44,
+      "min_lp": 0.25,
+      "max_lp": 9.56
+    },
+    "442": {
+      "name": "Spiritomb",
+      "n_cards_with_lp": 20,
+      "mean_lp": 5.09,
+      "median_lp": 4.04,
+      "min_lp": 0.61,
+      "max_lp": 14.79
+    },
+    "443": {
+      "name": "Gible",
+      "n_cards_with_lp": 14,
+      "mean_lp": 3.0,
+      "median_lp": 3.5,
+      "min_lp": 0.28,
+      "max_lp": 6.65
+    },
+    "444": {
+      "name": "Gabite",
+      "n_cards_with_lp": 14,
+      "mean_lp": 6.65,
+      "median_lp": 3.42,
+      "min_lp": 0.44,
+      "max_lp": 17.93
+    },
+    "445": {
+      "name": "Garchomp",
+      "n_cards_with_lp": 81,
+      "mean_lp": 40.19,
+      "median_lp": 12.99,
+      "min_lp": 1.0,
+      "max_lp": 349.96
+    },
+    "446": {
+      "name": "Munchlax",
+      "n_cards_with_lp": 30,
+      "mean_lp": 14.22,
+      "median_lp": 9.99,
+      "min_lp": 5.22,
+      "max_lp": 35.4
+    },
+    "447": {
+      "name": "Riolu",
+      "n_cards_with_lp": 42,
+      "mean_lp": 8.77,
+      "median_lp": 6.83,
+      "min_lp": 0.23,
+      "max_lp": 44.98
+    },
+    "448": {
+      "name": "Lucario",
+      "n_cards_with_lp": 122,
+      "mean_lp": 34.88,
+      "median_lp": 12.57,
+      "min_lp": 1.12,
+      "max_lp": 299.99
+    },
+    "449": {
+      "name": "Hippopotas",
+      "n_cards_with_lp": 6,
+      "mean_lp": 0.91,
+      "median_lp": 1.44,
+      "min_lp": 0.23,
+      "max_lp": 1.57
+    },
+    "450": {
+      "name": "Hippowdon",
+      "n_cards_with_lp": 3,
+      "mean_lp": 20.54,
+      "median_lp": 2.4,
+      "min_lp": 0.54,
+      "max_lp": 58.68
+    },
+    "451": {
+      "name": "Skorupi",
+      "n_cards_with_lp": 6,
+      "mean_lp": 1.43,
+      "median_lp": 0.98,
+      "min_lp": 0.22,
+      "max_lp": 3.23
+    },
+    "452": {
+      "name": "Drapion",
+      "n_cards_with_lp": 9,
+      "mean_lp": 11.11,
+      "median_lp": 6.3,
+      "min_lp": 2.93,
+      "max_lp": 30.27
+    },
+    "453": {
+      "name": "Croagunk",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.13,
+      "median_lp": 1.7,
+      "min_lp": 0.42,
+      "max_lp": 4.26
+    },
+    "454": {
+      "name": "Toxicroak",
+      "n_cards_with_lp": 7,
+      "mean_lp": 10.87,
+      "median_lp": 2.68,
+      "min_lp": 1.85,
+      "max_lp": 44.8
+    },
+    "455": {
+      "name": "Carnivine",
+      "n_cards_with_lp": 5,
+      "mean_lp": 1.85,
+      "median_lp": 1.33,
+      "min_lp": 0.33,
+      "max_lp": 5.05
+    },
+    "456": {
+      "name": "Finneon",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "457": {
+      "name": "Lumineon",
+      "n_cards_with_lp": 9,
+      "mean_lp": 8.84,
+      "median_lp": 11.79,
+      "min_lp": 1.85,
+      "max_lp": 17.36
+    },
+    "458": {
+      "name": "Mantyke",
+      "n_cards_with_lp": 7,
+      "mean_lp": 13.57,
+      "median_lp": 7.21,
+      "min_lp": 2.23,
+      "max_lp": 27.53
+    },
+    "459": {
+      "name": "Snover",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.09,
+      "median_lp": 2.0,
+      "min_lp": 1.93,
+      "max_lp": 2.35
+    },
+    "460": {
+      "name": "Abomasnow",
+      "n_cards_with_lp": 5,
+      "mean_lp": 2.14,
+      "median_lp": 2.21,
+      "min_lp": 1.95,
+      "max_lp": 2.29
+    },
+    "461": {
+      "name": "Weavile",
+      "n_cards_with_lp": 18,
+      "mean_lp": 5.05,
+      "median_lp": 6.31,
+      "min_lp": 1.02,
+      "max_lp": 8.06
+    },
+    "462": {
+      "name": "Magnezone",
+      "n_cards_with_lp": 32,
+      "mean_lp": 9.13,
+      "median_lp": 5.32,
+      "min_lp": 1.76,
+      "max_lp": 33.79
+    },
+    "463": {
+      "name": "Lickilicky",
+      "n_cards_with_lp": 6,
+      "mean_lp": 5.74,
+      "median_lp": 6.07,
+      "min_lp": 0.38,
+      "max_lp": 10.37
+    },
+    "464": {
+      "name": "Rhyperior",
+      "n_cards_with_lp": 10,
+      "mean_lp": 9.3,
+      "median_lp": 3.95,
+      "min_lp": 2.37,
+      "max_lp": 36.47
+    },
+    "465": {
+      "name": "Tangrowth",
+      "n_cards_with_lp": 4,
+      "mean_lp": 12.83,
+      "median_lp": 21.97,
+      "min_lp": 3.43,
+      "max_lp": 22.35
+    },
+    "466": {
+      "name": "Electivire",
+      "n_cards_with_lp": 25,
+      "mean_lp": 7.12,
+      "median_lp": 4.65,
+      "min_lp": 0.56,
+      "max_lp": 31.56
+    },
+    "467": {
+      "name": "Magmortar",
+      "n_cards_with_lp": 12,
+      "mean_lp": 7.79,
+      "median_lp": 3.81,
+      "min_lp": 2.56,
+      "max_lp": 28.22
+    },
+    "468": {
+      "name": "Togekiss",
+      "n_cards_with_lp": 35,
+      "mean_lp": 6.99,
+      "median_lp": 3.75,
+      "min_lp": 1.12,
+      "max_lp": 17.29
+    },
+    "469": {
+      "name": "Yanmega",
+      "n_cards_with_lp": 16,
+      "mean_lp": 8.8,
+      "median_lp": 3.31,
+      "min_lp": 0.22,
+      "max_lp": 23.02
+    },
+    "470": {
+      "name": "Leafeon",
+      "n_cards_with_lp": 87,
+      "mean_lp": 44.3,
+      "median_lp": 14.62,
+      "min_lp": 1.61,
+      "max_lp": 393.33
+    },
+    "471": {
+      "name": "Glaceon",
+      "n_cards_with_lp": 87,
+      "mean_lp": 35.07,
+      "median_lp": 16.22,
+      "min_lp": 1.96,
+      "max_lp": 329.99
+    },
+    "472": {
+      "name": "Gliscor",
+      "n_cards_with_lp": 11,
+      "mean_lp": 21.2,
+      "median_lp": 4.71,
+      "min_lp": 0.28,
+      "max_lp": 99.62
+    },
+    "473": {
+      "name": "Mamoswine",
+      "n_cards_with_lp": 14,
+      "mean_lp": 4.28,
+      "median_lp": 4.63,
+      "min_lp": 0.57,
+      "max_lp": 7.92
+    },
+    "474": {
+      "name": "Porygon-Z",
+      "n_cards_with_lp": 23,
+      "mean_lp": 11.43,
+      "median_lp": 4.83,
+      "min_lp": 1.26,
+      "max_lp": 76.62
+    },
+    "475": {
+      "name": "Gallade",
+      "n_cards_with_lp": 29,
+      "mean_lp": 10.49,
+      "median_lp": 7.48,
+      "min_lp": 0.44,
+      "max_lp": 54.75
+    },
+    "476": {
+      "name": "Probopass",
+      "n_cards_with_lp": 9,
+      "mean_lp": 2.55,
+      "median_lp": 2.54,
+      "min_lp": 0.97,
+      "max_lp": 3.86
+    },
+    "477": {
+      "name": "Dusknoir",
+      "n_cards_with_lp": 18,
+      "mean_lp": 20.67,
+      "median_lp": 6.93,
+      "min_lp": 2.34,
+      "max_lp": 72.8
+    },
+    "478": {
+      "name": "Froslass",
+      "n_cards_with_lp": 31,
+      "mean_lp": 13.08,
+      "median_lp": 6.23,
+      "min_lp": 2.21,
+      "max_lp": 77.84
+    },
+    "479": {
+      "name": "Rotom",
+      "n_cards_with_lp": 41,
+      "mean_lp": 11.35,
+      "median_lp": 4.96,
+      "min_lp": 0.35,
+      "max_lp": 36.51
+    },
+    "480": {
+      "name": "Uxie",
+      "n_cards_with_lp": 14,
+      "mean_lp": 20.95,
+      "median_lp": 13.69,
+      "min_lp": 0.39,
+      "max_lp": 89.81
+    },
+    "481": {
+      "name": "Mesprit",
+      "n_cards_with_lp": 13,
+      "mean_lp": 21.73,
+      "median_lp": 10.95,
+      "min_lp": 6.52,
+      "max_lp": 63.63
+    },
+    "482": {
+      "name": "Azelf",
+      "n_cards_with_lp": 8,
+      "mean_lp": 27.27,
+      "median_lp": 8.33,
+      "min_lp": 3.98,
+      "max_lp": 88.58
+    },
+    "483": {
+      "name": "Dialga",
+      "n_cards_with_lp": 88,
+      "mean_lp": 53.84,
+      "median_lp": 18.02,
+      "min_lp": 1.14,
+      "max_lp": 529.12
+    },
+    "484": {
+      "name": "Palkia",
+      "n_cards_with_lp": 62,
+      "mean_lp": 36.48,
+      "median_lp": 13.87,
+      "min_lp": 1.35,
+      "max_lp": 250.64
+    },
+    "485": {
+      "name": "Heatran",
+      "n_cards_with_lp": 19,
+      "mean_lp": 20.26,
+      "median_lp": 5.97,
+      "min_lp": 0.95,
+      "max_lp": 96.74
+    },
+    "486": {
+      "name": "Regigigas",
+      "n_cards_with_lp": 26,
+      "mean_lp": 18.35,
+      "median_lp": 15.76,
+      "min_lp": 1.25,
+      "max_lp": 73.64
+    },
+    "487": {
+      "name": "Giratina",
+      "n_cards_with_lp": 83,
+      "mean_lp": 56.4,
+      "median_lp": 13.88,
+      "min_lp": 1.47,
+      "max_lp": 517.84
+    },
+    "488": {
+      "name": "Cresselia",
+      "n_cards_with_lp": 26,
+      "mean_lp": 30.87,
+      "median_lp": 10.28,
+      "min_lp": 4.4,
+      "max_lp": 119.34
+    },
+    "489": {
+      "name": "Phione",
+      "n_cards_with_lp": 13,
+      "mean_lp": 5.56,
+      "median_lp": 4.68,
+      "min_lp": 1.03,
+      "max_lp": 10.25
+    },
+    "490": {
+      "name": "Manaphy",
+      "n_cards_with_lp": 19,
+      "mean_lp": 8.03,
+      "median_lp": 5.36,
+      "min_lp": 1.86,
+      "max_lp": 33.22
+    },
+    "491": {
+      "name": "Darkrai",
+      "n_cards_with_lp": 65,
+      "mean_lp": 37.64,
+      "median_lp": 25.77,
+      "min_lp": 1.74,
+      "max_lp": 420.69
+    },
+    "492": {
+      "name": "Shaymin",
+      "n_cards_with_lp": 51,
+      "mean_lp": 18.06,
+      "median_lp": 10.93,
+      "min_lp": 1.1,
+      "max_lp": 61.0
+    },
+    "493": {
+      "name": "Arceus",
+      "n_cards_with_lp": 68,
+      "mean_lp": 27.29,
+      "median_lp": 22.33,
+      "min_lp": 2.64,
+      "max_lp": 147.13
+    },
+    "494": {
+      "name": "Victini",
+      "n_cards_with_lp": 39,
+      "mean_lp": 58.32,
+      "median_lp": 5.67,
+      "min_lp": 0.56,
+      "max_lp": 426.82
+    },
+    "495": {
+      "name": "Snivy",
+      "n_cards_with_lp": 15,
+      "mean_lp": 3.86,
+      "median_lp": 1.62,
+      "min_lp": 0.19,
+      "max_lp": 19.73
+    },
+    "496": {
+      "name": "Servine",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.99,
+      "median_lp": 11.73,
+      "min_lp": 1.26,
+      "max_lp": 12.03
+    },
+    "497": {
+      "name": "Serperior",
+      "n_cards_with_lp": 28,
+      "mean_lp": 16.23,
+      "median_lp": 3.49,
+      "min_lp": 0.42,
+      "max_lp": 114.55
+    },
+    "498": {
+      "name": "Tepig",
+      "n_cards_with_lp": 14,
+      "mean_lp": 4.62,
+      "median_lp": 1.9,
+      "min_lp": 0.24,
+      "max_lp": 20.81
+    },
+    "499": {
+      "name": "Pignite",
+      "n_cards_with_lp": 19,
+      "mean_lp": 4.85,
+      "median_lp": 3.12,
+      "min_lp": 0.28,
+      "max_lp": 15.05
+    },
+    "500": {
+      "name": "Emboar",
+      "n_cards_with_lp": 24,
+      "mean_lp": 19.22,
+      "median_lp": 3.5,
+      "min_lp": 1.09,
+      "max_lp": 107.99
+    },
+    "501": {
+      "name": "Oshawott",
+      "n_cards_with_lp": 24,
+      "mean_lp": 7.91,
+      "median_lp": 2.45,
+      "min_lp": 0.24,
+      "max_lp": 49.57
+    },
+    "502": {
+      "name": "Dewott",
+      "n_cards_with_lp": 8,
+      "mean_lp": 6.04,
+      "median_lp": 3.1,
+      "min_lp": 0.28,
+      "max_lp": 14.27
+    },
+    "503": {
+      "name": "Samurott",
+      "n_cards_with_lp": 23,
+      "mean_lp": 9.54,
+      "median_lp": 3.78,
+      "min_lp": 1.47,
+      "max_lp": 40.29
+    },
+    "504": {
+      "name": "Patrat",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.88,
+      "median_lp": 8.9,
+      "min_lp": 8.76,
+      "max_lp": 8.96
+    },
+    "505": {
+      "name": "Watchog",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.12,
+      "median_lp": 5.31,
+      "min_lp": 0.27,
+      "max_lp": 5.51
+    },
+    "506": {
+      "name": "Lillipup",
+      "n_cards_with_lp": 7,
+      "mean_lp": 7.82,
+      "median_lp": 3.44,
+      "min_lp": 0.3,
+      "max_lp": 22.01
+    },
+    "507": {
+      "name": "Herdier",
+      "n_cards_with_lp": 4,
+      "mean_lp": 9.08,
+      "median_lp": 8.83,
+      "min_lp": 8.78,
+      "max_lp": 9.92
+    },
+    "508": {
+      "name": "Stoutland",
+      "n_cards_with_lp": 7,
+      "mean_lp": 8.45,
+      "median_lp": 6.36,
+      "min_lp": 2.79,
+      "max_lp": 17.82
+    },
+    "509": {
+      "name": "Purrloin",
+      "n_cards_with_lp": 8,
+      "mean_lp": 6.32,
+      "median_lp": 6.09,
+      "min_lp": 2.93,
+      "max_lp": 12.23
+    },
+    "510": {
+      "name": "Liepard",
+      "n_cards_with_lp": 6,
+      "mean_lp": 13.29,
+      "median_lp": 22.39,
+      "min_lp": 2.33,
+      "max_lp": 25.15
+    },
+    "511": {
+      "name": "Pansage",
+      "n_cards_with_lp": 7,
+      "mean_lp": 14.74,
+      "median_lp": 8.94,
+      "min_lp": 2.67,
+      "max_lp": 32.76
+    },
+    "512": {
+      "name": "Simisage",
+      "n_cards_with_lp": 4,
+      "mean_lp": 6.93,
+      "median_lp": 6.94,
+      "min_lp": 6.91,
+      "max_lp": 6.94
+    },
+    "513": {
+      "name": "Pansear",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.46,
+      "median_lp": 8.51,
+      "min_lp": 8.33,
+      "max_lp": 8.51
+    },
+    "514": {
+      "name": "Simisear",
+      "n_cards_with_lp": 7,
+      "mean_lp": 16.93,
+      "median_lp": 8.94,
+      "min_lp": 8.08,
+      "max_lp": 30.38
+    },
+    "515": {
+      "name": "Panpour",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.34,
+      "median_lp": 8.35,
+      "min_lp": 8.26,
+      "max_lp": 8.39
+    },
+    "516": {
+      "name": "Simipour",
+      "n_cards_with_lp": 4,
+      "mean_lp": 7.65,
+      "median_lp": 7.76,
+      "min_lp": 7.54,
+      "max_lp": 7.76
+    },
+    "517": {
+      "name": "Munna",
+      "n_cards_with_lp": 12,
+      "mean_lp": 5.91,
+      "median_lp": 5.82,
+      "min_lp": 1.87,
+      "max_lp": 11.67
+    },
+    "518": {
+      "name": "Musharna",
+      "n_cards_with_lp": 6,
+      "mean_lp": 5.8,
+      "median_lp": 7.67,
+      "min_lp": 1.32,
+      "max_lp": 7.75
+    },
+    "519": {
+      "name": "Pidove",
+      "n_cards_with_lp": 8,
+      "mean_lp": 15.25,
+      "median_lp": 10.71,
+      "min_lp": 0.39,
+      "max_lp": 68.33
+    },
+    "520": {
+      "name": "Tranquill",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.25,
+      "median_lp": 5.36,
+      "min_lp": 5.14,
+      "max_lp": 5.36
+    },
+    "521": {
+      "name": "Unfezant",
+      "n_cards_with_lp": 4,
+      "mean_lp": 9.57,
+      "median_lp": 14.09,
+      "min_lp": 2.71,
+      "max_lp": 15.25
+    },
+    "522": {
+      "name": "Blitzle",
+      "n_cards_with_lp": 10,
+      "mean_lp": 5.15,
+      "median_lp": 6.57,
+      "min_lp": 0.54,
+      "max_lp": 7.05
+    },
+    "523": {
+      "name": "Zebstrika",
+      "n_cards_with_lp": 11,
+      "mean_lp": 5.1,
+      "median_lp": 1.28,
+      "min_lp": 0.69,
+      "max_lp": 15.3
+    },
+    "524": {
+      "name": "Roggenrola",
+      "n_cards_with_lp": 3,
+      "mean_lp": 7.34,
+      "median_lp": 7.29,
+      "min_lp": 7.0,
+      "max_lp": 7.73
+    },
+    "525": {
+      "name": "Boldore",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.38,
+      "median_lp": 5.44,
+      "min_lp": 5.31,
+      "max_lp": 5.44
+    },
+    "526": {
+      "name": "Gigalith",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.75,
+      "median_lp": 16.3,
+      "min_lp": 0.5,
+      "max_lp": 16.47
+    },
+    "527": {
+      "name": "Woobat",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.28,
+      "median_lp": 9.24,
+      "min_lp": 5.18,
+      "max_lp": 9.69
+    },
+    "528": {
+      "name": "Swoobat",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.43,
+      "median_lp": 9.32,
+      "min_lp": 0.28,
+      "max_lp": 9.38
+    },
+    "529": {
+      "name": "Drilbur",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.83,
+      "median_lp": 5.87,
+      "min_lp": 0.49,
+      "max_lp": 7.44
+    },
+    "530": {
+      "name": "Excadrill",
+      "n_cards_with_lp": 13,
+      "mean_lp": 7.97,
+      "median_lp": 6.34,
+      "min_lp": 1.35,
+      "max_lp": 20.05
+    },
+    "531": {
+      "name": "Audino",
+      "n_cards_with_lp": 16,
+      "mean_lp": 6.13,
+      "median_lp": 2.5,
+      "min_lp": 0.44,
+      "max_lp": 21.7
+    },
+    "532": {
+      "name": "Timburr",
+      "n_cards_with_lp": 6,
+      "mean_lp": 8.13,
+      "median_lp": 9.53,
+      "min_lp": 4.86,
+      "max_lp": 10.41
+    },
+    "533": {
+      "name": "Gurdurr",
+      "n_cards_with_lp": 2,
+      "mean_lp": 6.56,
+      "median_lp": 6.82,
+      "min_lp": 6.31,
+      "max_lp": 6.82
+    },
+    "534": {
+      "name": "Conkeldurr",
+      "n_cards_with_lp": 7,
+      "mean_lp": 7.58,
+      "median_lp": 3.99,
+      "min_lp": 0.82,
+      "max_lp": 19.64
+    },
+    "535": {
+      "name": "Tympole",
+      "n_cards_with_lp": 4,
+      "mean_lp": 8.5,
+      "median_lp": 8.47,
+      "min_lp": 8.31,
+      "max_lp": 8.76
+    },
+    "536": {
+      "name": "Palpitoad",
+      "n_cards_with_lp": 4,
+      "mean_lp": 7.81,
+      "median_lp": 7.87,
+      "min_lp": 7.68,
+      "max_lp": 7.97
+    },
+    "537": {
+      "name": "Seismitoad",
+      "n_cards_with_lp": 9,
+      "mean_lp": 51.07,
+      "median_lp": 14.99,
+      "min_lp": 0.46,
+      "max_lp": 150.09
+    },
+    "538": {
+      "name": "Throh",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.38,
+      "median_lp": 5.35,
+      "min_lp": 0.76,
+      "max_lp": 5.74
+    },
+    "539": {
+      "name": "Sawk",
+      "n_cards_with_lp": 3,
+      "mean_lp": 7.27,
+      "median_lp": 7.27,
+      "min_lp": 7.25,
+      "max_lp": 7.29
+    },
+    "540": {
+      "name": "Sewaddle",
+      "n_cards_with_lp": 9,
+      "mean_lp": 5.44,
+      "median_lp": 5.04,
+      "min_lp": 0.26,
+      "max_lp": 11.96
+    },
+    "541": {
+      "name": "Swadloon",
+      "n_cards_with_lp": 6,
+      "mean_lp": 5.72,
+      "median_lp": 7.66,
+      "min_lp": 0.62,
+      "max_lp": 7.79
+    },
+    "542": {
+      "name": "Leavanny",
+      "n_cards_with_lp": 3,
+      "mean_lp": 20.25,
+      "median_lp": 20.47,
+      "min_lp": 19.82,
+      "max_lp": 20.47
+    },
+    "543": {
+      "name": "Venipede",
+      "n_cards_with_lp": 3,
+      "mean_lp": 6.57,
+      "median_lp": 6.48,
+      "min_lp": 6.48,
+      "max_lp": 6.74
+    },
+    "544": {
+      "name": "Whirlipede",
+      "n_cards_with_lp": 2,
+      "mean_lp": 6.03,
+      "median_lp": 6.05,
+      "min_lp": 6.01,
+      "max_lp": 6.05
+    },
+    "545": {
+      "name": "Scolipede",
+      "n_cards_with_lp": 5,
+      "mean_lp": 13.62,
+      "median_lp": 19.87,
+      "min_lp": 2.92,
+      "max_lp": 20.11
+    },
+    "546": {
+      "name": "Cottonee",
+      "n_cards_with_lp": 8,
+      "mean_lp": 2.6,
+      "median_lp": 2.31,
+      "min_lp": 0.2,
+      "max_lp": 6.53
+    },
+    "547": {
+      "name": "Whimsicott",
+      "n_cards_with_lp": 13,
+      "mean_lp": 9.77,
+      "median_lp": 7.08,
+      "min_lp": 3.04,
+      "max_lp": 22.63
+    },
+    "548": {
+      "name": "Petilil",
+      "n_cards_with_lp": 2,
+      "mean_lp": 16.41,
+      "median_lp": 18.47,
+      "min_lp": 14.36,
+      "max_lp": 18.47
+    },
+    "549": {
+      "name": "Lilligant",
+      "n_cards_with_lp": 20,
+      "mean_lp": 9.52,
+      "median_lp": 6.04,
+      "min_lp": 0.52,
+      "max_lp": 28.98
+    },
+    "550": {
+      "name": "Basculin",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.11,
+      "median_lp": 5.13,
+      "min_lp": 0.14,
+      "max_lp": 5.52
+    },
+    "551": {
+      "name": "Sandile",
+      "n_cards_with_lp": 14,
+      "mean_lp": 3.91,
+      "median_lp": 2.66,
+      "min_lp": 0.18,
+      "max_lp": 8.26
+    },
+    "552": {
+      "name": "Krokorok",
+      "n_cards_with_lp": 3,
+      "mean_lp": 6.0,
+      "median_lp": 5.99,
+      "min_lp": 5.93,
+      "max_lp": 6.08
+    },
+    "553": {
+      "name": "Krookodile",
+      "n_cards_with_lp": 10,
+      "mean_lp": 31.64,
+      "median_lp": 7.9,
+      "min_lp": 1.48,
+      "max_lp": 171.17
+    },
+    "554": {
+      "name": "Darumaka",
+      "n_cards_with_lp": 7,
+      "mean_lp": 7.3,
+      "median_lp": 9.69,
+      "min_lp": 1.85,
+      "max_lp": 10.51
+    },
+    "555": {
+      "name": "Darmanitan",
+      "n_cards_with_lp": 14,
+      "mean_lp": 5.5,
+      "median_lp": 7.09,
+      "min_lp": 0.55,
+      "max_lp": 8.17
+    },
+    "556": {
+      "name": "Maractus",
+      "n_cards_with_lp": 10,
+      "mean_lp": 1.8,
+      "median_lp": 2.24,
+      "min_lp": 0.46,
+      "max_lp": 2.91
+    },
+    "557": {
+      "name": "Dwebble",
+      "n_cards_with_lp": 6,
+      "mean_lp": 13.62,
+      "median_lp": 23.92,
+      "min_lp": 0.23,
+      "max_lp": 25.12
+    },
+    "558": {
+      "name": "Crustle",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.6,
+      "median_lp": 4.09,
+      "min_lp": 0.33,
+      "max_lp": 5.57
+    },
+    "559": {
+      "name": "Scraggy",
+      "n_cards_with_lp": 5,
+      "mean_lp": 36.55,
+      "median_lp": 11.62,
+      "min_lp": 7.68,
+      "max_lp": 139.99
+    },
+    "560": {
+      "name": "Scrafty",
+      "n_cards_with_lp": 14,
+      "mean_lp": 19.55,
+      "median_lp": 7.11,
+      "min_lp": 1.08,
+      "max_lp": 65.48
+    },
+    "561": {
+      "name": "Sigilyph",
+      "n_cards_with_lp": 6,
+      "mean_lp": 29.83,
+      "median_lp": 8.22,
+      "min_lp": 3.03,
+      "max_lp": 80.25
+    },
+    "562": {
+      "name": "Yamask",
+      "n_cards_with_lp": 3,
+      "mean_lp": 4.51,
+      "median_lp": 5.62,
+      "min_lp": 1.91,
+      "max_lp": 6.0
+    },
+    "563": {
+      "name": "Cofagrigus",
+      "n_cards_with_lp": 13,
+      "mean_lp": 4.37,
+      "median_lp": 2.38,
+      "min_lp": 0.89,
+      "max_lp": 17.39
+    },
+    "564": {
+      "name": "Tirtouga",
+      "n_cards_with_lp": 6,
+      "mean_lp": 8.52,
+      "median_lp": 7.7,
+      "min_lp": 1.44,
+      "max_lp": 16.72
+    },
+    "565": {
+      "name": "Carracosta",
+      "n_cards_with_lp": 10,
+      "mean_lp": 4.61,
+      "median_lp": 3.81,
+      "min_lp": 0.57,
+      "max_lp": 7.85
+    },
+    "566": {
+      "name": "Archen",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.05,
+      "median_lp": 6.02,
+      "min_lp": 0.49,
+      "max_lp": 6.33
+    },
+    "567": {
+      "name": "Archeops",
+      "n_cards_with_lp": 8,
+      "mean_lp": 16.32,
+      "median_lp": 8.71,
+      "min_lp": 6.32,
+      "max_lp": 73.76
+    },
+    "568": {
+      "name": "Trubbish",
+      "n_cards_with_lp": 24,
+      "mean_lp": 3.27,
+      "median_lp": 2.25,
+      "min_lp": 0.38,
+      "max_lp": 11.36
+    },
+    "569": {
+      "name": "Garbodor",
+      "n_cards_with_lp": 26,
+      "mean_lp": 10.28,
+      "median_lp": 3.35,
+      "min_lp": 0.5,
+      "max_lp": 145.05
+    },
+    "570": {
+      "name": "Zorua",
+      "n_cards_with_lp": 25,
+      "mean_lp": 11.01,
+      "median_lp": 4.75,
+      "min_lp": 0.33,
+      "max_lp": 45.85
+    },
+    "571": {
+      "name": "Zoroark",
+      "n_cards_with_lp": 47,
+      "mean_lp": 25.56,
+      "median_lp": 5.22,
+      "min_lp": 1.05,
+      "max_lp": 162.07
+    },
+    "572": {
+      "name": "Minccino",
+      "n_cards_with_lp": 17,
+      "mean_lp": 7.69,
+      "median_lp": 6.45,
+      "min_lp": 0.33,
+      "max_lp": 16.2
+    },
+    "573": {
+      "name": "Cinccino",
+      "n_cards_with_lp": 20,
+      "mean_lp": 7.61,
+      "median_lp": 7.17,
+      "min_lp": 0.52,
+      "max_lp": 22.81
+    },
+    "574": {
+      "name": "Gothita",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.45,
+      "median_lp": 2.94,
+      "min_lp": 0.28,
+      "max_lp": 16.29
+    },
+    "575": {
+      "name": "Gothorita",
+      "n_cards_with_lp": 7,
+      "mean_lp": 8.14,
+      "median_lp": 10.29,
+      "min_lp": 0.46,
+      "max_lp": 12.21
+    },
+    "576": {
+      "name": "Gothitelle",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "577": {
+      "name": "Solosis",
+      "n_cards_with_lp": 3,
+      "mean_lp": 27.36,
+      "median_lp": 27.3,
+      "min_lp": 26.9,
+      "max_lp": 27.89
+    },
+    "578": {
+      "name": "Duosion",
+      "n_cards_with_lp": 6,
+      "mean_lp": 7.33,
+      "median_lp": 10.48,
+      "min_lp": 0.48,
+      "max_lp": 10.88
+    },
+    "579": {
+      "name": "Reuniclus",
+      "n_cards_with_lp": 7,
+      "mean_lp": 29.41,
+      "median_lp": 10.63,
+      "min_lp": 1.5,
+      "max_lp": 84.6
+    },
+    "580": {
+      "name": "Ducklett",
+      "n_cards_with_lp": 8,
+      "mean_lp": 7.14,
+      "median_lp": 3.47,
+      "min_lp": 0.22,
+      "max_lp": 16.87
+    },
+    "581": {
+      "name": "Swanna",
+      "n_cards_with_lp": 3,
+      "mean_lp": 9.15,
+      "median_lp": 9.16,
+      "min_lp": 8.84,
+      "max_lp": 9.44
+    },
+    "582": {
+      "name": "Vanillite",
+      "n_cards_with_lp": 3,
+      "mean_lp": 10.01,
+      "median_lp": 10.07,
+      "min_lp": 9.36,
+      "max_lp": 10.59
+    },
+    "583": {
+      "name": "Vanillish",
+      "n_cards_with_lp": 6,
+      "mean_lp": 8.14,
+      "median_lp": 8.22,
+      "min_lp": 7.68,
+      "max_lp": 8.75
+    },
+    "584": {
+      "name": "Vanilluxe",
+      "n_cards_with_lp": 5,
+      "mean_lp": 16.8,
+      "median_lp": 27.26,
+      "min_lp": 0.44,
+      "max_lp": 27.67
+    },
+    "585": {
+      "name": "Deerling",
+      "n_cards_with_lp": 14,
+      "mean_lp": 10.33,
+      "median_lp": 4.23,
+      "min_lp": 0.33,
+      "max_lp": 32.04
+    },
+    "586": {
+      "name": "Sawsbuck",
+      "n_cards_with_lp": 12,
+      "mean_lp": 16.74,
+      "median_lp": 19.76,
+      "min_lp": 1.15,
+      "max_lp": 42.79
+    },
+    "587": {
+      "name": "Emolga",
+      "n_cards_with_lp": 20,
+      "mean_lp": 14.63,
+      "median_lp": 6.29,
+      "min_lp": 0.26,
+      "max_lp": 53.84
+    },
+    "588": {
+      "name": "Karrablast",
+      "n_cards_with_lp": 4,
+      "mean_lp": 9.32,
+      "median_lp": 9.39,
+      "min_lp": 9.13,
+      "max_lp": 9.5
+    },
+    "589": {
+      "name": "Escavalier",
+      "n_cards_with_lp": 2,
+      "mean_lp": 12.64,
+      "median_lp": 12.72,
+      "min_lp": 12.55,
+      "max_lp": 12.72
+    },
+    "590": {
+      "name": "Foongus",
+      "n_cards_with_lp": 3,
+      "mean_lp": 11.46,
+      "median_lp": 11.45,
+      "min_lp": 11.1,
+      "max_lp": 11.83
+    },
+    "591": {
+      "name": "Amoonguss",
+      "n_cards_with_lp": 5,
+      "mean_lp": 15.91,
+      "median_lp": 25.29,
+      "min_lp": 0.25,
+      "max_lp": 26.87
+    },
+    "592": {
+      "name": "Frillish",
+      "n_cards_with_lp": 2,
+      "mean_lp": 13.0,
+      "median_lp": 13.15,
+      "min_lp": 12.85,
+      "max_lp": 13.15
+    },
+    "593": {
+      "name": "Jellicent",
+      "n_cards_with_lp": 6,
+      "mean_lp": 13.98,
+      "median_lp": 25.43,
+      "min_lp": 1.68,
+      "max_lp": 26.01
+    },
+    "594": {
+      "name": "Alomomola",
+      "n_cards_with_lp": 3,
+      "mean_lp": 9.05,
+      "median_lp": 11.47,
+      "min_lp": 2.6,
+      "max_lp": 13.08
+    },
+    "595": {
+      "name": "Joltik",
+      "n_cards_with_lp": 21,
+      "mean_lp": 6.35,
+      "median_lp": 3.18,
+      "min_lp": 0.25,
+      "max_lp": 21.9
+    },
+    "596": {
+      "name": "Galvantula",
+      "n_cards_with_lp": 8,
+      "mean_lp": 8.16,
+      "median_lp": 14.86,
+      "min_lp": 0.39,
+      "max_lp": 15.27
+    },
+    "597": {
+      "name": "Ferroseed",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.54,
+      "median_lp": 4.62,
+      "min_lp": 4.47,
+      "max_lp": 4.62
+    },
+    "598": {
+      "name": "Ferrothorn",
+      "n_cards_with_lp": 5,
+      "mean_lp": 8.38,
+      "median_lp": 10.87,
+      "min_lp": 4.61,
+      "max_lp": 10.87
+    },
+    "599": {
+      "name": "Klink",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.39,
+      "median_lp": 5.24,
+      "min_lp": 1.42,
+      "max_lp": 5.48
+    },
+    "600": {
+      "name": "Klang",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.85,
+      "median_lp": 4.63,
+      "min_lp": 2.21,
+      "max_lp": 4.7
+    },
+    "601": {
+      "name": "Klinklang",
+      "n_cards_with_lp": 5,
+      "mean_lp": 10.65,
+      "median_lp": 16.76,
+      "min_lp": 1.24,
+      "max_lp": 16.76
+    },
+    "602": {
+      "name": "Tynamo",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.86,
+      "median_lp": 5.0,
+      "min_lp": 0.22,
+      "max_lp": 15.38
+    },
+    "603": {
+      "name": "Eelektrik",
+      "n_cards_with_lp": 6,
+      "mean_lp": 11.77,
+      "median_lp": 16.48,
+      "min_lp": 0.65,
+      "max_lp": 18.17
+    },
+    "604": {
+      "name": "Eelektross",
+      "n_cards_with_lp": 11,
+      "mean_lp": 16.61,
+      "median_lp": 6.25,
+      "min_lp": 1.29,
+      "max_lp": 41.04
+    },
+    "605": {
+      "name": "Elgyem",
+      "n_cards_with_lp": 7,
+      "mean_lp": 5.81,
+      "median_lp": 7.67,
+      "min_lp": 0.22,
+      "max_lp": 7.86
+    },
+    "606": {
+      "name": "Beheeyem",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.71,
+      "median_lp": 4.55,
+      "min_lp": 2.25,
+      "max_lp": 6.37
+    },
+    "607": {
+      "name": "Litwick",
+      "n_cards_with_lp": 21,
+      "mean_lp": 5.75,
+      "median_lp": 4.5,
+      "min_lp": 0.19,
+      "max_lp": 17.3
+    },
+    "608": {
+      "name": "Lampent",
+      "n_cards_with_lp": 10,
+      "mean_lp": 6.03,
+      "median_lp": 10.65,
+      "min_lp": 0.28,
+      "max_lp": 11.19
+    },
+    "609": {
+      "name": "Chandelure",
+      "n_cards_with_lp": 31,
+      "mean_lp": 15.54,
+      "median_lp": 3.74,
+      "min_lp": 0.79,
+      "max_lp": 115.87
+    },
+    "610": {
+      "name": "Axew",
+      "n_cards_with_lp": 7,
+      "mean_lp": 16.82,
+      "median_lp": 12.53,
+      "min_lp": 1.37,
+      "max_lp": 66.0
+    },
+    "611": {
+      "name": "Fraxure",
+      "n_cards_with_lp": 6,
+      "mean_lp": 14.4,
+      "median_lp": 18.78,
+      "min_lp": 9.63,
+      "max_lp": 19.14
+    },
+    "612": {
+      "name": "Haxorus",
+      "n_cards_with_lp": 11,
+      "mean_lp": 16.15,
+      "median_lp": 5.76,
+      "min_lp": 0.84,
+      "max_lp": 47.26
+    },
+    "613": {
+      "name": "Cubchoo",
+      "n_cards_with_lp": 8,
+      "mean_lp": 4.19,
+      "median_lp": 4.57,
+      "min_lp": 0.27,
+      "max_lp": 11.65
+    },
+    "614": {
+      "name": "Beartic",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.84,
+      "median_lp": 6.56,
+      "min_lp": 0.38,
+      "max_lp": 7.07
+    },
+    "615": {
+      "name": "Cryogonal",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.3,
+      "median_lp": 5.98,
+      "min_lp": 0.21,
+      "max_lp": 6.23
+    },
+    "616": {
+      "name": "Shelmet",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.29,
+      "median_lp": 4.3,
+      "min_lp": 4.28,
+      "max_lp": 4.3
+    },
+    "617": {
+      "name": "Accelgor",
+      "n_cards_with_lp": 3,
+      "mean_lp": 10.7,
+      "median_lp": 10.66,
+      "min_lp": 10.66,
+      "max_lp": 10.78
+    },
+    "618": {
+      "name": "Stunfisk",
+      "n_cards_with_lp": 5,
+      "mean_lp": 2.89,
+      "median_lp": 2.17,
+      "min_lp": 1.91,
+      "max_lp": 4.22
+    },
+    "619": {
+      "name": "Mienfoo",
+      "n_cards_with_lp": 4,
+      "mean_lp": 7.82,
+      "median_lp": 7.83,
+      "min_lp": 7.79,
+      "max_lp": 7.88
+    },
+    "620": {
+      "name": "Mienshao",
+      "n_cards_with_lp": 4,
+      "mean_lp": 6.26,
+      "median_lp": 6.27,
+      "min_lp": 6.09,
+      "max_lp": 6.61
+    },
+    "621": {
+      "name": "Druddigon",
+      "n_cards_with_lp": 6,
+      "mean_lp": 9.01,
+      "median_lp": 6.26,
+      "min_lp": 3.71,
+      "max_lp": 18.51
+    },
+    "622": {
+      "name": "Golett",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.71,
+      "median_lp": 5.82,
+      "min_lp": 5.61,
+      "max_lp": 5.82
+    },
+    "623": {
+      "name": "Golurk",
+      "n_cards_with_lp": 16,
+      "mean_lp": 21.21,
+      "median_lp": 7.52,
+      "min_lp": 0.52,
+      "max_lp": 112.68
+    },
+    "624": {
+      "name": "Pawniard",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.89,
+      "median_lp": 6.03,
+      "min_lp": 0.42,
+      "max_lp": 6.96
+    },
+    "625": {
+      "name": "Bisharp",
+      "n_cards_with_lp": 9,
+      "mean_lp": 4.41,
+      "median_lp": 3.72,
+      "min_lp": 0.28,
+      "max_lp": 8.03
+    },
+    "626": {
+      "name": "Bouffalant",
+      "n_cards_with_lp": 7,
+      "mean_lp": 5.84,
+      "median_lp": 3.31,
+      "min_lp": 0.28,
+      "max_lp": 15.23
+    },
+    "627": {
+      "name": "Rufflet",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.17,
+      "median_lp": 5.26,
+      "min_lp": 5.09,
+      "max_lp": 5.26
+    },
+    "628": {
+      "name": "Braviary",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.16,
+      "median_lp": 6.84,
+      "min_lp": 4.53,
+      "max_lp": 6.91
+    },
+    "629": {
+      "name": "Vullaby",
+      "n_cards_with_lp": 2,
+      "mean_lp": 6.21,
+      "median_lp": 6.31,
+      "min_lp": 6.11,
+      "max_lp": 6.31
+    },
+    "630": {
+      "name": "Mandibuzz",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.51,
+      "median_lp": 5.57,
+      "min_lp": 3.23,
+      "max_lp": 5.93
+    },
+    "631": {
+      "name": "Heatmor",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.21,
+      "median_lp": 5.09,
+      "min_lp": 4.94,
+      "max_lp": 5.6
+    },
+    "632": {
+      "name": "Durant",
+      "n_cards_with_lp": 7,
+      "mean_lp": 13.28,
+      "median_lp": 6.09,
+      "min_lp": 0.39,
+      "max_lp": 26.95
+    },
+    "633": {
+      "name": "Deino",
+      "n_cards_with_lp": 3,
+      "mean_lp": 11.54,
+      "median_lp": 11.53,
+      "min_lp": 11.36,
+      "max_lp": 11.74
+    },
+    "634": {
+      "name": "Zweilous",
+      "n_cards_with_lp": 3,
+      "mean_lp": 6.96,
+      "median_lp": 7.05,
+      "min_lp": 6.65,
+      "max_lp": 7.17
+    },
+    "635": {
+      "name": "Hydreigon",
+      "n_cards_with_lp": 33,
+      "mean_lp": 22.3,
+      "median_lp": 4.97,
+      "min_lp": 1.02,
+      "max_lp": 105.08
+    },
+    "636": {
+      "name": "Larvesta",
+      "n_cards_with_lp": 8,
+      "mean_lp": 5.87,
+      "median_lp": 9.74,
+      "min_lp": 0.23,
+      "max_lp": 10.25
+    },
+    "637": {
+      "name": "Volcarona",
+      "n_cards_with_lp": 23,
+      "mean_lp": 8.41,
+      "median_lp": 1.97,
+      "min_lp": 0.65,
+      "max_lp": 36.82
+    },
+    "638": {
+      "name": "Cobalion",
+      "n_cards_with_lp": 15,
+      "mean_lp": 15.96,
+      "median_lp": 9.27,
+      "min_lp": 0.98,
+      "max_lp": 46.51
+    },
+    "639": {
+      "name": "Terrakion",
+      "n_cards_with_lp": 10,
+      "mean_lp": 33.73,
+      "median_lp": 29.54,
+      "min_lp": 1.21,
+      "max_lp": 82.5
+    },
+    "640": {
+      "name": "Virizion",
+      "n_cards_with_lp": 16,
+      "mean_lp": 24.09,
+      "median_lp": 22.78,
+      "min_lp": 1.81,
+      "max_lp": 74.89
+    },
+    "641": {
+      "name": "Tornadus",
+      "n_cards_with_lp": 20,
+      "mean_lp": 26.12,
+      "median_lp": 10.75,
+      "min_lp": 1.58,
+      "max_lp": 107.09
+    },
+    "642": {
+      "name": "Thundurus",
+      "n_cards_with_lp": 15,
+      "mean_lp": 15.87,
+      "median_lp": 2.43,
+      "min_lp": 1.23,
+      "max_lp": 83.51
+    },
+    "643": {
+      "name": "Reshiram",
+      "n_cards_with_lp": 72,
+      "mean_lp": 64.77,
+      "median_lp": 16.82,
+      "min_lp": 0.49,
+      "max_lp": 350.59
+    },
+    "644": {
+      "name": "Zekrom",
+      "n_cards_with_lp": 49,
+      "mean_lp": 64.72,
+      "median_lp": 6.94,
+      "min_lp": 0.4,
+      "max_lp": 374.41
+    },
+    "645": {
+      "name": "Landorus",
+      "n_cards_with_lp": 12,
+      "mean_lp": 37.11,
+      "median_lp": 19.48,
+      "min_lp": 1.98,
+      "max_lp": 194.95
+    },
+    "646": {
+      "name": "Kyurem",
+      "n_cards_with_lp": 63,
+      "mean_lp": 35.25,
+      "median_lp": 4.46,
+      "min_lp": 0.6,
+      "max_lp": 357.49
+    },
+    "647": {
+      "name": "Keldeo",
+      "n_cards_with_lp": 17,
+      "mean_lp": 24.33,
+      "median_lp": 14.74,
+      "min_lp": 0.46,
+      "max_lp": 77.22
+    },
+    "648": {
+      "name": "Meloetta",
+      "n_cards_with_lp": 23,
+      "mean_lp": 11.88,
+      "median_lp": 5.68,
+      "min_lp": 0.39,
+      "max_lp": 36.6
+    },
+    "649": {
+      "name": "Genesect",
+      "n_cards_with_lp": 26,
+      "mean_lp": 33.12,
+      "median_lp": 10.62,
+      "min_lp": 1.41,
+      "max_lp": 163.72
+    },
+    "650": {
+      "name": "Chespin",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.19,
+      "median_lp": 5.01,
+      "min_lp": 3.37,
+      "max_lp": 5.01
+    },
+    "651": {
+      "name": "Quilladin",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.1,
+      "median_lp": 3.29,
+      "min_lp": 0.87,
+      "max_lp": 3.35
+    },
+    "652": {
+      "name": "Chesnaught",
+      "n_cards_with_lp": 12,
+      "mean_lp": 1.47,
+      "median_lp": 1.45,
+      "min_lp": 0.74,
+      "max_lp": 2.58
+    },
+    "653": {
+      "name": "Fennekin",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.74,
+      "median_lp": 5.74,
+      "min_lp": 5.74,
+      "max_lp": 5.74
+    },
+    "654": {
+      "name": "Braixen",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.93,
+      "median_lp": 5.0,
+      "min_lp": 4.86,
+      "max_lp": 5.0
+    },
+    "655": {
+      "name": "Delphox",
+      "n_cards_with_lp": 9,
+      "mean_lp": 2.27,
+      "median_lp": 2.23,
+      "min_lp": 1.15,
+      "max_lp": 3.76
+    },
+    "656": {
+      "name": "Froakie",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.63,
+      "median_lp": 3.7,
+      "min_lp": 0.22,
+      "max_lp": 7.89
+    },
+    "657": {
+      "name": "Frogadier",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.75,
+      "median_lp": 2.75,
+      "min_lp": 2.75,
+      "max_lp": 2.75
+    },
+    "658": {
+      "name": "Greninja",
+      "n_cards_with_lp": 74,
+      "mean_lp": 44.78,
+      "median_lp": 16.6,
+      "min_lp": 1.62,
+      "max_lp": 304.82
+    },
+    "659": {
+      "name": "Bunnelby",
+      "n_cards_with_lp": 5,
+      "mean_lp": 2.18,
+      "median_lp": 1.54,
+      "min_lp": 0.41,
+      "max_lp": 6.85
+    },
+    "660": {
+      "name": "Diggersby",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "661": {
+      "name": "Fletchling",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.8,
+      "median_lp": 3.18,
+      "min_lp": 3.17,
+      "max_lp": 5.05
+    },
+    "662": {
+      "name": "Fletchinder",
+      "n_cards_with_lp": 2,
+      "mean_lp": 13.05,
+      "median_lp": 13.67,
+      "min_lp": 12.44,
+      "max_lp": 13.67
+    },
+    "663": {
+      "name": "Talonflame",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.59,
+      "median_lp": 2.65,
+      "min_lp": 2.54,
+      "max_lp": 2.65
+    },
+    "664": {
+      "name": "Scatterbug",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "665": {
+      "name": "Spewpa",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "666": {
+      "name": "Vivillon",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.6,
+      "median_lp": 4.37,
+      "min_lp": 2.19,
+      "max_lp": 4.47
+    },
+    "667": {
+      "name": "Litleo",
+      "n_cards_with_lp": 2,
+      "mean_lp": 3.49,
+      "median_lp": 3.6,
+      "min_lp": 3.37,
+      "max_lp": 3.6
+    },
+    "668": {
+      "name": "Pyroar",
+      "n_cards_with_lp": 5,
+      "mean_lp": 8.44,
+      "median_lp": 9.9,
+      "min_lp": 2.45,
+      "max_lp": 10.57
+    },
+    "669": {
+      "name": "Flabebe",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "670": {
+      "name": "Floette",
+      "n_cards_with_lp": 11,
+      "mean_lp": 3.79,
+      "median_lp": 3.13,
+      "min_lp": 0.37,
+      "max_lp": 8.78
+    },
+    "671": {
+      "name": "Florges",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.92,
+      "median_lp": 4.03,
+      "min_lp": 2.34,
+      "max_lp": 14.11
+    },
+    "672": {
+      "name": "Skiddo",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "673": {
+      "name": "Gogoat",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "674": {
+      "name": "Pancham",
+      "n_cards_with_lp": 4,
+      "mean_lp": 0.82,
+      "median_lp": 1.2,
+      "min_lp": 0.36,
+      "max_lp": 1.34
+    },
+    "675": {
+      "name": "Pangoro",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "676": {
+      "name": "Furfrou",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.16,
+      "median_lp": 3.59,
+      "min_lp": 2.13,
+      "max_lp": 3.76
+    },
+    "677": {
+      "name": "Espurr",
+      "n_cards_with_lp": 7,
+      "mean_lp": 7.33,
+      "median_lp": 1.61,
+      "min_lp": 0.3,
+      "max_lp": 16.57
+    },
+    "678": {
+      "name": "Meowstic",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.78,
+      "median_lp": 5.5,
+      "min_lp": 2.98,
+      "max_lp": 5.67
+    },
+    "679": {
+      "name": "Honedge",
+      "n_cards_with_lp": 1,
+      "mean_lp": 3.72,
+      "median_lp": 3.72,
+      "min_lp": 3.72,
+      "max_lp": 3.72
+    },
+    "680": {
+      "name": "Doublade",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "681": {
+      "name": "Aegislash",
+      "n_cards_with_lp": 9,
+      "mean_lp": 4.43,
+      "median_lp": 2.81,
+      "min_lp": 1.7,
+      "max_lp": 10.44
+    },
+    "682": {
+      "name": "Spritzee",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "683": {
+      "name": "Aromatisse",
+      "n_cards_with_lp": 4,
+      "mean_lp": 1.46,
+      "median_lp": 1.34,
+      "min_lp": 0.36,
+      "max_lp": 2.81
+    },
+    "684": {
+      "name": "Swirlix",
+      "n_cards_with_lp": 5,
+      "mean_lp": 9.18,
+      "median_lp": 9.96,
+      "min_lp": 5.45,
+      "max_lp": 10.32
+    },
+    "685": {
+      "name": "Slurpuff",
+      "n_cards_with_lp": 6,
+      "mean_lp": 7.27,
+      "median_lp": 9.21,
+      "min_lp": 4.83,
+      "max_lp": 9.77
+    },
+    "686": {
+      "name": "Inkay",
+      "n_cards_with_lp": 1,
+      "mean_lp": 3.88,
+      "median_lp": 3.88,
+      "min_lp": 3.88,
+      "max_lp": 3.88
+    },
+    "687": {
+      "name": "Malamar",
+      "n_cards_with_lp": 10,
+      "mean_lp": 5.44,
+      "median_lp": 4.78,
+      "min_lp": 1.28,
+      "max_lp": 10.25
+    },
+    "688": {
+      "name": "Binacle",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "689": {
+      "name": "Barbaracle",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "690": {
+      "name": "Skrelp",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "691": {
+      "name": "Dragalge",
+      "n_cards_with_lp": 2,
+      "mean_lp": 43.48,
+      "median_lp": 43.48,
+      "min_lp": 43.48,
+      "max_lp": 43.48
+    },
+    "692": {
+      "name": "Clauncher",
+      "n_cards_with_lp": 2,
+      "mean_lp": 6.47,
+      "median_lp": 6.63,
+      "min_lp": 6.32,
+      "max_lp": 6.63
+    },
+    "693": {
+      "name": "Clawitzer",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.22,
+      "median_lp": 2.25,
+      "min_lp": 2.15,
+      "max_lp": 10.26
+    },
+    "694": {
+      "name": "Helioptile",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.7,
+      "median_lp": 2.72,
+      "min_lp": 2.68,
+      "max_lp": 2.72
+    },
+    "695": {
+      "name": "Heliolisk",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.13,
+      "median_lp": 3.37,
+      "min_lp": 2.79,
+      "max_lp": 3.52
+    },
+    "696": {
+      "name": "Tyrunt",
+      "n_cards_with_lp": 8,
+      "mean_lp": 4.24,
+      "median_lp": 3.89,
+      "min_lp": 2.25,
+      "max_lp": 7.57
+    },
+    "697": {
+      "name": "Tyrantrum",
+      "n_cards_with_lp": 15,
+      "mean_lp": 11.23,
+      "median_lp": 9.81,
+      "min_lp": 7.11,
+      "max_lp": 19.62
+    },
+    "698": {
+      "name": "Amaura",
+      "n_cards_with_lp": 10,
+      "mean_lp": 3.44,
+      "median_lp": 3.73,
+      "min_lp": 1.46,
+      "max_lp": 7.45
+    },
+    "699": {
+      "name": "Aurorus",
+      "n_cards_with_lp": 5,
+      "mean_lp": 10.43,
+      "median_lp": 8.43,
+      "min_lp": 6.59,
+      "max_lp": 19.07
+    },
+    "700": {
+      "name": "Sylveon",
+      "n_cards_with_lp": 69,
+      "mean_lp": 58.3,
+      "median_lp": 19.82,
+      "min_lp": 1.76,
+      "max_lp": 333.09
+    },
+    "701": {
+      "name": "Hawlucha",
+      "n_cards_with_lp": 14,
+      "mean_lp": 20.23,
+      "median_lp": 8.83,
+      "min_lp": 1.15,
+      "max_lp": 67.37
+    },
+    "702": {
+      "name": "Dedenne",
+      "n_cards_with_lp": 26,
+      "mean_lp": 10.8,
+      "median_lp": 7.14,
+      "min_lp": 0.56,
+      "max_lp": 36.96
+    },
+    "703": {
+      "name": "Carbink",
+      "n_cards_with_lp": 5,
+      "mean_lp": 4.96,
+      "median_lp": 5.73,
+      "min_lp": 2.0,
+      "max_lp": 5.78
+    },
+    "704": {
+      "name": "Goomy",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "705": {
+      "name": "Sliggoo",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "706": {
+      "name": "Goodra",
+      "n_cards_with_lp": 7,
+      "mean_lp": 3.76,
+      "median_lp": 2.65,
+      "min_lp": 1.5,
+      "max_lp": 7.51
+    },
+    "707": {
+      "name": "Klefki",
+      "n_cards_with_lp": 2,
+      "mean_lp": 3.88,
+      "median_lp": 3.89,
+      "min_lp": 3.88,
+      "max_lp": 3.89
+    },
+    "708": {
+      "name": "Phantump",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "709": {
+      "name": "Trevenant",
+      "n_cards_with_lp": 17,
+      "mean_lp": 6.7,
+      "median_lp": 5.58,
+      "min_lp": 1.67,
+      "max_lp": 18.04
+    },
+    "710": {
+      "name": "Pumpkaboo",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "711": {
+      "name": "Gourgeist",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "712": {
+      "name": "Bergmite",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "713": {
+      "name": "Avalugg",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "714": {
+      "name": "Noibat",
+      "n_cards_with_lp": 5,
+      "mean_lp": 3.89,
+      "median_lp": 3.65,
+      "min_lp": 2.6,
+      "max_lp": 5.07
+    },
+    "715": {
+      "name": "Noivern",
+      "n_cards_with_lp": 15,
+      "mean_lp": 14.56,
+      "median_lp": 3.33,
+      "min_lp": 1.62,
+      "max_lp": 54.95
+    },
+    "716": {
+      "name": "Xerneas",
+      "n_cards_with_lp": 27,
+      "mean_lp": 16.6,
+      "median_lp": 4.93,
+      "min_lp": 0.95,
+      "max_lp": 67.56
+    },
+    "717": {
+      "name": "Yveltal",
+      "n_cards_with_lp": 23,
+      "mean_lp": 13.59,
+      "median_lp": 8.52,
+      "min_lp": 1.95,
+      "max_lp": 49.12
+    },
+    "718": {
+      "name": "Zygarde",
+      "n_cards_with_lp": 17,
+      "mean_lp": 20.39,
+      "median_lp": 14.99,
+      "min_lp": 3.02,
+      "max_lp": 49.57
+    },
+    "719": {
+      "name": "Diancie",
+      "n_cards_with_lp": 22,
+      "mean_lp": 14.77,
+      "median_lp": 6.32,
+      "min_lp": 2.44,
+      "max_lp": 62.91
+    },
+    "720": {
+      "name": "Hoopa",
+      "n_cards_with_lp": 23,
+      "mean_lp": 8.99,
+      "median_lp": 7.39,
+      "min_lp": 0.38,
+      "max_lp": 25.15
+    },
+    "721": {
+      "name": "Volcanion",
+      "n_cards_with_lp": 19,
+      "mean_lp": 9.54,
+      "median_lp": 6.36,
+      "min_lp": 2.04,
+      "max_lp": 20.43
+    },
+    "722": {
+      "name": "Rowlet",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.38,
+      "median_lp": 4.67,
+      "min_lp": 2.95,
+      "max_lp": 6.28
+    },
+    "723": {
+      "name": "Dartrix",
+      "n_cards_with_lp": 1,
+      "mean_lp": 4.18,
+      "median_lp": 4.18,
+      "min_lp": 4.18,
+      "max_lp": 4.18
+    },
+    "724": {
+      "name": "Decidueye",
+      "n_cards_with_lp": 12,
+      "mean_lp": 13.06,
+      "median_lp": 6.73,
+      "min_lp": 1.83,
+      "max_lp": 40.01
+    },
+    "725": {
+      "name": "Litten",
+      "n_cards_with_lp": 3,
+      "mean_lp": 20.62,
+      "median_lp": 29.17,
+      "min_lp": 2.33,
+      "max_lp": 30.37
+    },
+    "726": {
+      "name": "Torracat",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "727": {
+      "name": "Incineroar",
+      "n_cards_with_lp": 11,
+      "mean_lp": 8.61,
+      "median_lp": 5.87,
+      "min_lp": 1.73,
+      "max_lp": 22.24
+    },
+    "728": {
+      "name": "Popplio",
+      "n_cards_with_lp": 1,
+      "mean_lp": 3.13,
+      "median_lp": 3.13,
+      "min_lp": 3.13,
+      "max_lp": 3.13
+    },
+    "729": {
+      "name": "Brionne",
+      "n_cards_with_lp": 4,
+      "mean_lp": 1.47,
+      "median_lp": 2.38,
+      "min_lp": 0.52,
+      "max_lp": 2.38
+    },
+    "730": {
+      "name": "Primarina",
+      "n_cards_with_lp": 4,
+      "mean_lp": 9.76,
+      "median_lp": 7.93,
+      "min_lp": 3.19,
+      "max_lp": 20.0
+    },
+    "731": {
+      "name": "Pikipek",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.6,
+      "median_lp": 1.6,
+      "min_lp": 1.6,
+      "max_lp": 1.6
+    },
+    "732": {
+      "name": "Trumbeak",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "733": {
+      "name": "Toucannon",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "734": {
+      "name": "Yungoos",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "735": {
+      "name": "Gumshoos",
+      "n_cards_with_lp": 3,
+      "mean_lp": 4.73,
+      "median_lp": 4.75,
+      "min_lp": 4.29,
+      "max_lp": 5.14
+    },
+    "736": {
+      "name": "Grubbin",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.25,
+      "median_lp": 2.25,
+      "min_lp": 2.25,
+      "max_lp": 2.25
+    },
+    "737": {
+      "name": "Charjabug",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.1,
+      "median_lp": 5.2,
+      "min_lp": 5.0,
+      "max_lp": 5.2
+    },
+    "738": {
+      "name": "Vikavolt",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.51,
+      "median_lp": 3.3,
+      "min_lp": 3.3,
+      "max_lp": 9.94
+    },
+    "739": {
+      "name": "Crabrawler",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.0,
+      "median_lp": 2.0,
+      "min_lp": 2.0,
+      "max_lp": 2.0
+    },
+    "740": {
+      "name": "Crabominable",
+      "n_cards_with_lp": 5,
+      "mean_lp": 2.01,
+      "median_lp": 1.78,
+      "min_lp": 1.25,
+      "max_lp": 2.65
+    },
+    "741": {
+      "name": "Oricorio",
+      "n_cards_with_lp": 11,
+      "mean_lp": 3.33,
+      "median_lp": 2.14,
+      "min_lp": 1.41,
+      "max_lp": 9.66
+    },
+    "742": {
+      "name": "Cutiefly",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.62,
+      "median_lp": 6.07,
+      "min_lp": 3.93,
+      "max_lp": 6.86
+    },
+    "743": {
+      "name": "Ribombee",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.04,
+      "median_lp": 5.13,
+      "min_lp": 4.95,
+      "max_lp": 5.13
+    },
+    "744": {
+      "name": "Rockruff",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.87,
+      "median_lp": 4.09,
+      "min_lp": 2.56,
+      "max_lp": 4.96
+    },
+    "745": {
+      "name": "Lycanroc",
+      "n_cards_with_lp": 23,
+      "mean_lp": 6.75,
+      "median_lp": 4.34,
+      "min_lp": 1.73,
+      "max_lp": 14.83
+    },
+    "746": {
+      "name": "Wishiwashi",
+      "n_cards_with_lp": 7,
+      "mean_lp": 5.62,
+      "median_lp": 3.37,
+      "min_lp": 1.97,
+      "max_lp": 10.96
+    },
+    "747": {
+      "name": "Mareanie",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "748": {
+      "name": "Toxapex",
+      "n_cards_with_lp": 5,
+      "mean_lp": 4.35,
+      "median_lp": 3.32,
+      "min_lp": 1.82,
+      "max_lp": 7.37
+    },
+    "749": {
+      "name": "Mudbray",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "750": {
+      "name": "Mudsdale",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.9,
+      "median_lp": 5.91,
+      "min_lp": 5.22,
+      "max_lp": 6.56
+    },
+    "751": {
+      "name": "Dewpider",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "752": {
+      "name": "Araquanid",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "753": {
+      "name": "Fomantis",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "754": {
+      "name": "Lurantis",
+      "n_cards_with_lp": 4,
+      "mean_lp": 5.83,
+      "median_lp": 6.85,
+      "min_lp": 2.74,
+      "max_lp": 6.89
+    },
+    "755": {
+      "name": "Morelull",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "756": {
+      "name": "Shiinotic",
+      "n_cards_with_lp": 3,
+      "mean_lp": 7.12,
+      "median_lp": 3.26,
+      "min_lp": 3.18,
+      "max_lp": 14.92
+    },
+    "757": {
+      "name": "Salandit",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "758": {
+      "name": "Salazzle",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.01,
+      "median_lp": 3.47,
+      "min_lp": 1.56,
+      "max_lp": 9.39
+    },
+    "759": {
+      "name": "Stufful",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.04,
+      "median_lp": 5.13,
+      "min_lp": 4.96,
+      "max_lp": 5.13
+    },
+    "760": {
+      "name": "Bewear",
+      "n_cards_with_lp": 3,
+      "mean_lp": 14.0,
+      "median_lp": 19.96,
+      "min_lp": 1.94,
+      "max_lp": 20.11
+    },
+    "761": {
+      "name": "Bounsweet",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "762": {
+      "name": "Steenee",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "763": {
+      "name": "Tsareena",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.02,
+      "median_lp": 2.12,
+      "min_lp": 1.74,
+      "max_lp": 2.21
+    },
+    "764": {
+      "name": "Comfey",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.29,
+      "median_lp": 2.4,
+      "min_lp": 2.17,
+      "max_lp": 2.4
+    },
+    "765": {
+      "name": "Oranguru",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.36,
+      "median_lp": 4.28,
+      "min_lp": 2.31,
+      "max_lp": 4.34
+    },
+    "766": {
+      "name": "Passimian",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.54,
+      "median_lp": 7.64,
+      "min_lp": 1.44,
+      "max_lp": 7.64
+    },
+    "767": {
+      "name": "Wimpod",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.19,
+      "median_lp": 6.78,
+      "min_lp": 1.42,
+      "max_lp": 7.38
+    },
+    "768": {
+      "name": "Golisopod",
+      "n_cards_with_lp": 9,
+      "mean_lp": 9.66,
+      "median_lp": 7.87,
+      "min_lp": 1.69,
+      "max_lp": 19.73
+    },
+    "769": {
+      "name": "Sandygast",
+      "n_cards_with_lp": 3,
+      "mean_lp": 7.78,
+      "median_lp": 7.85,
+      "min_lp": 7.55,
+      "max_lp": 7.93
+    },
+    "770": {
+      "name": "Palossand",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.4,
+      "median_lp": 1.4,
+      "min_lp": 1.4,
+      "max_lp": 1.4
+    },
+    "771": {
+      "name": "Pyukumuku",
+      "n_cards_with_lp": 8,
+      "mean_lp": 3.98,
+      "median_lp": 6.11,
+      "min_lp": 1.44,
+      "max_lp": 6.64
+    },
+    "772": {
+      "name": "Type-Null",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "773": {
+      "name": "Silvally",
+      "n_cards_with_lp": 17,
+      "mean_lp": 11.14,
+      "median_lp": 5.89,
+      "min_lp": 1.21,
+      "max_lp": 45.17
+    },
+    "774": {
+      "name": "Minior",
+      "n_cards_with_lp": 3,
+      "mean_lp": 16.47,
+      "median_lp": 16.19,
+      "min_lp": 15.47,
+      "max_lp": 17.75
+    },
+    "775": {
+      "name": "Komala",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "776": {
+      "name": "Turtonator",
+      "n_cards_with_lp": 8,
+      "mean_lp": 5.84,
+      "median_lp": 5.79,
+      "min_lp": 3.41,
+      "max_lp": 12.45
+    },
+    "777": {
+      "name": "Togedemaru",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.23,
+      "median_lp": 2.39,
+      "min_lp": 2.06,
+      "max_lp": 2.39
+    },
+    "778": {
+      "name": "Mimikyu",
+      "n_cards_with_lp": 69,
+      "mean_lp": 76.99,
+      "median_lp": 24.5,
+      "min_lp": 1.66,
+      "max_lp": 897.53
+    },
+    "779": {
+      "name": "Bruxish",
+      "n_cards_with_lp": 3,
+      "mean_lp": 11.85,
+      "median_lp": 2.13,
+      "min_lp": 1.99,
+      "max_lp": 31.44
+    },
+    "780": {
+      "name": "Drampa",
+      "n_cards_with_lp": 7,
+      "mean_lp": 10.16,
+      "median_lp": 9.82,
+      "min_lp": 1.72,
+      "max_lp": 21.77
+    },
+    "781": {
+      "name": "Dhelmise",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.27,
+      "median_lp": 2.27,
+      "min_lp": 2.27,
+      "max_lp": 2.27
+    },
+    "782": {
+      "name": "Jangmo-O",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "783": {
+      "name": "Hakamo-O",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "784": {
+      "name": "Kommo-O",
+      "n_cards_with_lp": 7,
+      "mean_lp": 6.57,
+      "median_lp": 4.55,
+      "min_lp": 2.92,
+      "max_lp": 13.82
+    },
+    "785": {
+      "name": "Tapu-Koko",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "786": {
+      "name": "Tapu-Lele",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "787": {
+      "name": "Tapu-Bulu",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "788": {
+      "name": "Tapu-Fini",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "789": {
+      "name": "Cosmog",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.64,
+      "median_lp": 2.64,
+      "min_lp": 2.64,
+      "max_lp": 2.64
+    },
+    "790": {
+      "name": "Cosmoem",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "791": {
+      "name": "Solgaleo",
+      "n_cards_with_lp": 23,
+      "mean_lp": 53.87,
+      "median_lp": 12.27,
+      "min_lp": 1.8,
+      "max_lp": 270.7
+    },
+    "792": {
+      "name": "Lunala",
+      "n_cards_with_lp": 14,
+      "mean_lp": 12.0,
+      "median_lp": 8.71,
+      "min_lp": 2.5,
+      "max_lp": 45.24
+    },
+    "793": {
+      "name": "Nihilego",
+      "n_cards_with_lp": 11,
+      "mean_lp": 10.68,
+      "median_lp": 11.78,
+      "min_lp": 7.61,
+      "max_lp": 14.37
+    },
+    "794": {
+      "name": "Buzzwole",
+      "n_cards_with_lp": 11,
+      "mean_lp": 5.07,
+      "median_lp": 3.59,
+      "min_lp": 2.0,
+      "max_lp": 10.67
+    },
+    "795": {
+      "name": "Pheromosa",
+      "n_cards_with_lp": 26,
+      "mean_lp": 15.82,
+      "median_lp": 9.66,
+      "min_lp": 6.38,
+      "max_lp": 68.67
+    },
+    "796": {
+      "name": "Xurkitree",
+      "n_cards_with_lp": 14,
+      "mean_lp": 7.19,
+      "median_lp": 6.78,
+      "min_lp": 1.89,
+      "max_lp": 21.7
+    },
+    "797": {
+      "name": "Celesteela",
+      "n_cards_with_lp": 11,
+      "mean_lp": 8.97,
+      "median_lp": 4.58,
+      "min_lp": 2.54,
+      "max_lp": 39.5
+    },
+    "798": {
+      "name": "Kartana",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.29,
+      "median_lp": 4.3,
+      "min_lp": 2.1,
+      "max_lp": 7.36
+    },
+    "799": {
+      "name": "Guzzlord",
+      "n_cards_with_lp": 14,
+      "mean_lp": 6.21,
+      "median_lp": 5.89,
+      "min_lp": 2.02,
+      "max_lp": 11.45
+    },
+    "800": {
+      "name": "Necrozma",
+      "n_cards_with_lp": 34,
+      "mean_lp": 14.39,
+      "median_lp": 6.58,
+      "min_lp": 1.51,
+      "max_lp": 90.46
+    },
+    "801": {
+      "name": "Magearna",
+      "n_cards_with_lp": 8,
+      "mean_lp": 8.07,
+      "median_lp": 6.7,
+      "min_lp": 1.51,
+      "max_lp": 22.27
+    },
+    "802": {
+      "name": "Marshadow",
+      "n_cards_with_lp": 26,
+      "mean_lp": 28.5,
+      "median_lp": 13.69,
+      "min_lp": 0.49,
+      "max_lp": 200.72
+    },
+    "803": {
+      "name": "Poipole",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.49,
+      "median_lp": 3.99,
+      "min_lp": 0.72,
+      "max_lp": 3.99
+    },
+    "804": {
+      "name": "Naganadel",
+      "n_cards_with_lp": 21,
+      "mean_lp": 15.0,
+      "median_lp": 7.3,
+      "min_lp": 2.89,
+      "max_lp": 78.41
+    },
+    "805": {
+      "name": "Stakataka",
+      "n_cards_with_lp": 11,
+      "mean_lp": 9.01,
+      "median_lp": 7.71,
+      "min_lp": 2.22,
+      "max_lp": 22.11
+    },
+    "806": {
+      "name": "Blacephalon",
+      "n_cards_with_lp": 11,
+      "mean_lp": 9.12,
+      "median_lp": 5.87,
+      "min_lp": 4.23,
+      "max_lp": 24.97
+    },
+    "807": {
+      "name": "Zeraora",
+      "n_cards_with_lp": 28,
+      "mean_lp": 17.0,
+      "median_lp": 10.85,
+      "min_lp": 1.68,
+      "max_lp": 58.56
+    },
+    "808": {
+      "name": "Meltan",
+      "n_cards_with_lp": 3,
+      "mean_lp": 4.82,
+      "median_lp": 4.8,
+      "min_lp": 4.55,
+      "max_lp": 5.11
+    },
+    "809": {
+      "name": "Melmetal",
+      "n_cards_with_lp": 16,
+      "mean_lp": 24.96,
+      "median_lp": 24.71,
+      "min_lp": 1.86,
+      "max_lp": 47.42
+    },
+    "810": {
+      "name": "Grookey",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.81,
+      "median_lp": 1.82,
+      "min_lp": 1.81,
+      "max_lp": 1.82
+    },
+    "811": {
+      "name": "Thwackey",
+      "n_cards_with_lp": 2,
+      "mean_lp": 8.01,
+      "median_lp": 8.27,
+      "min_lp": 7.75,
+      "max_lp": 8.27
+    },
+    "812": {
+      "name": "Rillaboom",
+      "n_cards_with_lp": 14,
+      "mean_lp": 5.74,
+      "median_lp": 2.45,
+      "min_lp": 1.36,
+      "max_lp": 33.33
+    },
+    "813": {
+      "name": "Scorbunny",
+      "n_cards_with_lp": 5,
+      "mean_lp": 8.54,
+      "median_lp": 12.08,
+      "min_lp": 2.86,
+      "max_lp": 12.42
+    },
+    "814": {
+      "name": "Raboot",
+      "n_cards_with_lp": 4,
+      "mean_lp": 5.84,
+      "median_lp": 6.69,
+      "min_lp": 4.79,
+      "max_lp": 7.04
+    },
+    "815": {
+      "name": "Cinderace",
+      "n_cards_with_lp": 16,
+      "mean_lp": 5.27,
+      "median_lp": 4.38,
+      "min_lp": 2.08,
+      "max_lp": 17.0
+    },
+    "816": {
+      "name": "Sobble",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.32,
+      "median_lp": 3.69,
+      "min_lp": 1.7,
+      "max_lp": 6.1
+    },
+    "817": {
+      "name": "Drizzile",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.87,
+      "median_lp": 2.87,
+      "min_lp": 2.87,
+      "max_lp": 2.87
+    },
+    "818": {
+      "name": "Inteleon",
+      "n_cards_with_lp": 16,
+      "mean_lp": 9.01,
+      "median_lp": 7.52,
+      "min_lp": 1.58,
+      "max_lp": 27.05
+    },
+    "819": {
+      "name": "Skwovet",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.94,
+      "median_lp": 5.33,
+      "min_lp": 2.42,
+      "max_lp": 5.58
+    },
+    "820": {
+      "name": "Greedent",
+      "n_cards_with_lp": 11,
+      "mean_lp": 5.36,
+      "median_lp": 3.35,
+      "min_lp": 1.57,
+      "max_lp": 12.34
+    },
+    "821": {
+      "name": "Rookidee",
+      "n_cards_with_lp": 4,
+      "mean_lp": 7.73,
+      "median_lp": 9.41,
+      "min_lp": 2.87,
+      "max_lp": 9.74
+    },
+    "822": {
+      "name": "Corvisquire",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.11,
+      "median_lp": 2.11,
+      "min_lp": 2.11,
+      "max_lp": 2.11
+    },
+    "823": {
+      "name": "Corviknight",
+      "n_cards_with_lp": 11,
+      "mean_lp": 6.78,
+      "median_lp": 7.83,
+      "min_lp": 2.52,
+      "max_lp": 9.86
+    },
+    "824": {
+      "name": "Blipbug",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "825": {
+      "name": "Dottler",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.16,
+      "median_lp": 4.23,
+      "min_lp": 4.09,
+      "max_lp": 4.23
+    },
+    "826": {
+      "name": "Orbeetle",
+      "n_cards_with_lp": 10,
+      "mean_lp": 5.76,
+      "median_lp": 6.8,
+      "min_lp": 1.53,
+      "max_lp": 8.46
+    },
+    "827": {
+      "name": "Nickit",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "828": {
+      "name": "Thievul",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.08,
+      "median_lp": 2.23,
+      "min_lp": 1.67,
+      "max_lp": 2.34
+    },
+    "829": {
+      "name": "Gossifleur",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "830": {
+      "name": "Eldegoss",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "831": {
+      "name": "Wooloo",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.07,
+      "median_lp": 3.72,
+      "min_lp": 2.31,
+      "max_lp": 3.74
+    },
+    "832": {
+      "name": "Dubwool",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.83,
+      "median_lp": 1.84,
+      "min_lp": 1.83,
+      "max_lp": 1.84
+    },
+    "833": {
+      "name": "Chewtle",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.86,
+      "median_lp": 1.86,
+      "min_lp": 1.86,
+      "max_lp": 1.86
+    },
+    "834": {
+      "name": "Drednaw",
+      "n_cards_with_lp": 4,
+      "mean_lp": 4.08,
+      "median_lp": 6.3,
+      "min_lp": 1.21,
+      "max_lp": 6.37
+    },
+    "835": {
+      "name": "Yamper",
+      "n_cards_with_lp": 4,
+      "mean_lp": 6.66,
+      "median_lp": 10.29,
+      "min_lp": 2.58,
+      "max_lp": 10.89
+    },
+    "836": {
+      "name": "Boltund",
+      "n_cards_with_lp": 9,
+      "mean_lp": 4.76,
+      "median_lp": 2.04,
+      "min_lp": 0.95,
+      "max_lp": 10.4
+    },
+    "837": {
+      "name": "Rolycoly",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.46,
+      "median_lp": 1.47,
+      "min_lp": 1.44,
+      "max_lp": 1.47
+    },
+    "838": {
+      "name": "Carkol",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "839": {
+      "name": "Coalossal",
+      "n_cards_with_lp": 5,
+      "mean_lp": 3.81,
+      "median_lp": 4.63,
+      "min_lp": 1.51,
+      "max_lp": 6.25
+    },
+    "840": {
+      "name": "Applin",
+      "n_cards_with_lp": 8,
+      "mean_lp": 7.48,
+      "median_lp": 8.25,
+      "min_lp": 5.77,
+      "max_lp": 9.69
+    },
+    "841": {
+      "name": "Flapple",
+      "n_cards_with_lp": 11,
+      "mean_lp": 4.22,
+      "median_lp": 3.19,
+      "min_lp": 2.0,
+      "max_lp": 9.22
+    },
+    "842": {
+      "name": "Appletun",
+      "n_cards_with_lp": 4,
+      "mean_lp": 5.21,
+      "median_lp": 5.73,
+      "min_lp": 4.49,
+      "max_lp": 6.0
+    },
+    "843": {
+      "name": "Silicobra",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "844": {
+      "name": "Sandaconda",
+      "n_cards_with_lp": 5,
+      "mean_lp": 3.5,
+      "median_lp": 1.88,
+      "min_lp": 1.68,
+      "max_lp": 6.23
+    },
+    "845": {
+      "name": "Cramorant",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.5,
+      "median_lp": 3.14,
+      "min_lp": 1.6,
+      "max_lp": 3.22
+    },
+    "846": {
+      "name": "Arrokuda",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "847": {
+      "name": "Barraskewda",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "848": {
+      "name": "Toxel",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.49,
+      "median_lp": 3.51,
+      "min_lp": 3.44,
+      "max_lp": 3.51
+    },
+    "849": {
+      "name": "Toxtricity",
+      "n_cards_with_lp": 21,
+      "mean_lp": 4.1,
+      "median_lp": 3.33,
+      "min_lp": 1.39,
+      "max_lp": 13.28
+    },
+    "850": {
+      "name": "Sizzlipede",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.81,
+      "median_lp": 1.81,
+      "min_lp": 1.81,
+      "max_lp": 1.81
+    },
+    "851": {
+      "name": "Centiskorch",
+      "n_cards_with_lp": 11,
+      "mean_lp": 4.3,
+      "median_lp": 3.83,
+      "min_lp": 1.42,
+      "max_lp": 7.02
+    },
+    "852": {
+      "name": "Clobbopus",
+      "n_cards_with_lp": 3,
+      "mean_lp": 4.51,
+      "median_lp": 5.51,
+      "min_lp": 1.88,
+      "max_lp": 6.13
+    },
+    "853": {
+      "name": "Grapploct",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "854": {
+      "name": "Sinistea",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.67,
+      "median_lp": 2.71,
+      "min_lp": 2.62,
+      "max_lp": 2.71
+    },
+    "855": {
+      "name": "Polteageist",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "856": {
+      "name": "Hatenna",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.5,
+      "median_lp": 2.52,
+      "min_lp": 2.49,
+      "max_lp": 2.52
+    },
+    "857": {
+      "name": "Hattrem",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "858": {
+      "name": "Hatterene",
+      "n_cards_with_lp": 7,
+      "mean_lp": 3.97,
+      "median_lp": 5.14,
+      "min_lp": 1.74,
+      "max_lp": 5.74
+    },
+    "859": {
+      "name": "Impidimp",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "860": {
+      "name": "Morgrem",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.04,
+      "median_lp": 2.04,
+      "min_lp": 2.04,
+      "max_lp": 2.04
+    },
+    "861": {
+      "name": "Grimmsnarl",
+      "n_cards_with_lp": 9,
+      "mean_lp": 31.24,
+      "median_lp": 3.05,
+      "min_lp": 1.77,
+      "max_lp": 89.38
+    },
+    "862": {
+      "name": "Obstagoon",
+      "n_cards_with_lp": 7,
+      "mean_lp": 3.84,
+      "median_lp": 4.42,
+      "min_lp": 2.02,
+      "max_lp": 5.42
+    },
+    "863": {
+      "name": "Perrserker",
+      "n_cards_with_lp": 7,
+      "mean_lp": 16.94,
+      "median_lp": 8.76,
+      "min_lp": 2.56,
+      "max_lp": 58.2
+    },
+    "864": {
+      "name": "Cursola",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.65,
+      "median_lp": 1.7,
+      "min_lp": 1.59,
+      "max_lp": 1.7
+    },
+    "865": {
+      "name": "Sirfetchd",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "866": {
+      "name": "Mr-Rime",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "867": {
+      "name": "Runerigus",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.5,
+      "median_lp": 2.5,
+      "min_lp": 2.5,
+      "max_lp": 2.5
+    },
+    "868": {
+      "name": "Milcery",
+      "n_cards_with_lp": 5,
+      "mean_lp": 10.1,
+      "median_lp": 12.6,
+      "min_lp": 4.68,
+      "max_lp": 15.11
+    },
+    "869": {
+      "name": "Alcremie",
+      "n_cards_with_lp": 11,
+      "mean_lp": 4.34,
+      "median_lp": 4.68,
+      "min_lp": 1.58,
+      "max_lp": 7.25
+    },
+    "870": {
+      "name": "Falinks",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.42,
+      "median_lp": 3.02,
+      "min_lp": 1.13,
+      "max_lp": 3.12
+    },
+    "871": {
+      "name": "Pincurchin",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.54,
+      "median_lp": 1.54,
+      "min_lp": 1.54,
+      "max_lp": 1.54
+    },
+    "872": {
+      "name": "Snom",
+      "n_cards_with_lp": 4,
+      "mean_lp": 6.41,
+      "median_lp": 9.71,
+      "min_lp": 2.76,
+      "max_lp": 10.26
+    },
+    "873": {
+      "name": "Frosmoth",
+      "n_cards_with_lp": 6,
+      "mean_lp": 5.91,
+      "median_lp": 5.05,
+      "min_lp": 2.79,
+      "max_lp": 10.42
+    },
+    "874": {
+      "name": "Stonjourner",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.17,
+      "median_lp": 1.92,
+      "min_lp": 1.58,
+      "max_lp": 6.0
+    },
+    "875": {
+      "name": "Eiscue",
+      "n_cards_with_lp": 6,
+      "mean_lp": 8.34,
+      "median_lp": 5.61,
+      "min_lp": 1.62,
+      "max_lp": 17.97
+    },
+    "876": {
+      "name": "Indeedee",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.31,
+      "median_lp": 2.47,
+      "min_lp": 1.9,
+      "max_lp": 2.56
+    },
+    "877": {
+      "name": "Morpeko",
+      "n_cards_with_lp": 18,
+      "mean_lp": 9.27,
+      "median_lp": 6.64,
+      "min_lp": 0.99,
+      "max_lp": 32.47
+    },
+    "878": {
+      "name": "Cufant",
+      "n_cards_with_lp": 3,
+      "mean_lp": 7.32,
+      "median_lp": 9.52,
+      "min_lp": 2.29,
+      "max_lp": 10.16
+    },
+    "879": {
+      "name": "Copperajah",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.5,
+      "median_lp": 6.57,
+      "min_lp": 2.44,
+      "max_lp": 6.57
+    },
+    "880": {
+      "name": "Dracozolt",
+      "n_cards_with_lp": 7,
+      "mean_lp": 3.55,
+      "median_lp": 2.65,
+      "min_lp": 1.9,
+      "max_lp": 6.76
+    },
+    "881": {
+      "name": "Arctozolt",
+      "n_cards_with_lp": 5,
+      "mean_lp": 4.26,
+      "median_lp": 4.2,
+      "min_lp": 1.58,
+      "max_lp": 6.87
+    },
+    "882": {
+      "name": "Dracovish",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.93,
+      "median_lp": 2.93,
+      "min_lp": 2.93,
+      "max_lp": 2.93
+    },
+    "883": {
+      "name": "Arctovish",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.09,
+      "median_lp": 2.17,
+      "min_lp": 1.86,
+      "max_lp": 2.23
+    },
+    "884": {
+      "name": "Duraludon",
+      "n_cards_with_lp": 13,
+      "mean_lp": 9.39,
+      "median_lp": 9.42,
+      "min_lp": 1.5,
+      "max_lp": 17.5
+    },
+    "885": {
+      "name": "Dreepy",
+      "n_cards_with_lp": 4,
+      "mean_lp": 11.72,
+      "median_lp": 12.25,
+      "min_lp": 8.93,
+      "max_lp": 13.69
+    },
+    "886": {
+      "name": "Drakloak",
+      "n_cards_with_lp": 4,
+      "mean_lp": 7.42,
+      "median_lp": 11.29,
+      "min_lp": 3.02,
+      "max_lp": 12.15
+    },
+    "887": {
+      "name": "Dragapult",
+      "n_cards_with_lp": 24,
+      "mean_lp": 19.21,
+      "median_lp": 8.86,
+      "min_lp": 1.15,
+      "max_lp": 101.53
+    },
+    "888": {
+      "name": "Zacian",
+      "n_cards_with_lp": 27,
+      "mean_lp": 11.54,
+      "median_lp": 9.21,
+      "min_lp": 1.74,
+      "max_lp": 35.27
+    },
+    "889": {
+      "name": "Zamazenta",
+      "n_cards_with_lp": 19,
+      "mean_lp": 6.07,
+      "median_lp": 5.61,
+      "min_lp": 1.43,
+      "max_lp": 17.71
+    },
+    "890": {
+      "name": "Eternatus",
+      "n_cards_with_lp": 20,
+      "mean_lp": 5.3,
+      "median_lp": 5.03,
+      "min_lp": 1.15,
+      "max_lp": 9.74
+    },
+    "891": {
+      "name": "Kubfu",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "892": {
+      "name": "Urshifu",
+      "n_cards_with_lp": 31,
+      "mean_lp": 15.43,
+      "median_lp": 8.01,
+      "min_lp": 1.48,
+      "max_lp": 69.88
+    },
+    "893": {
+      "name": "Zarude",
+      "n_cards_with_lp": 1,
+      "mean_lp": 2.96,
+      "median_lp": 2.96,
+      "min_lp": 2.96,
+      "max_lp": 2.96
+    },
+    "894": {
+      "name": "Regieleki",
+      "n_cards_with_lp": 6,
+      "mean_lp": 3.59,
+      "median_lp": 3.27,
+      "min_lp": 0.69,
+      "max_lp": 6.52
+    },
+    "895": {
+      "name": "Regidrago",
+      "n_cards_with_lp": 7,
+      "mean_lp": 8.41,
+      "median_lp": 6.81,
+      "min_lp": 1.61,
+      "max_lp": 21.04
+    },
+    "896": {
+      "name": "Glastrier",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "897": {
+      "name": "Spectrier",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "898": {
+      "name": "Calyrex",
+      "n_cards_with_lp": 32,
+      "mean_lp": 15.45,
+      "median_lp": 7.33,
+      "min_lp": 1.74,
+      "max_lp": 61.07
+    },
+    "899": {
+      "name": "Wyrdeer",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.08,
+      "median_lp": 2.15,
+      "min_lp": 2.0,
+      "max_lp": 2.15
+    },
+    "900": {
+      "name": "Kleavor",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.87,
+      "median_lp": 2.45,
+      "min_lp": 2.22,
+      "max_lp": 6.93
+    },
+    "901": {
+      "name": "Ursaluna",
+      "n_cards_with_lp": 14,
+      "mean_lp": 23.94,
+      "median_lp": 7.76,
+      "min_lp": 1.71,
+      "max_lp": 61.2
+    },
+    "902": {
+      "name": "Basculegion",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "903": {
+      "name": "Sneasler",
+      "n_cards_with_lp": 4,
+      "mean_lp": 18.65,
+      "median_lp": 23.36,
+      "min_lp": 4.22,
+      "max_lp": 23.75
+    },
+    "904": {
+      "name": "Overqwil",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "905": {
+      "name": "Enamorus",
+      "n_cards_with_lp": 7,
+      "mean_lp": 6.83,
+      "median_lp": 8.25,
+      "min_lp": 1.82,
+      "max_lp": 8.51
+    },
+    "906": {
+      "name": "Sprigatito",
+      "n_cards_with_lp": 12,
+      "mean_lp": 15.55,
+      "median_lp": 8.23,
+      "min_lp": 3.19,
+      "max_lp": 46.89
+    },
+    "907": {
+      "name": "Floragato",
+      "n_cards_with_lp": 3,
+      "mean_lp": 11.22,
+      "median_lp": 15.44,
+      "min_lp": 2.1,
+      "max_lp": 16.11
+    },
+    "908": {
+      "name": "Meowscarada",
+      "n_cards_with_lp": 11,
+      "mean_lp": 11.19,
+      "median_lp": 6.62,
+      "min_lp": 2.46,
+      "max_lp": 29.71
+    },
+    "909": {
+      "name": "Fuecoco",
+      "n_cards_with_lp": 6,
+      "mean_lp": 25.63,
+      "median_lp": 46.01,
+      "min_lp": 3.82,
+      "max_lp": 47.23
+    },
+    "910": {
+      "name": "Crocalor",
+      "n_cards_with_lp": 4,
+      "mean_lp": 13.08,
+      "median_lp": 17.11,
+      "min_lp": 1.37,
+      "max_lp": 17.96
+    },
+    "911": {
+      "name": "Skeledirge",
+      "n_cards_with_lp": 10,
+      "mean_lp": 11.26,
+      "median_lp": 5.11,
+      "min_lp": 1.91,
+      "max_lp": 30.42
+    },
+    "912": {
+      "name": "Quaxly",
+      "n_cards_with_lp": 5,
+      "mean_lp": 8.93,
+      "median_lp": 13.44,
+      "min_lp": 1.68,
+      "max_lp": 14.13
+    },
+    "913": {
+      "name": "Quaxwell",
+      "n_cards_with_lp": 2,
+      "mean_lp": 7.0,
+      "median_lp": 7.4,
+      "min_lp": 6.59,
+      "max_lp": 7.4
+    },
+    "914": {
+      "name": "Quaquaval",
+      "n_cards_with_lp": 10,
+      "mean_lp": 4.45,
+      "median_lp": 1.92,
+      "min_lp": 1.44,
+      "max_lp": 13.18
+    },
+    "915": {
+      "name": "Lechonk",
+      "n_cards_with_lp": 6,
+      "mean_lp": 10.41,
+      "median_lp": 12.28,
+      "min_lp": 6.43,
+      "max_lp": 12.36
+    },
+    "916": {
+      "name": "Oinkologne",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.75,
+      "median_lp": 2.83,
+      "min_lp": 2.66,
+      "max_lp": 2.83
+    },
+    "917": {
+      "name": "Tarountula",
+      "n_cards_with_lp": 4,
+      "mean_lp": 10.7,
+      "median_lp": 10.82,
+      "min_lp": 10.27,
+      "max_lp": 11.05
+    },
+    "918": {
+      "name": "Spidops",
+      "n_cards_with_lp": 7,
+      "mean_lp": 7.26,
+      "median_lp": 7.37,
+      "min_lp": 6.29,
+      "max_lp": 8.27
+    },
+    "919": {
+      "name": "Nymble",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "920": {
+      "name": "Lokix",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "921": {
+      "name": "Pawmi",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.93,
+      "median_lp": 3.11,
+      "min_lp": 2.65,
+      "max_lp": 3.16
+    },
+    "922": {
+      "name": "Pawmo",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.77,
+      "median_lp": 2.81,
+      "min_lp": 2.72,
+      "max_lp": 2.81
+    },
+    "923": {
+      "name": "Pawmot",
+      "n_cards_with_lp": 6,
+      "mean_lp": 4.24,
+      "median_lp": 2.9,
+      "min_lp": 2.08,
+      "max_lp": 8.23
+    },
+    "924": {
+      "name": "Tandemaus",
+      "n_cards_with_lp": 2,
+      "mean_lp": 17.95,
+      "median_lp": 19.64,
+      "min_lp": 16.27,
+      "max_lp": 19.64
+    },
+    "925": {
+      "name": "Maushold",
+      "n_cards_with_lp": 7,
+      "mean_lp": 42.32,
+      "median_lp": 17.03,
+      "min_lp": 11.01,
+      "max_lp": 84.12
+    },
+    "926": {
+      "name": "Fidough",
+      "n_cards_with_lp": 2,
+      "mean_lp": 21.87,
+      "median_lp": 22.79,
+      "min_lp": 20.94,
+      "max_lp": 22.79
+    },
+    "927": {
+      "name": "Dachsbun",
+      "n_cards_with_lp": 7,
+      "mean_lp": 23.09,
+      "median_lp": 5.2,
+      "min_lp": 2.61,
+      "max_lp": 48.85
+    },
+    "928": {
+      "name": "Smoliv",
+      "n_cards_with_lp": 1,
+      "mean_lp": 3.08,
+      "median_lp": 3.08,
+      "min_lp": 3.08,
+      "max_lp": 3.08
+    },
+    "929": {
+      "name": "Dolliv",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.71,
+      "median_lp": 5.21,
+      "min_lp": 2.11,
+      "max_lp": 5.38
+    },
+    "930": {
+      "name": "Arboliva",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.58,
+      "median_lp": 3.15,
+      "min_lp": 1.85,
+      "max_lp": 3.43
+    },
+    "931": {
+      "name": "Squawkabilly",
+      "n_cards_with_lp": 7,
+      "mean_lp": 6.14,
+      "median_lp": 9.51,
+      "min_lp": 0.86,
+      "max_lp": 9.92
+    },
+    "932": {
+      "name": "Nacli",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.51,
+      "median_lp": 5.27,
+      "min_lp": 1.62,
+      "max_lp": 5.5
+    },
+    "933": {
+      "name": "Naclstack",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.01,
+      "median_lp": 2.02,
+      "min_lp": 2.0,
+      "max_lp": 2.02
+    },
+    "934": {
+      "name": "Garganacl",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.89,
+      "median_lp": 3.4,
+      "min_lp": 1.68,
+      "max_lp": 3.58
+    },
+    "935": {
+      "name": "Charcadet",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.18,
+      "median_lp": 5.14,
+      "min_lp": 5.09,
+      "max_lp": 5.32
+    },
+    "936": {
+      "name": "Armarouge",
+      "n_cards_with_lp": 3,
+      "mean_lp": 14.78,
+      "median_lp": 14.68,
+      "min_lp": 14.61,
+      "max_lp": 15.05
+    },
+    "937": {
+      "name": "Ceruledge",
+      "n_cards_with_lp": 9,
+      "mean_lp": 36.12,
+      "median_lp": 17.89,
+      "min_lp": 1.46,
+      "max_lp": 89.7
+    },
+    "938": {
+      "name": "Tadbulb",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "939": {
+      "name": "Bellibolt",
+      "n_cards_with_lp": 15,
+      "mean_lp": 26.94,
+      "median_lp": 13.42,
+      "min_lp": 2.06,
+      "max_lp": 73.94
+    },
+    "940": {
+      "name": "Wattrel",
+      "n_cards_with_lp": 6,
+      "mean_lp": 5.95,
+      "median_lp": 4.05,
+      "min_lp": 2.4,
+      "max_lp": 11.78
+    },
+    "941": {
+      "name": "Kilowattrel",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.67,
+      "median_lp": 5.38,
+      "min_lp": 1.87,
+      "max_lp": 5.51
+    },
+    "942": {
+      "name": "Maschiff",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "943": {
+      "name": "Mabosstiff",
+      "n_cards_with_lp": 8,
+      "mean_lp": 12.84,
+      "median_lp": 5.58,
+      "min_lp": 1.58,
+      "max_lp": 29.12
+    },
+    "944": {
+      "name": "Shroodle",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.03,
+      "median_lp": 2.17,
+      "min_lp": 1.84,
+      "max_lp": 2.25
+    },
+    "945": {
+      "name": "Grafaiai",
+      "n_cards_with_lp": 5,
+      "mean_lp": 4.56,
+      "median_lp": 6.21,
+      "min_lp": 1.83,
+      "max_lp": 6.42
+    },
+    "946": {
+      "name": "Bramblin",
+      "n_cards_with_lp": 3,
+      "mean_lp": 8.29,
+      "median_lp": 8.36,
+      "min_lp": 7.84,
+      "max_lp": 8.66
+    },
+    "947": {
+      "name": "Brambleghast",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "948": {
+      "name": "Toedscool",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.46,
+      "median_lp": 4.58,
+      "min_lp": 2.31,
+      "max_lp": 4.62
+    },
+    "949": {
+      "name": "Toedscruel",
+      "n_cards_with_lp": 4,
+      "mean_lp": 6.25,
+      "median_lp": 6.33,
+      "min_lp": 6.09,
+      "max_lp": 6.37
+    },
+    "950": {
+      "name": "Klawf",
+      "n_cards_with_lp": 2,
+      "mean_lp": 4.54,
+      "median_lp": 4.61,
+      "min_lp": 4.47,
+      "max_lp": 4.61
+    },
+    "951": {
+      "name": "Capsakid",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.91,
+      "median_lp": 1.91,
+      "min_lp": 1.91,
+      "max_lp": 1.91
+    },
+    "952": {
+      "name": "Scovillain",
+      "n_cards_with_lp": 5,
+      "mean_lp": 3.68,
+      "median_lp": 4.65,
+      "min_lp": 2.04,
+      "max_lp": 4.86
+    },
+    "953": {
+      "name": "Rellor",
+      "n_cards_with_lp": 1,
+      "mean_lp": 1.9,
+      "median_lp": 1.9,
+      "min_lp": 1.9,
+      "max_lp": 1.9
+    },
+    "954": {
+      "name": "Rabsca",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.33,
+      "median_lp": 5.05,
+      "min_lp": 1.5,
+      "max_lp": 5.22
+    },
+    "955": {
+      "name": "Flittle",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.21,
+      "median_lp": 2.25,
+      "min_lp": 2.17,
+      "max_lp": 2.25
+    },
+    "956": {
+      "name": "Espathra",
+      "n_cards_with_lp": 3,
+      "mean_lp": 6.44,
+      "median_lp": 6.43,
+      "min_lp": 6.26,
+      "max_lp": 6.63
+    },
+    "957": {
+      "name": "Tinkatink",
+      "n_cards_with_lp": 4,
+      "mean_lp": 14.06,
+      "median_lp": 22.9,
+      "min_lp": 4.45,
+      "max_lp": 24.19
+    },
+    "958": {
+      "name": "Tinkatuff",
+      "n_cards_with_lp": 5,
+      "mean_lp": 18.94,
+      "median_lp": 27.82,
+      "min_lp": 4.21,
+      "max_lp": 29.87
+    },
+    "959": {
+      "name": "Tinkaton",
+      "n_cards_with_lp": 11,
+      "mean_lp": 17.41,
+      "median_lp": 7.72,
+      "min_lp": 3.41,
+      "max_lp": 48.56
+    },
+    "960": {
+      "name": "Wiglett",
+      "n_cards_with_lp": 5,
+      "mean_lp": 14.37,
+      "median_lp": 20.11,
+      "min_lp": 2.62,
+      "max_lp": 23.77
+    },
+    "961": {
+      "name": "Wugtrio",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.17,
+      "median_lp": 2.2,
+      "min_lp": 2.15,
+      "max_lp": 2.2
+    },
+    "962": {
+      "name": "Bombirdier",
+      "n_cards_with_lp": 3,
+      "mean_lp": 3.66,
+      "median_lp": 4.54,
+      "min_lp": 1.66,
+      "max_lp": 4.79
+    },
+    "963": {
+      "name": "Finizen",
+      "n_cards_with_lp": 2,
+      "mean_lp": 3.66,
+      "median_lp": 3.66,
+      "min_lp": 3.65,
+      "max_lp": 3.66
+    },
+    "964": {
+      "name": "Palafin",
+      "n_cards_with_lp": 12,
+      "mean_lp": 12.79,
+      "median_lp": 3.07,
+      "min_lp": 1.51,
+      "max_lp": 42.99
+    },
+    "965": {
+      "name": "Varoom",
+      "n_cards_with_lp": 2,
+      "mean_lp": 2.42,
+      "median_lp": 2.42,
+      "min_lp": 2.41,
+      "max_lp": 2.42
+    },
+    "966": {
+      "name": "Revavroom",
+      "n_cards_with_lp": 8,
+      "mean_lp": 2.52,
+      "median_lp": 2.2,
+      "min_lp": 1.32,
+      "max_lp": 4.65
+    },
+    "967": {
+      "name": "Cyclizar",
+      "n_cards_with_lp": 7,
+      "mean_lp": 3.18,
+      "median_lp": 2.11,
+      "min_lp": 1.47,
+      "max_lp": 5.17
+    },
+    "968": {
+      "name": "Orthworm",
+      "n_cards_with_lp": 2,
+      "mean_lp": 5.16,
+      "median_lp": 5.23,
+      "min_lp": 5.09,
+      "max_lp": 5.23
+    },
+    "969": {
+      "name": "Glimmet",
+      "n_cards_with_lp": 2,
+      "mean_lp": 1.82,
+      "median_lp": 1.82,
+      "min_lp": 1.82,
+      "max_lp": 1.82
+    },
+    "970": {
+      "name": "Glimmora",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "971": {
+      "name": "Greavard",
+      "n_cards_with_lp": 2,
+      "mean_lp": 19.02,
+      "median_lp": 19.63,
+      "min_lp": 18.41,
+      "max_lp": 19.63
+    },
+    "972": {
+      "name": "Houndstone",
+      "n_cards_with_lp": 4,
+      "mean_lp": 2.27,
+      "median_lp": 2.45,
+      "min_lp": 2.04,
+      "max_lp": 2.47
+    },
+    "973": {
+      "name": "Flamigo",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.91,
+      "median_lp": 9.08,
+      "min_lp": 2.5,
+      "max_lp": 9.17
+    },
+    "974": {
+      "name": "Cetoddle",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "975": {
+      "name": "Cetitan",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.24,
+      "median_lp": 2.5,
+      "min_lp": 1.61,
+      "max_lp": 2.61
+    },
+    "976": {
+      "name": "Veluza",
+      "n_cards_with_lp": 3,
+      "mean_lp": 5.37,
+      "median_lp": 6.66,
+      "min_lp": 1.92,
+      "max_lp": 7.54
+    },
+    "977": {
+      "name": "Dondozo",
+      "n_cards_with_lp": 5,
+      "mean_lp": 6.11,
+      "median_lp": 2.58,
+      "min_lp": 1.45,
+      "max_lp": 12.14
+    },
+    "978": {
+      "name": "Tatsugiri",
+      "n_cards_with_lp": 9,
+      "mean_lp": 9.4,
+      "median_lp": 6.38,
+      "min_lp": 1.67,
+      "max_lp": 20.45
+    },
+    "979": {
+      "name": "Annihilape",
+      "n_cards_with_lp": 4,
+      "mean_lp": 3.7,
+      "median_lp": 4.01,
+      "min_lp": 3.35,
+      "max_lp": 4.07
+    },
+    "980": {
+      "name": "Clodsire",
+      "n_cards_with_lp": 3,
+      "mean_lp": 2.27,
+      "median_lp": 2.27,
+      "min_lp": 2.19,
+      "max_lp": 2.35
+    },
+    "981": {
+      "name": "Farigiraf",
+      "n_cards_with_lp": 6,
+      "mean_lp": 6.99,
+      "median_lp": 9.26,
+      "min_lp": 2.12,
+      "max_lp": 9.82
+    },
+    "982": {
+      "name": "Dudunsparce",
+      "n_cards_with_lp": 2,
+      "mean_lp": 7.14,
+      "median_lp": 7.63,
+      "min_lp": 6.66,
+      "max_lp": 7.63
+    },
+    "983": {
+      "name": "Kingambit",
+      "n_cards_with_lp": 8,
+      "mean_lp": 5.23,
+      "median_lp": 6.72,
+      "min_lp": 2.4,
+      "max_lp": 7.45
+    },
+    "984": {
+      "name": "Great-Tusk",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "985": {
+      "name": "Scream-Tail",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "986": {
+      "name": "Brute-Bonnet",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "987": {
+      "name": "Flutter-Mane",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "988": {
+      "name": "Slither-Wing",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "989": {
+      "name": "Sandy-Shocks",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "990": {
+      "name": "Iron-Treads",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "991": {
+      "name": "Iron-Bundle",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "992": {
+      "name": "Iron-Hands",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "993": {
+      "name": "Iron-Jugulis",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "994": {
+      "name": "Iron-Moth",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "995": {
+      "name": "Iron-Thorns",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "996": {
+      "name": "Frigibax",
+      "n_cards_with_lp": 4,
+      "mean_lp": 10.56,
+      "median_lp": 16.69,
+      "min_lp": 3.57,
+      "max_lp": 18.05
+    },
+    "997": {
+      "name": "Arctibax",
+      "n_cards_with_lp": 4,
+      "mean_lp": 11.11,
+      "median_lp": 13.66,
+      "min_lp": 3.14,
+      "max_lp": 14.56
+    },
+    "998": {
+      "name": "Baxcalibur",
+      "n_cards_with_lp": 6,
+      "mean_lp": 15.16,
+      "median_lp": 25.02,
+      "min_lp": 2.25,
+      "max_lp": 28.96
+    },
+    "999": {
+      "name": "Gimmighoul",
+      "n_cards_with_lp": 2,
+      "mean_lp": 11.68,
+      "median_lp": 11.86,
+      "min_lp": 11.49,
+      "max_lp": 11.86
+    },
+    "1000": {
+      "name": "Gholdengo",
+      "n_cards_with_lp": 10,
+      "mean_lp": 20.68,
+      "median_lp": 22.71,
+      "min_lp": 1.36,
+      "max_lp": 42.87
+    },
+    "1001": {
+      "name": "Wo-Chien",
+      "n_cards_with_lp": 6,
+      "mean_lp": 8.76,
+      "median_lp": 11.91,
+      "min_lp": 5.4,
+      "max_lp": 12.35
+    },
+    "1002": {
+      "name": "Chien-Pao",
+      "n_cards_with_lp": 13,
+      "mean_lp": 9.22,
+      "median_lp": 6.79,
+      "min_lp": 2.79,
+      "max_lp": 22.83
+    },
+    "1003": {
+      "name": "Ting-Lu",
+      "n_cards_with_lp": 7,
+      "mean_lp": 5.83,
+      "median_lp": 4.94,
+      "min_lp": 2.85,
+      "max_lp": 9.94
+    },
+    "1004": {
+      "name": "Chi-Yu",
+      "n_cards_with_lp": 10,
+      "mean_lp": 16.54,
+      "median_lp": 9.02,
+      "min_lp": 1.55,
+      "max_lp": 42.16
+    },
+    "1005": {
+      "name": "Roaring-Moon",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1006": {
+      "name": "Iron-Valiant",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1007": {
+      "name": "Koraidon",
+      "n_cards_with_lp": 12,
+      "mean_lp": 8.24,
+      "median_lp": 5.8,
+      "min_lp": 1.62,
+      "max_lp": 19.44
+    },
+    "1008": {
+      "name": "Miraidon",
+      "n_cards_with_lp": 15,
+      "mean_lp": 10.03,
+      "median_lp": 7.11,
+      "min_lp": 2.66,
+      "max_lp": 23.96
+    },
+    "1009": {
+      "name": "Walking-Wake",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1010": {
+      "name": "Iron-Leaves",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1011": {
+      "name": "Dipplin",
+      "n_cards_with_lp": 4,
+      "mean_lp": 10.31,
+      "median_lp": 10.7,
+      "min_lp": 9.32,
+      "max_lp": 11.38
+    },
+    "1012": {
+      "name": "Poltchageist",
+      "n_cards_with_lp": 2,
+      "mean_lp": 3.68,
+      "median_lp": 3.89,
+      "min_lp": 3.47,
+      "max_lp": 3.89
+    },
+    "1013": {
+      "name": "Sinistcha",
+      "n_cards_with_lp": 4,
+      "mean_lp": 15.91,
+      "median_lp": 20.77,
+      "min_lp": 1.26,
+      "max_lp": 21.1
+    },
+    "1014": {
+      "name": "Okidogi",
+      "n_cards_with_lp": 6,
+      "mean_lp": 11.53,
+      "median_lp": 10.61,
+      "min_lp": 2.77,
+      "max_lp": 18.09
+    },
+    "1015": {
+      "name": "Munkidori",
+      "n_cards_with_lp": 7,
+      "mean_lp": 22.44,
+      "median_lp": 15.11,
+      "min_lp": 1.83,
+      "max_lp": 37.39
+    },
+    "1016": {
+      "name": "Fezandipiti",
+      "n_cards_with_lp": 16,
+      "mean_lp": 28.07,
+      "median_lp": 12.9,
+      "min_lp": 3.5,
+      "max_lp": 82.44
+    },
+    "1017": {
+      "name": "Ogerpon",
+      "n_cards_with_lp": 39,
+      "mean_lp": 11.13,
+      "median_lp": 9.76,
+      "min_lp": 1.49,
+      "max_lp": 21.94
+    },
+    "1018": {
+      "name": "Archaludon",
+      "n_cards_with_lp": 5,
+      "mean_lp": 8.33,
+      "median_lp": 11.55,
+      "min_lp": 3.32,
+      "max_lp": 11.74
+    },
+    "1019": {
+      "name": "Hydrapple",
+      "n_cards_with_lp": 7,
+      "mean_lp": 11.46,
+      "median_lp": 3.87,
+      "min_lp": 1.74,
+      "max_lp": 25.55
+    },
+    "1020": {
+      "name": "Gouging-Fire",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1021": {
+      "name": "Raging-Bolt",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1022": {
+      "name": "Iron-Boulder",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1023": {
+      "name": "Iron-Crown",
+      "n_cards_with_lp": 0,
+      "mean_lp": null,
+      "median_lp": null,
+      "min_lp": null,
+      "max_lp": null
+    },
+    "1024": {
+      "name": "Terapagos",
+      "n_cards_with_lp": 14,
+      "mean_lp": 20.34,
+      "median_lp": 10.07,
+      "min_lp": 4.01,
+      "max_lp": 40.84
+    },
+    "1025": {
+      "name": "Pecharunt",
+      "n_cards_with_lp": 15,
+      "mean_lp": 14.84,
+      "median_lp": 17.59,
+      "min_lp": 1.63,
+      "max_lp": 28.71
+    }
+  }
+}

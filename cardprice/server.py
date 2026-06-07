@@ -8108,11 +8108,28 @@ tr:hover {{ background: #16213e; }}
         import random
         if len(ratings) < 2:
             return None, None
-        # Coverage pool: 200 species with fewest comparisons.
-        items = list(ratings.items())  # [(sid, {name, rating, n, seeded})]
-        random.shuffle(items)  # tie-break randomly
+        # If a curated included_species.json exists, restrict to those.
+        # Otherwise fall back to the full roster (legacy behaviour).
+        try:
+            import json as _json
+            from pathlib import Path as _P
+            inc_path = _P(__file__).resolve().parent.parent / "pokemon_likeability" / "data" / "included_species.json"
+            if inc_path.exists():
+                inc = _json.loads(inc_path.read_text())
+                included_ids = {str(x) for x in inc.get("species_ids", [])}
+            else:
+                included_ids = None
+        except Exception:
+            included_ids = None
+
+        # Coverage pool: top-K species with fewest comparisons (within
+        # included list when present).
+        items = [(sid, v) for sid, v in ratings.items()
+                 if included_ids is None or sid in included_ids]
+        random.shuffle(items)
         items.sort(key=lambda kv: (kv[1].get("n", 0), random.random()))
-        pool = items[:200] if len(items) > 200 else items
+        pool_size = 120 if included_ids is not None else 200
+        pool = items[:pool_size] if len(items) > pool_size else items
 
         # Avoid pairs from recent votes
         recent = self._likeability_recent_votes(50)
@@ -8296,8 +8313,23 @@ tr:hover {{ background: #16213e; }}
         if not ratings:
             self._send_json({"error": "no ratings"}, status=503)
             return
+        # Restrict stats to the curated included-species list when present
+        # (matches what the comparison loop is actually voting on).
+        try:
+            import json as _json
+            from pathlib import Path as _P
+            inc_path = _P(__file__).resolve().parent.parent / "pokemon_likeability" / "data" / "included_species.json"
+            included_ids = (
+                {str(x) for x in _json.loads(inc_path.read_text()).get("species_ids", [])}
+                if inc_path.exists() else None
+            )
+        except Exception:
+            included_ids = None
+
         rows = []
         for sid, v in ratings.items():
+            if included_ids is not None and sid not in included_ids:
+                continue
             rows.append({
                 "id": sid,
                 "name": v.get("name"),
@@ -8322,12 +8354,12 @@ tr:hover {{ background: #16213e; }}
         else:
             buckets = []
 
-        # 10-quantile (deciles) tier boundaries.
+        # 5-quantile (quintile) tier boundaries — user wants Tiers 1-5.
         sorted_r = sorted(ratings_only)
         n = len(sorted_r)
         tier_boundaries = []
-        for i in range(1, 10):
-            idx = int(round(i * n / 10)) - 1
+        for i in range(1, 5):
+            idx = int(round(i * n / 5)) - 1
             idx = max(0, min(n - 1, idx))
             tier_boundaries.append(round(sorted_r[idx], 1))
 
@@ -8339,6 +8371,7 @@ tr:hover {{ background: #16213e; }}
             "bottom_20": rows[-20:],
             "histogram": buckets,
             "tier_boundaries": tier_boundaries,
+            "n_tiers": 5,
         })
 
     def log_message(self, fmt, *args):
