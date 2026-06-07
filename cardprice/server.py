@@ -3726,6 +3726,12 @@ class ScanHandler(BaseHTTPRequestHandler):
             from urllib.parse import unquote as _uq
             rest = _uq(self.path.split("/cropper/subimage/", 1)[1])
             self._handle_cropper_subimage(rest)
+        elif self.path == "/likeability":
+            self._handle_likeability_page()
+        elif self.path.startswith("/likeability/next"):
+            self._handle_likeability_next()
+        elif self.path.startswith("/likeability/stats"):
+            self._handle_likeability_stats()
         elif self.path == "/tunnel-url":
             tunnel_file = Path(__file__).resolve().parent.parent / "data" / "tunnel_url.txt"
             url = tunnel_file.read_text().strip() if tunnel_file.is_file() else ""
@@ -3782,12 +3788,16 @@ class ScanHandler(BaseHTTPRequestHandler):
             self._handle_cropper_accept()
         elif self.path == "/cropper/reprocess" or self.path.startswith("/cropper/reprocess?"):
             self._handle_cropper_reprocess()
+        elif self.path == "/likeability/vote":
+            self._handle_likeability_vote_post()
         else:
             self.send_error(404)
 
     def do_DELETE(self):
         if self.path.startswith("/annotate/label"):
             self._handle_annotate_label_delete()
+        elif self.path == "/likeability/vote":
+            self._handle_likeability_vote_delete()
         else:
             self.send_error(404)
 
@@ -8009,6 +8019,328 @@ tr:hover {{ background: #16213e; }}
             "note": sm_entry.get("note"),
         })
 
+    # ------------------------------------------------------------------
+    # Pokémon likeability: pairwise ranking via ELO.
+    # All persistent state lives under ``pokemon_likeability/data/``.
+    # See ``pokemon_likeability/README.md`` for the full design.
+    # ------------------------------------------------------------------
+
+    def _likeability_paths(self):
+        root = Path(__file__).resolve().parent.parent / "pokemon_likeability" / "data"
+        return root, root / "roster.json", root / "ratings.json", root / "votes.jsonl"
+
+    def _likeability_load_roster(self):
+        _, roster_path, _, _ = self._likeability_paths()
+        if not roster_path.is_file():
+            return []
+        try:
+            with open(roster_path) as f:
+                return (json.load(f) or {}).get("pokemon") or []
+        except Exception:
+            return []
+
+    def _likeability_load_ratings(self):
+        _, _, ratings_path, _ = self._likeability_paths()
+        if not ratings_path.is_file():
+            return {}
+        try:
+            with open(ratings_path) as f:
+                return (json.load(f) or {}).get("ratings") or {}
+        except Exception:
+            return {}
+
+    def _likeability_save_ratings(self, ratings):
+        from datetime import timezone as _tz
+        root, _, ratings_path, _ = self._likeability_paths()
+        root.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "updated_at": datetime.now(_tz.utc).isoformat(),
+            "ratings": ratings,
+        }
+        tmp = ratings_path.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(payload, f, indent=2)
+        tmp.replace(ratings_path)
+
+    def _likeability_append_vote(self, vote):
+        root, _, _, votes_path = self._likeability_paths()
+        root.mkdir(parents=True, exist_ok=True)
+        with open(votes_path, "a") as f:
+            f.write(json.dumps(vote) + "\n")
+
+    def _likeability_recent_votes(self, n=50):
+        _, _, _, votes_path = self._likeability_paths()
+        if not votes_path.is_file():
+            return []
+        try:
+            with open(votes_path) as f:
+                lines = f.readlines()
+        except Exception:
+            return []
+        out = []
+        for line in lines[-n:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+        return out
+
+    @staticmethod
+    def _likeability_k_factor(n_a, n_b):
+        m = min(n_a, n_b)
+        if m < 10:
+            return 32
+        if m < 30:
+            return 16
+        return 8
+
+    @staticmethod
+    def _likeability_elo_update(r_a, r_b, s_a, k):
+        # Standard ELO; returns (new_r_a, new_r_b).
+        e_a = 1.0 / (1.0 + 10 ** ((r_b - r_a) / 400.0))
+        e_b = 1.0 - e_a
+        return r_a + k * (s_a - e_a), r_b + k * ((1.0 - s_a) - e_b)
+
+    def _likeability_pick_pair(self, ratings, roster):
+        import random
+        if len(ratings) < 2:
+            return None, None
+        # Coverage pool: 200 species with fewest comparisons.
+        items = list(ratings.items())  # [(sid, {name, rating, n, seeded})]
+        random.shuffle(items)  # tie-break randomly
+        items.sort(key=lambda kv: (kv[1].get("n", 0), random.random()))
+        pool = items[:200] if len(items) > 200 else items
+
+        # Avoid pairs from recent votes
+        recent = self._likeability_recent_votes(50)
+        recent_pairs = set()
+        for v in recent:
+            ids = sorted([str(v.get("a_id") or v.get("winner_id") or ""),
+                          str(v.get("b_id") or v.get("loser_id") or "")])
+            if ids[0] and ids[1]:
+                recent_pairs.add(tuple(ids))
+
+        # Build list of close-rating candidate pairs (within 150 ELO).
+        close = []
+        for i in range(len(pool)):
+            sid_a, ra = pool[i][0], pool[i][1].get("rating", 1000.0)
+            for j in range(i + 1, len(pool)):
+                sid_b, rb = pool[j][0], pool[j][1].get("rating", 1000.0)
+                if abs(ra - rb) <= 150:
+                    key = tuple(sorted([sid_a, sid_b]))
+                    if key in recent_pairs:
+                        continue
+                    close.append((sid_a, sid_b))
+                if len(close) >= 800:
+                    break
+            if len(close) >= 800:
+                break
+
+        if close:
+            sid_a, sid_b = random.choice(close)
+        else:
+            # Fall back to random pair from pool not in recent.
+            tries = 0
+            sid_a = sid_b = None
+            while tries < 200:
+                a, b = random.sample(pool, 2)
+                key = tuple(sorted([a[0], b[0]]))
+                if key not in recent_pairs:
+                    sid_a, sid_b = a[0], b[0]
+                    break
+                tries += 1
+            if not sid_a:
+                a, b = random.sample(pool, 2)
+                sid_a, sid_b = a[0], b[0]
+
+        # Build full pair payload by merging with roster (for art_url).
+        roster_by_id = {str(p["id"]): p for p in roster}
+        def _build(sid):
+            rinfo = ratings[sid]
+            ri = roster_by_id.get(sid, {})
+            return {
+                "id": sid,
+                "name": rinfo.get("name", ri.get("name", f"#{sid}")),
+                "art_url": ri.get("art_url"),
+                "sprite_url": ri.get("sprite_url"),
+                "rating": round(rinfo.get("rating", 1000.0), 1),
+                "n": rinfo.get("n", 0),
+                "seeded": bool(rinfo.get("seeded")),
+            }
+        return _build(sid_a), _build(sid_b)
+
+    def _handle_likeability_page(self):
+        self._send_html(LIKEABILITY_HTML)
+
+    def _handle_likeability_next(self):
+        ratings = self._likeability_load_ratings()
+        roster = self._likeability_load_roster()
+        if not ratings or not roster:
+            self._send_json({"error": "roster not bootstrapped; run pokemon_likeability/scripts/bootstrap_roster.py"}, status=503)
+            return
+        a, b = self._likeability_pick_pair(ratings, roster)
+        if not a or not b:
+            self._send_json({"error": "not enough ratings"}, status=500)
+            return
+        total_comparisons = sum(int(v.get("n", 0)) for v in ratings.values()) // 2
+        seeded_count = sum(1 for v in ratings.values() if v.get("seeded"))
+        self._send_json({
+            "a": a,
+            "b": b,
+            "comparisons_total": total_comparisons,
+            "seeded_count": seeded_count,
+            "roster_size": len(ratings),
+        })
+
+    def _handle_likeability_vote_post(self):
+        from datetime import timezone as _tz
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            self.send_error(400, "Empty body")
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode())
+        except Exception:
+            self.send_error(400, "Invalid JSON")
+            return
+
+        tie = bool(payload.get("tie"))
+        ratings = self._likeability_load_ratings()
+
+        if tie:
+            a_id = str(payload.get("a_id") or "")
+            b_id = str(payload.get("b_id") or "")
+            if not a_id or not b_id or a_id not in ratings or b_id not in ratings:
+                self.send_error(400, "tie requires valid a_id and b_id")
+                return
+            winner_id, loser_id, s_a = a_id, b_id, 0.5
+        else:
+            winner_id = str(payload.get("winner_id") or "")
+            loser_id = str(payload.get("loser_id") or "")
+            if not winner_id or not loser_id:
+                self.send_error(400, "winner_id and loser_id required")
+                return
+            if winner_id not in ratings or loser_id not in ratings:
+                self.send_error(400, "unknown id")
+                return
+            s_a = 1.0
+
+        r_w_old = ratings[winner_id].get("rating", 1000.0)
+        r_l_old = ratings[loser_id].get("rating", 1000.0)
+        n_w = int(ratings[winner_id].get("n", 0))
+        n_l = int(ratings[loser_id].get("n", 0))
+        k = self._likeability_k_factor(n_w, n_l)
+        r_w_new, r_l_new = self._likeability_elo_update(r_w_old, r_l_old, s_a, k)
+
+        ratings[winner_id]["rating"] = r_w_new
+        ratings[loser_id]["rating"] = r_l_new
+        ratings[winner_id]["n"] = n_w + 1
+        ratings[loser_id]["n"] = n_l + 1
+        self._likeability_save_ratings(ratings)
+
+        vote = {
+            "ts": datetime.now(_tz.utc).isoformat(),
+            "tie": tie,
+            "winner_id": winner_id,
+            "loser_id": loser_id,
+            "a_id": winner_id,
+            "b_id": loser_id,
+            "k": k,
+            "r_w_old": r_w_old, "r_l_old": r_l_old,
+            "r_w_new": r_w_new, "r_l_new": r_l_new,
+            "n_w_old": n_w, "n_l_old": n_l,
+        }
+        self._likeability_append_vote(vote)
+        self._send_json({
+            "ok": True,
+            "k": k,
+            "winner": {"id": winner_id, "rating": round(r_w_new, 1), "delta": round(r_w_new - r_w_old, 2)},
+            "loser":  {"id": loser_id,  "rating": round(r_l_new, 1), "delta": round(r_l_new - r_l_old, 2)},
+        })
+
+    def _handle_likeability_vote_delete(self):
+        # Undo last vote: pop last line from votes.jsonl, rewind ratings.
+        _, _, _, votes_path = self._likeability_paths()
+        if not votes_path.is_file():
+            self._send_json({"ok": False, "error": "no votes to undo"}, status=400)
+            return
+        with open(votes_path) as f:
+            lines = [ln for ln in f.readlines() if ln.strip()]
+        if not lines:
+            self._send_json({"ok": False, "error": "no votes to undo"}, status=400)
+            return
+        last = json.loads(lines[-1])
+        rest = lines[:-1]
+
+        ratings = self._likeability_load_ratings()
+        w = str(last.get("winner_id")); l = str(last.get("loser_id"))
+        if w in ratings and l in ratings:
+            ratings[w]["rating"] = last.get("r_w_old", ratings[w].get("rating"))
+            ratings[l]["rating"] = last.get("r_l_old", ratings[l].get("rating"))
+            ratings[w]["n"] = last.get("n_w_old", max(0, int(ratings[w].get("n", 1)) - 1))
+            ratings[l]["n"] = last.get("n_l_old", max(0, int(ratings[l].get("n", 1)) - 1))
+            self._likeability_save_ratings(ratings)
+
+        # Rewrite votes.jsonl atomically without the last line.
+        tmp = votes_path.with_suffix(".jsonl.tmp")
+        with open(tmp, "w") as f:
+            f.writelines(rest)
+        tmp.replace(votes_path)
+        self._send_json({"ok": True, "undone": last})
+
+    def _handle_likeability_stats(self):
+        ratings = self._likeability_load_ratings()
+        if not ratings:
+            self._send_json({"error": "no ratings"}, status=503)
+            return
+        rows = []
+        for sid, v in ratings.items():
+            rows.append({
+                "id": sid,
+                "name": v.get("name"),
+                "rating": round(float(v.get("rating", 1000.0)), 1),
+                "n": int(v.get("n", 0)),
+                "seeded": bool(v.get("seeded")),
+            })
+        rows.sort(key=lambda r: r["rating"], reverse=True)
+        ratings_only = [r["rating"] for r in rows]
+        total_comparisons = sum(r["n"] for r in rows) // 2
+        ge5 = sum(1 for r in rows if r["n"] >= 5)
+        pct_ge5 = (ge5 / len(rows)) if rows else 0.0
+
+        # Histogram in 50-wide buckets covering observed range.
+        if ratings_only:
+            lo = int(min(ratings_only) // 50 * 50)
+            hi = int(max(ratings_only) // 50 * 50 + 50)
+            buckets = []
+            for edge in range(lo, hi + 50, 50):
+                count = sum(1 for r in ratings_only if edge <= r < edge + 50)
+                buckets.append({"edge": edge, "count": count})
+        else:
+            buckets = []
+
+        # 10-quantile (deciles) tier boundaries.
+        sorted_r = sorted(ratings_only)
+        n = len(sorted_r)
+        tier_boundaries = []
+        for i in range(1, 10):
+            idx = int(round(i * n / 10)) - 1
+            idx = max(0, min(n - 1, idx))
+            tier_boundaries.append(round(sorted_r[idx], 1))
+
+        self._send_json({
+            "total_species": len(rows),
+            "comparisons_total": total_comparisons,
+            "pct_with_5plus_comparisons": round(pct_ge5, 4),
+            "top_50": rows[:50],
+            "bottom_20": rows[-20:],
+            "histogram": buckets,
+            "tier_boundaries": tier_boundaries,
+        })
+
     def log_message(self, fmt, *args):
         logger.info(fmt, *args)
 
@@ -8510,6 +8842,207 @@ document.addEventListener('keydown', (e) => {
 });
 
 firstLoad();
+</script></body></html>
+"""
+
+
+LIKEABILITY_HTML = r"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TCG Likeability</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#0f1116; color:#e6e8ef; font-family:-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:12px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#9fb0c8; margin-bottom:10px; }
+  .topbar .right { display:flex; gap:8px; }
+  .topbar a { color:#4cc9f0; text-decoration:none; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px) { .pair { grid-template-columns:1fr; } }
+  .tile { background:#16213e; border-radius:12px; padding:12px; cursor:pointer; user-select:none; border:2px solid transparent; transition:border-color .12s, transform .06s; text-align:center; }
+  .tile:active { transform:scale(.985); }
+  .tile.lit { border-color:#2ecc71; }
+  .tile.dim { opacity:.4; }
+  .tile img { width:100%; aspect-ratio:1/1; object-fit:contain; background:#0a0e16; border-radius:8px; }
+  .tile .name { font-size:18px; font-weight:700; margin-top:8px; }
+  .tile .sub { font-size:11px; color:#7a8499; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .ctrlrow { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:14px; }
+  .ctrlrow button { min-height:48px; border:none; border-radius:8px; font-size:14px; font-weight:600; color:#fff; cursor:pointer; }
+  .btn-a { background:#3b7a8c; }
+  .btn-b { background:#3b7a8c; }
+  .btn-tie { background:#555e75; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .row2 button { min-height:42px; border:none; border-radius:8px; font-size:13px; font-weight:600; color:#fff; cursor:pointer; }
+  .btn-skip { background:#34405d; }
+  .btn-undo { background:#34405d; }
+  kbd { background:#0f1116; border:1px solid #2a3350; padding:1px 5px; border-radius:4px; font-size:10px; margin-left:4px; opacity:.7; }
+  .leaderboard { margin-top:16px; background:#11182b; border-radius:10px; }
+  .leaderboard summary { padding:10px 14px; cursor:pointer; font-size:14px; color:#b8c0d0; }
+  .leaderboard summary:hover { color:#e6e8ef; }
+  .lb-body { padding:10px 14px 14px; display:grid; grid-template-columns:1fr 1fr; gap:24px; font-size:12px; }
+  .lb-body h4 { margin:0 0 6px; color:#9fb0c8; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .lb-body ol { margin:0; padding-left:22px; line-height:1.55; color:#cfd5e3; }
+  .lb-body li { font-variant-numeric:tabular-nums; }
+  .lb-body li .r { color:#7a8499; margin-left:6px; font-size:11px; }
+  .toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#16213e; padding:8px 14px; border-radius:6px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .15s; }
+  .toast.on { opacity:1; }
+</style></head>
+<body><div class="wrap">
+  <div class="topbar">
+    <div id="status">loading…</div>
+    <div class="right"><a href="/">home</a> <a href="/annotate">annotate</a></div>
+  </div>
+
+  <div class="pair">
+    <div id="tile-a" class="tile" onclick="vote('a')">
+      <img id="img-a" alt="">
+      <div class="name" id="name-a">—</div>
+      <div class="sub" id="sub-a"></div>
+    </div>
+    <div id="tile-b" class="tile" onclick="vote('b')">
+      <img id="img-b" alt="">
+      <div class="name" id="name-b">—</div>
+      <div class="sub" id="sub-b"></div>
+    </div>
+  </div>
+
+  <div class="ctrlrow">
+    <button class="btn-a"   onclick="vote('a')">A wins<kbd>←</kbd></button>
+    <button class="btn-tie" onclick="vote('tie')">Tie<kbd>=</kbd></button>
+    <button class="btn-b"   onclick="vote('b')">B wins<kbd>→</kbd></button>
+  </div>
+  <div class="row2">
+    <button class="btn-skip" onclick="skip()">Skip<kbd>s</kbd></button>
+    <button class="btn-undo" onclick="undo()">Undo<kbd>u</kbd></button>
+  </div>
+
+  <details class="leaderboard">
+    <summary>Current leaderboard (top 10 + bottom 10)</summary>
+    <div class="lb-body">
+      <div><h4>Top 10</h4><ol id="lb-top"></ol></div>
+      <div><h4>Bottom 10</h4><ol id="lb-bot"></ol></div>
+    </div>
+  </details>
+
+  <div id="toast" class="toast"></div>
+</div>
+<script>
+let cur = null;       // current pair {a, b, ...}
+let nxt = null;       // prefetched next pair
+let inflight = false; // prevent double-submit
+
+async function jget(u){ const r = await fetch(u); return r.ok ? r.json() : null; }
+async function jsend(u, method, body){
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch(u, opts);
+  return r.ok ? r.json() : Promise.reject(await r.text());
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=> t.classList.remove('on'), 1400);
+}
+
+function paint(pair){
+  if (!pair) return;
+  document.getElementById('img-a').src  = pair.a.art_url || pair.a.sprite_url || '';
+  document.getElementById('img-b').src  = pair.b.art_url || pair.b.sprite_url || '';
+  document.getElementById('name-a').textContent = pair.a.name;
+  document.getElementById('name-b').textContent = pair.b.name;
+  document.getElementById('sub-a').textContent  = `rating ${pair.a.rating}  ·  n=${pair.a.n}`;
+  document.getElementById('sub-b').textContent  = `rating ${pair.b.rating}  ·  n=${pair.b.n}`;
+  document.getElementById('tile-a').classList.remove('lit','dim');
+  document.getElementById('tile-b').classList.remove('lit','dim');
+  document.getElementById('status').textContent =
+    `${pair.comparisons_total.toLocaleString()} comparisons · ${pair.roster_size} species · ${pair.seeded_count} seeded`;
+}
+
+async function prefetch(){
+  nxt = await jget('/likeability/next');
+  if (nxt) {
+    // Warm the browser cache for the next images.
+    if (nxt.a.art_url)  new Image().src = nxt.a.art_url;
+    if (nxt.b.art_url)  new Image().src = nxt.b.art_url;
+  }
+}
+
+async function advance(){
+  if (nxt) { cur = nxt; nxt = null; }
+  else { cur = await jget('/likeability/next'); }
+  paint(cur);
+  prefetch();
+}
+
+async function vote(which){
+  if (!cur || inflight) return;
+  inflight = true;
+  try {
+    let body;
+    if (which === 'tie') {
+      body = {tie:true, a_id: cur.a.id, b_id: cur.b.id};
+      document.getElementById('tile-a').classList.add('lit');
+      document.getElementById('tile-b').classList.add('lit');
+    } else if (which === 'a') {
+      body = {winner_id: cur.a.id, loser_id: cur.b.id};
+      document.getElementById('tile-a').classList.add('lit');
+      document.getElementById('tile-b').classList.add('dim');
+    } else {
+      body = {winner_id: cur.b.id, loser_id: cur.a.id};
+      document.getElementById('tile-b').classList.add('lit');
+      document.getElementById('tile-a').classList.add('dim');
+    }
+    const res = await jsend('/likeability/vote', 'POST', body);
+    if (res && res.k) toast(`K=${res.k}  Δ${res.winner.delta > 0 ? '+' : ''}${res.winner.delta}`);
+    await new Promise(r => setTimeout(r, 140));
+    await advance();
+    refreshLeaderboard();
+  } catch (e) {
+    toast('vote failed');
+    console.error(e);
+  } finally {
+    inflight = false;
+  }
+}
+
+async function skip(){ await advance(); }
+
+async function undo(){
+  if (inflight) return;
+  inflight = true;
+  try {
+    const res = await jsend('/likeability/vote', 'DELETE');
+    if (res && res.ok) toast('undone');
+    await advance();
+    refreshLeaderboard();
+  } catch (e) {
+    toast('nothing to undo');
+  } finally {
+    inflight = false;
+  }
+}
+
+async function refreshLeaderboard(){
+  const s = await jget('/likeability/stats');
+  if (!s) return;
+  const top = document.getElementById('lb-top');
+  const bot = document.getElementById('lb-bot');
+  top.innerHTML = s.top_50.slice(0, 10).map(x => `<li>${x.name}<span class="r">${x.rating}</span></li>`).join('');
+  bot.innerHTML = s.bottom_20.slice(-10).reverse().map(x => `<li>${x.name}<span class="r">${x.rating}</span></li>`).join('');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); vote('a'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); vote('b'); }
+  else if (e.key === '=' || e.key === '+') { e.preventDefault(); vote('tie'); }
+  else if (e.key === 's' || e.key === 'S') { e.preventDefault(); skip(); }
+  else if (e.key === 'u' || e.key === 'U') { e.preventDefault(); undo(); }
+});
+
+advance();
+refreshLeaderboard();
 </script></body></html>
 """
 
