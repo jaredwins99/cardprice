@@ -26,6 +26,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sqlalchemy import text as sa_text
 
 from cardprice.db.session import SessionLocal
+from cardprice.scrapers.eligibility import (
+    eligible_product_ids,
+    new_release_product_ids,
+)
 from cardprice.scrapers.tcgplayer_sales import DB_PATH, scrape_batch, _get_db
 from cardprice.scrapers.velocity import (
     compute_velocity,
@@ -37,7 +41,16 @@ from cardprice.scrapers.velocity import (
 log = logging.getLogger("daily_tcgplayer_scrape")
 
 
-def get_product_ids(limit: int = 500, threshold: float = EXPECTED_SALES_THRESHOLD) -> list[int]:
+def get_product_ids(
+    limit: int = 500,
+    threshold: float = EXPECTED_SALES_THRESHOLD,
+    *,
+    use_filter: bool = True,
+    lookback_days: int = 90,
+    min_lp_sales: int = 2,
+    min_price: float = 1.0,
+    grace_days: int = 90,
+) -> list[int]:
     """Get product IDs to scrape, prioritized by expected information gain.
 
     Replaces uniform stale-days rotation with velocity-aware scheduling:
@@ -75,6 +88,30 @@ def get_product_ids(limit: int = 500, threshold: float = EXPECTED_SALES_THRESHOL
         session.close()
 
     candidates = [(int(r[0]), float(r[1])) for r in result]
+    pre_filter_count = len(candidates)
+
+    # Apply the sub-dollar bulk filter (unless explicitly disabled).
+    # Keep products that either:
+    #   (a) have >= min_lp_sales LP sales >= $min_price in the lookback window, OR
+    #   (b) belong to a set released within the grace window (new-release pass).
+    if use_filter:
+        eligible = eligible_product_ids(
+            lookback_days=lookback_days,
+            min_lp_sales=min_lp_sales,
+            min_price=min_price,
+        )
+        grace = new_release_product_ids(grace_days=grace_days)
+        keep = eligible | grace
+        candidates = [(pid, price) for pid, price in candidates if pid in keep]
+        log.info(
+            "Eligibility filter: pre=%d, eligible_by_sales=%d, "
+            "new_release_grace=%d, post=%d (lookback=%dd, min_lp_sales=%d, "
+            "min_price=$%.2f, grace=%dd)",
+            pre_filter_count, len(eligible), len(grace), len(candidates),
+            lookback_days, min_lp_sales, min_price, grace_days,
+        )
+    else:
+        log.info("Eligibility filter DISABLED (--no-filter); candidates=%d", pre_filter_count)
 
     # Velocity + last-scraped timestamps from SQLite
     velocity = compute_velocity()
@@ -106,6 +143,16 @@ def main() -> None:
                         help="Stop after N consecutive errors (default: 10)")
     parser.add_argument("--workers", type=int, default=2,
                         help="Parallel browser instances (default: 2)")
+    parser.add_argument("--lookback-days", type=int, default=90,
+                        help="Sales lookback window for eligibility filter (default: 90)")
+    parser.add_argument("--min-lp-sales", type=int, default=2,
+                        help="Minimum LP sales above min-price in lookback (default: 2)")
+    parser.add_argument("--min-price", type=float, default=1.0,
+                        help="Minimum LP sale price to count toward eligibility (default: 1.0)")
+    parser.add_argument("--grace-days", type=int, default=90,
+                        help="New-release grace window in days (default: 90)")
+    parser.add_argument("--no-filter", action="store_true",
+                        help="Disable the sub-dollar bulk filter (legacy behaviour)")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -116,7 +163,15 @@ def main() -> None:
     start = datetime.now(timezone.utc)
     log.info("=== Daily TCGPlayer scrape starting ===")
 
-    product_ids = get_product_ids(limit=args.limit, threshold=args.threshold)
+    product_ids = get_product_ids(
+        limit=args.limit,
+        threshold=args.threshold,
+        use_filter=not args.no_filter,
+        lookback_days=args.lookback_days,
+        min_lp_sales=args.min_lp_sales,
+        min_price=args.min_price,
+        grace_days=args.grace_days,
+    )
     if not product_ids:
         log.info("No products to scrape, exiting")
         return

@@ -167,7 +167,7 @@ def _load_justtcg_cache():
         conn.close()
         for product_id, printing, condition, price in rows:
             short_cond = _JUSTTCG_COND_MAP.get(condition)
-            if not short_cond:
+            if not short_cond or price is None:
                 continue
             key = (product_id, printing)
             if key not in _justtcg_cache:
@@ -1242,6 +1242,18 @@ def _card_detail_payload(card_id: str) -> dict | None:
                 row = session.execute(
                     sql_text(_PRICE_LOOKUP_SQL), {"cid": f"{base_id}/normal"}
                 ).fetchone()
+            # Pull rarity before building condition_prices so the
+            # variant_to_printing() mapper can apply holo-only routing.
+            rarity_row = session.execute(sql_text(
+                "SELECT rarity FROM dim_cards WHERE card_id = :cid LIMIT 1"
+            ), {"cid": full_id}).fetchone()
+            if not rarity_row:
+                rarity_row = session.execute(sql_text(
+                    "SELECT rarity FROM dim_cards WHERE card_id LIKE :p LIMIT 1"
+                ), {"p": base_id + "/%"}).fetchone()
+            if rarity_row:
+                rarity = rarity_row[0]
+
             if row:
                 name = row.name
                 set_name = row.set_name
@@ -1253,17 +1265,8 @@ def _card_detail_payload(card_id: str) -> dict | None:
                     row.market_price,
                     tcg_product_id=tcg_product_id,
                     variant=variant_suffix,
+                    rarity=rarity,
                 )
-            # Separate query for rarity (not in the price SQL SELECT list).
-            rarity_row = session.execute(sql_text(
-                "SELECT rarity FROM dim_cards WHERE card_id = :cid LIMIT 1"
-            ), {"cid": full_id}).fetchone()
-            if not rarity_row:
-                rarity_row = session.execute(sql_text(
-                    "SELECT rarity FROM dim_cards WHERE card_id LIKE :p LIMIT 1"
-                ), {"p": base_id + "/%"}).fetchone()
-            if rarity_row:
-                rarity = rarity_row[0]
     except Exception as _e:
         logger.warning("card-info DB lookup failed for %s: %s", card_id, _e)
         return None
@@ -1732,58 +1735,237 @@ _PRICE_LOOKUP_BULK_SQL = """
 """
 
 
-def _build_condition_prices(nm_price, tcg_product_id=None, variant="normal"):
-    """Build condition_prices dict for all 5 raw conditions.
+# Path to the SQLite store of individual TCGPlayer sale rows.
+_TCGPLAYER_SALES_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "tcgplayer_sales.db"
 
-    First tries real per-condition prices from JustTCG (keyed by tcg_product_id
-    and printing/variant). Falls back to fixed multipliers from NM price.
+# Min count of sale rows (per condition × printing) before we trust the
+# averaged sales price over the JustTCG aggregate. Anything under this and a
+# 1-or-2-sale average is too noisy.
+_MIN_SALES_FOR_AVG = 3
 
-    Each condition entry has: price, source ("justtcg" or "estimated").
-    Estimated entries also include multiplier, range_low, range_high.
+# Rarities whose printings are intrinsically holofoil — substring match,
+# case-insensitive. Used by variant_to_printing() so that a request for
+# "normal" on e.g. base1-4 (Holo Rare Charizard) routes to "Holofoil".
+_HOLO_ONLY_RARITY_SUBSTRINGS = (
+    "holo", "illustration", "full art", "hyper", "rainbow", "gold",
+    "secret", "amazing", "radiant", "prism star", "shining", "shiny",
+    "break", "ex", "gx", "vmax", "vstar",
+    "special illustration", "ultra",
+)
 
-    Returns None if nm_price is falsy and no JustTCG data found.
+# Long-form condition name -> short code, in iteration order for queries.
+_CONDITION_LONG_TO_SHORT = (
+    ("Near Mint", "NM"),
+    ("Lightly Played", "LP"),
+    ("Moderately Played", "MP"),
+    ("Heavily Played", "HP"),
+    ("Damaged", "DMG"),
+)
+
+
+def _rarity_is_holo_only(rarity: str | None) -> bool:
+    """Detect rarities that are only printed as foil/holofoil.
+
+    Mirrors the holo-only check in _decompose_variants but lives next to the
+    printing mapper so the condition-price path doesn't reach across modules.
     """
-    # Try JustTCG real prices first
-    if tcg_product_id:
-        printing = _VARIANT_TO_JUSTTCG_PRINTING.get(variant or "normal", "Normal")
-        jtcg = _get_justtcg_prices(tcg_product_id, printing)
-        if jtcg:
-            cond_prices = {}
-            for cond in ("NM", "LP", "MP", "HP", "DMG"):
-                if cond in jtcg:
-                    cond_prices[cond] = {
-                        "price": round(jtcg[cond], 2),
-                        "source": "justtcg",
-                        "estimated": False,
-                    }
-            if len(cond_prices) >= 3:
-                # Fill any missing conditions with multipliers from NM
-                base = jtcg.get("NM") or nm_price
-                if base:
-                    from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
-                    base = float(base)
-                    for cond in ("NM", "LP", "MP", "HP", "DMG"):
-                        if cond not in cond_prices:
-                            mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
-                            cond_prices[cond] = {
-                                "price": round(base * mult, 2),
-                                "multiplier": mult,
-                                "range_low": round(base * ci_lo, 2),
-                                "range_high": round(base * ci_hi, 2),
-                                "source": "estimated",
-                                "estimated": True,
-                            }
-                return cond_prices
+    if not rarity:
+        return False
+    rlow = rarity.lower().strip()
+    # Single-letter substring "v" / "ex" / "gx" need word-boundary so
+    # "Common"/"Uncommon" don't get tagged.
+    tokens = rlow.replace("-", " ").split()
+    for kw in _HOLO_ONLY_RARITY_SUBSTRINGS:
+        if len(kw) <= 3:
+            if kw in tokens:
+                return True
+        else:
+            if kw in rlow:
+                return True
+    return False
 
-    # Fallback: fixed multipliers from NM price
+
+def variant_to_printing(variant: str | None, rarity: str | None = None) -> tuple[str, list[str]]:
+    """Map our variant strings to the printing label used in
+    `justtcg_prices.printing` and `fact_market_prices.subtype_name`.
+
+    Holo-only rarities (Rare Holo, Rare Holo EX, Full Art, etc.) imply
+    "Holofoil" when the user says "normal" — base-set Charizard has no
+    Normal printing, so we must route to the Holofoil.
+
+    Returns (best_printing, fallback_list). The fallback list is ordered
+    by likelihood and does NOT contain the primary. Callers should try
+    the primary first, then walk fallbacks.
+    """
+    v = (variant or "normal").lower()
+    holo_only = _rarity_is_holo_only(rarity)
+
+    if v in ("normal", ""):
+        if holo_only:
+            return "Holofoil", ["Normal", "Unlimited Holofoil", "Unlimited"]
+        return "Normal", ["Holofoil", "Unlimited", "Reverse Holofoil"]
+    if v in ("holofoil", "holo"):
+        return "Holofoil", ["Normal", "Unlimited Holofoil"]
+    if v in ("reverse_holofoil", "reverse_holo"):
+        return "Reverse Holofoil", ["Holofoil", "Normal"]
+    if v == "1st_edition":
+        # WOTC era: most "1st Edition" cards are also holofoil. Try the
+        # holofoil row first only when the rarity says so; otherwise prefer
+        # the bare-edition row.
+        if holo_only:
+            return "1st Edition Holofoil", ["1st Edition", "Holofoil", "Normal"]
+        return "1st Edition", ["1st Edition Holofoil", "Normal", "Holofoil"]
+    if v == "1st_edition_holofoil":
+        return "1st Edition Holofoil", ["1st Edition", "Holofoil"]
+    if v == "1st_edition_normal":
+        return "1st Edition", ["1st Edition Holofoil", "Normal"]
+    if v == "unlimited":
+        if holo_only:
+            return "Unlimited Holofoil", ["Unlimited", "Holofoil", "Normal"]
+        return "Unlimited", ["Unlimited Holofoil", "Normal", "Holofoil"]
+    if v == "unlimited_holofoil":
+        return "Unlimited Holofoil", ["Unlimited", "Holofoil"]
+    if v == "shadowless":
+        # Shadowless WOTC: priced like Unlimited holofoil for the Holo cards,
+        # Normal otherwise.
+        if holo_only:
+            return "Holofoil", ["Unlimited Holofoil", "Normal"]
+        return "Normal", ["Unlimited", "Holofoil"]
+    # Anything visibly foil — full art, gold, rainbow, alternate, secret,
+    # JP ball patterns, etc. — sells under the Holofoil printing label.
+    return "Holofoil", ["Normal", "Reverse Holofoil"]
+
+
+def _query_sales_avg_for_printing(tcg_product_id, printing):
+    """Return {short_cond: (avg_price, count)} for sales of (product, printing).
+
+    Read-only on data/tcgplayer_sales.db. Empty dict on any error or no DB.
+    """
+    out: dict[str, tuple[float, int]] = {}
+    if not tcg_product_id or not printing:
+        return out
+    if not _TCGPLAYER_SALES_DB_PATH.is_file():
+        return out
+    try:
+        import sqlite3
+        con = sqlite3.connect(f"file:{_TCGPLAYER_SALES_DB_PATH}?mode=ro", uri=True)
+        try:
+            for long_cond, short_cond in _CONDITION_LONG_TO_SHORT:
+                row = con.execute(
+                    "SELECT AVG(sale_price), COUNT(*) FROM tcgplayer_sales "
+                    "WHERE tcg_product_id=? AND condition=? AND printing=?",
+                    (tcg_product_id, long_cond, printing),
+                ).fetchone()
+                if not row:
+                    continue
+                avg, cnt = row[0], row[1]
+                if avg is not None and cnt:
+                    out[short_cond] = (float(avg), int(cnt))
+        finally:
+            con.close()
+    except Exception as e:
+        logger.debug("sales avg lookup failed for %s/%s: %s",
+                     tcg_product_id, printing, e)
+    return out
+
+
+def _build_condition_prices(nm_price, tcg_product_id=None, variant="normal", rarity=None):
+    """Build condition_prices dict for all 5 raw conditions, filtered by printing.
+
+    Priority per condition:
+      1. Average of `tcgplayer_sales.sale_price` where (product, condition,
+         printing) has >= _MIN_SALES_FOR_AVG rows. ("sales" source.)
+      2. JustTCG per-condition aggregate filtered by printing. ("justtcg" source.)
+      3. Fixed multiplier off the NM/variant base price. ("estimated" source.)
+
+    The `printing` is resolved by variant_to_printing(variant, rarity), with
+    fallback printings tried in order. When the requested printing yields
+    nothing for ANY source, we walk the fallback list and log a debug line.
+
+    Returns None if nm_price is falsy and no real data was found.
+    """
+    primary, fallbacks = variant_to_printing(variant, rarity)
+    printings_to_try = [primary, *fallbacks]
+    from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
+
+    chosen_printing = None
+    sales_map: dict[str, tuple[float, int]] = {}
+    jtcg: dict | None = None
+
+    if tcg_product_id:
+        for idx, pr in enumerate(printings_to_try):
+            sm = _query_sales_avg_for_printing(tcg_product_id, pr)
+            jt = _get_justtcg_prices(tcg_product_id, pr) or {}
+            # Did we get anything useful at all for this printing?
+            has_sales = any(cnt >= _MIN_SALES_FOR_AVG for _, cnt in sm.values())
+            has_jtcg = bool(jt) and len(jt) >= 3
+            if has_sales or has_jtcg:
+                if idx > 0:
+                    logger.debug(
+                        "condition_prices: variant=%s (rarity=%s) requested "
+                        "printing %r empty, falling back to %r",
+                        variant, rarity, primary, pr,
+                    )
+                chosen_printing = pr
+                sales_map = sm
+                jtcg = jt
+                break
+
+    cond_prices: dict = {}
+    if chosen_printing:
+        for _long, short in _CONDITION_LONG_TO_SHORT:
+            avg_cnt = sales_map.get(short)
+            if avg_cnt and avg_cnt[1] >= _MIN_SALES_FOR_AVG:
+                avg, cnt = avg_cnt
+                cond_prices[short] = {
+                    "price": round(avg, 2),
+                    "source": "sales",
+                    "estimated": False,
+                    "sale_count": cnt,
+                    "printing": chosen_printing,
+                }
+            elif jtcg and short in jtcg:
+                cond_prices[short] = {
+                    "price": round(float(jtcg[short]), 2),
+                    "source": "justtcg",
+                    "estimated": False,
+                    "printing": chosen_printing,
+                }
+
+    if cond_prices and len(cond_prices) >= 3:
+        # Fill any missing conditions with multipliers off whatever NM-ish
+        # base we have for the chosen printing.
+        base = None
+        if "NM" in cond_prices:
+            base = cond_prices["NM"]["price"]
+        elif jtcg and "NM" in jtcg:
+            base = float(jtcg["NM"])
+        elif nm_price:
+            base = float(nm_price)
+        if base:
+            for _long, short in _CONDITION_LONG_TO_SHORT:
+                if short not in cond_prices:
+                    mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[short]
+                    cond_prices[short] = {
+                        "price": round(base * mult, 2),
+                        "multiplier": mult,
+                        "range_low": round(base * ci_lo, 2),
+                        "range_high": round(base * ci_hi, 2),
+                        "source": "estimated",
+                        "estimated": True,
+                        "printing": chosen_printing,
+                    }
+        return cond_prices
+
+    # Final fallback: fixed multipliers off the caller's nm_price. No printing
+    # tag — caller's nm_price is whatever the LATERAL price-lookup picked.
     if not nm_price:
         return None
-    from cardprice.models.condition_pricing import CONDITION_MULTIPLIERS_WITH_CI
     nm = float(nm_price)
     cond_prices = {}
-    for cond in ("NM", "LP", "MP", "HP", "DMG"):
-        mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[cond]
-        cond_prices[cond] = {
+    for _long, short in _CONDITION_LONG_TO_SHORT:
+        mult, ci_lo, ci_hi = CONDITION_MULTIPLIERS_WITH_CI[short]
+        cond_prices[short] = {
             "price": round(nm * mult, 2),
             "multiplier": mult,
             "range_low": round(nm * ci_lo, 2),
