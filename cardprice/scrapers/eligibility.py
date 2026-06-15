@@ -7,19 +7,19 @@ subset of `tcg_product_id`s that are *worth* scraping today, based on
 recent sale history in `data/tcgplayer_sales.db`.
 
 Filter rule (user-specified, final):
-    Exclude bulk. A card is bulk iff it's effectively sub-$1 in every
-    observed signal. Include iff ANY of:
-      (a) >= `min_lp_sales` sales strictly above `$min_price` in any
-          condition within `lookback_days` (the card has trades >$1),
-      (b) the product's TCGCSV-aggregate market_price > `$min_price`
-          in Postgres `fact_market_prices` (catches high-value chase
-          cards that trade rarely; without this clause, a $2400 Treecko
-          Star that hasn't traded in 90 days gets wrongly excluded), OR
-      (c) the product has zero sales in the entire window (no data to
-          filter against; give it a chance).
-    NM-at-exactly-$1 cards are excluded because the threshold is
-    strict-greater-than (a card "at $1 NM but never hitting $1 LP" is
-    bulk by the user's definition).
+    Exclude bulk. NM is the price ceiling -- if a card's ONLY signal
+    above $1 is in NM, the typical played copy is sub-$1 and the card
+    is effectively bulk. Real value shows up when LP/MP/HP/DMG also
+    clear the threshold. Include iff ANY of:
+      (a) >= `min_lp_sales` sales strictly above `$min_price` in a
+          NON-NM condition (LP/MP/HP/DMG) within `lookback_days`,
+      (b) MAX(market_price) across subtypes > `$chase_market_price`
+          (default $5; catches chase cards like $2,400 Treecko Star
+          that trade rarely and might only show in NM when they do --
+          the high threshold keeps borderline-bulk $1.20 commons out
+          of this clause), OR
+      (c) zero sales in window (no data to filter against, give it a
+          chance).
 
 Plus a new-release grace window: products whose set's release_date is
 within `grace_days` days from the Postgres `dim_sets` table are always
@@ -43,6 +43,7 @@ def eligible_product_ids(
     lookback_days: int = 90,
     min_lp_sales: int = 2,
     min_price: float = 1.0,
+    chase_market_price: float = 5.0,
 ) -> set[int]:
     """Return scrape-eligible tcg_product_ids per the final rule.
 
@@ -68,12 +69,15 @@ def eligible_product_ids(
     try:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
 
-        # (a) ANY condition has >= min_lp_sales sales strictly above min_price.
+        # (a) Some NON-NM condition has >= min_lp_sales sales strictly
+        # above min_price. NM is the price ceiling: NM-only-above-$1
+        # means the typical played copy is sub-$1 (i.e. bulk).
         any_qual = {int(r[0]) for r in conn.execute(
             """
             SELECT tcg_product_id FROM tcgplayer_sales
             WHERE sale_price > ?
               AND sale_date >= ?
+              AND condition <> 'Near Mint'
             GROUP BY tcg_product_id
             HAVING COUNT(*) >= ?
             """,
@@ -97,10 +101,15 @@ def eligible_product_ids(
             from cardprice.db.session import SessionLocal
             session = SessionLocal()
             try:
-                # Use the MAX market_price across all subtypes for each
-                # tcg_product_id (cards have Normal + Reverse Holofoil etc.
-                # rows; the rare/holo printing is what actually drives the
-                # "is this card worth >$1" decision).
+                # Chase-card escape: MAX(market_price) across subtypes
+                # > chase_market_price ($5 default). Higher threshold than
+                # min_price ($1) because clause (a) already catches anything
+                # with LP/MP/HP/DMG sales above $1. Clause (b) is here only
+                # to keep rare-trading high-value cards (NM-only sellers like
+                # $2400 Treecko Star) eligible. At >$5 a card's LP would
+                # normally clear $1 too, so anything in this clause but not
+                # in (a) is a card with sparse recent sales -- exactly the
+                # case we want to still track.
                 rows = session.execute(
                     sa_text(
                         """
@@ -112,10 +121,10 @@ def eligible_product_ids(
                             FROM fact_market_prices f
                             WHERE f.tcg_product_id = dc.tcg_product_id
                               AND f.market_price IS NOT NULL
-                          ) > :min_price
+                          ) > :chase_market_price
                         """
                     ),
-                    {"min_price": min_price},
+                    {"chase_market_price": chase_market_price},
                 ).fetchall()
                 market_qual = {int(r[0]) for r in rows}
             finally:
