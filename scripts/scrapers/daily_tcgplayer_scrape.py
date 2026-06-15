@@ -47,8 +47,11 @@ def get_product_ids(
     *,
     use_filter: bool = True,
     lookback_days: int = 90,
-    min_lp_sales: int = 2,
-    min_price: float = 1.0,
+    non_nm_min_sales: int = 1,
+    non_nm_min_price: float = 1.0,
+    nm_min_sales: int = 2,
+    nm_min_price: float = 5.0,
+    chase_market_price: float = 5.0,
     grace_days: int = 90,
 ) -> list[int]:
     """Get product IDs to scrape, prioritized by expected information gain.
@@ -90,25 +93,28 @@ def get_product_ids(
     candidates = [(int(r[0]), float(r[1])) for r in result]
     pre_filter_count = len(candidates)
 
-    # Apply the sub-dollar bulk filter (unless explicitly disabled).
-    # Keep products that either:
-    #   (a) have >= min_lp_sales LP sales >= $min_price in the lookback window, OR
-    #   (b) belong to a set released within the grace window (new-release pass).
+    # Apply the bulk filter (unless explicitly disabled). Dual threshold:
+    # non-NM sales >$1 (1+), or NM sales >$5 (2+), or market_price >$5
+    # chase escape, or zero history. See cardprice.scrapers.eligibility.
     if use_filter:
         eligible = eligible_product_ids(
             lookback_days=lookback_days,
-            min_lp_sales=min_lp_sales,
-            min_price=min_price,
+            non_nm_min_sales=non_nm_min_sales,
+            non_nm_min_price=non_nm_min_price,
+            nm_min_sales=nm_min_sales,
+            nm_min_price=nm_min_price,
+            chase_market_price=chase_market_price,
         )
         grace = new_release_product_ids(grace_days=grace_days)
         keep = eligible | grace
         candidates = [(pid, price) for pid, price in candidates if pid in keep]
         log.info(
             "Eligibility filter: pre=%d, eligible_by_sales=%d, "
-            "new_release_grace=%d, post=%d (lookback=%dd, min_lp_sales=%d, "
-            "min_price=$%.2f, grace=%dd)",
+            "new_release_grace=%d, post=%d "
+            "(lookback=%dd, non_nm>=%d@$%.2f, nm>=%d@$%.2f, chase_market>$%.2f, grace=%dd)",
             pre_filter_count, len(eligible), len(grace), len(candidates),
-            lookback_days, min_lp_sales, min_price, grace_days,
+            lookback_days, non_nm_min_sales, non_nm_min_price,
+            nm_min_sales, nm_min_price, chase_market_price, grace_days,
         )
     else:
         log.info("Eligibility filter DISABLED (--no-filter); candidates=%d", pre_filter_count)
@@ -145,10 +151,16 @@ def main() -> None:
                         help="Parallel browser instances (default: 2)")
     parser.add_argument("--lookback-days", type=int, default=90,
                         help="Sales lookback window for eligibility filter (default: 90)")
-    parser.add_argument("--min-lp-sales", type=int, default=2,
-                        help="Minimum LP sales above min-price in lookback (default: 2)")
-    parser.add_argument("--min-price", type=float, default=1.0,
-                        help="Minimum LP sale price to count toward eligibility (default: 1.0)")
+    parser.add_argument("--non-nm-min-sales", type=int, default=1,
+                        help="Minimum non-NM sales above non-NM-min-price (default: 1)")
+    parser.add_argument("--non-nm-min-price", type=float, default=1.0,
+                        help="Minimum non-NM sale price to count (default: 1.0)")
+    parser.add_argument("--nm-min-sales", type=int, default=2,
+                        help="Minimum NM sales above nm-min-price (default: 2)")
+    parser.add_argument("--nm-min-price", type=float, default=5.0,
+                        help="Minimum NM sale price to count (default: 5.0)")
+    parser.add_argument("--chase-market-price", type=float, default=5.0,
+                        help="MAX(market_price)>this is the chase-card escape (default: 5.0)")
     parser.add_argument("--grace-days", type=int, default=90,
                         help="New-release grace window in days (default: 90)")
     parser.add_argument("--no-filter", action="store_true",
@@ -168,8 +180,11 @@ def main() -> None:
         threshold=args.threshold,
         use_filter=not args.no_filter,
         lookback_days=args.lookback_days,
-        min_lp_sales=args.min_lp_sales,
-        min_price=args.min_price,
+        non_nm_min_sales=args.non_nm_min_sales,
+        non_nm_min_price=args.non_nm_min_price,
+        nm_min_sales=args.nm_min_sales,
+        nm_min_price=args.nm_min_price,
+        chase_market_price=args.chase_market_price,
         grace_days=args.grace_days,
     )
     if not product_ids:

@@ -7,19 +7,20 @@ subset of `tcg_product_id`s that are *worth* scraping today, based on
 recent sale history in `data/tcgplayer_sales.db`.
 
 Filter rule (user-specified, final):
-    Exclude bulk. NM is the price ceiling -- if a card's ONLY signal
-    above $1 is in NM, the typical played copy is sub-$1 and the card
-    is effectively bulk. Real value shows up when LP/MP/HP/DMG also
-    clear the threshold. Include iff ANY of:
-      (a) >= `min_lp_sales` sales strictly above `$min_price` in a
-          NON-NM condition (LP/MP/HP/DMG) within `lookback_days`,
-      (b) MAX(market_price) across subtypes > `$chase_market_price`
-          (default $5; catches chase cards like $2,400 Treecko Star
-          that trade rarely and might only show in NM when they do --
-          the high threshold keeps borderline-bulk $1.20 commons out
-          of this clause), OR
-      (c) zero sales in window (no data to filter against, give it a
-          chance).
+    Exclude bulk. NM is the price ceiling -- a card trading only as NM
+    near $1 is functionally bulk because most copies aren't NM. But a
+    card trading only as NM at $5+ (multiple times) is genuinely valued.
+    So we use a DUAL THRESHOLD:
+      - Non-NM: just 1 sale above $1 is enough (LP/MP/HP/DMG above $1
+        proves real value across the condition range).
+      - NM:     2 sales above $5 needed (higher count AND higher dollar
+        amount, because NM-only doesn't generalize to played copies).
+    Include iff ANY of:
+      (a1) >= `non_nm_min_sales` non-NM sales > `$non_nm_min_price`,
+      (a2) >= `nm_min_sales` NM sales > `$nm_min_price`,
+      (b)  MAX(market_price) across subtypes > `$chase_market_price`
+           (chase-card escape for rare-trading high-value cards), OR
+      (c)  zero sales in window (no data, give it a chance).
 
 Plus a new-release grace window: products whose set's release_date is
 within `grace_days` days from the Postgres `dim_sets` table are always
@@ -41,23 +42,25 @@ _SALES_DB = Path(__file__).resolve().parents[2] / "data" / "tcgplayer_sales.db"
 def eligible_product_ids(
     conn: sqlite3.Connection | None = None,
     lookback_days: int = 90,
-    min_lp_sales: int = 2,
-    min_price: float = 1.0,
+    non_nm_min_sales: int = 1,
+    non_nm_min_price: float = 1.0,
+    nm_min_sales: int = 2,
+    nm_min_price: float = 5.0,
     chase_market_price: float = 5.0,
 ) -> set[int]:
-    """Return scrape-eligible tcg_product_ids per the final rule.
+    """Return scrape-eligible tcg_product_ids per the dual-threshold rule.
 
-    Eligible iff (within `lookback_days`):
-      (a) ANY condition has >= `min_lp_sales` sales strictly above
-          `$min_price` (the card has trades >$1), OR
-      (b) TCGCSV-aggregate market_price > `$min_price` (catches chase
-          cards that trade rarely; pulled from Postgres), OR
-      (c) zero sales in window (no data to filter against; give it a
-          chance).
+    Eligible iff (within `lookback_days`) ANY of:
+      (a1) >= `non_nm_min_sales` sales > `$non_nm_min_price` in any
+           non-NM condition (LP/MP/HP/DMG),
+      (a2) >= `nm_min_sales` NM sales > `$nm_min_price`,
+      (b)  MAX(market_price) across subtypes > `$chase_market_price`,
+      (c)  zero sales in window.
 
-    "Bulk" cards (no sales >$1 anywhere, no market_price >$1, but at
-    least one sub-$1 sale) are excluded. Threshold is strict-greater-
-    than. Reads SQLite (sales) + Postgres (market_price).
+    The dual threshold catches both kinds of valuable cards: ones with
+    real played-copy value (non-NM evidence) and ones that trade only
+    as preserved NM but at higher dollar amounts.
+    Reads SQLite (sales) + Postgres (market_price).
     """
     own_conn = False
     if conn is None:
@@ -69,10 +72,9 @@ def eligible_product_ids(
     try:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
 
-        # (a) Some NON-NM condition has >= min_lp_sales sales strictly
-        # above min_price. NM is the price ceiling: NM-only-above-$1
-        # means the typical played copy is sub-$1 (i.e. bulk).
-        any_qual = {int(r[0]) for r in conn.execute(
+        # (a1) Non-NM condition has >= non_nm_min_sales sales strictly
+        # above non_nm_min_price (default: 1 LP-or-worse sale >$1).
+        non_nm_qual = {int(r[0]) for r in conn.execute(
             """
             SELECT tcg_product_id FROM tcgplayer_sales
             WHERE sale_price > ?
@@ -81,8 +83,25 @@ def eligible_product_ids(
             GROUP BY tcg_product_id
             HAVING COUNT(*) >= ?
             """,
-            (min_price, cutoff, min_lp_sales),
+            (non_nm_min_price, cutoff, non_nm_min_sales),
         )}
+
+        # (a2) NM has >= nm_min_sales sales strictly above nm_min_price
+        # (default: 2 NM sales >$5). Catches genuinely valuable cards that
+        # trade only in preserved NM but at meaningful dollar amounts.
+        nm_qual = {int(r[0]) for r in conn.execute(
+            """
+            SELECT tcg_product_id FROM tcgplayer_sales
+            WHERE sale_price > ?
+              AND sale_date >= ?
+              AND condition = 'Near Mint'
+            GROUP BY tcg_product_id
+            HAVING COUNT(*) >= ?
+            """,
+            (nm_min_price, cutoff, nm_min_sales),
+        )}
+
+        any_qual = non_nm_qual | nm_qual
 
         # (c) zero-history products: in scrape_log but no sales in window.
         ever_seen = {int(r[0]) for r in conn.execute(
@@ -134,8 +153,10 @@ def eligible_product_ids(
 
         result = any_qual | market_qual | no_history
         logger.debug(
-            "eligibility: any_qual=%d, market_qual=%d, no_history=%d, total=%d",
-            len(any_qual), len(market_qual), len(no_history), len(result),
+            "eligibility: non_nm_qual=%d, nm_qual=%d, market_qual=%d, "
+            "no_history=%d, total=%d",
+            len(non_nm_qual), len(nm_qual), len(market_qual),
+            len(no_history), len(result),
         )
         return result
     finally:

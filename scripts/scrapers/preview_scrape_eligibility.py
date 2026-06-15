@@ -58,8 +58,11 @@ def _fetch_catalog() -> list[tuple[int, str, float]]:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--lookback-days", type=int, default=90)
-    p.add_argument("--min-lp-sales", type=int, default=2)
-    p.add_argument("--min-price", type=float, default=1.0)
+    p.add_argument("--non-nm-min-sales", type=int, default=1)
+    p.add_argument("--non-nm-min-price", type=float, default=1.0)
+    p.add_argument("--nm-min-sales", type=int, default=2)
+    p.add_argument("--nm-min-price", type=float, default=5.0)
+    p.add_argument("--chase-market-price", type=float, default=5.0)
     p.add_argument("--grace-days", type=int, default=90)
     p.add_argument("--legacy-budget", type=int, default=5000,
                    help="Compare savings vs this baseline scrape volume")
@@ -73,8 +76,11 @@ def main() -> None:
 
     eligible = eligible_product_ids(
         lookback_days=args.lookback_days,
-        min_lp_sales=args.min_lp_sales,
-        min_price=args.min_price,
+        non_nm_min_sales=args.non_nm_min_sales,
+        non_nm_min_price=args.non_nm_min_price,
+        nm_min_sales=args.nm_min_sales,
+        nm_min_price=args.nm_min_price,
+        chase_market_price=args.chase_market_price,
     )
     grace = new_release_product_ids(grace_days=args.grace_days)
     eligible_in_catalog = eligible & set(catalog_by_pid)
@@ -83,8 +89,9 @@ def main() -> None:
     excluded = set(catalog_by_pid) - combined
 
     print(f"Filter params: lookback={args.lookback_days}d, "
-          f"min_lp_sales={args.min_lp_sales}, "
-          f"min_price=${args.min_price:.2f}, "
+          f"non_nm>={args.non_nm_min_sales}@${args.non_nm_min_price:.2f}, "
+          f"nm>={args.nm_min_sales}@${args.nm_min_price:.2f}, "
+          f"chase_market>${args.chase_market_price:.2f}, "
           f"grace={args.grace_days}d")
     print(f"")
     print(f"Catalog (dim_cards w/ tcg_product_id):  {total:>7}")
