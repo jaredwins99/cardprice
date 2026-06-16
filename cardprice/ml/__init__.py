@@ -6083,7 +6083,9 @@ def _identify_card_worker(image_path, precomputed_ocr, dino_embedding_list=None)
 def identify_page_v2(card_image_paths, session=None,
                      detect_variants=False,
                      use_claude_vision_fallback=False,
-                     correct_perspective=False):
+                     correct_perspective=False,
+                     page_img=None,
+                     per_card_corners=None):
     """V2 page identification: runs identify_card_v2 on each card, then
     applies page context reranking for low-confidence results.
 

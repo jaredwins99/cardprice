@@ -151,6 +151,70 @@ def extract_embedding_batch(image_paths: list[str | Path]) -> list[np.ndarray]:
     return results
 
 
+def extract_region_embeddings_batch(
+    image_paths: list[str],
+    regions: list[tuple[float, float, float, float]],
+) -> list[list[np.ndarray]]:
+    """Embed fractional sub-regions of each image with DINOv2.
+
+    Each region is (x0, y0, x1, y1) in [0, 1] normalised image coords.
+    For N images x K regions, runs a single DINOv2 forward pass on N*K
+    crops, returning [[emb_r0, emb_r1, ...] for each image] (each emb
+    is a 768-d L2-normalised float32 vector).
+
+    Per-image-list shape: missing regions (e.g. unreadable image) get
+    a zero vector so downstream indexing stays consistent.
+    """
+    import torch
+    from PIL import Image
+
+    if not image_paths or not regions:
+        return [[np.zeros(768, dtype=np.float32) for _ in regions]
+                for _ in image_paths]
+
+    model, device = _load_model()
+    transform = _get_transform()
+
+    tensors = []
+    slot_index: list[tuple[int, int]] = []  # (img_idx, region_idx)
+    for i, p in enumerate(image_paths):
+        try:
+            img = Image.open(p).convert("RGB")
+        except Exception:
+            logger.warning("Region embed: failed to load %s", p)
+            continue
+        w, h = img.size
+        for j, (x0f, y0f, x1f, y1f) in enumerate(regions):
+            x0, y0 = int(max(0, min(1, x0f)) * w), int(max(0, min(1, y0f)) * h)
+            x1, y1 = int(max(0, min(1, x1f)) * w), int(max(0, min(1, y1f)) * h)
+            if x1 <= x0 or y1 <= y0:
+                continue
+            try:
+                crop = img.crop((x0, y0, x1, y1))
+                tensors.append(transform(crop))
+                slot_index.append((i, j))
+            except Exception:
+                continue
+
+    results: list[list[np.ndarray]] = [
+        [np.zeros(768, dtype=np.float32) for _ in regions]
+        for _ in image_paths
+    ]
+    if not tensors:
+        return results
+
+    batch = torch.stack(tensors).to(device)
+    with torch.no_grad():
+        embeddings = model(batch).cpu().numpy().astype(np.float32)
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    embeddings /= norms
+
+    for k, (i, j) in enumerate(slot_index):
+        results[i][j] = embeddings[k]
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Reference index building
 # ---------------------------------------------------------------------------
