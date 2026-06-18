@@ -1,18 +1,23 @@
 # Methodology: Set Print-Population Estimation
 
-> This document is the authoritative spec for `scripts/combine.py`. Every magic
-> constant in the model is listed here and flagged as an estimate. The model is
-> **defensible on relatives, order-of-magnitude on absolutes** — see the
-> "Honesty" section at the bottom and `results.md` for the realised numbers.
+> This document is the authoritative spec for `scripts/combine.py` (v2 model).
+> Every magic constant in the model is listed here and flagged as an estimate.
+> The model is **defensible on relatives, order-of-magnitude on absolutes** —
+> see the "Honesty" section at the bottom and `results.md` for the realised
+> numbers.
 
-Read `prior_art.md` first. The core idea (method #5 with #1's popularity bias
-divided out) is:
+Read `prior_art.md` first. The core idea (method #5 from prior_art, with the
+grading-rate bias modelled out) is:
 
 ```
-relative_population(set)  ∝  numerator(set) × pull_denominator(set) / popularity(set)
+relative_population(set)  ∝  numerator(set) × pull_denominator(set)
+                              / predicted_grading_rate(set)
 ```
 
-The three factors are built independently below.
+where the divisor is now a **mechanistic grading-rate model** (§3), not the v1
+Google-Trends popularity composite. The three factors are built independently
+below; §3 replaces v1's popularity divisor entirely. Trends, pageviews and
+sales velocity move to validation-only (§6).
 
 ---
 
@@ -126,50 +131,120 @@ biggest lever on cross-era results and is entirely estimates** — flagged
 
 ---
 
-## 3. Popularity divisor — exogenous demand
+## 3. Grading-rate divisor — mechanistic model (v2)
 
-Goal: divide out the grading-rate-vs-popularity bias. Popularity must be
-**exogenous** to print count.
+Goal: divide out the *grading-rate* bias, i.e. how big a fraction of each set's
+printed cards actually end up in PSA's slabs. This is what v1's popularity
+divisor was *trying* to capture, but Google Trends is blind to the dominant
+dynamic: **grading rate is super-linear in chase-card value and varies by
+era**. A $3 K vintage holo gets graded ~10-20× harder than a $100 modern SIR
+regardless of who's searching for the set.
 
-Inputs and weights:
+### 3.1 The model
 
-| Signal                         | Weight | Rationale |
-|--------------------------------|--------|-----------|
-| Google Trends `interest_rescaled` | 1.0  | Primary. Search interest is demand-side, independent of how many were printed. |
-| Wikipedia pageviews            | 0.0    | Near-useless here: only Base Set resolves to a real *set* article; 152/171 fall back to a shared **mascot card** article (e.g. many sets all map to "Pikachu"), so pageviews measure the mascot, not the set. Included in output for transparency, weighted 0. |
-| Sales velocity                 | —      | **ENDOGENOUS** (sales volume rises with population). NOT in the divisor. Reserved for validation (§6). |
-
-**Composite.** We log-transform Trends (`log1p`) to compress its heavy right
-tail (Base=100 dwarfs the median), then z-score across sets:
+We model the per-set grading rate (graded chase copies per printed card) as
 
 ```
-pop_z(set)        = zscore( log1p(interest_rescaled) )      # Trends
-popularity(set)   = exp( W_TRENDS * pop_z + W_PAGEVIEWS * pageview_z )
+log( grading_rate(set) ) = alpha[era]
+                        + beta_p * log( chase_value(set) / $100 )
+                        + beta_y * log( years_since_release(set) / 10y )
 ```
 
-with `W_TRENDS = 1.0`, `W_PAGEVIEWS = 0.0`. Exponentiating the weighted z keeps
-`popularity` strictly positive and multiplicative (a set 1σ above mean Trends
-gets ~e× the divisor). `interest_rescaled == 0` is treated as a real (very low)
-popularity, not missing.
+with `chase_value = mean(chase prices)` from `data/chase_cards.json`,
+`years_since_release` from `dim_sets.release_date`, and `era` from the same
+buckets as §2.
 
-**Imputation.** A set with `interest_rescaled == null` (Trends not yet
-collected) gets the **era-median** `pop_z` and is flagged
-`popularity_imputed: true`. The script is fully re-runnable: when the background
-Trends fill completes, re-running picks up the new non-null values
-automatically. If a set has no era peers with Trends either, it falls back to
-the global-median `pop_z`.
+### 3.2 Fitted coefficients (commit `data/grading_rate_model.json`)
+
+Both slopes are **pinned to priors** (not fit) because of severe data sparsity
+— see §3.3:
+
+| coefficient | value | source |
+|-------------|------:|--------|
+| `beta_p`    | 0.5   | Prior: sqrt scaling of grading rate in chase value. Consistent with PSA value-driven grading dynamics; conservative. |
+| `beta_y`    | 0.0   | Prior: age effect absorbed into era intercept (eras already map to date windows). Kept as a parameter for future refinement. |
+
+Per-era intercepts `alpha[era]` (the actual fitted values; log grading rate
+at chase_value = $100):
+
+| era    | alpha   | baseline rate |
+|--------|--------:|--------------:|
+| WOTC   | −12.421 | 4.0e-06 |
+| ECARD  | −11.520 | 9.9e-06 |
+| EX     | −10.700 | 2.3e-05 |
+| DP     | −10.092 | 4.1e-05 |
+| HGSS   |  −9.575 | 6.9e-05 |
+| BW     |  −9.103 | 1.1e-04 |
+| XY     |  −8.667 | 1.7e-04 |
+| SM     |  −8.526 | 2.0e-04 |
+| SWSH   |  −8.469 | 2.1e-04 |
+| SV     |  −8.592 | 1.9e-04 |
+
+Median predicted rate at *actual* chase values (across each era's sets) is
+slightly different because real chase values vary; see `data/grading_rate_model.json`
+`per_era.median_predicted_grading_rate` for the per-era median rates.
+
+### 3.3 How alphas are fit
+
+`scripts/fit_grading_rate.py` minimises (via L-BFGS-B):
+
+```
+L = sum_a w_a * ( log_rate_predicted(a) - log_rate_observed(a) )^2     # anchor terms
+  + W_TPC * sum_cp ( log(sum_predicted_pop_in_window(cp)) - log(cp.value) )^2
+  + W_SMOOTH * sum_i ( alpha[i+1] - alpha[i] )^2                       # era smoothness
+  + W_RIDGE * sum_i alpha[i]^2                                          # mild ridge
+```
+
+with weights `w_a ∈ {official=4.0, well-sourced-estimate=2.0,
+hobbyist-guess=0.5}` per anchor credibility, `W_TPC = 8.0`,
+`W_SMOOTH = 0.5`, `W_RIDGE = 0.001`. The TPC checkpoints (23.6 B 2017 → 75 B
+2025) provide the cross-era global constraints; per-set anchors constrain
+their specific era's alpha.
+
+**Per-set anchor exclusions** (see `model.anchor_exclusions` in the JSON):
+
+- `print_variant ∈ {1st_edition, shadowless}` — anchor targets a variant
+  subset, but `mean_chase_psa` is reported across all variants of the set, so
+  the implied rate is biased upward.
+- `set_id == "neo3"` — the 12 B figure is a cumulative checkpoint context, not
+  Neo Revelation's print run.
+
+After exclusions, **8 per-set anchors** remain (7 WOTC + 1 EX). Other eras
+(ECARD, DP, HGSS, BW, XY, SM, SWSH, SV) have **zero** per-set anchors; their
+intercepts come from TPC windowed sums + smoothness.
+
+### 3.4 Why we PIN beta_p instead of fitting
+
+With 7 WOTC anchors and 1 EX anchor, attempting to also fit `beta_p` either
+overfits or returns a *negative* coefficient (more value → less grading),
+which is physically wrong. Per `prompt rules` we refuse to ship a backwards
+model. Pinning `beta_p = 0.5` is a conservative documented prior; the run
+script raises if `beta_p <= 0`. The model is fully reproducible from the JSON.
+
+### 3.5 What replaces what
+
+| v1                                  | v2                                              |
+|-------------------------------------|-------------------------------------------------|
+| Google Trends z-score → exp() composite divisor | `predicted_grading_rate` from the mechanistic model |
+| Trends had weight 1.0 in divisor    | Trends/pageviews/sales: VALIDATION only (§6)    |
+| `popularity_imputed` flag           | replaced by `no_grading_rate` (only if chase value or PSA pop missing) |
 
 ---
 
 ## 4. Relative population (primary deliverable)
 
 ```
-rel_pop_score(set) = numerator(set) × pull_denominator(set) / popularity(set)
+rel_pop_score(set) = numerator(set) × pull_denominator(set)
+                     / predicted_grading_rate(set)
 ```
 
 This is a unitless cross-set score. Ratios between sets are the meaningful
 output (set A's `rel_pop` 3× set B's ⇒ ~3× the estimated print population). We
 additionally report it normalised so the max set = 100 for readability.
+
+Note that `numerator × pull_denominator / predicted_grading_rate` is precisely
+the un-scaled implied print run from the anchor equation — the post-fit scale
+to TPC 75 B is therefore close to 1.0 (currently ~1.08).
 
 ---
 
@@ -203,34 +278,52 @@ These bands are honest order-of-magnitude rails, not confidence intervals.
 
 **Anchor cross-check.** For each non-GLOBAL anchor with a per-set
 `total_print_run` `value_mid`, report `estimate/anchor` ratio (sensitivity
-table in `results.md`). We do NOT fit to these (most are `hobbyist-guess`); they
-are a sanity rail per the prior-art recommendation.
+table in `results.md`). In v2 the grading-rate model is *fit jointly* against
+these per-set anchors (weighted by credibility) AND the TPC checkpoints, so
+the ratios are a fit-quality measure rather than a fully held-out check.
+The exclusions in §3.3 still apply: 1st-Ed/Shadowless and `neo3` anchors are
+reported but excluded from the fit and from the "within Nx" tally.
 
 ---
 
-## 6. Validation — Spearman vs sales velocity
+## 6. Validation — Spearman vs held-out signals
 
-Sales velocity (`set_sales_velocity.json`, `sales_per_month`) is endogenous, so
-we held it out of the model. We compute **Spearman rank correlation** between
-`rel_pop_score` and `sales_per_month` across scored sets (implemented by hand if
-scipy absent). Expectation: **positive but < 1** — more printed ⇒ more supply ⇒
-more sales, but popularity/age/price break the tie, so it must not be 1.0. Gross
-disagreement (≈0 or negative) would flag a bug. We report the coefficient and
-the biggest rank outliers with plausible explanations.
+Three signals are held out of the v2 divisor and become Spearman cross-checks:
+
+| signal | source | role |
+|--------|--------|------|
+| sales velocity (`sales_per_month`) | `data/set_sales_velocity.json` (TCGPlayer) | Endogenous: more print → more supply → more sales. Expect positive but <1. |
+| Google Trends interest | `data/set_trends.json` | Demand-side, exogenous to print. Expect positive: popular sets get printed in larger runs. |
+| Wikipedia pageviews | `data/set_pageviews.json` | Mostly shared-mascot articles (152/171 sets); expect weak/noisy. Reported but not relied on. |
+
+A value near 0 or negative would flag a bug; ~1.0 would mean we just re-derived
+the held-out signal. We report each ρ and the biggest rank disagreements vs
+sales (since sales has the most coverage). Implemented in scipy if available,
+else by hand (average-rank ties + Pearson on ranks).
 
 ---
 
 ## Honesty / caveats (see results.md for the frank version)
 
-- **Relatives**: defensible. Numerator is directly counted; the two corrections
-  (pull-rate, popularity) are transparent and monotonic.
+- **Relatives**: defensible. Numerator is directly counted; the corrections
+  (pull-rate, grading-rate) are transparent and monotonic.
 - **Absolutes**: order-of-magnitude only. The windowed-sum calibration inherits
-  every error in the `D` table and the popularity divisor, scaled to one
-  official number. Bands are ±3× and even those are optimistic for vintage.
+  every error in the `D` table and the grading-rate model, scaled to one
+  official number. Bands are ±3× and even those are optimistic for under-anchored
+  eras.
+- **Per-era anchor coverage**: WOTC has 7 anchors → its alpha is data-driven.
+  EX has 1 → its alpha is essentially that one anchor. ECARD/DP/HGSS/BW/XY/SM/SWSH/SV
+  have **zero** per-set anchors; their alphas are determined by TPC checkpoint
+  windowed sums + smoothness across consecutive eras. Per-set absolutes in
+  those eras are therefore order-of-magnitude.
+- **Pinned slopes**: `beta_p = 0.5` and `beta_y = 0.0` are priors, not fitted.
+  Fitting them on the current 8 anchors flips the price-slope sign — physically
+  wrong. With more anchors (especially modern), we'd un-pin and refit.
 - **Known unmodelled biases**: WOTC variant splits (1st-Ed/Shadowless/Unlimited
   graded separately but pop-merged here), JP vs EN prints, attrition,
   crack-and-resubmit inflation, precon-deck dilution. All flagged in prior_art.
-- Every numeric constant above lives in `combine.py` as a named, commented
-  constant and is echoed into the output JSON's `notes`/`flags`.
+- Every numeric constant above lives in `combine.py` / `fit_grading_rate.py` as a
+  named, commented constant and is echoed into `data/grading_rate_model.json`
+  + the output JSON's `notes`/`flags`.
 </content>
 </invoke>

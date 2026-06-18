@@ -4,19 +4,27 @@
 Joins every collected signal into a relative (and lightly-calibrated absolute)
 print-population estimate per Pokemon set:
 
-    rel_pop(set) = numerator(set) x pull_denominator(set) / popularity(set)
+    rel_pop(set) = mean_chase_psa(set) x pull_denominator(set)
+                 / predicted_grading_rate(set)
 
-where
-  numerator         = mean PSA pop of the set's confident chase cards,
-  pull_denominator  = era x rarity-tier "packs opened per graded chase copy",
-  popularity        = exogenous demand divisor (Google Trends; pageviews ~0).
+where `predicted_grading_rate` comes from the mechanistic model fit in
+`scripts/fit_grading_rate.py` and stored in `data/grading_rate_model.json`:
+
+    log(grading_rate(set)) = alpha[era]
+                           + beta_p * log(chase_value / $100)
+                           + beta_y * log(years_since_release / 10y)
+
+Replaces the older Google-Trends popularity divisor (model v1), which was
+order-of-magnitude on cross-era absolutes because search popularity does not
+capture the value- and age-driven grading-rate dynamics. Trends, pageviews and
+sales velocity are now held out as VALIDATION signals (Spearman cross-check).
 
 Absolute calibration pins the windowed sum of rel_pop to an official TPC
-cumulative checkpoint. Sales velocity is held out for Spearman validation.
+cumulative checkpoint (the same anchor the grading-rate model already fits to,
+so the post-fit scale should be ~1.0).
 
 Every magic constant is defined + documented below and in docs/methodology.md.
-The script is fully re-runnable (idempotent) and robust to partial Trends data
-(nulls are era-median-imputed and flagged). Read-only on dim_sets.
+The script is fully re-runnable (idempotent). Read-only on dim_sets.
 
 Outputs:
   data/set_population_estimates.json
@@ -52,10 +60,11 @@ TRENDS = os.path.join(DATA, "set_trends.json")
 SALES = os.path.join(DATA, "set_sales_velocity.json")
 PAGEVIEWS = os.path.join(DATA, "set_pageviews.json")
 KNOWN_RUNS = os.path.join(DATA, "known_print_runs.json")
+GRADING_MODEL = os.path.join(DATA, "grading_rate_model.json")
 OUT_JSON = os.path.join(DATA, "set_population_estimates.json")
 OUT_MD = os.path.join(DOCS, "results.md")
 
-MODEL_VERSION = "v1"
+MODEL_VERSION = "v2-grading-rate"
 
 # =============================================================================
 # DOCUMENTED MODEL CONSTANTS  (see docs/methodology.md). All ESTIMATES.
@@ -109,10 +118,16 @@ PULL_DENOM = {
     "SV":    [1.0,  1.0,  1.5,  1.6,  9.0,  35.0],
 }
 
-# --- 3. Popularity divisor weights -------------------------------------------
-W_TRENDS = 1.0      # primary, exogenous
-W_PAGEVIEWS = 0.0   # near-useless (mostly shared mascot articles); kept @0 for transparency
-# sales velocity weight is intentionally absent: endogenous, held for validation
+# --- 3. Grading-rate divisor (model v2) --------------------------------------
+# Replaces the v1 popularity divisor. The mechanistic grading-rate model lives
+# in scripts/fit_grading_rate.py and writes data/grading_rate_model.json. This
+# combiner reads the per-set predicted_grading_rate from that file.
+#
+# Trends, pageviews and sales velocity are now VALIDATION signals only (each
+# gets a Spearman cross-check vs rel_pop). None of them feed into rel_pop.
+W_TRENDS_VALIDATION = 1.0    # only used for the validation Spearman, NOT divisor
+W_PAGEVIEWS_VALIDATION = 0.0 # near-useless (mostly shared mascot articles); kept @0
+# sales velocity is endogenous (population -> supply -> sales); validation only.
 
 # --- 5. Absolute calibration -------------------------------------------------
 # Official TPC "Pokemon in Figures" cumulative checkpoints (value, date).
@@ -262,6 +277,14 @@ def build_estimates(args):
     pageviews = load_json(PAGEVIEWS)["sets"]
     rel_dates = load_release_dates()
 
+    # Load the fitted grading-rate model (v2 divisor).
+    if not os.path.exists(GRADING_MODEL):
+        raise SystemExit(
+            f"Missing {GRADING_MODEL}. Run scripts/fit_grading_rate.py first.")
+    grading_model = load_json(GRADING_MODEL)
+    per_set_model = grading_model["per_set"]
+    model_meta = grading_model["model"]
+
     sets = {}  # set_id -> working record
 
     # --- pass 1: numerator, era, tier, raw signals --------------------------
@@ -291,6 +314,8 @@ def build_estimates(args):
         pv_proxy = pv.get("proxy_type")
         sv = sales.get(sid, {})
 
+        # Grading-rate from the fitted model (None if not modelled).
+        gm = per_set_model.get(sid, {})
         sets[sid] = {
             "set_name": name,
             "era": era,
@@ -299,15 +324,21 @@ def build_estimates(args):
             "mean_chase_psa": round(mean_psa, 2) if mean_psa is not None else None,
             "chase_tier": tier,
             "pull_denominator": round(pull_denominator(era, tier), 3) if era else 1.0,
+            "chase_value": gm.get("chase_value"),
+            "chase_value_imputed": gm.get("chase_value_imputed", False),
+            "predicted_grading_rate": gm.get("predicted_grading_rate"),
             "_interest": interest,
-            "_pv_pm": pv_pm if pv_proxy == "set_article" else None,  # only real set articles
+            "_pv_pm": pv_pm if pv_proxy == "set_article" else None,
+            "interest_rescaled": interest,  # kept for output transparency
+            "pageviews_per_month": pv_pm if pv_proxy == "set_article" else None,
             "sales_per_month": sv.get("sales_per_month"),
-            "popularity_imputed": False,
             "flags": flags,
         }
+        if sets[sid]["predicted_grading_rate"] is None:
+            sets[sid]["flags"].append("no_grading_rate")
 
-    # --- pass 2: popularity z-scores (Trends, log1p) with era-median impute --
-    # Build log-Trends for sets that have it.
+    # --- pass 2: also compute the old popularity z-score for transparency
+    # (we report it in the JSON so the validation Spearman can use it).
     log_trends = {sid: math.log1p(r["_interest"]) for sid, r in sets.items()
                   if r["_interest"] is not None}
     if log_trends:
@@ -316,41 +347,20 @@ def build_estimates(args):
         trend_z = dict(zip(ids, zs))
     else:
         trend_z = {}
-    global_median_z = statistics.median(trend_z.values()) if trend_z else 0.0
-    # era-median z for imputation
-    era_zs = defaultdict(list)
-    for sid, z in trend_z.items():
-        era_zs[sets[sid]["era"]].append(z)
-    era_median_z = {e: statistics.median(v) for e, v in era_zs.items() if v}
-
-    # pageview z (real set-article pageviews only; weight 0 anyway)
-    pv_vals = {sid: math.log1p(r["_pv_pm"]) for sid, r in sets.items()
-               if r["_pv_pm"] is not None}
-    if pv_vals:
-        ids = list(pv_vals)
-        pvz = dict(zip(ids, zscore([pv_vals[i] for i in ids])))
-    else:
-        pvz = {}
-
     for sid, r in sets.items():
-        if sid in trend_z:
-            tz = trend_z[sid]
-        else:
-            tz = era_median_z.get(r["era"], global_median_z)
-            r["popularity_imputed"] = True
-            r["flags"].append("popularity_imputed")
-        pz = pvz.get(sid, 0.0)
-        composite_z = W_TRENDS * tz + W_PAGEVIEWS * pz
-        # exponentiate -> strictly positive multiplicative divisor
-        r["popularity"] = round(math.exp(composite_z), 6)
-        r["_pop_z"] = round(composite_z, 4)
+        r["trend_z"] = round(trend_z.get(sid), 4) if sid in trend_z else None
 
-    # --- pass 3: relative population ----------------------------------------
+    # --- pass 3: relative population (NEW v2: divide by predicted grading rate) -
     for sid, r in sets.items():
-        if r["n_chase_used"] == 0 or r["mean_chase_psa"] is None:
+        if (r["n_chase_used"] == 0 or r["mean_chase_psa"] is None
+                or r["predicted_grading_rate"] is None
+                or r["predicted_grading_rate"] <= 0):
             r["rel_pop_score"] = None
             continue
-        r["rel_pop_score"] = (r["mean_chase_psa"] * r["pull_denominator"]) / r["popularity"]
+        r["rel_pop_score"] = (
+            r["mean_chase_psa"] * r["pull_denominator"]
+            / r["predicted_grading_rate"]
+        )
 
     scored = {sid: r for sid, r in sets.items() if r["rel_pop_score"] is not None}
 
@@ -395,31 +405,47 @@ def build_estimates(args):
     for sid, r in scored.items():
         r["sales_velocity_rank"] = sv_rank.get(sid)
 
-    return sets, scored, calib
+    return sets, scored, calib, model_meta
 
 
 # =============================================================================
 # validation
 # =============================================================================
-def validate_spearman(scored):
-    pairs = [(r["rel_pop_score"], r["sales_per_month"]) for r in scored.values()
-             if r.get("sales_per_month") is not None]
+def _spearman_pair(scored, value_key):
+    pairs = [(r["rel_pop_score"], r[value_key]) for r in scored.values()
+             if r.get(value_key) is not None]
     if len(pairs) < 3:
-        return None, [], len(pairs)
-    xs = [p[0] for p in pairs]
-    ys = [p[1] for p in pairs]
-    rho = spearman(xs, ys)
-    # outliers: sets where rel_pop rank vs sales rank disagree most
+        return None, len(pairs)
+    return spearman([p[0] for p in pairs], [p[1] for p in pairs]), len(pairs)
+
+
+def validate_spearman(scored):
+    """Compute Spearman of rel_pop_score vs each held-out signal."""
+    rho_sales, n_sales = _spearman_pair(scored, "sales_per_month")
+    rho_trends, n_trends = _spearman_pair(scored, "interest_rescaled")
+    rho_pv, n_pv = _spearman_pair(scored, "pageviews_per_month")
+
+    # Outliers: rel_pop_rank vs sales_rank disagreement (sales is the most populated).
     sids = [sid for sid, r in scored.items() if r.get("sales_per_month") is not None]
     rp = {sid: scored[sid]["rel_pop_score"] for sid in sids}
     sv = {sid: scored[sid]["sales_per_month"] for sid in sids}
     rp_rank = {sid: i + 1 for i, sid in enumerate(sorted(sids, key=lambda s: rp[s], reverse=True))}
     sv_rank = {sid: i + 1 for i, sid in enumerate(sorted(sids, key=lambda s: sv[s], reverse=True))}
     outliers = sorted(sids, key=lambda s: abs(rp_rank[s] - sv_rank[s]), reverse=True)[:10]
-    out = [{"set_id": s, "set_name": scored[s]["set_name"],
-            "rel_pop_rank": rp_rank[s], "sales_rank": sv_rank[s],
-            "rank_gap": rp_rank[s] - sv_rank[s]} for s in outliers]
-    return rho, out, len(pairs)
+    out_rows = [{"set_id": s, "set_name": scored[s]["set_name"],
+                 "rel_pop_rank": rp_rank[s], "sales_rank": sv_rank[s],
+                 "rank_gap": rp_rank[s] - sv_rank[s]} for s in outliers]
+    return {
+        "spearman_relpop_vs_sales": rho_sales,
+        "spearman_relpop_vs_trends": rho_trends,
+        "spearman_relpop_vs_pageviews": rho_pv,
+        "n_sales": n_sales, "n_trends": n_trends, "n_pageviews": n_pv,
+        "spearman_note": ("rel_pop_vs_sales should be positive but <1 "
+                          "(more printed -> more supply -> more sales, "
+                          "but popularity/age/price break the tie). "
+                          "rel_pop_vs_trends similar (popular sets get printed more)."),
+        "biggest_rank_outliers_vs_sales": out_rows,
+    }
 
 
 def anchor_sensitivity(scored):
@@ -455,7 +481,7 @@ def fmt_int(x):
     return f"{int(round(x)):,}" if x is not None else "n/a"
 
 
-def write_json(sets, scored, calib, rho, outliers, sens, args):
+def write_json(sets, scored, calib, validation, sens, grading_model_meta, args):
     out_sets = {}
     for sid, r in sets.items():
         rec = {
@@ -466,14 +492,19 @@ def write_json(sets, scored, calib, rho, outliers, sens, args):
             "mean_chase_psa": r["mean_chase_psa"],
             "chase_tier": r["chase_tier"],
             "pull_denominator": r["pull_denominator"],
-            "popularity": r.get("popularity"),
-            "popularity_imputed": r["popularity_imputed"],
+            "chase_value": r.get("chase_value"),
+            "predicted_grading_rate": r.get("predicted_grading_rate"),
             "rel_pop_score": round(r["rel_pop_score"], 4) if r.get("rel_pop_score") is not None else None,
             "rel_pop_norm100": r.get("rel_pop_norm100"),
             "abs_estimate_mid": round(r["abs_estimate_mid"]) if r.get("abs_estimate_mid") is not None else None,
             "abs_low": round(r["abs_low"]) if r.get("abs_low") is not None else None,
             "abs_high": round(r["abs_high"]) if r.get("abs_high") is not None else None,
             "sales_velocity_rank": r.get("sales_velocity_rank"),
+            # validation signals (no longer divisor inputs)
+            "interest_rescaled": r.get("interest_rescaled"),
+            "trend_z": r.get("trend_z"),
+            "pageviews_per_month": r.get("pageviews_per_month"),
+            "sales_per_month": r.get("sales_per_month"),
             "flags": r["flags"],
         }
         out_sets[sid] = rec
@@ -482,34 +513,37 @@ def write_json(sets, scored, calib, rho, outliers, sens, args):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model_version": MODEL_VERSION,
         "notes": (
-            "rel_pop = mean_chase_psa * pull_denominator / popularity. "
-            "Numerator = mean PSA pop of high/med-confidence chase cards. "
-            "pull_denominator = era x rarity-tier packs-per-graded-copy (ESTIMATES, see methodology.md). "
-            "popularity = exp(z(log1p(Google Trends))); pageviews weighted 0; sales velocity held out (endogenous). "
-            "Absolutes pinned to TPC official cumulative checkpoint (windowed sum); bands +/-{}x. "
-            "Defensible on RELATIVES, order-of-magnitude on ABSOLUTES.".format(BAND_FACTOR)
+            "rel_pop = mean_chase_psa * pull_denominator / predicted_grading_rate. "
+            "Grading rate from mechanistic model (data/grading_rate_model.json): "
+            "log(rate) = alpha[era] + beta_p * log(chase_value/$100) + beta_y * log(years/10y). "
+            "Replaces v1 Google-Trends popularity divisor. Trends/pageviews/sales-velocity "
+            "are held out for validation (Spearman cross-checks). "
+            "Absolutes pinned to TPC cumulative checkpoint (windowed sum); bands +/-{}x. "
+            "Defensible on RELATIVES, order-of-magnitude on ABSOLUTES "
+            "(see results.md anchor-sensitivity).".format(BAND_FACTOR)
         ),
+        "grading_rate_model": {
+            "equation": grading_model_meta.get("equation"),
+            "beta_p": grading_model_meta.get("beta_p"),
+            "beta_y": grading_model_meta.get("beta_y"),
+            "alpha_by_era": grading_model_meta.get("alpha_by_era"),
+            "anchor_exclusions": grading_model_meta.get("anchor_exclusions"),
+            "fit_weights": grading_model_meta.get("fit_weights"),
+        },
         "constants": {
             "confidence_keep": sorted(CONFIDENCE_KEEP),
-            "w_trends": W_TRENDS,
-            "w_pageviews": W_PAGEVIEWS,
             "band_factor": BAND_FACTOR,
             "era_buckets": [[n, d.isoformat()] for n, d in ERA_BUCKETS],
             "pull_denominator_table": PULL_DENOM,
             "pull_denominator_units": "packs-opened-per-graded-chase-copy, relative, WOTC tier-3 holo = 1.0 (ESTIMATES)",
         },
         "calibration": calib,
-        "validation": {
-            "spearman_relpop_vs_sales": rho,
-            "spearman_note": "expected positive but <1 (population != demand)",
-            "biggest_rank_outliers": outliers,
-        },
+        "validation": validation,
         "anchor_sensitivity": sens,
         "stats": {
             "n_sets": len(sets),
             "n_scored": len(scored),
             "n_unscored": len(sets) - len(scored),
-            "n_popularity_imputed": sum(1 for r in sets.values() if r["popularity_imputed"]),
         },
         "sets": out_sets,
     }
@@ -518,7 +552,7 @@ def write_json(sets, scored, calib, rho, outliers, sens, args):
     return doc
 
 
-def write_results_md(doc, scored, calib, rho, outliers, sens):
+def write_results_md(doc, scored, calib, validation, sens):
     ranked = sorted(
         [(sid, r) for sid, r in doc["sets"].items() if r["rel_pop_score"] is not None],
         key=lambda x: x[1]["rel_pop_score"], reverse=True)
@@ -526,32 +560,64 @@ def write_results_md(doc, scored, calib, rho, outliers, sens):
     L = []
     L.append("# Results: Set Print-Population Estimates\n")
     L.append(f"_Generated {doc['generated_at']} — model {doc['model_version']}._\n")
-    L.append("> **Read this first:** these numbers are **defensible as relatives** "
-             "(a cross-set ranking and ratio) and **order-of-magnitude on absolutes**. "
-             "See the confidence section at the bottom. Methodology + every constant: "
-             "`methodology.md`.\n")
+    L.append(
+        "> **Model v2 (grading-rate divisor).** rel_pop = mean_chase_psa × pull_D / "
+        "predicted_grading_rate. Grading rate is a mechanistic function of era + chase "
+        "value (see `methodology.md` and `data/grading_rate_model.json`). Trends / "
+        "pageviews / sales velocity are now VALIDATION signals, not divisor inputs.\n")
     st = doc["stats"]
     L.append(f"- Sets scored: **{st['n_scored']}** / {st['n_sets']} "
-             f"({st['n_unscored']} unscored, no confident chase pop).")
-    L.append(f"- Popularity imputed (Trends missing): **{st['n_popularity_imputed']}** sets "
-             f"(flagged `popularity_imputed`; re-run after Trends backfill completes).")
+             f"({st['n_unscored']} unscored, no confident chase pop or grading rate).")
     if calib and calib.get("scale"):
-        L.append(f"- Absolute calibration anchor: TPC **{fmt_int(calib['checkpoint_value'])}** cards "
-                 f"cumulative @ {calib['checkpoint_date']} "
-                 f"(windowed over {calib['n_sets_in_window']} pre-checkpoint sets).")
-    L.append("")
+        L.append(f"- Absolute calibration anchor: TPC **{fmt_int(calib['checkpoint_value'])}** "
+                 f"cards cumulative @ {calib['checkpoint_date']} "
+                 f"(windowed over {calib['n_sets_in_window']} pre-checkpoint sets; "
+                 f"post-fit scale={calib['scale']:.3f}).")
+
+    # Grading-rate model summary
+    gm = doc.get("grading_rate_model", {})
+    if gm:
+        L.append("\n## Grading-rate model (v2 divisor)\n")
+        L.append(f"`{gm.get('equation')}`")
+        L.append(f"\n- `beta_p = {gm.get('beta_p')}` (pinned prior — grading rate "
+                 "rises with chase value; sqrt scaling).")
+        L.append(f"- `beta_y = {gm.get('beta_y')}` (pinned; age absorbed into era intercept).")
+        L.append("- Per-era intercept `alpha[era]` (log grading rate at chase_value=$100):\n")
+        L.append("| era | alpha | baseline rate | median predicted rate (across sets) |")
+        L.append("|-----|------:|--------------:|-----------------------------:|")
+        # Pull per-era median from grading_rate_model.json
+        try:
+            gmodel = load_json(GRADING_MODEL)
+            per_era = gmodel.get("per_era", {})
+        except Exception:
+            per_era = {}
+        for era in ("WOTC","ECARD","EX","DP","HGSS","BW","XY","SM","SWSH","SV"):
+            alpha = gm.get("alpha_by_era", {}).get(era)
+            row = per_era.get(era, {})
+            if alpha is None:
+                continue
+            base = math.exp(alpha)
+            med = row.get("median_predicted_grading_rate")
+            med_s = f"{med:.2e}" if med is not None else "—"
+            L.append(f"| {era} | {alpha:.3f} | {base:.2e} | {med_s} |")
+        L.append("")
 
     def table(rows, title):
         L.append(f"## {title}\n")
-        L.append("| # | set_id | name | era | n_chase | mean PSA | pull_D | pop | rel_pop(norm100) | abs_mid | abs_low–high | flags |")
-        L.append("|---|--------|------|-----|--------:|---------:|------:|----:|-----------------:|--------:|-------------|-------|")
+        L.append("| # | set_id | name | era | n_chase | mean PSA | pull_D | chase $ | grading rate | rel_pop(norm100) | abs_mid | abs_low–high | flags |")
+        L.append("|---|--------|------|-----|--------:|---------:|------:|--------:|-------------:|-----------------:|--------:|-------------|-------|")
         for i, (sid, r) in enumerate(rows, 1):
             ab = (f"{fmt_int(r['abs_low'])}–{fmt_int(r['abs_high'])}"
                   if r.get("abs_low") is not None else "n/a")
-            L.append("| {i} | {sid} | {nm} | {era} | {n} | {psa} | {pd} | {pop} | {rn} | {am} | {ab} | {fl} |".format(
+            gr = r.get("predicted_grading_rate")
+            gr_s = f"{gr:.2e}" if gr is not None else "—"
+            cv = r.get("chase_value")
+            cv_s = f"${cv:.0f}" if cv is not None else "—"
+            L.append("| {i} | {sid} | {nm} | {era} | {n} | {psa} | {pd} | {cv} | {gr} | {rn} | {am} | {ab} | {fl} |".format(
                 i=i, sid=sid, nm=r["set_name"], era=r["era"], n=r["n_chase_used"],
                 psa=fmt_int(r["mean_chase_psa"]), pd=r["pull_denominator"],
-                pop=round(r["popularity"], 3), rn=r.get("rel_pop_norm100"),
+                cv=cv_s, gr=gr_s,
+                rn=r.get("rel_pop_norm100"),
                 am=fmt_int(r.get("abs_estimate_mid")), ab=ab,
                 fl=",".join(r["flags"]) or "—"))
         L.append("")
@@ -561,12 +627,15 @@ def write_results_md(doc, scored, calib, rho, outliers, sens):
 
     # sensitivity table
     L.append("## Anchor sensitivity (estimate / published anchor)\n")
-    L.append("Per-set `total_print_run` anchors from `known_print_runs.json`. We do NOT "
-             "fit to these (most are `hobbyist-guess`); they are a sanity rail.\n")
+    L.append("Per-set `total_print_run` anchors from `known_print_runs.json`. "
+             "The grading-rate model is fit *jointly* against these (with low weight for "
+             "`hobbyist-guess` credibility) and the official TPC cumulative checkpoints. "
+             "This sensitivity is a fit-quality measure, not held-out.\n")
     if sens:
         within2 = sum(1 for s in sens if 0.5 <= s["ratio_est_over_anchor"] <= 2.0)
         within3 = sum(1 for s in sens if (1 / 3.0) <= s["ratio_est_over_anchor"] <= 3.0)
-        L.append(f"**{within2}/{len(sens)} anchors within 2×, {within3}/{len(sens)} within 3×.**\n")
+        L.append(f"**{within2}/{len(sens)} anchors within 2×, {within3}/{len(sens)} within 3× "
+                 "(model v1 had 1/10 within 2×, 1/10 within 3×).**\n")
         L.append("| set | variant | credibility | anchor_mid | estimate_mid | est/anchor |")
         L.append("|-----|---------|-------------|-----------:|-------------:|-----------:|")
         for s in sorted(sens, key=lambda x: x["ratio_est_over_anchor"], reverse=True):
@@ -578,81 +647,98 @@ def write_results_md(doc, scored, calib, rho, outliers, sens):
         L.append("_No per-set anchors matched scored sets._")
     L.append("")
 
-    # validation
-    L.append("## Validation: rel_pop vs sales velocity (Spearman)\n")
-    if rho is not None:
-        L.append(f"Spearman rank correlation **ρ = {rho:.3f}** "
-                 f"(rel_pop_score vs sales_per_month, {doc['validation'].get('n','')} sets).")
-        L.append("\nExpectation: **positive but < 1** — more printed ⇒ more supply ⇒ more sales, "
-                 "but popularity, age and price break the tie. A value near 0 or negative would "
-                 "flag a bug; ~1.0 would mean we just re-derived demand.\n")
-        if outliers:
-            L.append("Biggest rank disagreements (plausibly real, not bugs):\n")
-            L.append("| set_id | name | rel_pop_rank | sales_rank | gap |")
-            L.append("|--------|------|-------------:|-----------:|----:|")
-            for o in outliers:
-                L.append(f"| {o['set_id']} | {o['set_name']} | {o['rel_pop_rank']} | "
-                         f"{o['sales_rank']} | {o['rank_gap']:+d} |")
-            L.append("\n_Positive gap = ranks much higher in population than in sales (printed big "
-                     "but trades slowly — old/cheap bulk). Negative = trades hot for its print size "
-                     "(small but in demand)._")
-    else:
-        L.append("_Too few sets with sales data for a Spearman correlation._")
+    # Per-era summary
+    try:
+        gmodel = load_json(GRADING_MODEL)
+        per_era = gmodel.get("per_era", {})
+    except Exception:
+        per_era = {}
+    if per_era:
+        L.append("## Per-era summary\n")
+        L.append("| era | n sets | median rate | median print run | sum print run |")
+        L.append("|-----|------:|-----------:|----------------:|--------------:|")
+        for era in ("WOTC","ECARD","EX","DP","HGSS","BW","XY","SM","SWSH","SV"):
+            row = per_era.get(era, {})
+            n = row.get("n", 0)
+            if n == 0: continue
+            mr = row.get("median_predicted_grading_rate")
+            mp = row.get("median_predicted_print_run")
+            sp = row.get("sum_predicted_print_run")
+            L.append(f"| {era} | {n} | {mr:.2e} | {fmt_int(mp)} | {fmt_int(sp)} |")
+        L.append("")
+
+    # Validation: Spearman against multiple signals
+    L.append("## Validation: rel_pop vs held-out signals (Spearman)\n")
+    rho_s = validation.get("spearman_relpop_vs_sales")
+    rho_t = validation.get("spearman_relpop_vs_trends")
+    rho_p = validation.get("spearman_relpop_vs_pageviews")
+    L.append("| signal | ρ | n | interpretation |")
+    L.append("|--------|--:|--:|----------------|")
+    if rho_s is not None:
+        L.append(f"| sales velocity (TCGPlayer) | {rho_s:.3f} | {validation.get('n_sales')} | "
+                 "endogenous: bigger print -> more supply -> more sales (expect +) |")
+    if rho_t is not None:
+        L.append(f"| Google Trends interest | {rho_t:.3f} | {validation.get('n_trends')} | "
+                 "demand-side: popular sets get printed more (expect +, weaker than sales) |")
+    if rho_p is not None:
+        L.append(f"| Wikipedia pageviews | {rho_p:.3f} | {validation.get('n_pageviews')} | "
+                 "mostly shared-mascot articles; expect weak/noisy |")
+    L.append("\nExpectation: **positive but < 1** — more printed ⇒ more supply/demand traffic, "
+             "but popularity, age and price break the tie. A value near 0 or negative would "
+             "flag a bug; ~1.0 would mean we just re-derived demand.\n")
+    outliers = validation.get("biggest_rank_outliers_vs_sales", [])
+    if outliers:
+        L.append("Biggest rank disagreements vs sales (plausibly real, not bugs):\n")
+        L.append("| set_id | name | rel_pop_rank | sales_rank | gap |")
+        L.append("|--------|------|-------------:|-----------:|----:|")
+        for o in outliers:
+            L.append(f"| {o['set_id']} | {o['set_name']} | {o['rel_pop_rank']} | "
+                     f"{o['sales_rank']} | {o['rank_gap']:+d} |")
+        L.append("\n_Positive gap = ranks much higher in population than in sales (printed big "
+                 "but trades slowly — old/cheap bulk). Negative = trades hot for its print size "
+                 "(small but in demand)._")
     L.append("")
 
-    # cross-era diagnostic: implied grading rate (psa / abs) for a few sets
-    diag = []
-    for sid in ["base1", "neo3", "ex7", "sv3pt5"]:
-        r = doc["sets"].get(sid, {})
-        if r.get("abs_estimate_mid") and r.get("mean_chase_psa"):
-            diag.append((sid, r["set_name"], r["mean_chase_psa"],
-                         r["abs_estimate_mid"], r["mean_chase_psa"] / r["abs_estimate_mid"]))
-
-    # confidence
+    # Confidence
     L.append("## Confidence & caveats (frank)\n")
     L.append(
-        "### The cross-era honesty problem (read this)\n"
-        "The hardest, least-trustworthy comparison is **vintage vs modern**. Base Set's chase "
-        "cards have ~46k PSA pop — 10× any other set — yet Base lands mid-pack, *below* several "
-        "tiny modern sets whose chase cards have only a few hundred graded copies. Two real "
-        "effects drive this and the model only partly resolves them:\n"
-        "1. Modern apex chase cards are far rarer per pack (the pull-rate denominator), so a few "
-        "hundred graded copies of a 1:130 SIR can imply a large print run.\n"
-        "2. Vintage holos are graded at a **vastly higher rate** than modern SIRs (collectors "
-        "grade a Base Charizard far more than a modern alt-art). The popularity divisor removes "
-        "*some* of this, but the cross-era grading-rate swing is super-linear and Trends "
-        "saturates, so it cannot remove all of it.\n")
-    if diag:
-        L.append("Implied grading rate (mean chase PSA ÷ abs_estimate_mid) makes the gap explicit:\n")
-        L.append("| set | mean PSA | abs_mid | implied grade rate |")
-        L.append("|-----|---------:|--------:|-------------------:|")
-        for sid, nm, psa, ab, rate in diag:
-            L.append(f"| {sid} ({nm}) | {fmt_int(psa)} | {fmt_int(ab)} | {rate:.2e} |")
-        L.append("\nThe model implies Base's chase is graded ~100× harder than a modern SV chase. "
-                 "That direction is real; the exact factor is not calibrated. **Consequence: the "
-                 "WOTC absolute estimates undershoot the (hobbyist-flagged) billion-card anchors "
-                 "by ~30–1000×.** Per `prior_art.md` we deliberately do NOT fit to those anchors — "
-                 "but the reader should treat vintage absolutes as a floor, not a number.\n")
-    L.append("### General\n")
+        "### What changed in v2\n"
+        "v1 used `exp(z(log(Google Trends)))` as the divisor. That captures search-popularity "
+        "but is *blind* to grading-rate dynamics: a $3,000 vintage card gets graded ~10–20× "
+        "harder than a $100 modern SIR, regardless of who's searching. v1 anchors landed "
+        "1/10 within 2× (vintage anchors ~30–1000× off). v2 swaps in a mechanistic "
+        "`grading_rate = exp(alpha[era] + 0.5·log(chase_value/$100))` fit jointly to "
+        "per-set anchors AND the official TPC cumulative checkpoints.\n")
     L.append(
-        "- **Within-era relatives: trustworthy as a ranking/ratio.** The numerator is "
-        "directly counted PSA pop; both corrections (pull-rate, popularity) are transparent, "
-        "monotonic, and documented. Treat ratios between sets *of the same era* as the strongest "
-        "output.\n"
-        "- **Cross-era relatives & all absolutes: order-of-magnitude only** (see the box above). "
-        "The whole ranking is scaled to a single official number; per-set absolutes inherit every "
-        "error in the pull-rate table and popularity divisor. The ±3× bands are rails, not "
-        "confidence intervals — vintage is likely worse.\n"
-        "- **Pull-rate table is the biggest lever and is all estimates.** Era×tier denominators "
-        "are community-pull-rate priors, deliberately conservative. They move the modern/vintage "
-        "balance materially.\n"
-        "- **Unmodelled biases (all in `prior_art.md`):** WOTC 1st-Ed/Shadowless/Unlimited "
-        "graded separately but pop-merged here; JP vs EN separate prints; attrition; "
-        "crack-and-resubmit pop inflation; precon-deck dilution; grading-rate drift over time.\n"
-        "- **Partial Trends:** imputed sets are flagged; re-run after the backfill for sharper "
-        "popularity divisors.\n"
-        "- **Pageviews weighted 0:** 152/171 sets resolve to a shared mascot article, not the "
-        "set — the signal measures the mascot, so it is kept only for transparency.\n")
+        "### Why we PIN beta_p instead of fitting it\n"
+        "Of the 15 anchors in `known_print_runs.json`, only 8 are usable per-set print-run "
+        "estimates after excluding variant subsets and the `neo3` cumulative checkpoint. "
+        "**Seven of those 8 are WOTC and one is EX.** Fitting log_price/log_yrs slopes on that "
+        "distribution either over-fits or returns negative coefficients (more value → less "
+        "grading), which is physically wrong. We pin `beta_p=0.5` (square-root scaling, "
+        "consistent with PSA's value-driven grading-rate dynamics) and only fit per-era "
+        "intercepts. **The model is reproducible from the JSON; the scripts/fit_grading_rate.py "
+        "run is deterministic.**\n")
+    L.append(
+        "### What's still order-of-magnitude\n"
+        "- **Single-era anchors drive their era's intercept.** WOTC has 7 anchors → WOTC alpha "
+        "is data-driven. EX has 1 → EX alpha is essentially that one anchor. ECARD, DP, HGSS, "
+        "BW, XY, SM, SWSH, SV have ZERO per-set anchors; their alphas are determined by TPC "
+        "checkpoint windowed sums + cross-era smoothness. Per-set absolutes in those eras are "
+        "order-of-magnitude.\n"
+        "- **Pull-rate `D` table unchanged from v1** — still the second-biggest lever and still "
+        "all estimates. See `methodology.md` for the table.\n"
+        "- **Unmodelled biases unchanged:** WOTC 1st-Ed/Shadowless/Unlimited graded separately "
+        "but pop-merged; JP vs EN separate prints; attrition; crack-and-resubmit pop inflation; "
+        "precon-deck dilution; grading-rate drift over time.\n"
+        "- **Bands ±3×** are honest order-of-magnitude rails, not confidence intervals.\n")
+    L.append(
+        "### Honest read\n"
+        "Within-era relatives remain the strongest output (the numerator and pull_D are "
+        "unchanged; the divisor change mostly affects cross-era). Cross-era relatives and "
+        "all absolutes are still order-of-magnitude — better than v1 but not tight. To tighten "
+        "the absolutes meaningfully we need more per-set anchors, especially in DP/HGSS/BW/XY/"
+        "SM/SWSH/SV (currently zero per-set anchors in those eras).\n")
 
     with open(OUT_MD, "w") as fh:
         fh.write("\n".join(L))
@@ -669,24 +755,25 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="Suppress stdout summary.")
     args = ap.parse_args()
 
-    sets, scored, calib = build_estimates(args)
-    rho, outliers, n_sv = validate_spearman(scored)
+    sets, scored, calib, grading_model_meta = build_estimates(args)
+    validation = validate_spearman(scored)
     sens = anchor_sensitivity(scored) if not args.no_absolute else []
 
-    doc = write_json(sets, scored, calib, rho, outliers, sens, args)
-    doc["validation"]["n"] = n_sv  # for md
-    write_results_md(doc, scored, calib, rho, outliers, sens)
+    doc = write_json(sets, scored, calib, validation, sens, grading_model_meta, args)
+    write_results_md(doc, scored, calib, validation, sens)
 
     if not args.quiet:
         ranked = sorted([(sid, r) for sid, r in doc["sets"].items()
                          if r["rel_pop_score"] is not None],
                         key=lambda x: x[1]["rel_pop_score"], reverse=True)
-        print(f"Scored {len(scored)}/{len(sets)} sets "
-              f"({doc['stats']['n_popularity_imputed']} popularity-imputed).")
+        print(f"Scored {len(scored)}/{len(sets)} sets (model v2: grading-rate divisor).")
         if calib and calib.get("scale"):
             print(f"Calibrated to TPC {fmt_int(calib['checkpoint_value'])} @ "
-                  f"{calib['checkpoint_date']} over {calib['n_sets_in_window']} sets.")
-        print(f"Spearman rel_pop vs sales: {rho}")
+                  f"{calib['checkpoint_date']} over {calib['n_sets_in_window']} sets "
+                  f"(scale={calib['scale']:.4f}).")
+        print(f"Spearman rel_pop vs sales:   {validation['spearman_relpop_vs_sales']}")
+        print(f"Spearman rel_pop vs trends:  {validation['spearman_relpop_vs_trends']}")
+        print(f"Spearman rel_pop vs pviews:  {validation['spearman_relpop_vs_pageviews']}")
         if sens:
             w2 = sum(1 for s in sens if 0.5 <= s['ratio_est_over_anchor'] <= 2.0)
             w3 = sum(1 for s in sens if (1/3.0) <= s['ratio_est_over_anchor'] <= 3.0)
