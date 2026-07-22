@@ -1,0 +1,96 @@
+{
+ "n": 16304,
+ "MALE": 0.5777,
+ "within_2x": 0.6934,
+ "by_era": {
+  "BW": {
+   "n": 1219.0,
+   "MALE": 0.521,
+   "within_2x": 0.703,
+   "med_label": 2.19
+  },
+  "DP": {
+   "n": 2106.0,
+   "MALE": 0.483,
+   "within_2x": 0.758,
+   "med_label": 3.75
+  },
+  "ECARD": {
+   "n": 928.0,
+   "MALE": 0.585,
+   "within_2x": 0.661,
+   "med_label": 27.19
+  },
+  "EX": {
+   "n": 2953.0,
+   "MALE": 0.525,
+   "within_2x": 0.729,
+   "med_label": 11.67
+  },
+  "HGSS": {
+   "n": 849.0,
+   "MALE": 0.631,
+   "within_2x": 0.662,
+   "med_label": 5.69
+  },
+  "SM": {
+   "n": 2121.0,
+   "MALE": 0.689,
+   "within_2x": 0.623,
+   "med_label": 4.45
+  },
+  "SV": {
+   "n": 1317.0,
+   "MALE": 0.6,
+   "within_2x": 0.661,
+   "med_label": 7.15
+  },
+  "SWSH": {
+   "n": 1409.0,
+   "MALE": 0.61,
+   "within_2x": 0.68,
+   "med_label": 3.79
+  },
+  "WOTC": {
+   "n": 1911.0,
+   "MALE": 0.566,
+   "within_2x": 0.722,
+   "med_label": 5.49
+  },
+  "XY": {
+   "n": 1491.0,
+   "MALE": 0.635,
+   "within_2x": 0.667,
+   "med_label": 3.24
+  }
+ },
+ "feature_importance": {
+  "species_loo_med": 0.17474,
+  "psa_pop": 0.157,
+  "rarity": 0.12338,
+  "set_age_days": 0.08627,
+  "normal_anchor": 0.07386,
+  "era": 0.04876,
+  "printing": 0.04247,
+  "card_position": 0.0398,
+  "set_sales_pm": 0.03878,
+  "artist": 0.02881,
+  "likeability": 0.02693,
+  "set_abs_en": 0.02471,
+  "pop_vel8w": 0.02296,
+  "dex": 0.02121,
+  "total_cards": 0.02113,
+  "hp": 0.01597,
+  "set_rel_pop": 0.01554,
+  "artist_loo_med": 0.01482,
+  "psa10": 0.01212,
+  "likeability_n": 0.00632,
+  "stage": 0.0029,
+  "supertype": 0.00076,
+  "set_pop_flagged": 0.00074,
+  "bst": 0.0,
+  "is_mythical": 0.0,
+  "is_legendary": 0.0,
+  "generation": 0.0
+ }
+}
