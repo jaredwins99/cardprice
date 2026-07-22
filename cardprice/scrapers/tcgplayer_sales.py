@@ -56,6 +56,32 @@ CREATE TABLE IF NOT EXISTS scrape_log (
     sales_count     INTEGER DEFAULT 0,
     status          TEXT DEFAULT 'ok'
 );
+
+-- Live listings snapshots, captured from the mp-search-api /listings XHR that
+-- fires on the SAME product-page visit the sales scrape already performs
+-- (zero additional page loads). The default payload is the ~10 cheapest
+-- listings across conditions/printings; total_results is the full listing
+-- depth at capture time (a liquidity signal). Append-only snapshots.
+CREATE TABLE IF NOT EXISTS tcgplayer_listings (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tcg_product_id  INTEGER NOT NULL,
+    listing_id      INTEGER,
+    condition       TEXT,
+    printing        TEXT,
+    language        TEXT,
+    price           REAL,
+    shipping_price  REAL,
+    quantity        INTEGER,
+    seller_name     TEXT,
+    direct_seller   INTEGER,
+    verified_seller INTEGER,
+    seller_rating   REAL,
+    total_results   INTEGER,
+    scraped_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_listings_pid_time
+    ON tcgplayer_listings (tcg_product_id, scraped_at);
 """
 
 
@@ -146,6 +172,63 @@ def _parse_latestsales_response(data: dict) -> list[dict[str, Any]]:
     return sales
 
 
+def _parse_listings_response(data: dict) -> list[dict[str, Any]]:
+    """Parse the mp-search-api /v1/product/{id}/listings payload.
+
+    Shape: {"errors": [], "results": [{"totalResults": N, "results": [listing,
+    ...]}]}. Each listing has price/shippingPrice/condition/printing/quantity/
+    sellerName/directSeller/verifiedSeller/listingId/... (verified 2026-07-22).
+    """
+    out = []
+    for block in data.get("results", []):
+        if not isinstance(block, dict):
+            continue
+        total = block.get("totalResults")
+        for l in block.get("results", []):
+            if not isinstance(l, dict) or l.get("price") is None:
+                continue
+            out.append({
+                "listing_id": int(l["listingId"]) if l.get("listingId") else None,
+                "condition": l.get("condition", ""),
+                "printing": l.get("printing", ""),
+                "language": l.get("languageAbbreviation", ""),
+                "price": float(l.get("price", 0) or 0),
+                "shipping_price": float(l.get("sellerShippingPrice",
+                                              l.get("shippingPrice", 0)) or 0),
+                "quantity": int(l.get("quantity", 1) or 1),
+                "seller_name": l.get("sellerName", ""),
+                "direct_seller": int(bool(l.get("directSeller"))),
+                "verified_seller": int(bool(l.get("verifiedSeller"))),
+                "seller_rating": float(l.get("sellerRating", 0) or 0),
+                "total_results": int(total) if total is not None else None,
+            })
+    return out
+
+
+def _insert_listings(
+    conn: sqlite3.Connection,
+    product_id: int,
+    listings: list[dict[str, Any]],
+) -> int:
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [(product_id, l.get("listing_id"), l.get("condition"),
+             l.get("printing"), l.get("language"), l.get("price"),
+             l.get("shipping_price"), l.get("quantity"), l.get("seller_name"),
+             l.get("direct_seller"), l.get("verified_seller"),
+             l.get("seller_rating"), l.get("total_results"), now)
+            for l in listings]
+    conn.executemany(
+        "INSERT INTO tcgplayer_listings "
+        "(tcg_product_id, listing_id, condition, printing, language, price, "
+        "shipping_price, quantity, seller_name, direct_seller, "
+        "verified_seller, seller_rating, total_results, scraped_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+    return len(rows)
+
+
 def _parse_pricepoints_response(data: dict) -> list[dict[str, Any]]:
     """Parse the infinite-api price/history/detailed endpoint (aggregated stats)."""
     points = []
@@ -172,6 +255,7 @@ def scrape_product_sales(
     product_id: int,
     *,
     timeout_ms: int = 30_000,
+    capture_listings: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Navigate to a TCGPlayer product page and capture sales data.
@@ -209,6 +293,20 @@ def scrape_product_sales(
                     log.info("Intercepted %d sales from latestsales (%d new)", len(parsed), new)
                 except Exception as e:
                     log.warning("Failed to parse latestsales: %s", e)
+
+            elif ("/listings" in req_url and response.status == 200
+                    and capture_listings is not None):
+                try:
+                    body = response.json()
+                    parsed = _parse_listings_response(body)
+                    seen_ids = {l.get("listing_id") for l in capture_listings}
+                    new = [l for l in parsed
+                           if l.get("listing_id") not in seen_ids
+                           or l.get("listing_id") is None]
+                    capture_listings.extend(new)
+                    log.info("Intercepted %d listings (%d new)", len(parsed), len(new))
+                except Exception as e:
+                    log.warning("Failed to parse listings: %s", e)
 
             elif ("price/history" in req_url) and response.status == 200:
                 try:
@@ -501,7 +599,11 @@ def _worker(
                 page = context.new_page()
 
             try:
-                sales = scrape_product_sales(page, pid)
+                listings_buf: list[dict[str, Any]] = []
+                sales = scrape_product_sales(page, pid, capture_listings=listings_buf)
+                if listings_buf:
+                    nl = _insert_listings(conn, pid, listings_buf)
+                    log.info("[W%d] Stored %d listings for product %d", worker_id, nl, pid)
                 if sales:
                     n = _insert_sales(conn, pid, sales)
                     results[pid] = n
