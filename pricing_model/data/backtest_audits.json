@@ -1,0 +1,352 @@
+{
+ "test3_survivorship": {
+  "mean_spread_imputed": 0.0832,
+  "baseline_mark_spread": 0.0807,
+  "degradation_pct": -3.2,
+  "q1_disappearance_rate": 0.0027,
+  "universe_disappearance_rate": 0.0052,
+  "per_cutoff": [
+   {
+    "T": "2024-06-01",
+    "gone_by_quintile": [
+     0.0017,
+     0.0008,
+     0.0004,
+     0.0021,
+     0.0038
+    ],
+    "spread_imputed": 0.09541244352870672
+   },
+   {
+    "T": "2024-07-01",
+    "gone_by_quintile": [
+     0.0017,
+     0.0004,
+     0.0004,
+     0.0029,
+     0.0058
+    ],
+    "spread_imputed": 0.11269607601185012
+   },
+   {
+    "T": "2024-08-01",
+    "gone_by_quintile": [
+     0.0017,
+     0.0004,
+     0.0012,
+     0.0025,
+     0.0071
+    ],
+    "spread_imputed": 0.09672743872899506
+   },
+   {
+    "T": "2024-09-01",
+    "gone_by_quintile": [
+     0.0016,
+     0.0004,
+     0.0004,
+     0.0029,
+     0.0066
+    ],
+    "spread_imputed": 0.10412873374578133
+   },
+   {
+    "T": "2024-10-01",
+    "gone_by_quintile": [
+     0.0012,
+     0.0004,
+     0.0012,
+     0.0033,
+     0.0066
+    ],
+    "spread_imputed": 0.09540630988716192
+   },
+   {
+    "T": "2024-11-01",
+    "gone_by_quintile": [
+     0.0008,
+     0.0004,
+     0.0041,
+     0.0016,
+     0.0094
+    ],
+    "spread_imputed": 0.08546336604307198
+   },
+   {
+    "T": "2024-12-01",
+    "gone_by_quintile": [
+     0.0008,
+     0.0024,
+     0.0016,
+     0.0056,
+     0.0145
+    ],
+    "spread_imputed": 0.08762353313742226
+   },
+   {
+    "T": "2025-01-01",
+    "gone_by_quintile": [
+     0.0024,
+     0.0032,
+     0.0036,
+     0.0079,
+     0.0151
+    ],
+    "spread_imputed": 0.08831784501143067
+   },
+   {
+    "T": "2025-02-01",
+    "gone_by_quintile": [
+     0.0031,
+     0.0023,
+     0.0023,
+     0.0074,
+     0.0128
+    ],
+    "spread_imputed": 0.09182068451125722
+   },
+   {
+    "T": "2025-03-01",
+    "gone_by_quintile": [
+     0.0042,
+     0.0034,
+     0.0042,
+     0.0072,
+     0.0145
+    ],
+    "spread_imputed": 0.07359219089768665
+   },
+   {
+    "T": "2025-04-01",
+    "gone_by_quintile": [
+     0.0038,
+     0.0026,
+     0.0026,
+     0.0071,
+     0.012
+    ],
+    "spread_imputed": 0.05376621482044161
+   },
+   {
+    "T": "2025-05-01",
+    "gone_by_quintile": [
+     0.0052,
+     0.0063,
+     0.0052,
+     0.0085,
+     0.0133
+    ],
+    "spread_imputed": 0.039015494757099346
+   },
+   {
+    "T": "2025-06-01",
+    "gone_by_quintile": [
+     0.0048,
+     0.0041,
+     0.0063,
+     0.0085,
+     0.0129
+    ],
+    "spread_imputed": 0.052497329678878435
+   },
+   {
+    "T": "2025-07-01",
+    "gone_by_quintile": [
+     0.0029,
+     0.0044,
+     0.0066,
+     0.0084,
+     0.0139
+    ],
+    "spread_imputed": 0.07035280424129606
+   },
+   {
+    "T": "2025-08-01",
+    "gone_by_quintile": [
+     0.0025,
+     0.004,
+     0.0036,
+     0.004,
+     0.0102
+    ],
+    "spread_imputed": 0.050478790414914695
+   },
+   {
+    "T": "2025-09-01",
+    "gone_by_quintile": [
+     0.0032,
+     0.0036,
+     0.0039,
+     0.0068,
+     0.0072
+    ],
+    "spread_imputed": 0.066421523943374
+   },
+   {
+    "T": "2025-10-01",
+    "gone_by_quintile": [
+     0.0028,
+     0.0046,
+     0.0046,
+     0.0071,
+     0.0106
+    ],
+    "spread_imputed": 0.06608430775973095
+   },
+   {
+    "T": "2025-11-01",
+    "gone_by_quintile": [
+     0.0045,
+     0.0038,
+     0.0045,
+     0.0077,
+     0.0122
+    ],
+    "spread_imputed": 0.07014546675826766
+   },
+   {
+    "T": "2025-12-01",
+    "gone_by_quintile": [
+     0.0028,
+     0.0063,
+     0.0042,
+     0.009,
+     0.0181
+    ],
+    "spread_imputed": 0.09124063442145186
+   },
+   {
+    "T": "2026-01-01",
+    "gone_by_quintile": [
+     0.0034,
+     0.0065,
+     0.0058,
+     0.0076,
+     0.0189
+    ],
+    "spread_imputed": 0.11080212878907006
+   },
+   {
+    "T": "2026-02-01",
+    "gone_by_quintile": [
+     0.0031,
+     0.0027,
+     0.0047,
+     0.0044,
+     0.0136
+    ],
+    "spread_imputed": 0.09838913787924675
+   },
+   {
+    "T": "2026-03-01",
+    "gone_by_quintile": [
+     0.0013,
+     0.0027,
+     0.0027,
+     0.0057,
+     0.0094
+    ],
+    "spread_imputed": 0.1071028633007681
+   },
+   {
+    "T": "2026-04-01",
+    "gone_by_quintile": [
+     0.003,
+     0.0017,
+     0.0037,
+     0.004,
+     0.009
+    ],
+    "spread_imputed": 0.10709179628915241
+   }
+  ],
+  "pass": true
+ },
+ "test2_freshness": {
+  "mean_q1_fresh_excess": 0.0368,
+  "mean_q1_stale_excess": 0.0773,
+  "mean_q1_all_excess": 0.0454,
+  "per_cutoff": [
+   {
+    "T": "2024-08-01",
+    "n_fresh": 1675,
+    "n_stale": 724,
+    "q1_fresh_minus_mkt": 0.047012202393989753,
+    "q1_stale_minus_mkt": 0.09455703002343048,
+    "q1_all_minus_mkt": 0.0613608706739877
+   },
+   {
+    "T": "2024-11-01",
+    "n_fresh": 1753,
+    "n_stale": 680,
+    "q1_fresh_minus_mkt": 0.07083608333436064,
+    "q1_stale_minus_mkt": 0.01849507380239282,
+    "q1_all_minus_mkt": 0.05620727672452172
+   },
+   {
+    "T": "2025-02-01",
+    "n_fresh": 1979,
+    "n_stale": 576,
+    "q1_fresh_minus_mkt": 0.0422066937815552,
+    "q1_stale_minus_mkt": 0.07098262518055035,
+    "q1_all_minus_mkt": 0.04869394876622102
+   },
+   {
+    "T": "2025-05-01",
+    "n_fresh": 2152,
+    "n_stale": 529,
+    "q1_fresh_minus_mkt": 0.00249256276051886,
+    "q1_stale_minus_mkt": 0.09217340959963022,
+    "q1_all_minus_mkt": 0.020187888377038776
+   },
+   {
+    "T": "2025-08-01",
+    "n_fresh": 2194,
+    "n_stale": 547,
+    "q1_fresh_minus_mkt": 0.04036304011930787,
+    "q1_stale_minus_mkt": 0.042408995389572726,
+    "q1_all_minus_mkt": 0.04077133546145849
+   },
+   {
+    "T": "2025-11-01",
+    "n_fresh": 2250,
+    "n_stale": 599,
+    "q1_fresh_minus_mkt": 0.006338237645860029,
+    "q1_stale_minus_mkt": 0.12708961201478963,
+    "q1_all_minus_mkt": 0.03172611874343417
+   },
+   {
+    "T": "2026-02-01",
+    "n_fresh": 2291,
+    "n_stale": 641,
+    "q1_fresh_minus_mkt": 0.048408440416334325,
+    "q1_stale_minus_mkt": 0.09514236166877169,
+    "q1_all_minus_mkt": 0.05862550846640671
+   }
+  ],
+  "pass": true
+ },
+ "test1_trade_anchored": {
+  "rows": [
+   {
+    "T": "2026-04-01",
+    "q1_n_anchored": 12,
+    "q1_coverage": 0.004,
+    "q1_entry_premium_median": 0.0853,
+    "q1_trade_ret": 0.0833,
+    "universe_trade_ret": 0.2019,
+    "q1_minus_universe_trade": -0.1186
+   },
+   {
+    "T": "2026-05-01",
+    "q1_n_anchored": 1653,
+    "q1_coverage": 0.534,
+    "q1_entry_premium_median": 0.0484,
+    "q1_trade_ret": 0.0989,
+    "universe_trade_ret": 0.0786,
+    "q1_minus_universe_trade": 0.0203
+   }
+  ],
+  "note": "entry = first actual NM sale within 14d of cutoff; exit = last NM sale >=21d after entry; horizon truncated by sales window ending 2026-07-21 \u2014 shorter than the backtest's 3m for the May cutoff"
+ }
+}
