@@ -19,9 +19,11 @@ order-of-magnitude on cross-era absolutes because search popularity does not
 capture the value- and age-driven grading-rate dynamics. Trends, pageviews and
 sales velocity are now held out as VALIDATION signals (Spearman cross-check).
 
-Absolute calibration pins the windowed sum of rel_pop to an official TPC
-cumulative checkpoint (the same anchor the grading-rate model already fits to,
-so the post-fit scale should be ~1.0).
+Absolute calibration (v3.1): credibility-weighted geometric-mean scale over
+the usable rungs of the dated TPC checkpoint ladder, English-converted on
+per-regime increments, with production-ramped windows and subset products
+excluded. Outputs are ENGLISH-ONLY projected lifetime production; unreliable
+rows are flagged and their absolutes suppressed.
 
 Every magic constant is defined + documented below and in docs/methodology.md.
 The script is fully re-runnable (idempotent). Read-only on dim_sets.
@@ -64,7 +66,13 @@ GRADING_MODEL = os.path.join(DATA, "grading_rate_model.json")
 OUT_JSON = os.path.join(DATA, "set_population_estimates.json")
 OUT_MD = os.path.join(DOCS, "results.md")
 
-MODEL_VERSION = "v2-grading-rate"
+from model_constants_v3 import (  # noqa: E402
+    MODEL_VERSION_V3, PRODUCTION_RAMP_DAYS, PRODUCTION_RAMP_DAYS_BOOM,
+    ROSTER_LAG_DAYS, SUBSET_PARENT, anchor_value_english, calibration_scale,
+    english_share, load_checkpoints, production_weight, share_doc,
+    usable_rungs)
+
+MODEL_VERSION = MODEL_VERSION_V3
 
 # =============================================================================
 # DOCUMENTED MODEL CONSTANTS  (see docs/methodology.md). All ESTIMATES.
@@ -118,28 +126,18 @@ PULL_DENOM = {
     "SV":    [1.0,  1.0,  1.5,  1.6,  9.0,  35.0],
 }
 
-# --- 3. Grading-rate divisor (model v2) --------------------------------------
-# Replaces the v1 popularity divisor. The mechanistic grading-rate model lives
-# in scripts/fit_grading_rate.py and writes data/grading_rate_model.json. This
-# combiner reads the per-set predicted_grading_rate from that file.
-#
-# Trends, pageviews and sales velocity are now VALIDATION signals only (each
-# gets a Spearman cross-check vs rel_pop). None of them feed into rel_pop.
-W_TRENDS_VALIDATION = 1.0    # only used for the validation Spearman, NOT divisor
-W_PAGEVIEWS_VALIDATION = 0.0 # near-useless (mostly shared mascot articles); kept @0
-# sales velocity is endogenous (population -> supply -> sales); validation only.
+# --- 3. Grading-rate divisor (v3 model) --------------------------------------
+# The mechanistic grading-rate model lives in scripts/fit_grading_rate.py and
+# writes data/grading_rate_model.json; this combiner reads per-set
+# predicted_grading_rate from it. Trends, pageviews and sales velocity are
+# VALIDATION signals only (Spearman cross-checks); none feed rel_pop.
+# Sales velocity is endogenous (population -> supply -> sales).
 
 # --- 5. Absolute calibration -------------------------------------------------
-# Official TPC "Pokemon in Figures" cumulative checkpoints (value, date).
-# From known_print_runs.json GLOBAL anchors + prior_art.md. Used to scale the
-# windowed sum of rel_pop. value in cards.
-TPC_CHECKPOINTS = [
-    (23_600_000_000, date(2017, 3, 31)),
-    (43_200_000_000, date(2022, 3, 31)),
-    (52_900_000_000, date(2023, 3, 31)),
-    (64_900_000_000, date(2024, 3, 31)),
-    (75_000_000_000, date(2025, 3, 31)),
-]
+# v3: the checkpoint ladder is loaded from known_print_runs.json GLOBAL
+# anchors (16 dated rungs, 12 official) and converted to ENGLISH cards via
+# english_share(); windows use the production ramp. See model_constants_v3.py.
+# Output absolutes are ENGLISH-ONLY projected lifetime production.
 # Multiplicative uncertainty band: grading-rate (~3x) x pull-rate (~2-3x),
 # collapsed to one factor. Bands are order-of-magnitude rails, not CIs.
 BAND_FACTOR = 3.0
@@ -321,7 +319,8 @@ def build_estimates(args):
             "era": era,
             "release_date": rd.isoformat() if rd else None,
             "n_chase_used": n_used,
-            "mean_chase_psa": round(mean_psa, 2) if mean_psa is not None else None,
+            # raw value used in arithmetic; rounded only at output time
+            "mean_chase_psa": mean_psa,
             "chase_tier": tier,
             "pull_denominator": round(pull_denominator(era, tier), 3) if era else 1.0,
             "chase_value": gm.get("chase_value"),
@@ -350,7 +349,7 @@ def build_estimates(args):
     for sid, r in sets.items():
         r["trend_z"] = round(trend_z.get(sid), 4) if sid in trend_z else None
 
-    # --- pass 3: relative population (NEW v2: divide by predicted grading rate) -
+    # --- pass 3: relative population (divide by predicted grading rate) -----
     for sid, r in sets.items():
         if (r["n_chase_used"] == 0 or r["mean_chase_psa"] is None
                 or r["predicted_grading_rate"] is None
@@ -370,25 +369,40 @@ def build_estimates(args):
         for r in scored.values():
             r["rel_pop_norm100"] = round(100.0 * r["rel_pop_score"] / mx, 4)
 
-    # --- pass 4: absolute calibration ---------------------------------------
+    # --- pass 4: absolute calibration (v3.1: geomean over usable rungs) -----
     calib = None
     if not args.no_absolute and scored:
-        today = date.today()
-        usable = [(v, d) for v, d in TPC_CHECKPOINTS if d <= today]
-        cp_value, cp_date = max(usable, key=lambda x: x[1]) if usable else max(
-            TPC_CHECKPOINTS, key=lambda x: x[1])
-        # window: sets released before checkpoint date with a rel_pop
-        windowed = [r for r in scored.values()
-                    if r["release_date"] and parse_date(r["release_date"]) <= cp_date]
-        wsum = sum(r["rel_pop_score"] for r in windowed)
-        scale = cp_value / wsum if wsum else None
+        pop_snapshot = parse_date(load_json(CHASE_GRADED).get("generated_at")) \
+            or date.today()
+        rungs = usable_rungs(load_checkpoints(load_json(KNOWN_RUNS)), pop_snapshot)
+        # ramped window sums (subset products excluded — their production is
+        # inside their parent's sealed product)
+        def wsum_at(cp_date):
+            return sum(r["rel_pop_score"] * production_weight(
+                           parse_date(r["release_date"]), cp_date)
+                       for sid, r in scored.items()
+                       if r["release_date"] and sid not in SUBSET_PARENT)
+        rung_terms = [(c["value_english"], wsum_at(c["date"]), c["weight"])
+                      for c in rungs]
+        scale = calibration_scale(rung_terms) if rung_terms else None
         calib = {
-            "checkpoint_value": cp_value,
-            "checkpoint_date": cp_date.isoformat(),
-            "n_sets_in_window": len(windowed),
-            "windowed_rel_pop_sum": wsum,
+            "method": "credibility-weighted geometric-mean scale over usable rungs",
+            "n_rungs_used": len(rungs),
+            "latest_rung_date": rungs[-1]["date"].isoformat() if rungs else None,
+            "latest_rung_value_global": rungs[-1]["value_global"] if rungs else None,
+            "latest_rung_value_english": rungs[-1]["value_english"] if rungs else None,
+            "roster_lag_days": ROSTER_LAG_DAYS,
+            "rung_ratios": [
+                {"date": c["date"].isoformat(),
+                 "target_english": c["value_english"],
+                 "ratio_est_over_target": (ws * scale / c["value_english"])
+                 if (scale and c["value_english"]) else None}
+                for c, (t, ws, w) in zip(rungs, rung_terms)],
+            "production_ramp_days": [PRODUCTION_RAMP_DAYS_BOOM, PRODUCTION_RAMP_DAYS],
+            "subsets_excluded_from_windows": sorted(SUBSET_PARENT),
             "scale": scale,
             "band_factor": BAND_FACTOR,
+            "language_scope": "english_only, projected lifetime production",
         }
         if scale:
             for r in scored.values():
@@ -396,6 +410,40 @@ def build_estimates(args):
                 r["abs_estimate_mid"] = mid
                 r["abs_low"] = mid / BAND_FACTOR
                 r["abs_high"] = mid * BAND_FACTOR
+
+    # --- pass 4b: reliability flags (red-team audit 2026-07-22) -------------
+    # The grading-rate framework assumes booster-pack economics; giveaway /
+    # promo / starter products have near-zero graded pops and their rel_pop is
+    # a floor artifact (mcd16's "3,332 cards" was literally ~1 graded card /
+    # era rate), so their absolutes are suppressed. Subset products double-
+    # claim their parent's production. Recently released sets have not
+    # accumulated graded pop yet (Prismatic Evolutions ranked 105th by pop vs
+    # 10th by sales). base1's chase pop is dominated by THE hobby icon and
+    # beta_p=0.5 cannot absorb that premium.
+    from datetime import timedelta
+    pop_snapshot_f = parse_date(load_json(CHASE_GRADED).get("generated_at")) \
+        or date.today()
+    NON_BOOSTER_PAT = ("mcdonald", "black star promo", "pop series", "trainer kit")
+    NON_BOOSTER_IDS = {"xy0", "dv1", "ru1", "si1", "bp"}
+    for sid, r in sets.items():
+        name_l = (r["set_name"] or "").lower()
+        psa_d = (r["mean_chase_psa"] or 0) * (r["pull_denominator"] or 1)
+        if sid in SUBSET_PARENT:
+            r["flags"].append("subset_set")
+            r["subset_of"] = SUBSET_PARENT[sid]
+        if (any(p in name_l for p in NON_BOOSTER_PAT) or sid in NON_BOOSTER_IDS
+                or (r["n_chase_used"] > 0 and psa_d < 1000)):
+            r["flags"].append("numerator_unreliable")
+        rd = parse_date(r["release_date"])
+        if rd and rd > pop_snapshot_f - timedelta(days=730):
+            r["flags"].append("pop_lag_underestimate")
+        if sid == "base1":
+            r["flags"].append("icon_premium_suspect")
+    for sid, r in scored.items():
+        if "numerator_unreliable" in r["flags"] or "subset_set" in r["flags"]:
+            r["abs_estimate_mid"] = None
+            r["abs_low"] = None
+            r["abs_high"] = None
 
     # --- pass 5: sales velocity rank (validation) ---------------------------
     sv_sets = [(sid, r["sales_per_month"]) for sid, r in scored.items()
@@ -449,27 +497,36 @@ def validate_spearman(scored):
 
 
 def anchor_sensitivity(scored):
-    """Compare abs_estimate_mid vs per-set total_print_run anchors."""
+    """Compare abs_estimate_mid vs per-set total_print_run anchors.
+
+    v3: anchors tagged cards_all_languages are converted to English at the
+    set's release-date share before the ratio (estimates are English-only).
+    Variant-subset anchors (1st_edition/shadowless) are kept in the table but
+    tagged excluded_from_headline — the estimate covers ALL variants of the
+    set, so the ratio is structurally inflated (same exclusion the fit uses)."""
     runs = load_json(KNOWN_RUNS)["anchors"]
     rows = []
     for a in runs:
         sid = a["set_id"]
-        if sid in ("GLOBAL", "MODERN_AVG") or a["estimate_type"] != "total_print_run":
+        if a["estimate_type"] != "total_print_run" or a.get("value_mid") is None:
             continue
-        if a.get("value_mid") is None:
-            continue
-        est = scored.get(sid, {}).get("abs_estimate_mid")
-        if est is None:
-            continue
-        ratio = est / a["value_mid"]
+        rec = scored.get(sid)
+        if rec is None or rec.get("abs_estimate_mid") is None:
+            continue  # GLOBAL / *_ERA_AVG / WOTC_* pseudo-ids never match scored
+        rd = parse_date(rec.get("release_date"))
+        anchor_en, converted = anchor_value_english(a, rd)
+        est = rec["abs_estimate_mid"]
         rows.append({
             "set_id": sid,
             "set_name": a["set_name"],
             "variant": a.get("print_variant"),
             "credibility": a.get("source_credibility"),
-            "anchor_mid": a["value_mid"],
+            "anchor_mid_raw": a["value_mid"],
+            "anchor_mid_english": anchor_en,
+            "unit_converted_from_all_languages": converted,
             "estimate_mid": est,
-            "ratio_est_over_anchor": ratio,
+            "ratio_est_over_anchor": est / anchor_en,
+            "excluded_from_headline": a.get("print_variant") in ("1st_edition", "shadowless"),
         })
     return rows
 
@@ -489,7 +546,7 @@ def write_json(sets, scored, calib, validation, sens, grading_model_meta, args):
             "era": r["era"],
             "release_date": r["release_date"],
             "n_chase_used": r["n_chase_used"],
-            "mean_chase_psa": r["mean_chase_psa"],
+            "mean_chase_psa": round(r["mean_chase_psa"], 2) if r["mean_chase_psa"] is not None else None,
             "chase_tier": r["chase_tier"],
             "pull_denominator": r["pull_denominator"],
             "chase_value": r.get("chase_value"),
@@ -506,21 +563,28 @@ def write_json(sets, scored, calib, validation, sens, grading_model_meta, args):
             "pageviews_per_month": r.get("pageviews_per_month"),
             "sales_per_month": r.get("sales_per_month"),
             "flags": r["flags"],
+            "subset_of": r.get("subset_of"),
         }
         out_sets[sid] = rec
 
     doc = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "model_version": MODEL_VERSION,
+        "language_scope": "english_only",
+        "english_share": share_doc(),
         "notes": (
-            "rel_pop = mean_chase_psa * pull_denominator / predicted_grading_rate. "
-            "Grading rate from mechanistic model (data/grading_rate_model.json): "
-            "log(rate) = alpha[era] + beta_p * log(chase_value/$100) + beta_y * log(years/10y). "
-            "Replaces v1 Google-Trends popularity divisor. Trends/pageviews/sales-velocity "
-            "are held out for validation (Spearman cross-checks). "
-            "Absolutes pinned to TPC cumulative checkpoint (windowed sum); bands +/-{}x. "
-            "Defensible on RELATIVES, order-of-magnitude on ABSOLUTES "
-            "(see results.md anchor-sensitivity).".format(BAND_FACTOR)
+            "v3 (2026-07-21): ALL absolutes are ENGLISH-ONLY projected lifetime "
+            "production. rel_pop = mean_chase_psa * pull_denominator / "
+            "predicted_grading_rate; grading rate from data/grading_rate_model.json "
+            "fit against a 16-rung dated TPC checkpoint ladder (12 official rungs, "
+            "converted global->English via a documented english_share layer: 0.40 "
+            "pre-2020 / 0.35 after, +/-0.10), unit-corrected community per-set "
+            "anchors (all-languages WAGs halved-ish at release-date share), and an "
+            "independent SEC-revenue-derived WOTC 1999-2001 English window. "
+            "Checkpoint windows use a production ramp (12mo boom-era / 24mo "
+            "modern). Bands +/-{}x. Within-era RELATIVES remain the strongest "
+            "output; absolutes are now unit-consistent but inherit the english_share "
+            "assumption linearly (see results.md sensitivity).".format(BAND_FACTOR)
         ),
         "grading_rate_model": {
             "equation": grading_model_meta.get("equation"),
@@ -533,6 +597,8 @@ def write_json(sets, scored, calib, validation, sens, grading_model_meta, args):
         "constants": {
             "confidence_keep": sorted(CONFIDENCE_KEEP),
             "band_factor": BAND_FACTOR,
+            "production_ramp_days": {"boom_era_pre2003": PRODUCTION_RAMP_DAYS_BOOM,
+                                     "default": PRODUCTION_RAMP_DAYS},
             "era_buckets": [[n, d.isoformat()] for n, d in ERA_BUCKETS],
             "pull_denominator_table": PULL_DENOM,
             "pull_denominator_units": "packs-opened-per-graded-chase-copy, relative, WOTC tier-3 holo = 1.0 (ESTIMATES)",
@@ -561,23 +627,42 @@ def write_results_md(doc, scored, calib, validation, sens):
     L.append("# Results: Set Print-Population Estimates\n")
     L.append(f"_Generated {doc['generated_at']} — model {doc['model_version']}._\n")
     L.append(
-        "> **Model v2 (grading-rate divisor).** rel_pop = mean_chase_psa × pull_D / "
-        "predicted_grading_rate. Grading rate is a mechanistic function of era + chase "
-        "value (see `methodology.md` and `data/grading_rate_model.json`). Trends / "
-        "pageviews / sales velocity are now VALIDATION signals, not divisor inputs.\n")
+        "> **Model v3 (english-only + dated checkpoint ladder).** ALL absolute "
+        "numbers are ENGLISH-ONLY projected lifetime production. rel_pop = "
+        "mean_chase_psa × pull_D / predicted_grading_rate; the grading-rate fit "
+        "targets a dated TPC cumulative-checkpoint ladder (6 rungs "
+        "archive-verified, the current 85B live-page, the rest official-claim or "
+        "transcription-tier and down-weighted accordingly) converted "
+        "global→English via a documented `english_share` layer applied to "
+        "per-regime INCREMENTS (0.40 pre-2020 / 0.35 after, ±0.10), "
+        "unit-corrected community anchors (every per-set anchor is an "
+        "all-languages community guess — provenance traced 2026-07-21), and an "
+        "SEC-revenue-derived WOTC 1999–2001 English window (a consistency check "
+        "that shares the assumption layer — see caveats). Checkpoint windows "
+        "use a production ramp (12 mo boom-era / 24 mo after); subset products "
+        "are excluded from windows. Trends / pageviews / sales velocity remain "
+        "held-out VALIDATION signals (pageviews has n=1 usable pair and is not "
+        "reported). See `docs/anchor_research_2026-07-21.md` for the evidence "
+        "base.\n")
     st = doc["stats"]
     L.append(f"- Sets scored: **{st['n_scored']}** / {st['n_sets']} "
              f"({st['n_unscored']} unscored, no confident chase pop or grading rate).")
     if calib and calib.get("scale"):
-        L.append(f"- Absolute calibration anchor: TPC **{fmt_int(calib['checkpoint_value'])}** "
-                 f"cards cumulative @ {calib['checkpoint_date']} "
-                 f"(windowed over {calib['n_sets_in_window']} pre-checkpoint sets; "
-                 f"post-fit scale={calib['scale']:.3f}).")
+        L.append(f"- Absolute calibration: credibility-weighted geometric-mean scale "
+                 f"over **{calib['n_rungs_used']} usable ladder rungs** (latest: "
+                 f"{fmt_int(calib['latest_rung_value_global'])} global @ "
+                 f"{calib['latest_rung_date']} → "
+                 f"{fmt_int(calib['latest_rung_value_english'])} English, "
+                 f"increment-correct share). Rungs after (pop snapshot − "
+                 f"{calib['roster_lag_days']} d) are excluded: the scored roster "
+                 f"lacks 2025-26 sets and recent sets' graded pops lag. "
+                 f"scale={calib['scale']:.3f}; no single rung is pinned exactly — "
+                 "per-rung residuals are in the ladder table below.")
 
     # Grading-rate model summary
     gm = doc.get("grading_rate_model", {})
     if gm:
-        L.append("\n## Grading-rate model (v2 divisor)\n")
+        L.append("\n## Grading-rate model (v3 divisor)\n")
         L.append(f"`{gm.get('equation')}`")
         L.append(f"\n- `beta_p = {gm.get('beta_p')}` (pinned prior — grading rate "
                  "rises with chase value; sqrt scaling).")
@@ -626,26 +711,66 @@ def write_results_md(doc, scored, calib, validation, sens):
     table(list(reversed(ranked[-20:])), "Bottom 20 sets by estimated print population")
 
     # sensitivity table
-    L.append("## Anchor sensitivity (estimate / published anchor)\n")
-    L.append("Per-set `total_print_run` anchors from `known_print_runs.json`. "
-             "The grading-rate model is fit *jointly* against these (with low weight for "
-             "`hobbyist-guess` credibility) and the official TPC cumulative checkpoints. "
-             "This sensitivity is a fit-quality measure, not held-out.\n")
+    L.append("## Anchor sensitivity (estimate / published anchor, ENGLISH units)\n")
+    L.append("Per-set `total_print_run` anchors from `known_print_runs.json`, converted "
+             "to English cards at the set's release-date share when tagged "
+             "`cards_all_languages` (all of them are — the 2026-07-21 provenance audit "
+             "traced every one to all-languages community guesses). The grading-rate "
+             "model is fit *jointly* against these (weight 0.5 for hobbyist-guess) and "
+             "the checkpoint ladder, so this is a fit-quality measure, not held-out. "
+             "Variant-subset rows (1st Ed/Shadowless) are excluded from the headline — "
+             "the estimate covers all variants of a set.\n")
     if sens:
-        within2 = sum(1 for s in sens if 0.5 <= s["ratio_est_over_anchor"] <= 2.0)
-        within3 = sum(1 for s in sens if (1 / 3.0) <= s["ratio_est_over_anchor"] <= 3.0)
-        L.append(f"**{within2}/{len(sens)} anchors within 2×, {within3}/{len(sens)} within 3× "
-                 "(model v1 had 1/10 within 2×, 1/10 within 3×).**\n")
-        L.append("| set | variant | credibility | anchor_mid | estimate_mid | est/anchor |")
-        L.append("|-----|---------|-------------|-----------:|-------------:|-----------:|")
+        head = [s for s in sens if not s.get("excluded_from_headline")]
+        within2 = sum(1 for s in head if 0.5 <= s["ratio_est_over_anchor"] <= 2.0)
+        within3 = sum(1 for s in head if (1 / 3.0) <= s["ratio_est_over_anchor"] <= 3.0)
+        L.append(f"**{within2}/{len(head)} anchors within 2×, {within3}/{len(head)} within 3×** "
+                 f"(v2 counted 8/18 within 2× against UN-converted all-language anchors — "
+                 "not comparable; v1 had 1/10).\n")
+        L.append("| set | variant | credibility | anchor raw | anchor EN | estimate_mid | est/anchor | headline |")
+        L.append("|-----|---------|-------------|-----------:|----------:|-------------:|-----------:|----------|")
         for s in sorted(sens, key=lambda x: x["ratio_est_over_anchor"], reverse=True):
-            L.append("| {sid} ({nm}) | {v} | {c} | {a} | {e} | {r:.2f}× |".format(
+            L.append("| {sid} ({nm}) | {v} | {c} | {ar} | {a} | {e} | {r:.2f}× | {h} |".format(
                 sid=s["set_id"], nm=s["set_name"], v=s["variant"], c=s["credibility"],
-                a=fmt_int(s["anchor_mid"]), e=fmt_int(s["estimate_mid"]),
-                r=s["ratio_est_over_anchor"]))
+                ar=fmt_int(s["anchor_mid_raw"]), a=fmt_int(s["anchor_mid_english"]),
+                e=fmt_int(s["estimate_mid"]),
+                r=s["ratio_est_over_anchor"],
+                h="excluded" if s.get("excluded_from_headline") else "yes"))
     else:
         L.append("_No per-set anchors matched scored sets._")
     L.append("")
+
+    # checkpoint ladder + revenue window (from grading_rate_model.json)
+    try:
+        gmodel = load_json(GRADING_MODEL)
+        L.append("## Checkpoint-ladder fit (English targets)\n")
+        L.append("| date | global | share | EN target | predicted | ratio | credibility |")
+        L.append("|------|-------:|------:|----------:|----------:|------:|-------------|")
+        for r in gmodel.get("tpc_fit", []):
+            L.append(f"| {r['checkpoint_date']} | {r['checkpoint_value_global']/1e9:.1f}B "
+                     f"| {r['english_share']:.2f} | {r['checkpoint_value_english']/1e9:.1f}B "
+                     f"| {r['predicted_windowed_sum']/1e9:.1f}B "
+                     f"| {r['ratio_pred_over_cp']:.2f} | {r['credibility']} |")
+        for w in gmodel.get("english_window_fit", []):
+            L.append(f"\nRevenue-derived window **{w['anchor_id']}** "
+                     f"({w['window'][0]}→{w['window'][1]}): predicted "
+                     f"**{w['predicted_windowed_sum']/1e9:.1f}B** vs target "
+                     f"{w['target_english_mid']/1e9:.1f}B "
+                     f"[{(w['target_english_low'] or 0)/1e9:.1f}–"
+                     f"{(w['target_english_high'] or 0)/1e9:.1f}] — "
+                     f"**{'WITHIN' if w['within_band'] else 'OUTSIDE'} band** "
+                     f"(ratio {w['ratio_pred_over_target']:.2f}). Honesty note: "
+                     "this is a CONSISTENCY CHECK, not independent corroboration — "
+                     "the window is a term in the same joint fit, its prediction is "
+                     "the same quantity the end-2001 rung constrains, and the two "
+                     "target derivations (TPC totals × share vs SEC dollars ÷ "
+                     "wholesale price × EN-of-West share) use disjoint primary "
+                     "documents but SHARE the community-assumption share layer, "
+                     "whose 0.40 value was itself chosen partly for this "
+                     "agreement.")
+        L.append("")
+    except Exception:
+        pass
 
     # Per-era summary
     try:
@@ -702,43 +827,106 @@ def write_results_md(doc, scored, calib, validation, sens):
     # Confidence
     L.append("## Confidence & caveats (frank)\n")
     L.append(
-        "### What changed in v2\n"
-        "v1 used `exp(z(log(Google Trends)))` as the divisor. That captures search-popularity "
-        "but is *blind* to grading-rate dynamics: a $3,000 vintage card gets graded ~10–20× "
-        "harder than a $100 modern SIR, regardless of who's searching. v1 anchors landed "
-        "1/10 within 2× (vintage anchors ~30–1000× off). v2 swaps in a mechanistic "
-        "`grading_rate = exp(alpha[era] + 0.5·log(chase_value/$100))` fit jointly to "
-        "per-set anchors AND the official TPC cumulative checkpoints.\n")
+        "### What changed in v3 (2026-07-21/22 deep-research + adversarial audit)\n"
+        "1. **Units fixed.** v2 compared English graded pops against ALL-LANGUAGES anchors "
+        "and global checkpoints — an implicit english_share of 1.0, smearing Japanese-only "
+        "volume across English sets. v3 outputs are English-only: the share (0.40 pre-2020 "
+        "/ 0.35 after, ±0.10) is applied to per-regime production INCREMENTS (applying it "
+        "to cumulative totals made the EN ladder non-monotonic — caught in audit), and "
+        "every per-set community anchor was provenance-traced and converted.\n"
+        "2. **5 checkpoints → dated ladder.** Rungs by evidence tier: 6 archive-verified "
+        "(21.5B@2015, 25.7B@2018, 27.2B@2019, 30.4B@2020, 34.1B@2021, 64.8B@2024 — the "
+        "last correcting v2's 64.9B), the 85B@2026 live page, other official-claim rungs, "
+        "and transcription-tier rungs (13B@2005 via forum-relayed press releases, 12B@2001, "
+        "14B@2006, 20B@2013, 43.2B@2022) at half weight. Rungs newer than the scored "
+        "roster supports are EXCLUDED from the fit (currently capped at Mar-2024) so "
+        "recent unscored production cannot be redistributed onto older sets.\n"
+        "3. **SEC-revenue window.** Evidence tiers, precisely: $568M/2000 is derived from "
+        "an audited-period Hasbro 10-K405 disclosure (the 15% sentence itself sits outside "
+        "the auditor's opinion); ~$500M/1999 is an ICv2 trade-press derivation across "
+        "filings (well-sourced-estimate); 2001 has only an official ≤$286M ceiling with "
+        "~$100M inferred. ÷ wholesale pack price (40–55% of the $3.29 MSRP, WOTC's own "
+        "archived store) × 11 cards/pack × 0.65 EN-of-West → 4.2–7.4B EN window, fit "
+        "jointly (a consistency check — see the ladder section's honesty note).\n"
+        "4. **Production ramp + subset exclusion.** Windows ramp over 12 mo (boom era, "
+        "motivated by the documented 2001 overproduction writeoffs AND tuned partly to "
+        "reduce the Mar-2005 rung overshoot — both true) / 24 mo (modern); subset "
+        "products (Trainer Galleries, cel25c) no longer double-claim parent production. "
+        "Absolutes are projected LIFETIME production.\n"
+        "5. **Reliability flags** (`numerator_unreliable`, `pop_lag_underestimate`, "
+        "`subset_set`, `icon_premium_suspect`) mark rows where the framework's "
+        "assumptions fail; absolutes are SUPPRESSED for non-booster/subset rows rather "
+        "than published as floor artifacts.\n")
     L.append(
         "### Why we PIN beta_p instead of fitting it\n"
-        "Of the 15 anchors in `known_print_runs.json`, only 8 are usable per-set print-run "
-        "estimates after excluding variant subsets and the `neo3` cumulative checkpoint. "
-        "**Seven of those 8 are WOTC and one is EX.** Fitting log_price/log_yrs slopes on that "
-        "distribution either over-fits or returns negative coefficients (more value → less "
-        "grading), which is physically wrong. We pin `beta_p=0.5` (square-root scaling, "
-        "consistent with PSA's value-driven grading-rate dynamics) and only fit per-era "
-        "intercepts. **The model is reproducible from the JSON; the scripts/fit_grading_rate.py "
-        "run is deterministic.**\n")
+        "All 17 per-set anchors are hobbyist guesses (weight 0.5). Re-tested "
+        "2026-07-22 with the expanded 6-era anchor set: a free fit gives "
+        "beta_p≈0.04 (no longer sign-flipped as with the v2 anchor set, but a "
+        "slope learned from guess-tier data; ≈0 would claim chase value doesn't "
+        "drive grading propensity within an era, contradicting observable PSA "
+        "submission behavior). We keep the 0.5 physical prior and only fit "
+        "per-era intercepts. The run is deterministic.\n")
+    tension = ""
+    try:
+        gmodel_t = load_json(GRADING_MODEL)
+        ratios = [(r["checkpoint_date"], r["ratio_pred_over_cp"])
+                  for r in gmodel_t.get("tpc_fit", [])]
+        if ratios:
+            worst = max(ratios, key=lambda x: abs(math.log(x[1])))
+            tension = (f"Worst rung: {worst[1]:.2f}× @ {worst[0]}; full residual "
+                       "profile in the ladder table above.")
+    except Exception:
+        pass
+    L.append(
+        "### Known residual tensions (documented, not hidden)\n"
+        "- **The ladder has a residual SLOPE misfit**: the fit over-predicts "
+        "crash/mid-era rungs and under-predicts the steep post-2021 English "
+        "increments (FY23 alone implies ~4B EN of new production at share 0.35). "
+        "Under the geomean calibration the residuals are spread rather than "
+        "hidden in a pinned rung. " + tension + " Unresolved candidate causes: "
+        "english_share >0.35 post-2020, modern reprint tails longer than 24 mo, "
+        "transcription-tier crash-era rungs being loose, or genuinely larger "
+        "modern per-set runs than community English estimates (~1B/set).\n"
+        "- **base1 is flagged `icon_premium_suspect`** (est ≈2.5× its halved WAG "
+        "anchor). The Charizard-icon grading premium exceeds what beta_p=0.5 "
+        "corrects; base1's within-era relative is likely inflated ~2×.\n"
+        "- **The 12B end-2001 rung and the WOTC per-set WAGs are NOT independent** "
+        "— the WAGs were constructed to sum to that checkpoint, so jointly "
+        "fitting both partly double-counts one source (both are low-weight).\n"
+        "- **All cumulative figures are 'over X' floors** used here as point "
+        "targets; true values sit above each rung by an unknown margin.\n"
+        "- **BW-era estimates are very low** (median ~7M EN/set), violating the "
+        "single-poster ordinal 'BW > HGSS' — but matching the sealed-box market "
+        "(BW boxes price above many WOTC boxes). We report, not force, the "
+        "ordinal.\n"
+        "- **Era bucketing is date-mechanical**: bw11 Legendary Treasures lands "
+        "in era XY, swshp in era SM. Cosmetic for flagged rows, but visible in "
+        "tables.\n")
     L.append(
         "### What's still order-of-magnitude\n"
-        "- **Single-era anchors drive their era's intercept.** WOTC has 7 anchors → WOTC alpha "
-        "is data-driven. EX has 1 → EX alpha is essentially that one anchor. ECARD, DP, HGSS, "
-        "BW, XY, SM, SWSH, SV have ZERO per-set anchors; their alphas are determined by TPC "
-        "checkpoint windowed sums + cross-era smoothness. Per-set absolutes in those eras are "
-        "order-of-magnitude.\n"
-        "- **Pull-rate `D` table unchanged from v1** — still the second-biggest lever and still "
-        "all estimates. See `methodology.md` for the table.\n"
-        "- **Unmodelled biases unchanged:** WOTC 1st-Ed/Shadowless/Unlimited graded separately "
-        "but pop-merged; JP vs EN separate prints; attrition; crack-and-resubmit pop inflation; "
-        "precon-deck dilution; grading-rate drift over time.\n"
-        "- **Bands ±3×** are honest order-of-magnitude rails, not confidence intervals.\n")
+        "- **english_share is THE load-bearing assumption** — no official language split "
+        "exists; absolutes scale linearly in it (±0.10 ⇒ ±25–29%). Evidence: Japan market "
+        "≈ US market; TPCi/TPC production split; language count 11→16.\n"
+        "- **Pull-rate `D` table** unchanged — still the second-biggest lever, still "
+        "estimates.\n"
+        "- **Unmodelled biases:** WOTC 1st-Ed/Shadowless/Unlimited pop-merging; attrition; "
+        "crack-and-resubmit inflation; precon dilution (~30% of EX-era prints were theme "
+        "decks per community estimate); grading-rate drift.\n"
+        "- **Bands ±3×** are order-of-magnitude rails, not confidence intervals.\n")
     L.append(
         "### Honest read\n"
-        "Within-era relatives remain the strongest output (the numerator and pull_D are "
-        "unchanged; the divisor change mostly affects cross-era). Cross-era relatives and "
-        "all absolutes are still order-of-magnitude — better than v1 but not tight. To tighten "
-        "the absolutes meaningfully we need more per-set anchors, especially in DP/HGSS/BW/XY/"
-        "SM/SWSH/SV (currently zero per-set anchors in those eras).\n")
+        "Within-era relatives among UNFLAGGED mainline booster sets remain the "
+        "strongest output (flagged rows — subsets, promos, icon-premium, "
+        "pop-lagged — are exactly where relatives break too). Absolutes are now "
+        "unit-consistent and ladder-dense: for mid-band mainline sets of "
+        "~2003–2022 the ±3× band is a fair claim; for WOTC (base1 especially), "
+        "2023+ mega-sets, and anything flagged, treat the numbers as directional "
+        "only. Everything scales linearly in english_share. The EX–XY dead zone "
+        "is now constrained by real checkpoints instead of smoothness alone; no "
+        "NEW conclusive per-set evidence for those eras was found by the "
+        "2026-07-21 research pass — the existing community per-set numbers "
+        "remain unsourced guesses (and two of them, ex7 and xy12, are used here "
+        "at guess weight).\n")
 
     with open(OUT_MD, "w") as fh:
         fh.write("\n".join(L))
@@ -766,18 +954,22 @@ def main():
         ranked = sorted([(sid, r) for sid, r in doc["sets"].items()
                          if r["rel_pop_score"] is not None],
                         key=lambda x: x[1]["rel_pop_score"], reverse=True)
-        print(f"Scored {len(scored)}/{len(sets)} sets (model v2: grading-rate divisor).")
+        print(f"Scored {len(scored)}/{len(sets)} sets (model {MODEL_VERSION}).")
         if calib and calib.get("scale"):
-            print(f"Calibrated to TPC {fmt_int(calib['checkpoint_value'])} @ "
-                  f"{calib['checkpoint_date']} over {calib['n_sets_in_window']} sets "
+            print(f"Calibrated: geomean over {calib['n_rungs_used']} rungs, latest "
+                  f"{fmt_int(calib['latest_rung_value_global'])} global @ "
+                  f"{calib['latest_rung_date']} -> "
+                  f"{fmt_int(calib['latest_rung_value_english'])} EN "
                   f"(scale={calib['scale']:.4f}).")
         print(f"Spearman rel_pop vs sales:   {validation['spearman_relpop_vs_sales']}")
         print(f"Spearman rel_pop vs trends:  {validation['spearman_relpop_vs_trends']}")
         print(f"Spearman rel_pop vs pviews:  {validation['spearman_relpop_vs_pageviews']}")
         if sens:
-            w2 = sum(1 for s in sens if 0.5 <= s['ratio_est_over_anchor'] <= 2.0)
-            w3 = sum(1 for s in sens if (1/3.0) <= s['ratio_est_over_anchor'] <= 3.0)
-            print(f"Anchors within 2x: {w2}/{len(sens)}, within 3x: {w3}/{len(sens)}")
+            head = [s for s in sens if not s.get('excluded_from_headline')]
+            w2 = sum(1 for s in head if 0.5 <= s['ratio_est_over_anchor'] <= 2.0)
+            w3 = sum(1 for s in head if (1/3.0) <= s['ratio_est_over_anchor'] <= 3.0)
+            print(f"Anchors within 2x: {w2}/{len(head)}, within 3x: {w3}/{len(head)} "
+                  f"({len(sens)-len(head)} variant-subset rows excluded)")
         print("Top 10:")
         for sid, r in ranked[:10]:
             print(f"  {sid:10s} {r['set_name'][:28]:28s} rel100={r.get('rel_pop_norm100'):>7} "

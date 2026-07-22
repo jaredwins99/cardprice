@@ -1,5 +1,17 @@
 # set_population — Pokémon set print-population estimation
 
+> **CURRENT STATE (v3.1, 2026-07-22):** the model described below evolved.
+> Estimates are now ENGLISH-ONLY projected lifetime production:
+> `rel_pop = mean_chase_psa x pull_D / predicted_grading_rate`, with the
+> grading-rate model (`scripts/fit_grading_rate.py`) fit against a 16-rung
+> dated TPC checkpoint ladder converted global->English via a documented
+> `english_share` layer, unit-corrected community anchors, and an SEC-revenue
+> WOTC window. See `docs/methodology.md` (v3 addendum), `docs/results.md`,
+> and `docs/anchor_research_2026-07-21.md`. Rows carry reliability flags
+> (`numerator_unreliable`, `subset_set`, `pop_lag_underestimate`,
+> `icon_premium_suspect`); flagged absolutes are suppressed. The v1
+> popularity-divisor text below is historical.
+
 > **This is a self-contained analysis sub-project, isolated from the rest of
 > the cardprice repo.** It does NOT touch the card scanner, the pricing
 > pipeline, the server, or the ML code. Nothing here is imported by the main

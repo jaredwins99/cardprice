@@ -209,6 +209,8 @@ their specific era's alpha.
 - `set_id == "neo3"` — the 12 B figure is a cumulative checkpoint context, not
   Neo Revelation's print run.
 
+> **[SUPERSEDED by v3 — see addendum]** v3 fits **17 per-set anchors** spanning 6 eras (8 WOTC + ex7 + xy12 + sm115 + 5 SWSH + 2 SV), all hobbyist-guess tier, unit-converted from all-languages. The text below describes the v2 state.
+
 After exclusions, **8 per-set anchors** remain (7 WOTC + 1 EX). Other eras
 (ECARD, DP, HGSS, BW, XY, SM, SWSH, SV) have **zero** per-set anchors; their
 intercepts come from TPC windowed sums + smoothness.
@@ -244,7 +246,7 @@ additionally report it normalised so the max set = 100 for readability.
 
 Note that `numerator × pull_denominator / predicted_grading_rate` is precisely
 the un-scaled implied print run from the anchor equation — the post-fit scale
-to TPC 75 B is therefore close to 1.0 (currently ~1.08).
+to TPC 75 B is therefore close to 1.0 (currently ~1.08). **[SUPERSEDED: v3.1 uses a credibility-weighted geometric-mean scale over all usable rungs — currently 1.019 — instead of an exact pin; see addendum.]**
 
 ---
 
@@ -255,8 +257,7 @@ checkpoint (`known_print_runs.json`, `set_id == "GLOBAL"`,
 `estimate_type == "total_print_run"`). Procedure:
 
 1. Pick the latest checkpoint whose date ≤ today, with a dated `value_mid`
-   (the 75 B / 64.9 B / 52.9 B / 43.2 B / 23.6 B ladder; checkpoint dates are
-   listed in `combine.py`'s `TPC_CHECKPOINTS`).
+   (the 75 B / 64.9 B / 52.9 B / 43.2 B / 23.6 B ladder). **[SUPERSEDED: the constant `TPC_CHECKPOINTS` no longer exists; v3 loads a dated ladder from `known_print_runs.json` via `model_constants_v3.load_checkpoints`, 64.9 B was corrected to 64.8 B (archive-verified), and rungs newer than the scored roster supports are excluded from the fit.]**
 2. Sum `rel_pop` over only the sets **released before that checkpoint date**.
 3. `scale = checkpoint_value / windowed_rel_pop_sum`.
 4. `abs_estimate_mid(set) = rel_pop(set) × scale` for every scored set.
@@ -325,5 +326,78 @@ else by hand (average-rank ties + Pearson on ranks).
 - Every numeric constant above lives in `combine.py` / `fit_grading_rate.py` as a
   named, commented constant and is echoed into `data/grading_rate_model.json`
   + the output JSON's `notes`/`flags`.
-</content>
-</invoke>
+
+---
+
+## v3 addendum (2026-07-21): English-only units + dated checkpoint ladder
+
+v2's absolute calibration had a unit inconsistency, exposed by the 2026-07-21
+deep-research pass (`docs/anchor_research_2026-07-21.md`): English-catalog PSA
+pops were compared against ALL-LANGUAGES anchors and GLOBAL cumulative
+checkpoints — an implicit `english_share = 1.0`. Every WOTC per-set anchor was
+also provenance-traced to a single 2018 Elite Fourum post of self-described
+all-languages "wild ass guesses". v3 changes (all in
+`scripts/model_constants_v3.py`, `scripts/fit_grading_rate.py`,
+`scripts/combine.py`):
+
+1. **Language scope**: all outputs are ENGLISH-ONLY projected lifetime
+   production. `english_share(date)` = 0.40 pre-2020 / 0.35 after (±0.10),
+   evidence documented in `known_print_runs.json → conversion_evidence`.
+   Absolutes scale linearly in this assumption.
+2. **Checkpoint ladder**: 5 hardcoded checkpoints → 16 dated rungs (12
+   official/archive-verified) loaded from `known_print_runs.json` GLOBAL
+   anchors, each weighted by credibility (official 8, well-sourced 4).
+3. **Anchor unit conversion**: `unit: cards_all_languages` anchors are
+   converted at the set's release-date share before use, in both the fit and
+   the sensitivity table (variant-subset rows excluded from the headline).
+4. **Independent corroboration**: audited Hasbro SEC revenue ($500M/1999,
+   $568M/2000, ~$100M/2001) ÷ wholesale pack price (40–55% × $3.29 primary-
+   sourced MSRP) × 11 cards/pack × 0.65 EN-of-West → a 4.2–7.4B English
+   1999–2001 window fit as an `english_window_total` anchor. The fitted model
+   lands within band — two independent derivations of WOTC-era English volume
+   agree.
+5. **Production ramp**: a checkpoint at date T credits a set released d days
+   earlier with min(1, d/ramp) of its lifetime run; ramp = 365 d for pre-2003
+   sets (documented 2001 overproduction writeoffs → front-loaded printing),
+   730 d after.
+
+Known residual tensions are documented in `results.md` ("Known residual
+tensions"): the 2005/2006 rungs sit ~1.5× over (crash-era conflict between
+checkpoint deltas and graded-pop structure), base1 is likely inflated by the
+Charizard grading premium, and BW-era estimates violate one uncorroborated
+community ordinal while matching sealed-box market prices.
+
+The v2 text above is retained for history; where it conflicts with this
+addendum (e.g. the "~1.08 post-fit scale" claim, the 5-checkpoint table), the
+addendum and the current scripts are authoritative.
+
+### v3.1 (2026-07-22, post-adversarial-audit)
+
+A 4-agent adversarial audit of the first v3 build found and led to these fixes:
+
+1. **Share-on-increments** — applying english_share to cumulative totals made
+   the EN ladder non-monotonic across the 2020 switch; now applied to
+   per-regime increments with G(switch) interpolated from the ladder.
+2. **Geomean calibration** — the v2-style exact pin to the latest rung
+   concentrated a real slope misfit into a 1.38x scale inflating every earlier
+   rung; replaced with a credibility-weighted geometric mean over usable rungs
+   (now 1.019). Residuals are reported per rung (crash-era ~1.4x over, modern
+   ~0.75x under — the model's main open tension).
+3. **Rung capping** — rungs newer than (pop snapshot − 730 d) are excluded so
+   unscored 2025-26 sets and pop-lagged recent sets cannot push their
+   production onto older sets (was inflating the 2023 cohort ~2x).
+4. **Orphaned anchor** — Shining Fates was tagged `swsh4pt5`; the catalog id
+   is `swsh45`. Fixed; anchor tally is now n=17.
+5. **Rung credibility corrections** — 13B@2005 and 43.2B@2022 are
+   transcription-tier (forum/blog-relayed), downgraded from `official`.
+6. **Reliability flags** — `numerator_unreliable` (non-booster/promo products:
+   absolutes suppressed as floor artifacts), `subset_set` (Trainer Galleries,
+   cel25c: excluded from checkpoint windows, absolutes suppressed),
+   `pop_lag_underestimate` (released < 24 mo before the pop snapshot),
+   `icon_premium_suspect` (base1).
+7. **beta_p retest** — freely fit on the 17-anchor set: ≈0.04 (not
+   sign-flipped, but guess-fitted); the 0.5 physical prior is retained.
+8. Wording fixes in results.md: the SEC-revenue window is a consistency check
+   between assumption-sharing derivations (its agreement partly informed the
+   0.40 share choice), not independent corroboration; evidence tiers stated
+   precisely; 'over X' floors noted.

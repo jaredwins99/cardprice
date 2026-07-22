@@ -1,22 +1,29 @@
 {
-  "generated_at": "2026-06-18T15:37:54.848089+00:00",
-  "model_version": "v2-grading-rate",
-  "notes": "rel_pop = mean_chase_psa * pull_denominator / predicted_grading_rate. Grading rate from mechanistic model (data/grading_rate_model.json): log(rate) = alpha[era] + beta_p * log(chase_value/$100) + beta_y * log(years/10y). Replaces v1 Google-Trends popularity divisor. Trends/pageviews/sales-velocity are held out for validation (Spearman cross-checks). Absolutes pinned to TPC cumulative checkpoint (windowed sum); bands +/-3.0x. Defensible on RELATIVES, order-of-magnitude on ABSOLUTES (see results.md anchor-sensitivity).",
+  "generated_at": "2026-07-22T04:26:10.845682+00:00",
+  "model_version": "v3-english-only",
+  "language_scope": "english_only",
+  "english_share": {
+    "english_share_pre2020": 0.4,
+    "english_share_post2020": 0.35,
+    "english_share_band": 0.1,
+    "evidence": "No official language share exists. Japan market ~ US market (FY2024); TPCi prints Western langs, TPC prints JP/Asia; language count 11 (2015) -> 16 (2026). WOTC cross-check: 12B global end-2001 x 0.40 = 4.8B EN vs SEC-revenue-derived 4.2-7.4B EN for 1999-2001. See known_print_runs.json conversion_evidence.english_share_of_global."
+  },
+  "notes": "v3 (2026-07-21): ALL absolutes are ENGLISH-ONLY projected lifetime production. rel_pop = mean_chase_psa * pull_denominator / predicted_grading_rate; grading rate from data/grading_rate_model.json fit against a 16-rung dated TPC checkpoint ladder (12 official rungs, converted global->English via a documented english_share layer: 0.40 pre-2020 / 0.35 after, +/-0.10), unit-corrected community per-set anchors (all-languages WAGs halved-ish at release-date share), and an independent SEC-revenue-derived WOTC 1999-2001 English window. Checkpoint windows use a production ramp (12mo boom-era / 24mo modern). Bands +/-3.0x. Within-era RELATIVES remain the strongest output; absolutes are now unit-consistent but inherit the english_share assumption linearly (see results.md sensitivity).",
   "grading_rate_model": {
     "equation": "log(grading_rate(set)) = alpha[era] + beta_p * log(chase_value / $100) + beta_y * log(years_since_release / 10y)",
     "beta_p": 0.5,
     "beta_y": 0.0,
     "alpha_by_era": {
-      "WOTC": -12.657788111064884,
-      "ECARD": -11.746375173389149,
-      "EX": -10.829015696287087,
-      "DP": -9.987990455069657,
-      "HGSS": -9.141424606897932,
-      "BW": -8.306566019254202,
-      "XY": -7.484965952459227,
-      "SM": -7.40437721471183,
-      "SWSH": -8.226887592002509,
-      "SV": -8.701693557215616
+      "WOTC": -11.495619001552248,
+      "ECARD": -10.800986472215827,
+      "EX": -10.233654336861417,
+      "DP": -9.801338722418736,
+      "HGSS": -9.034449949971279,
+      "BW": -8.187390984187672,
+      "XY": -7.2995120056137175,
+      "SM": -6.998873067777275,
+      "SWSH": -7.240168835325782,
+      "SV": -7.504373899579934
     },
     "anchor_exclusions": {
       "variants": [
@@ -34,7 +41,10 @@
         "well-sourced-estimate": 2.0,
         "hobbyist-guess": 0.5
       },
-      "tpc_checkpoint_weight": 8.0,
+      "checkpoint_weight_by_credibility": {
+        "official": 8.0,
+        "well-sourced-estimate": 4.0
+      },
       "era_smoothness_weight": 0.5,
       "ridge_weight": 0.001
     }
@@ -45,6 +55,10 @@
       "med"
     ],
     "band_factor": 3.0,
+    "production_ramp_days": {
+      "boom_era_pre2003": 365,
+      "default": 730
+    },
     "era_buckets": [
       [
         "WOTC",
@@ -172,16 +186,103 @@
     "pull_denominator_units": "packs-opened-per-graded-chase-copy, relative, WOTC tier-3 holo = 1.0 (ESTIMATES)"
   },
   "calibration": {
-    "checkpoint_value": 75000000000,
-    "checkpoint_date": "2025-03-31",
-    "n_sets_in_window": 153,
-    "windowed_rel_pop_sum": 64513745909.81705,
-    "scale": 1.1625429424737102,
-    "band_factor": 3.0
+    "method": "credibility-weighted geometric-mean scale over usable rungs",
+    "n_rungs_used": 14,
+    "latest_rung_date": "2024-03-31",
+    "latest_rung_value_global": 64800000000.0,
+    "latest_rung_value_english": 24160655737.704918,
+    "roster_lag_days": 730,
+    "rung_ratios": [
+      {
+        "date": "2001-12-31",
+        "target_english": 4800000000.0,
+        "ratio_est_over_target": 1.0936652644525993
+      },
+      {
+        "date": "2005-03-31",
+        "target_english": 5200000000.0,
+        "ratio_est_over_target": 1.4366826594751336
+      },
+      {
+        "date": "2006-03-31",
+        "target_english": 5600000000.0,
+        "ratio_est_over_target": 1.3992789296534336
+      },
+      {
+        "date": "2013-11-15",
+        "target_english": 8000000000.0,
+        "ratio_est_over_target": 1.230243065089704
+      },
+      {
+        "date": "2015-03-31",
+        "target_english": 8600000000.0,
+        "ratio_est_over_target": 1.1526202144619215
+      },
+      {
+        "date": "2017-03-31",
+        "target_english": 9440000000.0,
+        "ratio_est_over_target": 1.0867108834442176
+      },
+      {
+        "date": "2018-03-31",
+        "target_english": 10280000000.0,
+        "ratio_est_over_target": 1.0515498022325453
+      },
+      {
+        "date": "2019-03-31",
+        "target_english": 10880000000.0,
+        "ratio_est_over_target": 1.0310822725182034
+      },
+      {
+        "date": "2019-09-30",
+        "target_english": 11520000000.0,
+        "ratio_est_over_target": 0.9875915308128832
+      },
+      {
+        "date": "2020-03-31",
+        "target_english": 12120655737.704918,
+        "ratio_est_over_target": 0.9586244421482536
+      },
+      {
+        "date": "2021-03-31",
+        "target_english": 13415655737.704918,
+        "ratio_est_over_target": 0.9239746978155129
+      },
+      {
+        "date": "2022-03-31",
+        "target_english": 16600655737.704918,
+        "ratio_est_over_target": 0.822408266827097
+      },
+      {
+        "date": "2023-03-31",
+        "target_english": 19995655737.704918,
+        "ratio_est_over_target": 0.7582609178402696
+      },
+      {
+        "date": "2024-03-31",
+        "target_english": 24160655737.704918,
+        "ratio_est_over_target": 0.7396847755634232
+      }
+    ],
+    "production_ramp_days": [
+      365,
+      730
+    ],
+    "subsets_excluded_from_windows": [
+      "cel25c",
+      "swsh10tg",
+      "swsh11tg",
+      "swsh12pt5gg",
+      "swsh12tg",
+      "swsh9tg"
+    ],
+    "scale": 1.019278151530612,
+    "band_factor": 3.0,
+    "language_scope": "english_only, projected lifetime production"
   },
   "validation": {
-    "spearman_relpop_vs_sales": 0.586362296114618,
-    "spearman_relpop_vs_trends": 0.6156964910639303,
+    "spearman_relpop_vs_sales": 0.5651964134936271,
+    "spearman_relpop_vs_trends": 0.5964648299776291,
     "spearman_relpop_vs_pageviews": null,
     "n_sales": 153,
     "n_trends": 153,
@@ -189,11 +290,11 @@
     "spearman_note": "rel_pop_vs_sales should be positive but <1 (more printed -> more supply -> more sales, but popularity/age/price break the tie). rel_pop_vs_trends similar (popular sets get printed more).",
     "biggest_rank_outliers_vs_sales": [
       {
-        "set_id": "bw2",
-        "set_name": "Emerging Powers",
-        "rel_pop_rank": 141,
-        "sales_rank": 43,
-        "rank_gap": 98
+        "set_id": "sv8pt5",
+        "set_name": "Prismatic Evolutions",
+        "rel_pop_rank": 111,
+        "sales_rank": 10,
+        "rank_gap": 101
       },
       {
         "set_id": "neo3",
@@ -203,24 +304,38 @@
         "rank_gap": -98
       },
       {
+        "set_id": "bw2",
+        "set_name": "Emerging Powers",
+        "rel_pop_rank": 140,
+        "sales_rank": 43,
+        "rank_gap": 97
+      },
+      {
         "set_id": "neo4",
         "set_name": "Neo Destiny",
-        "rel_pop_rank": 9,
+        "rel_pop_rank": 12,
         "sales_rank": 106,
-        "rank_gap": -97
+        "rank_gap": -94
       },
       {
         "set_id": "xy5",
         "set_name": "Primal Clash",
-        "rel_pop_rank": 134,
+        "rel_pop_rank": 133,
         "sales_rank": 40,
-        "rank_gap": 94
+        "rank_gap": 93
       },
       {
         "set_id": "cel25c",
         "set_name": "Celebrations: Classic Collection",
         "rel_pop_rank": 7,
         "sales_rank": 98,
+        "rank_gap": -91
+      },
+      {
+        "set_id": "ex10",
+        "set_name": "Unseen Forces",
+        "rel_pop_rank": 26,
+        "sales_rank": 117,
         "rank_gap": -91
       },
       {
@@ -231,197 +346,237 @@
         "rank_gap": 90
       },
       {
-        "set_id": "bw11",
-        "set_name": "Legendary Treasures",
-        "rel_pop_rank": 142,
-        "sales_rank": 54,
-        "rank_gap": 88
-      },
-      {
         "set_id": "ecard2",
         "set_name": "Aquapolis",
-        "rel_pop_rank": 24,
+        "rel_pop_rank": 23,
         "sales_rank": 112,
-        "rank_gap": -88
+        "rank_gap": -89
       },
       {
-        "set_id": "ex10",
-        "set_name": "Unseen Forces",
-        "rel_pop_rank": 34,
-        "sales_rank": 117,
-        "rank_gap": -83
-      },
-      {
-        "set_id": "ex16",
-        "set_name": "Power Keepers",
-        "rel_pop_rank": 47,
-        "sales_rank": 129,
-        "rank_gap": -82
+        "set_id": "bw11",
+        "set_name": "Legendary Treasures",
+        "rel_pop_rank": 141,
+        "sales_rank": 54,
+        "rank_gap": 87
       }
     ]
   },
   "anchor_sensitivity": [
     {
-      "set_id": "neo3",
-      "set_name": "Neo Revelation (cumulative checkpoint context)",
-      "variant": "na",
-      "credibility": "well-sourced-estimate",
-      "anchor_mid": 12000000000,
-      "estimate_mid": 3190325693.419546,
-      "ratio_est_over_anchor": 0.26586047445162886
-    },
-    {
       "set_id": "base1",
       "set_name": "Base Set",
       "variant": "1st_edition",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 1500000,
-      "estimate_mid": 10353941343.134953,
-      "ratio_est_over_anchor": 6902.627562089969
+      "anchor_mid_raw": 1500000,
+      "anchor_mid_english": 600000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 2839656517.3968077,
+      "ratio_est_over_anchor": 4732.760862328013,
+      "excluded_from_headline": true
     },
     {
       "set_id": "base1",
       "set_name": "Base Set",
       "variant": "unlimited",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 3000000000,
-      "estimate_mid": 10353941343.134953,
-      "ratio_est_over_anchor": 3.451313781044984
+      "anchor_mid_raw": 3000000000,
+      "anchor_mid_english": 1200000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 2839656517.3968077,
+      "ratio_est_over_anchor": 2.366380431164006,
+      "excluded_from_headline": false
     },
     {
       "set_id": "base2",
       "set_name": "Jungle",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 1750000000,
-      "estimate_mid": 924099268.9448725,
-      "ratio_est_over_anchor": 0.5280567251113557
+      "anchor_mid_raw": 1750000000,
+      "anchor_mid_english": 700000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 253442288.00468117,
+      "ratio_est_over_anchor": 0.3620604114352588,
+      "excluded_from_headline": false
     },
     {
       "set_id": "base3",
       "set_name": "Fossil",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 1750000000,
-      "estimate_mid": 1256078452.915482,
-      "ratio_est_over_anchor": 0.717759115951704
+      "anchor_mid_raw": 1750000000,
+      "anchor_mid_english": 700000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 344490179.2195252,
+      "ratio_est_over_anchor": 0.4921288274564646,
+      "excluded_from_headline": false
     },
     {
       "set_id": "base4",
       "set_name": "Base Set 2",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 600000000,
-      "estimate_mid": 2888283435.4966893,
-      "ratio_est_over_anchor": 4.813805725827816
+      "anchor_mid_raw": 600000000,
+      "anchor_mid_english": 240000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 792136505.826655,
+      "ratio_est_over_anchor": 3.300568774277729,
+      "excluded_from_headline": false
     },
     {
       "set_id": "base5",
       "set_name": "Team Rocket",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 1100000000,
-      "estimate_mid": 1226185993.1730106,
-      "ratio_est_over_anchor": 1.1147145392481914
+      "anchor_mid_raw": 1100000000,
+      "anchor_mid_english": 440000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 336292075.66260487,
+      "ratio_est_over_anchor": 0.7643001719604656,
+      "excluded_from_headline": false
     },
     {
       "set_id": "gym1",
       "set_name": "Gym Heroes",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 850000000,
-      "estimate_mid": 390480368.8195534,
-      "ratio_est_over_anchor": 0.4593886691994746
+      "anchor_mid_raw": 850000000,
+      "anchor_mid_english": 340000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 107092735.40570809,
+      "ratio_est_over_anchor": 0.31497863354620026,
+      "excluded_from_headline": false
     },
     {
       "set_id": "neo1",
       "set_name": "Neo Genesis",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 700000000,
-      "estimate_mid": 427984313.67823,
-      "ratio_est_over_anchor": 0.6114061623974714
+      "anchor_mid_raw": 700000000,
+      "anchor_mid_english": 280000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 117378331.40911265,
+      "ratio_est_over_anchor": 0.4192083264611166,
+      "excluded_from_headline": false
     },
     {
       "set_id": "ex7",
       "set_name": "Team Rocket Returns",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 80000000,
-      "estimate_mid": 106762439.81505601,
-      "ratio_est_over_anchor": 1.3345304976882002
+      "anchor_mid_raw": 80000000,
+      "anchor_mid_english": 32000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 51610937.55669213,
+      "ratio_est_over_anchor": 1.612841798646629,
+      "excluded_from_headline": false
     },
     {
       "set_id": "sm115",
       "set_name": "Hidden Fates",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 200000000,
-      "estimate_mid": 690485873.2594503,
-      "ratio_est_over_anchor": 3.4524293662972516
+      "anchor_mid_raw": 200000000,
+      "anchor_mid_english": 80000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 403580612.78858,
+      "ratio_est_over_anchor": 5.04475765985725,
+      "excluded_from_headline": false
     },
     {
       "set_id": "swsh35",
       "set_name": "Champion's Path",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 500000000,
-      "estimate_mid": 1667032115.2822788,
-      "ratio_est_over_anchor": 3.3340642305645574
+      "anchor_mid_raw": 500000000,
+      "anchor_mid_english": 175000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 544880483.655659,
+      "ratio_est_over_anchor": 3.1136027637466226,
+      "excluded_from_headline": false
+    },
+    {
+      "set_id": "swsh45",
+      "set_name": "Shining Fates",
+      "variant": "na",
+      "credibility": "hobbyist-guess",
+      "anchor_mid_raw": 600000000,
+      "anchor_mid_english": 210000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 478892749.83955675,
+      "ratio_est_over_anchor": 2.2804416659026514,
+      "excluded_from_headline": false
     },
     {
       "set_id": "cel25",
       "set_name": "Celebrations",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 400000000,
-      "estimate_mid": 459662325.32292247,
-      "ratio_est_over_anchor": 1.149155813307306
+      "anchor_mid_raw": 400000000,
+      "anchor_mid_english": 140000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 150243644.41905567,
+      "ratio_est_over_anchor": 1.0731688887075406,
+      "excluded_from_headline": false
     },
     {
       "set_id": "swsh12pt5",
       "set_name": "Crown Zenith",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 700000000,
-      "estimate_mid": 4208983383.392276,
-      "ratio_est_over_anchor": 6.012833404846108
+      "anchor_mid_raw": 700000000,
+      "anchor_mid_english": 244999999.99999997,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 1375733811.501405,
+      "ratio_est_over_anchor": 5.6152400469445105,
+      "excluded_from_headline": false
     },
     {
       "set_id": "sv4pt5",
       "set_name": "Paldean Fates",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 1200000000,
-      "estimate_mid": 2061405546.3176982,
-      "ratio_est_over_anchor": 1.7178379552647485
+      "anchor_mid_raw": 1200000000,
+      "anchor_mid_english": 420000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 545830665.7420386,
+      "ratio_est_over_anchor": 1.29959682319533,
+      "excluded_from_headline": false
     },
     {
       "set_id": "sv3pt5",
       "set_name": "Pokemon 151",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 4000000000,
-      "estimate_mid": 4593581526.292091,
-      "ratio_est_over_anchor": 1.1483953815730228
+      "anchor_mid_raw": 4000000000,
+      "anchor_mid_english": 1400000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 1216314162.6095574,
+      "ratio_est_over_anchor": 0.8687958304353981,
+      "excluded_from_headline": false
     },
     {
       "set_id": "xy12",
       "set_name": "XY Evolutions",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 400000000,
-      "estimate_mid": 994341146.669413,
-      "ratio_est_over_anchor": 2.4858528666735324
+      "anchor_mid_raw": 400000000,
+      "anchor_mid_english": 160000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 724232042.1926444,
+      "ratio_est_over_anchor": 4.526450263704027,
+      "excluded_from_headline": false
     },
     {
       "set_id": "swsh7",
       "set_name": "Evolving Skies",
       "variant": "na",
       "credibility": "hobbyist-guess",
-      "anchor_mid": 2000000000,
-      "estimate_mid": 644101068.187869,
-      "ratio_est_over_anchor": 0.32205053409393447
+      "anchor_mid_raw": 2000000000,
+      "anchor_mid_english": 700000000.0,
+      "unit_converted_from_all_languages": true,
+      "estimate_mid": 210528656.64108446,
+      "ratio_est_over_anchor": 0.3007552237729778,
+      "excluded_from_headline": false
     }
   ],
   "stats": {
@@ -439,18 +594,21 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 267.91,
-      "predicted_grading_rate": 5.209390724812632e-06,
-      "rel_pop_score": 8906287213.0154,
+      "predicted_grading_rate": 1.66536933562482e-05,
+      "rel_pop_score": 2785948578.5432,
       "rel_pop_norm100": 100.0,
-      "abs_estimate_mid": 10353941343,
-      "abs_low": 3451313781,
-      "abs_high": 31061824029,
+      "abs_estimate_mid": 2839656517,
+      "abs_low": 946552172,
+      "abs_high": 8518969552,
       "sales_velocity_rank": 21,
       "interest_rescaled": 100.0,
       "trend_z": 1.5628,
       "pageviews_per_month": 769.21,
       "sales_per_month": 2540.009,
-      "flags": []
+      "flags": [
+        "icon_premium_suspect"
+      ],
+      "subset_of": null
     },
     "base2": {
       "set_name": "Jungle",
@@ -461,18 +619,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 233.92,
-      "predicted_grading_rate": 4.867726265748346e-06,
-      "rel_pop_score": 794894739.0954,
+      "predicted_grading_rate": 1.556143987929487e-05,
+      "rel_pop_score": 248648798.7838,
       "rel_pop_norm100": 8.9251,
-      "abs_estimate_mid": 924099269,
-      "abs_low": 308033090,
-      "abs_high": 2772297807,
+      "abs_estimate_mid": 253442288,
+      "abs_low": 84480763,
+      "abs_high": 760326864,
       "sales_velocity_rank": 46,
       "interest_rescaled": 54.4509,
       "trend_z": 1.2453,
       "pageviews_per_month": null,
       "sales_per_month": 1175.994,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "base3": {
       "set_name": "Fossil",
@@ -483,18 +642,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 253.59,
-      "predicted_grading_rate": 5.0682225606288564e-06,
-      "rel_pop_score": 1080457682.0558,
+      "predicted_grading_rate": 1.620239848470338e-05,
+      "rel_pop_score": 337974652.6522,
       "rel_pop_norm100": 12.1314,
-      "abs_estimate_mid": 1256078453,
-      "abs_low": 418692818,
-      "abs_high": 3768235359,
+      "abs_estimate_mid": 344490179,
+      "abs_low": 114830060,
+      "abs_high": 1033470538,
       "sales_velocity_rank": 36,
       "interest_rescaled": 159.6519,
       "trend_z": 1.8086,
       "pageviews_per_month": null,
       "sales_per_month": 1301.203,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "base4": {
       "set_name": "Base Set 2",
@@ -505,18 +665,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 173.53,
-      "predicted_grading_rate": 4.192604776648161e-06,
-      "rel_pop_score": 2484453115.6422,
+      "predicted_grading_rate": 1.3403170927777026e-05,
+      "rel_pop_score": 777154405.436,
       "rel_pop_norm100": 27.8955,
-      "abs_estimate_mid": 2888283435,
-      "abs_low": 962761145,
-      "abs_high": 8664850306,
+      "abs_estimate_mid": 792136506,
+      "abs_low": 264045502,
+      "abs_high": 2376409517,
       "sales_velocity_rank": 27,
       "interest_rescaled": 10.222,
       "trend_z": 0.3992,
       "pageviews_per_month": null,
       "sales_per_month": 1719.719,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "base5": {
       "set_name": "Team Rocket",
@@ -527,12 +688,12 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 450.66,
-      "predicted_grading_rate": 6.75645023949457e-06,
-      "rel_pop_score": 1054744688.0232,
+      "predicted_grading_rate": 2.1599426191887213e-05,
+      "rel_pop_score": 329931604.2021,
       "rel_pop_norm100": 11.8427,
-      "abs_estimate_mid": 1226185993,
-      "abs_low": 408728664,
-      "abs_high": 3678557980,
+      "abs_estimate_mid": 336292076,
+      "abs_low": 112097359,
+      "abs_high": 1008876227,
       "sales_velocity_rank": 42,
       "interest_rescaled": 186.3774,
       "trend_z": 1.8901,
@@ -540,7 +701,8 @@
       "sales_per_month": 1218.884,
       "flags": [
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "base6": {
       "set_name": "Legendary Collection",
@@ -551,18 +713,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 1066.65,
-      "predicted_grading_rate": 1.0394479821928006e-05,
-      "rel_pop_score": 178876676.0678,
+      "predicted_grading_rate": 3.3229697808533e-05,
+      "rel_pop_score": 55953964.5544,
       "rel_pop_norm100": 2.0084,
-      "abs_estimate_mid": 207951817,
-      "abs_low": 69317272,
-      "abs_high": 623855452,
+      "abs_estimate_mid": 57032654,
+      "abs_low": 19010885,
+      "abs_high": 171097961,
       "sales_velocity_rank": 74,
       "interest_rescaled": 11.3111,
       "trend_z": 0.4482,
       "pageviews_per_month": null,
       "sales_per_month": 631.071,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "basep": {
       "set_name": "Wizards Black Star Promos",
@@ -586,8 +749,10 @@
       "sales_per_month": 265.556,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "bp": {
       "set_name": "Best of Game",
@@ -611,8 +776,10 @@
       "sales_per_month": 14.164,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "bw1": {
       "set_name": "Black & White",
@@ -623,12 +790,12 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 119.93,
-      "predicted_grading_rate": 0.00027037599526967825,
-      "rel_pop_score": 21396315.136,
-      "rel_pop_norm100": 0.2402,
-      "abs_estimate_mid": 24874135,
-      "abs_low": 8291378,
-      "abs_high": 74622405,
+      "predicted_grading_rate": 0.0003045966981366285,
+      "rel_pop_score": 18992326.691,
+      "rel_pop_norm100": 0.6817,
+      "abs_estimate_mid": 19358464,
+      "abs_low": 6452821,
+      "abs_high": 58075391,
       "sales_velocity_rank": 85,
       "interest_rescaled": 9.9091,
       "trend_z": 0.3842,
@@ -637,7 +804,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "bw10": {
       "set_name": "Plasma Blast",
@@ -648,18 +816,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 117.77,
-      "predicted_grading_rate": 0.0002679339198329273,
-      "rel_pop_score": 13100245.0238,
-      "rel_pop_norm100": 0.1471,
-      "abs_estimate_mid": 15229597,
-      "abs_low": 5076532,
-      "abs_high": 45688792,
+      "predicted_grading_rate": 0.0003018455363188311,
+      "rel_pop_score": 11628464.1569,
+      "rel_pop_norm100": 0.4174,
+      "abs_estimate_mid": 11852639,
+      "abs_low": 3950880,
+      "abs_high": 35557918,
       "sales_velocity_rank": 101,
       "interest_rescaled": 0.2653,
       "trend_z": -0.7567,
       "pageviews_per_month": null,
       "sales_per_month": 370.025,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw11": {
       "set_name": "Legendary Treasures",
@@ -670,12 +839,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 261.54,
-      "predicted_grading_rate": 0.0009080137328046378,
-      "rel_pop_score": 2051731.0837,
-      "rel_pop_norm100": 0.023,
-      "abs_estimate_mid": 2385225,
-      "abs_low": 795075,
-      "abs_high": 7155676,
+      "predicted_grading_rate": 0.001093034934357626,
+      "rel_pop_score": 1704428.5973,
+      "rel_pop_norm100": 0.0612,
+      "abs_estimate_mid": 1737287,
+      "abs_low": 579096,
+      "abs_high": 5211860,
       "sales_velocity_rank": 54,
       "interest_rescaled": 2.085,
       "trend_z": -0.2847,
@@ -684,7 +853,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "bw2": {
       "set_name": "Emerging Powers",
@@ -695,12 +865,12 @@
       "chase_tier": 4,
       "pull_denominator": 5.5,
       "chase_value": 16.57,
-      "predicted_grading_rate": 0.00010050997081859204,
-      "rel_pop_score": 2243558.5063,
-      "rel_pop_norm100": 0.0252,
-      "abs_estimate_mid": 2608233,
-      "abs_low": 869411,
-      "abs_high": 7824699,
+      "predicted_grading_rate": 0.00011323122531871226,
+      "rel_pop_score": 1991500.1305,
+      "rel_pop_norm100": 0.0715,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 43,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
@@ -708,8 +878,10 @@
       "sales_per_month": 1201.267,
       "flags": [
         "tier_mixed",
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "bw3": {
       "set_name": "Noble Victories",
@@ -720,12 +892,12 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 159.14,
-      "predicted_grading_rate": 0.00031145398440239814,
-      "rel_pop_score": 6774837.0728,
-      "rel_pop_norm100": 0.0761,
-      "abs_estimate_mid": 7876039,
-      "abs_low": 2625346,
-      "abs_high": 23628117,
+      "predicted_grading_rate": 0.00035087380880778423,
+      "rel_pop_score": 6013558.0002,
+      "rel_pop_norm100": 0.2159,
+      "abs_estimate_mid": 6129488,
+      "abs_low": 2043163,
+      "abs_high": 18388465,
       "sales_velocity_rank": 91,
       "interest_rescaled": 0.0569,
       "trend_z": -0.852,
@@ -734,7 +906,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "bw4": {
       "set_name": "Next Destinies",
@@ -745,18 +918,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 177.49,
-      "predicted_grading_rate": 0.00032891757586027545,
-      "rel_pop_score": 12434878.2193,
-      "rel_pop_norm100": 0.1396,
-      "abs_estimate_mid": 14456080,
-      "abs_low": 4818693,
-      "abs_high": 43368240,
+      "predicted_grading_rate": 0.0003705477162135468,
+      "rel_pop_score": 11037714.7694,
+      "rel_pop_norm100": 0.3962,
+      "abs_estimate_mid": 11250502,
+      "abs_low": 3750167,
+      "abs_high": 33751505,
       "sales_velocity_rank": 115,
       "interest_rescaled": 0.1895,
       "trend_z": -0.7894,
       "pageviews_per_month": null,
       "sales_per_month": 233.906,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw5": {
       "set_name": "Dark Explorers",
@@ -767,18 +941,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 237.83,
-      "predicted_grading_rate": 0.0003807479136128193,
-      "rel_pop_score": 8207398.8807,
-      "rel_pop_norm100": 0.0922,
-      "abs_estimate_mid": 9541454,
-      "abs_low": 3180485,
-      "abs_high": 28624361,
+      "predicted_grading_rate": 0.00042893806897760934,
+      "rel_pop_score": 7285434.0195,
+      "rel_pop_norm100": 0.2615,
+      "abs_estimate_mid": 7425884,
+      "abs_low": 2475295,
+      "abs_high": 22277651,
       "sales_velocity_rank": 127,
       "interest_rescaled": 0.2085,
       "trend_z": -0.781,
       "pageviews_per_month": null,
       "sales_per_month": 176.979,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw6": {
       "set_name": "Dragons Exalted",
@@ -789,18 +964,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 298.66,
-      "predicted_grading_rate": 0.00042666824459905027,
-      "rel_pop_score": 5906228.1571,
-      "rel_pop_norm100": 0.0663,
-      "abs_estimate_mid": 6866244,
-      "abs_low": 2288748,
-      "abs_high": 20598732,
+      "predicted_grading_rate": 0.00048067040261838236,
+      "rel_pop_score": 5242677.6982,
+      "rel_pop_norm100": 0.1882,
+      "abs_estimate_mid": 5343747,
+      "abs_low": 1781249,
+      "abs_high": 16031240,
       "sales_velocity_rank": 130,
       "interest_rescaled": 0.2464,
       "trend_z": -0.7646,
       "pageviews_per_month": null,
       "sales_per_month": 169.097,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw7": {
       "set_name": "Boundaries Crossed",
@@ -811,18 +987,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 127.62,
-      "predicted_grading_rate": 0.0002789060356085924,
-      "rel_pop_score": 13104951.2501,
-      "rel_pop_norm100": 0.1471,
-      "abs_estimate_mid": 15235069,
-      "abs_low": 5078356,
-      "abs_high": 45705206,
+      "predicted_grading_rate": 0.0003142063608569228,
+      "rel_pop_score": 11632482.5189,
+      "rel_pop_norm100": 0.4175,
+      "abs_estimate_mid": 11856735,
+      "abs_low": 3952245,
+      "abs_high": 35570206,
       "sales_velocity_rank": 102,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
       "pageviews_per_month": null,
       "sales_per_month": 360.902,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw8": {
       "set_name": "Plasma Storm",
@@ -833,18 +1010,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 506.49,
-      "predicted_grading_rate": 0.0005556369016909256,
-      "rel_pop_score": 31729264.1046,
-      "rel_pop_norm100": 0.3563,
-      "abs_estimate_mid": 36886632,
-      "abs_low": 12295544,
-      "abs_high": 110659896,
+      "predicted_grading_rate": 0.0006259622473108752,
+      "rel_pop_score": 28164637.8448,
+      "rel_pop_norm100": 1.011,
+      "abs_estimate_mid": 28707600,
+      "abs_low": 9569200,
+      "abs_high": 86122800,
       "sales_velocity_rank": 99,
       "interest_rescaled": 0.9473,
       "trend_z": -0.5283,
       "pageviews_per_month": null,
       "sales_per_month": 401.395,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bw9": {
       "set_name": "Plasma Freeze",
@@ -855,18 +1033,19 @@
       "chase_tier": 5,
       "pull_denominator": 15.0,
       "chase_value": 484.15,
-      "predicted_grading_rate": 0.0005432411842850173,
-      "rel_pop_score": 6102261.9343,
-      "rel_pop_norm100": 0.0685,
-      "abs_estimate_mid": 7094142,
-      "abs_low": 2364714,
-      "abs_high": 21282425,
+      "predicted_grading_rate": 0.0006119976400271982,
+      "rel_pop_score": 5416687.5543,
+      "rel_pop_norm100": 0.1944,
+      "abs_estimate_mid": 5521111,
+      "abs_low": 1840370,
+      "abs_high": 16563334,
       "sales_velocity_rank": 116,
       "interest_rescaled": 0.2084,
       "trend_z": -0.781,
       "pageviews_per_month": null,
       "sales_per_month": 233.872,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "bwp": {
       "set_name": "BW Black Star Promos",
@@ -890,8 +1069,10 @@
       "sales_per_month": 130.76,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "cel25": {
       "set_name": "Celebrations",
@@ -902,18 +1083,19 @@
       "chase_tier": 4,
       "pull_denominator": 8.0,
       "chase_value": 5.13,
-      "predicted_grading_rate": 6.05573410764852e-05,
-      "rel_pop_score": 395393846.136,
-      "rel_pop_norm100": 4.4395,
-      "abs_estimate_mid": 459662325,
-      "abs_low": 153220775,
-      "abs_high": 1378986976,
+      "predicted_grading_rate": 0.00016244012287253576,
+      "rel_pop_score": 147402006.2075,
+      "rel_pop_norm100": 5.2909,
+      "abs_estimate_mid": 150243644,
+      "abs_low": 50081215,
+      "abs_high": 450730933,
       "sales_velocity_rank": 63,
       "interest_rescaled": 109.8253,
       "trend_z": 1.612,
       "pageviews_per_month": null,
       "sales_per_month": 751.326,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "cel25c": {
       "set_name": "Celebrations: Classic Collection",
@@ -924,18 +1106,21 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 100.94,
-      "predicted_grading_rate": 0.0002686164435514925,
-      "rel_pop_score": 1953313032.7497,
-      "rel_pop_norm100": 21.9318,
-      "abs_estimate_mid": 2270810281,
-      "abs_low": 756936760,
-      "abs_high": 6812430842,
+      "predicted_grading_rate": 0.0007205416770359399,
+      "rel_pop_score": 728191049.4871,
+      "rel_pop_norm100": 26.138,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 98,
       "interest_rescaled": 0.4913,
       "trend_z": -0.6696,
       "pageviews_per_month": null,
       "sales_per_month": 410.182,
-      "flags": []
+      "flags": [
+        "subset_set"
+      ],
+      "subset_of": "cel25"
     },
     "col1": {
       "set_name": "Call of Legends",
@@ -946,18 +1131,21 @@
       "chase_tier": 3,
       "pull_denominator": 1.2,
       "chase_value": 379.39,
-      "predicted_grading_rate": 0.0002086760830696855,
-      "rel_pop_score": 4126989.4821,
-      "rel_pop_norm100": 0.0463,
-      "abs_estimate_mid": 4797802,
-      "abs_low": 1599267,
-      "abs_high": 14393407,
+      "predicted_grading_rate": 0.00023223687526808222,
+      "rel_pop_score": 3708282.7566,
+      "rel_pop_norm100": 0.1331,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 97,
       "interest_rescaled": 1.7431,
       "trend_z": -0.3469,
       "pageviews_per_month": null,
       "sales_per_month": 411.431,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "dc1": {
       "set_name": "Double Crisis",
@@ -968,12 +1156,12 @@
       "chase_tier": 4,
       "pull_denominator": 6.0,
       "chase_value": 315.4,
-      "predicted_grading_rate": 0.0009971291994448307,
-      "rel_pop_score": 10724768.6719,
-      "rel_pop_norm100": 0.1204,
-      "abs_estimate_mid": 12468004,
-      "abs_low": 4156001,
-      "abs_high": 37404012,
+      "predicted_grading_rate": 0.0012003089927889316,
+      "rel_pop_score": 8909372.5568,
+      "rel_pop_norm100": 0.3198,
+      "abs_estimate_mid": 9081129,
+      "abs_low": 3027043,
+      "abs_high": 27243386,
       "sales_velocity_rank": 109,
       "interest_rescaled": 0.5495,
       "trend_z": -0.6494,
@@ -982,7 +1170,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "det1": {
       "set_name": "Detective Pikachu",
@@ -993,18 +1182,19 @@
       "chase_tier": 4,
       "pull_denominator": 7.0,
       "chase_value": 7.18,
-      "predicted_grading_rate": 0.0001631108472564268,
-      "rel_pop_score": 80967576.4803,
-      "rel_pop_norm100": 0.9091,
-      "abs_estimate_mid": 94128285,
-      "abs_low": 31376095,
-      "abs_high": 282384854,
+      "predicted_grading_rate": 0.00024467582255515444,
+      "rel_pop_score": 53976181.7443,
+      "rel_pop_norm100": 1.9374,
+      "abs_estimate_mid": 55016743,
+      "abs_low": 18338914,
+      "abs_high": 165050228,
       "sales_velocity_rank": 56,
       "interest_rescaled": 56.4146,
       "trend_z": 1.2637,
       "pageviews_per_month": null,
       "sales_per_month": 838.415,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dp1": {
       "set_name": "Diamond & Pearl",
@@ -1015,18 +1205,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 84.44,
-      "predicted_grading_rate": 4.222259994418284e-05,
-      "rel_pop_score": 54283369.6416,
-      "rel_pop_norm100": 0.6095,
-      "abs_estimate_mid": 63106748,
-      "abs_low": 21035583,
-      "abs_high": 189320245,
+      "predicted_grading_rate": 5.088699317383528e-05,
+      "rel_pop_score": 45040979.1785,
+      "rel_pop_norm100": 1.6167,
+      "abs_estimate_mid": 45909286,
+      "abs_low": 15303095,
+      "abs_high": 137727858,
       "sales_velocity_rank": 93,
       "interest_rescaled": 1.8947,
       "trend_z": -0.3184,
       "pageviews_per_month": null,
       "sales_per_month": 500.835,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dp2": {
       "set_name": "Mysterious Treasures",
@@ -1037,12 +1228,12 @@
       "chase_tier": 5,
       "pull_denominator": 11.0,
       "chase_value": 52.95,
-      "predicted_grading_rate": 3.343519360319763e-05,
-      "rel_pop_score": 138177755.2967,
-      "rel_pop_norm100": 1.5515,
-      "abs_estimate_mid": 160637574,
-      "abs_low": 53545858,
-      "abs_high": 481912723,
+      "predicted_grading_rate": 4.029634534351287e-05,
+      "rel_pop_score": 114650595.7455,
+      "rel_pop_norm100": 4.1153,
+      "abs_estimate_mid": 116860847,
+      "abs_low": 38953616,
+      "abs_high": 350582542,
       "sales_velocity_rank": 69,
       "interest_rescaled": 0.2842,
       "trend_z": -0.7488,
@@ -1051,7 +1242,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "dp3": {
       "set_name": "Secret Wonders",
@@ -1062,12 +1254,12 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 124.69,
-      "predicted_grading_rate": 5.1308873232175246e-05,
-      "rel_pop_score": 76302591.606,
-      "rel_pop_norm100": 0.8567,
-      "abs_estimate_mid": 88705039,
-      "abs_low": 29568346,
-      "abs_high": 266115118,
+      "predicted_grading_rate": 6.183783768347979e-05,
+      "rel_pop_score": 63310751.9063,
+      "rel_pop_norm100": 2.2725,
+      "abs_estimate_mid": 64531266,
+      "abs_low": 21510422,
+      "abs_high": 193593799,
       "sales_velocity_rank": 71,
       "interest_rescaled": 0.2084,
       "trend_z": -0.781,
@@ -1076,7 +1268,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "dp4": {
       "set_name": "Great Encounters",
@@ -1087,18 +1280,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 106.7,
-      "predicted_grading_rate": 4.746351017275714e-05,
-      "rel_pop_score": 36660057.2454,
-      "rel_pop_norm100": 0.4116,
-      "abs_estimate_mid": 42618891,
-      "abs_low": 14206297,
-      "abs_high": 127856672,
+      "predicted_grading_rate": 5.7203377370419724e-05,
+      "rel_pop_score": 30417784.4034,
+      "rel_pop_norm100": 1.0918,
+      "abs_estimate_mid": 31004183,
+      "abs_low": 10334728,
+      "abs_high": 93012549,
       "sales_velocity_rank": 83,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
       "pageviews_per_month": null,
       "sales_per_month": 565.4,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dp5": {
       "set_name": "Majestic Dawn",
@@ -1109,18 +1303,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 240.83,
-      "predicted_grading_rate": 7.130650628918951e-05,
-      "rel_pop_score": 22718824.4707,
-      "rel_pop_norm100": 0.2551,
-      "abs_estimate_mid": 26411609,
-      "abs_low": 8803870,
-      "abs_high": 79234827,
+      "predicted_grading_rate": 8.59391345768595e-05,
+      "rel_pop_score": 18850550.5434,
+      "rel_pop_norm100": 0.6766,
+      "abs_estimate_mid": 19213954,
+      "abs_low": 6404651,
+      "abs_high": 57641863,
       "sales_velocity_rank": 124,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
       "pageviews_per_month": null,
       "sales_per_month": 198.324,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dp6": {
       "set_name": "Legends Awakened",
@@ -1131,18 +1326,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 130.03,
-      "predicted_grading_rate": 5.2394665814546624e-05,
-      "rel_pop_score": 25508321.8725,
-      "rel_pop_norm100": 0.2864,
-      "abs_estimate_mid": 29654520,
-      "abs_low": 9884840,
-      "abs_high": 88963559,
+      "predicted_grading_rate": 6.314644302280935e-05,
+      "rel_pop_score": 21165087.6284,
+      "rel_pop_norm100": 0.7597,
+      "abs_estimate_mid": 21573111,
+      "abs_low": 7191037,
+      "abs_high": 64719334,
       "sales_velocity_rank": 92,
       "interest_rescaled": 0.0947,
       "trend_z": -0.8334,
       "pageviews_per_month": null,
       "sales_per_month": 504.936,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dp7": {
       "set_name": "Stormfront",
@@ -1153,18 +1349,19 @@
       "chase_tier": 5,
       "pull_denominator": 11.0,
       "chase_value": 317.25,
-      "predicted_grading_rate": 8.18411409847696e-05,
-      "rel_pop_score": 151789550.4696,
-      "rel_pop_norm100": 1.7043,
-      "abs_estimate_mid": 176461871,
-      "abs_low": 58820624,
-      "abs_high": 529385612,
+      "predicted_grading_rate": 9.863555508510651e-05,
+      "rel_pop_score": 125945118.4307,
+      "rel_pop_norm100": 4.5207,
+      "abs_estimate_mid": 128373108,
+      "abs_low": 42791036,
+      "abs_high": 385119323,
       "sales_velocity_rank": 105,
       "interest_rescaled": 0.0939,
       "trend_z": -0.8338,
       "pageviews_per_month": null,
       "sales_per_month": 319.835,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "dpp": {
       "set_name": "DP Black Star Promos",
@@ -1188,8 +1385,10 @@
       "sales_per_month": 138.708,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "dv1": {
       "set_name": "Dragon Vault",
@@ -1200,18 +1399,21 @@
       "chase_tier": 3,
       "pull_denominator": 1.3,
       "chase_value": 18.32,
-      "predicted_grading_rate": 0.00010566409441179019,
-      "rel_pop_score": 3063481.5147,
-      "rel_pop_norm100": 0.0344,
-      "abs_estimate_mid": 3561429,
-      "abs_low": 1187143,
-      "abs_high": 10684286,
+      "predicted_grading_rate": 0.00011903769133545452,
+      "rel_pop_score": 2719306.7706,
+      "rel_pop_norm100": 0.0976,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 132,
       "interest_rescaled": 0.2464,
       "trend_z": -0.7646,
       "pageviews_per_month": null,
       "sales_per_month": 140.23,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "ecard1": {
       "set_name": "Expedition Base Set",
@@ -1222,18 +1424,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.1,
       "chase_value": 518.66,
-      "predicted_grading_rate": 1.8032479937844752e-05,
-      "rel_pop_score": 100448579.7984,
-      "rel_pop_norm100": 1.1278,
-      "abs_estimate_mid": 116775788,
-      "abs_low": 38925263,
-      "abs_high": 350327363,
+      "predicted_grading_rate": 4.641224262064951e-05,
+      "rel_pop_score": 39027059.0486,
+      "rel_pop_norm100": 1.4009,
+      "abs_estimate_mid": 39779429,
+      "abs_low": 13259810,
+      "abs_high": 119338286,
       "sales_velocity_rank": 52,
       "interest_rescaled": 0.2842,
       "trend_z": -0.7488,
       "pageviews_per_month": null,
       "sales_per_month": 944.915,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ecard2": {
       "set_name": "Aquapolis",
@@ -1244,18 +1447,19 @@
       "chase_tier": 5,
       "pull_denominator": 7.0,
       "chase_value": 472.61,
-      "predicted_grading_rate": 1.7213355302839975e-05,
-      "rel_pop_score": 672344804.1586,
-      "rel_pop_norm100": 7.5491,
-      "abs_estimate_mid": 781629707,
-      "abs_low": 260543236,
-      "abs_high": 2344889121,
+      "predicted_grading_rate": 4.430396847158997e-05,
+      "rel_pop_score": 261225658.3912,
+      "rel_pop_norm100": 9.3765,
+      "abs_estimate_mid": 266261606,
+      "abs_low": 88753869,
+      "abs_high": 798784819,
       "sales_velocity_rank": 112,
       "interest_rescaled": 3.4104,
       "trend_z": -0.0954,
       "pageviews_per_month": null,
       "sales_per_month": 258.957,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ecard3": {
       "set_name": "Skyridge",
@@ -1266,18 +1470,19 @@
       "chase_tier": 5,
       "pull_denominator": 7.0,
       "chase_value": 766.67,
-      "predicted_grading_rate": 2.192387768682258e-05,
-      "rel_pop_score": 310771210.1539,
-      "rel_pop_norm100": 3.4893,
-      "abs_estimate_mid": 361284877,
-      "abs_low": 120428292,
-      "abs_high": 1083854631,
+      "predicted_grading_rate": 5.642797518109259e-05,
+      "rel_pop_score": 120743891.8633,
+      "rel_pop_norm100": 4.334,
+      "abs_estimate_mid": 123071611,
+      "abs_low": 41023870,
+      "abs_high": 369214833,
       "sales_velocity_rank": 121,
       "interest_rescaled": 6.8776,
       "trend_z": 0.2118,
       "pageviews_per_month": null,
       "sales_per_month": 207.254,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex1": {
       "set_name": "Ruby & Sapphire",
@@ -1288,18 +1493,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.0,
       "chase_value": 132.18,
-      "predicted_grading_rate": 2.2782198751015374e-05,
-      "rel_pop_score": 309657556.6345,
-      "rel_pop_norm100": 3.4768,
-      "abs_estimate_mid": 359990207,
-      "abs_low": 119996736,
-      "abs_high": 1079970621,
+      "predicted_grading_rate": 4.131975991708066e-05,
+      "rel_pop_score": 170733486.3713,
+      "rel_pop_norm100": 6.1284,
+      "abs_estimate_mid": 174024912,
+      "abs_low": 58008304,
+      "abs_high": 522074737,
       "sales_velocity_rank": 59,
       "interest_rescaled": 0.8147,
       "trend_z": -0.5657,
       "pageviews_per_month": null,
       "sales_per_month": 832.308,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex10": {
       "set_name": "Unseen Forces",
@@ -1310,18 +1516,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 511.66,
-      "predicted_grading_rate": 4.4823976994408485e-05,
-      "rel_pop_score": 438581565.4522,
-      "rel_pop_norm100": 4.9244,
-      "abs_estimate_mid": 509869904,
-      "abs_low": 169956635,
-      "abs_high": 1529609711,
+      "predicted_grading_rate": 8.129662936309686e-05,
+      "rel_pop_score": 241818143.6797,
+      "rel_pop_norm100": 8.6799,
+      "abs_estimate_mid": 246479950,
+      "abs_low": 82159983,
+      "abs_high": 739439851,
       "sales_velocity_rank": 117,
       "interest_rescaled": 0.1503,
       "trend_z": -0.8071,
       "pageviews_per_month": null,
       "sales_per_month": 231.422,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex11": {
       "set_name": "Delta Species",
@@ -1332,18 +1539,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1368.38,
-      "predicted_grading_rate": 7.33030637451231e-05,
-      "rel_pop_score": 123555135.8602,
-      "rel_pop_norm100": 1.3873,
-      "abs_estimate_mid": 143638151,
-      "abs_low": 47879384,
-      "abs_high": 430914454,
+      "predicted_grading_rate": 0.00013294875653738003,
+      "rel_pop_score": 68123991.7987,
+      "rel_pop_norm100": 2.4453,
+      "abs_estimate_mid": 69437296,
+      "abs_low": 23145765,
+      "abs_high": 208311889,
       "sales_velocity_rank": 122,
       "interest_rescaled": 6.8397,
       "trend_z": 0.2092,
       "pageviews_per_month": null,
       "sales_per_month": 201.62,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex12": {
       "set_name": "Legend Maker",
@@ -1354,18 +1562,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 448.75,
-      "predicted_grading_rate": 4.197772097428382e-05,
-      "rel_pop_score": 199820280.9804,
-      "rel_pop_norm100": 2.2436,
-      "abs_estimate_mid": 232299657,
-      "abs_low": 77433219,
-      "abs_high": 696898972,
+      "predicted_grading_rate": 7.613441404317061e-05,
+      "rel_pop_score": 110173567.4388,
+      "rel_pop_norm100": 3.9546,
+      "abs_estimate_mid": 112297510,
+      "abs_low": 37432503,
+      "abs_high": 336892530,
       "sales_velocity_rank": 123,
       "interest_rescaled": 0.7958,
       "trend_z": -0.5712,
       "pageviews_per_month": null,
       "sales_per_month": 201.063,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex13": {
       "set_name": "Holon Phantoms",
@@ -1376,18 +1585,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1866.67,
-      "predicted_grading_rate": 8.561534770631762e-05,
-      "rel_pop_score": 144962326.6447,
-      "rel_pop_norm100": 1.6276,
-      "abs_estimate_mid": 168524930,
-      "abs_low": 56174977,
-      "abs_high": 505574789,
+      "predicted_grading_rate": 0.00015527937628429124,
+      "rel_pop_score": 79926905.2786,
+      "rel_pop_norm100": 2.8689,
+      "abs_estimate_mid": 81467748,
+      "abs_low": 27155916,
+      "abs_high": 244403245,
       "sales_velocity_rank": 113,
       "interest_rescaled": 1.2315,
       "trend_z": -0.4562,
       "pageviews_per_month": null,
       "sales_per_month": 242.947,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex14": {
       "set_name": "Crystal Guardians",
@@ -1398,12 +1608,12 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 662.5,
-      "predicted_grading_rate": 5.1004815386657765e-05,
-      "rel_pop_score": 224272941.9425,
-      "rel_pop_norm100": 2.5181,
-      "abs_estimate_mid": 260726926,
-      "abs_low": 86908975,
-      "abs_high": 782180778,
+      "predicted_grading_rate": 9.250673077802868e-05,
+      "rel_pop_score": 123655867.0249,
+      "rel_pop_norm100": 4.4386,
+      "abs_estimate_mid": 126039724,
+      "abs_low": 42013241,
+      "abs_high": 378119171,
       "sales_velocity_rank": 126,
       "interest_rescaled": 1.1747,
       "trend_z": -0.4699,
@@ -1412,7 +1622,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "ex15": {
       "set_name": "Dragon Frontiers",
@@ -1423,12 +1634,12 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1476.67,
-      "predicted_grading_rate": 7.614817063454362e-05,
-      "rel_pop_score": 247766556.2125,
-      "rel_pop_norm100": 2.7819,
-      "abs_estimate_mid": 288039261,
-      "abs_low": 96013087,
-      "abs_high": 864117784,
+      "predicted_grading_rate": 0.00013810888769478418,
+      "rel_pop_score": 136609600.692,
+      "rel_pop_norm100": 4.9035,
+      "abs_estimate_mid": 139243181,
+      "abs_low": 46414394,
+      "abs_high": 417729544,
       "sales_velocity_rank": 118,
       "interest_rescaled": 1.0042,
       "trend_z": -0.5131,
@@ -1437,7 +1648,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "ex16": {
       "set_name": "Power Keepers",
@@ -1448,18 +1660,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1116.37,
-      "predicted_grading_rate": 6.620980629316318e-05,
-      "rel_pop_score": 224558880.8124,
-      "rel_pop_norm100": 2.5214,
-      "abs_estimate_mid": 261059342,
-      "abs_low": 87019781,
-      "abs_high": 783178026,
+      "predicted_grading_rate": 0.00012008381324774409,
+      "rel_pop_score": 123813523.2209,
+      "rel_pop_norm100": 4.4442,
+      "abs_estimate_mid": 126200419,
+      "abs_low": 42066806,
+      "abs_high": 378601257,
       "sales_velocity_rank": 129,
       "interest_rescaled": 0.5684,
       "trend_z": -0.6429,
       "pageviews_per_month": null,
       "sales_per_month": 169.58,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex2": {
       "set_name": "Sandstorm",
@@ -1470,18 +1683,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.0,
       "chase_value": 155.12,
-      "predicted_grading_rate": 2.4680661910869903e-05,
-      "rel_pop_score": 209179154.864,
-      "rel_pop_norm100": 2.3487,
-      "abs_estimate_mid": 243179750,
-      "abs_low": 81059917,
-      "abs_high": 729539251,
+      "predicted_grading_rate": 4.4762976387708426e-05,
+      "rel_pop_score": 115333409.0645,
+      "rel_pop_norm100": 4.1398,
+      "abs_estimate_mid": 117556824,
+      "abs_low": 39185608,
+      "abs_high": 352670472,
       "sales_velocity_rank": 90,
       "interest_rescaled": 17.0519,
       "trend_z": 0.6509,
       "pageviews_per_month": null,
       "sales_per_month": 516.592,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex3": {
       "set_name": "Dragon",
@@ -1492,18 +1706,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 362.7,
-      "predicted_grading_rate": 3.7739141495986374e-05,
-      "rel_pop_score": 298893126.6812,
-      "rel_pop_norm100": 3.356,
-      "abs_estimate_mid": 347476095,
-      "abs_low": 115825365,
-      "abs_high": 1042428285,
+      "predicted_grading_rate": 6.844696085453095e-05,
+      "rel_pop_score": 164799135.8444,
+      "rel_pop_norm100": 5.9154,
+      "abs_estimate_mid": 167976159,
+      "abs_low": 55992053,
+      "abs_high": 503928476,
       "sales_velocity_rank": 108,
       "interest_rescaled": 567.8363,
       "trend_z": 2.4782,
       "pageviews_per_month": null,
       "sales_per_month": 289.799,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex4": {
       "set_name": "Team Magma vs Team Aqua",
@@ -1514,12 +1729,12 @@
       "chase_tier": 4,
       "pull_denominator": 4.0,
       "chase_value": 271.66,
-      "predicted_grading_rate": 3.266112101945737e-05,
-      "rel_pop_score": 84871551.0514,
-      "rel_pop_norm100": 0.9529,
-      "abs_estimate_mid": 98666823,
-      "abs_low": 32888941,
-      "abs_high": 296000468,
+      "predicted_grading_rate": 5.9237025095593445e-05,
+      "rel_pop_score": 46795057.5764,
+      "rel_pop_norm100": 1.6797,
+      "abs_estimate_mid": 47697180,
+      "abs_low": 15899060,
+      "abs_high": 143091539,
       "sales_velocity_rank": 119,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
@@ -1527,7 +1742,8 @@
       "sales_per_month": 228.874,
       "flags": [
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "ex5": {
       "set_name": "Hidden Legends",
@@ -1538,12 +1754,12 @@
       "chase_tier": 4,
       "pull_denominator": 4.0,
       "chase_value": 171.31,
-      "predicted_grading_rate": 2.593639407616003e-05,
-      "rel_pop_score": 99987684.9644,
-      "rel_pop_norm100": 1.1227,
-      "abs_estimate_mid": 116239977,
-      "abs_low": 38746659,
-      "abs_high": 348719932,
+      "predicted_grading_rate": 4.70404805108621e-05,
+      "rel_pop_score": 55129822.3396,
+      "rel_pop_norm100": 1.9789,
+      "abs_estimate_mid": 56192623,
+      "abs_low": 18730874,
+      "abs_high": 168577870,
       "sales_velocity_rank": 120,
       "interest_rescaled": 0.2193,
       "trend_z": -0.7763,
@@ -1551,7 +1767,8 @@
       "sales_per_month": 223.208,
       "flags": [
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "ex6": {
       "set_name": "FireRed & LeafGreen",
@@ -1576,7 +1793,8 @@
       "flags": [
         "no_chase_pop",
         "no_grading_rate"
-      ]
+      ],
+      "subset_of": null
     },
     "ex7": {
       "set_name": "Team Rocket Returns",
@@ -1587,18 +1805,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1772.66,
-      "predicted_grading_rate": 8.343167470109787e-05,
-      "rel_pop_score": 91835265.5325,
-      "rel_pop_norm100": 1.0311,
-      "abs_estimate_mid": 106762440,
-      "abs_low": 35587480,
-      "abs_high": 320287319,
+      "predicted_grading_rate": 0.00015131887864755332,
+      "rel_pop_score": 50634792.3569,
+      "rel_pop_norm100": 1.8175,
+      "abs_estimate_mid": 51610938,
+      "abs_low": 17203646,
+      "abs_high": 154832813,
       "sales_velocity_rank": 128,
       "interest_rescaled": 1.061,
       "trend_z": -0.4983,
       "pageviews_per_month": null,
       "sales_per_month": 171.787,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex8": {
       "set_name": "Deoxys",
@@ -1609,18 +1828,19 @@
       "chase_tier": 5,
       "pull_denominator": 9.0,
       "chase_value": 1816.83,
-      "predicted_grading_rate": 8.446472742434439e-05,
-      "rel_pop_score": 102149503.8592,
-      "rel_pop_norm100": 1.1469,
-      "abs_estimate_mid": 118753185,
-      "abs_low": 39584395,
-      "abs_high": 356259554,
+      "predicted_grading_rate": 0.0001531925121353803,
+      "rel_pop_score": 56321290.641,
+      "rel_pop_norm100": 2.0216,
+      "abs_estimate_mid": 57407061,
+      "abs_low": 19135687,
+      "abs_high": 172221183,
       "sales_velocity_rank": 110,
       "interest_rescaled": 79.7145,
       "trend_z": 1.4441,
       "pageviews_per_month": null,
       "sales_per_month": 280.025,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "ex9": {
       "set_name": "Emerald",
@@ -1631,12 +1851,12 @@
       "chase_tier": 4,
       "pull_denominator": 4.0,
       "chase_value": 273.06,
-      "predicted_grading_rate": 3.274537228882362e-05,
-      "rel_pop_score": 54399137.206,
-      "rel_pop_norm100": 0.6108,
-      "abs_estimate_mid": 63241333,
-      "abs_low": 21080444,
-      "abs_high": 189723999,
+      "predicted_grading_rate": 5.9389830461790485e-05,
+      "rel_pop_score": 29993911.7435,
+      "rel_pop_norm100": 1.0766,
+      "abs_estimate_mid": 30572139,
+      "abs_low": 10190713,
+      "abs_high": 91716417,
       "sales_velocity_rank": 125,
       "interest_rescaled": 961.6078,
       "trend_z": 2.7568,
@@ -1644,7 +1864,8 @@
       "sales_per_month": 196.866,
       "flags": [
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "g1": {
       "set_name": "Generations",
@@ -1655,18 +1876,19 @@
       "chase_tier": 4,
       "pull_denominator": 6.0,
       "chase_value": 132.09,
-      "predicted_grading_rate": 0.0006452827861862845,
-      "rel_pop_score": 35537907.5514,
-      "rel_pop_norm100": 0.399,
-      "abs_estimate_mid": 41314344,
-      "abs_low": 13771448,
-      "abs_high": 123943031,
+      "predicted_grading_rate": 0.0007767686791065117,
+      "rel_pop_score": 29522302.6067,
+      "rel_pop_norm100": 1.0597,
+      "abs_estimate_mid": 30091438,
+      "abs_low": 10030479,
+      "abs_high": 90274314,
       "sales_velocity_rank": 24,
       "interest_rescaled": 56.8208,
       "trend_z": 1.2674,
       "pageviews_per_month": null,
       "sales_per_month": 1838.783,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "gym1": {
       "set_name": "Gym Heroes",
@@ -1677,18 +1899,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 346.99,
-      "predicted_grading_rate": 5.9286120954930035e-06,
-      "rel_pop_score": 335884683.9573,
+      "predicted_grading_rate": 1.8952943459628043e-05,
+      "rel_pop_score": 105067233.3601,
       "rel_pop_norm100": 3.7713,
-      "abs_estimate_mid": 390480369,
-      "abs_low": 130160123,
-      "abs_high": 1171441106,
+      "abs_estimate_mid": 107092735,
+      "abs_low": 35697578,
+      "abs_high": 321278206,
       "sales_velocity_rank": 31,
       "interest_rescaled": 4.2819,
       "trend_z": 0.0001,
       "pageviews_per_month": null,
       "sales_per_month": 1435.245,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "gym2": {
       "set_name": "Gym Challenge",
@@ -1699,18 +1922,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 551.74,
-      "predicted_grading_rate": 7.4758123844152576e-06,
-      "rel_pop_score": 294861599.8704,
+      "predicted_grading_rate": 2.3899126330819106e-05,
+      "rel_pop_score": 92234891.8877,
       "rel_pop_norm100": 3.3107,
-      "abs_estimate_mid": 342789272,
-      "abs_low": 114263091,
-      "abs_high": 1028367816,
+      "abs_estimate_mid": 94013010,
+      "abs_low": 31337670,
+      "abs_high": 282039030,
       "sales_velocity_rank": 37,
       "interest_rescaled": 10.7806,
       "trend_z": 0.4249,
       "pageviews_per_month": null,
       "sales_per_month": 1268.592,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "hgss1": {
       "set_name": "HeartGold & SoulSilver",
@@ -1721,18 +1945,19 @@
       "chase_tier": 5,
       "pull_denominator": 13.0,
       "chase_value": 189.67,
-      "predicted_grading_rate": 0.00014754784634582317,
-      "rel_pop_score": 69575464.8695,
-      "rel_pop_norm100": 0.7812,
-      "abs_estimate_mid": 80884466,
-      "abs_low": 26961489,
-      "abs_high": 242653397,
+      "predicted_grading_rate": 0.00016420689081290767,
+      "rel_pop_score": 62516661.8517,
+      "rel_pop_norm100": 2.244,
+      "abs_estimate_mid": 63721868,
+      "abs_low": 21240623,
+      "abs_high": 191165603,
       "sales_velocity_rank": 75,
       "interest_rescaled": 0.3221,
       "trend_z": -0.7334,
       "pageviews_per_month": null,
       "sales_per_month": 628.57,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "hgss2": {
       "set_name": "HS\u2014Unleashed",
@@ -1743,18 +1968,19 @@
       "chase_tier": 5,
       "pull_denominator": 13.0,
       "chase_value": 153.44,
-      "predicted_grading_rate": 0.00013271003040144375,
-      "rel_pop_score": 34415559.8954,
-      "rel_pop_norm100": 0.3864,
-      "abs_estimate_mid": 40009566,
-      "abs_low": 13336522,
-      "abs_high": 120028699,
+      "predicted_grading_rate": 0.00014769379568463231,
+      "rel_pop_score": 30924341.2166,
+      "rel_pop_norm100": 1.11,
+      "abs_estimate_mid": 31520505,
+      "abs_low": 10506835,
+      "abs_high": 94561516,
       "sales_velocity_rank": 100,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 394.494,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "hgss3": {
       "set_name": "HS\u2014Undaunted",
@@ -1765,18 +1991,19 @@
       "chase_tier": 5,
       "pull_denominator": 13.0,
       "chase_value": 182.16,
-      "predicted_grading_rate": 0.00014459598873962703,
-      "rel_pop_score": 46990999.2609,
-      "rel_pop_norm100": 0.5276,
-      "abs_estimate_mid": 54629055,
-      "abs_low": 18209685,
-      "abs_high": 163887164,
+      "predicted_grading_rate": 0.00016092175062523036,
+      "rel_pop_score": 42223420.0179,
+      "rel_pop_norm100": 1.5156,
+      "abs_estimate_mid": 43037410,
+      "abs_low": 14345803,
+      "abs_high": 129112229,
       "sales_velocity_rank": 107,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 301.097,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "hgss4": {
       "set_name": "HS\u2014Triumphant",
@@ -1787,18 +2014,19 @@
       "chase_tier": 5,
       "pull_denominator": 13.0,
       "chase_value": 123.55,
-      "predicted_grading_rate": 0.0001190849750013982,
-      "rel_pop_score": 86095748.0142,
-      "rel_pop_norm100": 0.9667,
-      "abs_estimate_mid": 100090004,
-      "abs_low": 33363335,
-      "abs_high": 300270013,
+      "predicted_grading_rate": 0.00013253038910293784,
+      "rel_pop_score": 77360873.5028,
+      "rel_pop_norm100": 2.7768,
+      "abs_estimate_mid": 78852248,
+      "abs_low": 26284083,
+      "abs_high": 236556744,
       "sales_velocity_rank": 79,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 612.677,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "hsp": {
       "set_name": "HGSS Black Star Promos",
@@ -1822,8 +2050,10 @@
       "sales_per_month": 94.418,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd11": {
       "set_name": "McDonald's Collection 2011",
@@ -1847,8 +2077,10 @@
       "sales_per_month": 304.375,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd12": {
       "set_name": "McDonald's Collection 2012",
@@ -1859,18 +2091,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 11.0,
-      "predicted_grading_rate": 8.188428418193148e-05,
-      "rel_pop_score": 101728.9225,
-      "rel_pop_norm100": 0.0011,
-      "abs_estimate_mid": 118264,
-      "abs_low": 39421,
-      "abs_high": 354793,
+      "predicted_grading_rate": 9.224813972934382e-05,
+      "rel_pop_score": 90336.0584,
+      "rel_pop_norm100": 0.0032,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 141,
       "interest_rescaled": 0.019,
       "trend_z": -0.8713,
       "pageviews_per_month": null,
       "sales_per_month": 55.341,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd14": {
       "set_name": "McDonald's Collection 2014",
@@ -1881,18 +2116,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 19.6,
-      "predicted_grading_rate": 0.00024854881239200135,
-      "rel_pop_score": 134098.4078,
-      "rel_pop_norm100": 0.0015,
-      "abs_estimate_mid": 155895,
-      "abs_low": 51965,
-      "abs_high": 467685,
+      "predicted_grading_rate": 0.0002991943018289222,
+      "rel_pop_score": 111410.3214,
+      "rel_pop_norm100": 0.004,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 134,
       "interest_rescaled": 0.019,
       "trend_z": -0.8713,
       "pageviews_per_month": null,
       "sales_per_month": 108.705,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd15": {
       "set_name": "McDonald's Collection 2015",
@@ -1903,18 +2141,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 21.59,
-      "predicted_grading_rate": 0.0002608836792931,
-      "rel_pop_score": 90730.0911,
-      "rel_pop_norm100": 0.001,
-      "abs_estimate_mid": 105478,
-      "abs_low": 35159,
-      "abs_high": 316433,
+      "predicted_grading_rate": 0.0003140425799402107,
+      "rel_pop_score": 75361.3305,
+      "rel_pop_norm100": 0.0027,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 135,
       "interest_rescaled": 0.0189,
       "trend_z": -0.8714,
       "pageviews_per_month": null,
       "sales_per_month": 90.044,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd16": {
       "set_name": "McDonald's Collection 2016",
@@ -1925,18 +2166,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 33.22,
-      "predicted_grading_rate": 0.000323592624049866,
-      "rel_pop_score": 4110.106,
-      "rel_pop_norm100": 0.0,
-      "abs_estimate_mid": 4778,
-      "abs_low": 1593,
-      "abs_high": 14335,
+      "predicted_grading_rate": 0.00038952939785885004,
+      "rel_pop_score": 3422.9338,
+      "rel_pop_norm100": 0.0001,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 153,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 13.393,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd17": {
       "set_name": "McDonald's Collection 2017",
@@ -1947,18 +2191,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 10.87,
-      "predicted_grading_rate": 0.00020067865643277799,
-      "rel_pop_score": 179391.2748,
-      "rel_pop_norm100": 0.002,
-      "abs_estimate_mid": 208550,
-      "abs_low": 69517,
-      "abs_high": 625650,
+      "predicted_grading_rate": 0.00030102973626739305,
+      "rel_pop_score": 119589.5145,
+      "rel_pop_norm100": 0.0043,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 133,
       "interest_rescaled": 0.0568,
       "trend_z": -0.852,
       "pageviews_per_month": null,
       "sales_per_month": 109.913,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd18": {
       "set_name": "McDonald's Collection 2018",
@@ -1969,18 +2216,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 31.66,
-      "predicted_grading_rate": 0.0003424327463793803,
-      "rel_pop_score": 192738.5763,
-      "rel_pop_norm100": 0.0022,
-      "abs_estimate_mid": 224067,
-      "abs_low": 74689,
-      "abs_high": 672201,
+      "predicted_grading_rate": 0.0005136691722192883,
+      "rel_pop_score": 128487.3681,
+      "rel_pop_norm100": 0.0046,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 136,
       "interest_rescaled": 0.0189,
       "trend_z": -0.8714,
       "pageviews_per_month": null,
       "sales_per_month": 83.118,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd19": {
       "set_name": "McDonald's Collection 2019",
@@ -1991,18 +2241,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 18.37,
-      "predicted_grading_rate": 0.0002608401323364027,
-      "rel_pop_score": 247929.6396,
-      "rel_pop_norm100": 0.0028,
-      "abs_estimate_mid": 288229,
-      "abs_low": 96076,
-      "abs_high": 864687,
+      "predicted_grading_rate": 0.000391275473141717,
+      "rel_pop_score": 165271.4548,
+      "rel_pop_norm100": 0.0059,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 137,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 80.039,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd21": {
       "set_name": "McDonald's Collection 2021",
@@ -2013,18 +2266,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 9.73,
-      "predicted_grading_rate": 8.341399351760798e-05,
-      "rel_pop_score": 40313020.1324,
-      "rel_pop_norm100": 0.4526,
-      "abs_estimate_mid": 46865617,
-      "abs_low": 15621872,
-      "abs_high": 140596851,
+      "predicted_grading_rate": 0.00022375122677819497,
+      "rel_pop_score": 15028595.441,
+      "rel_pop_norm100": 0.5394,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 66,
       "interest_rescaled": 0.0189,
       "trend_z": -0.8714,
       "pageviews_per_month": null,
       "sales_per_month": 715.281,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "mcd22": {
       "set_name": "McDonald's Collection 2022",
@@ -2035,18 +2291,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 1.98,
-      "predicted_grading_rate": 3.759021717919778e-05,
-      "rel_pop_score": 5976821.0151,
-      "rel_pop_norm100": 0.0671,
-      "abs_estimate_mid": 6948311,
-      "abs_low": 2316104,
-      "abs_high": 20844933,
+      "predicted_grading_rate": 0.00010083268830581573,
+      "rel_pop_score": 2228113.4267,
+      "rel_pop_norm100": 0.08,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 70,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 678.321,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "me1": {
       "set_name": "Mega Evolution",
@@ -2070,8 +2329,10 @@
       "sales_per_month": 4269.551,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "me2": {
       "set_name": "Phantasmal Flames",
@@ -2095,8 +2356,10 @@
       "sales_per_month": 2664.803,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "me2pt5": {
       "set_name": "Ascended Heroes",
@@ -2120,8 +2383,10 @@
       "sales_per_month": 5759.935,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "neo1": {
       "set_name": "Neo Genesis",
@@ -2132,18 +2397,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 796.61,
-      "predicted_grading_rate": 8.982874810806685e-06,
-      "rel_pop_score": 368144950.2137,
+      "predicted_grading_rate": 2.8716994070764632e-05,
+      "rel_pop_score": 115158292.3983,
       "rel_pop_norm100": 4.1335,
-      "abs_estimate_mid": 427984314,
-      "abs_low": 142661438,
-      "abs_high": 1283952941,
+      "abs_estimate_mid": 117378331,
+      "abs_low": 39126110,
+      "abs_high": 352134994,
       "sales_velocity_rank": 44,
       "interest_rescaled": 9.4733,
       "trend_z": 0.3626,
       "pageviews_per_month": null,
       "sales_per_month": 1190.575,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "neo2": {
       "set_name": "Neo Discovery",
@@ -2154,18 +2420,19 @@
       "chase_tier": 3,
       "pull_denominator": 1.0,
       "chase_value": 861.7,
-      "predicted_grading_rate": 9.342677479365593e-06,
-      "rel_pop_score": 332131769.1693,
+      "predicted_grading_rate": 2.9867232865946453e-05,
+      "rel_pop_score": 103893119.7251,
       "rel_pop_norm100": 3.7292,
-      "abs_estimate_mid": 386117444,
-      "abs_low": 128705815,
-      "abs_high": 1158352333,
+      "abs_estimate_mid": 105895987,
+      "abs_low": 35298662,
+      "abs_high": 317687961,
       "sales_velocity_rank": 76,
       "interest_rescaled": 2.4062,
       "trend_z": -0.2322,
       "pageviews_per_month": null,
       "sales_per_month": 627.405,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "neo3": {
       "set_name": "Neo Revelation",
@@ -2176,12 +2443,12 @@
       "chase_tier": 5,
       "pull_denominator": 6.0,
       "chase_value": 749.67,
-      "predicted_grading_rate": 8.714180885831946e-06,
-      "rel_pop_score": 2744264815.3977,
-      "rel_pop_norm100": 30.8127,
-      "abs_estimate_mid": 3190325693,
-      "abs_low": 1063441898,
-      "abs_high": 9570977080,
+      "predicted_grading_rate": 2.7858017182756865e-05,
+      "rel_pop_score": 858424339.504,
+      "rel_pop_norm100": 30.8126,
+      "abs_estimate_mid": 874973174,
+      "abs_low": 291657725,
+      "abs_high": 2624919522,
       "sales_velocity_rank": 103,
       "interest_rescaled": 2.0083,
       "trend_z": -0.298,
@@ -2190,7 +2457,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "neo4": {
       "set_name": "Neo Destiny",
@@ -2201,18 +2469,19 @@
       "chase_tier": 5,
       "pull_denominator": 6.0,
       "chase_value": 1870.77,
-      "predicted_grading_rate": 1.3765838454604795e-05,
-      "rel_pop_score": 1666878488.7799,
+      "predicted_grading_rate": 4.4007459705930095e-05,
+      "rel_pop_score": 521411600.518,
       "rel_pop_norm100": 18.7158,
-      "abs_estimate_mid": 1937817823,
-      "abs_low": 645939274,
-      "abs_high": 5813453469,
+      "abs_estimate_mid": 531463452,
+      "abs_low": 177154484,
+      "abs_high": 1594390357,
       "sales_velocity_rank": 106,
       "interest_rescaled": 4.2251,
       "trend_z": -0.0056,
       "pageviews_per_month": null,
       "sales_per_month": 302.346,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "np": {
       "set_name": "Nintendo Black Star Promos",
@@ -2236,8 +2505,10 @@
       "sales_per_month": 50.021,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pgo": {
       "set_name": "Pok\u00e9mon GO",
@@ -2248,18 +2519,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 34.23,
-      "predicted_grading_rate": 0.0001564345618042207,
-      "rel_pop_score": 629085790.6654,
-      "rel_pop_norm100": 7.0634,
-      "abs_estimate_mid": 731339246,
-      "abs_low": 243779749,
-      "abs_high": 2194017738,
+      "predicted_grading_rate": 0.00041962293900741086,
+      "rel_pop_score": 234521656.2742,
+      "rel_pop_norm100": 8.418,
+      "abs_estimate_mid": 239042800,
+      "abs_low": 79680933,
+      "abs_high": 717128401,
       "sales_velocity_rank": 25,
       "interest_rescaled": 1318.8794,
       "trend_z": 2.924,
       "pageviews_per_month": null,
       "sales_per_month": 1835.935,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "pl1": {
       "set_name": "Platinum",
@@ -2270,18 +2542,19 @@
       "chase_tier": 5,
       "pull_denominator": 11.0,
       "chase_value": 20.22,
-      "predicted_grading_rate": 2.0663183390355668e-05,
-      "rel_pop_score": 113746752.1629,
-      "rel_pop_norm100": 1.2772,
-      "abs_estimate_mid": 132235484,
-      "abs_low": 44078495,
-      "abs_high": 396706452,
+      "predicted_grading_rate": 2.4903423131800833e-05,
+      "rel_pop_score": 94377922.2998,
+      "rel_pop_norm100": 3.3876,
+      "abs_estimate_mid": 96197354,
+      "abs_low": 32065785,
+      "abs_high": 288592063,
       "sales_velocity_rank": 72,
       "interest_rescaled": 563.4444,
       "trend_z": 2.4741,
       "pageviews_per_month": null,
       "sales_per_month": 645.431,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "pl2": {
       "set_name": "Rising Rivals",
@@ -2292,18 +2565,19 @@
       "chase_tier": 5,
       "pull_denominator": 11.0,
       "chase_value": 128.04,
-      "predicted_grading_rate": 5.1992181448462e-05,
-      "rel_pop_score": 84486356.9411,
-      "rel_pop_norm100": 0.9486,
-      "abs_estimate_mid": 98219018,
-      "abs_low": 32739673,
-      "abs_high": 294657054,
+      "predicted_grading_rate": 6.266136585521192e-05,
+      "rel_pop_score": 70101674.4004,
+      "rel_pop_norm100": 2.5163,
+      "abs_estimate_mid": 71453105,
+      "abs_low": 23817702,
+      "abs_high": 214359315,
       "sales_velocity_rank": 104,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 338.393,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "pl3": {
       "set_name": "Supreme Victors",
@@ -2314,18 +2588,19 @@
       "chase_tier": 5,
       "pull_denominator": 11.0,
       "chase_value": 174.84,
-      "predicted_grading_rate": 6.075629175844642e-05,
-      "rel_pop_score": 157031143.9996,
-      "rel_pop_norm100": 1.7631,
-      "abs_estimate_mid": 182555448,
-      "abs_low": 60851816,
-      "abs_high": 547666345,
+      "predicted_grading_rate": 7.322393713477522e-05,
+      "rel_pop_score": 130294368.7541,
+      "rel_pop_norm100": 4.6768,
+      "abs_estimate_mid": 132806203,
+      "abs_low": 44268734,
+      "abs_high": 398418610,
       "sales_velocity_rank": 55,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 859.629,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "pl4": {
       "set_name": "Arceus",
@@ -2336,18 +2611,19 @@
       "chase_tier": 4,
       "pull_denominator": 4.5,
       "chase_value": 151.16,
-      "predicted_grading_rate": 5.6491682965991885e-05,
-      "rel_pop_score": 60699200.6605,
-      "rel_pop_norm100": 0.6815,
-      "abs_estimate_mid": 70565427,
-      "abs_low": 23521809,
-      "abs_high": 211696282,
+      "predicted_grading_rate": 6.808419872933363e-05,
+      "rel_pop_score": 50364108.9121,
+      "rel_pop_norm100": 1.8078,
+      "abs_estimate_mid": 51335036,
+      "abs_low": 17111679,
+      "abs_high": 154005108,
       "sales_velocity_rank": 95,
       "interest_rescaled": 6527.7778,
       "trend_z": 3.7706,
       "pageviews_per_month": null,
       "sales_per_month": 474.6,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "pop1": {
       "set_name": "POP Series 1",
@@ -2358,18 +2634,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 69.79,
-      "predicted_grading_rate": 1.655405775695424e-05,
-      "rel_pop_score": 33164074.2143,
-      "rel_pop_norm100": 0.3724,
-      "abs_estimate_mid": 38554660,
-      "abs_low": 12851553,
-      "abs_high": 115663981,
+      "predicted_grading_rate": 3.0023866425111866e-05,
+      "rel_pop_score": 18285453.0535,
+      "rel_pop_norm100": 0.6563,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 145,
       "interest_rescaled": 0.1137,
       "trend_z": -0.8243,
       "pageviews_per_month": null,
       "sales_per_month": 35.144,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop2": {
       "set_name": "POP Series 2",
@@ -2380,18 +2659,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 33.81,
-      "predicted_grading_rate": 1.1522343657218763e-05,
-      "rel_pop_score": 46171596.3199,
-      "rel_pop_norm100": 0.5184,
-      "abs_estimate_mid": 53676463,
-      "abs_low": 17892154,
-      "abs_high": 161029390,
+      "predicted_grading_rate": 2.0897915903624414e-05,
+      "rel_pop_score": 25457083.9721,
+      "rel_pop_norm100": 0.9138,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 143,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 46.318,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop3": {
       "set_name": "POP Series 3",
@@ -2402,18 +2684,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 84.61,
-      "predicted_grading_rate": 1.822722401662549e-05,
-      "rel_pop_score": 19256909.3176,
-      "rel_pop_norm100": 0.2162,
-      "abs_estimate_mid": 22386984,
-      "abs_low": 7462328,
-      "abs_high": 67160952,
+      "predicted_grading_rate": 3.3058465012655776e-05,
+      "rel_pop_score": 10617552.8678,
+      "rel_pop_norm100": 0.3811,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 149,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
       "pageviews_per_month": null,
       "sales_per_month": 24.116,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop4": {
       "set_name": "POP Series 4",
@@ -2424,18 +2709,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 342.69,
-      "predicted_grading_rate": 3.668316862847297e-05,
-      "rel_pop_score": 2657894.7143,
-      "rel_pop_norm100": 0.0298,
-      "abs_estimate_mid": 3089917,
-      "abs_low": 1029972,
-      "abs_high": 9269750,
+      "predicted_grading_rate": 6.653175741690576e-05,
+      "rel_pop_score": 1465465.5729,
+      "rel_pop_norm100": 0.0526,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 150,
       "interest_rescaled": 0.0379,
       "trend_z": -0.8616,
       "pageviews_per_month": null,
       "sales_per_month": 22.466,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop5": {
       "set_name": "POP Series 5",
@@ -2446,18 +2734,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 751.67,
-      "predicted_grading_rate": 5.432889655554286e-05,
-      "rel_pop_score": 17237511.8836,
-      "rel_pop_norm100": 0.1935,
-      "abs_estimate_mid": 20039348,
-      "abs_low": 6679783,
-      "abs_high": 60118043,
+      "predicted_grading_rate": 9.8535570985434e-05,
+      "rel_pop_score": 9504181.9988,
+      "rel_pop_norm100": 0.3411,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 151,
       "interest_rescaled": 0.1705,
       "trend_z": -0.7979,
       "pageviews_per_month": null,
       "sales_per_month": 22.402,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop6": {
       "set_name": "POP Series 6",
@@ -2468,18 +2759,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 9.22,
-      "predicted_grading_rate": 1.395199527750273e-05,
-      "rel_pop_score": 1970685.8735,
-      "rel_pop_norm100": 0.0221,
-      "abs_estimate_mid": 2291007,
-      "abs_low": 763669,
-      "abs_high": 6873021,
+      "predicted_grading_rate": 1.6815049035024617e-05,
+      "rel_pop_score": 1635439.7744,
+      "rel_pop_norm100": 0.0587,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 148,
       "interest_rescaled": 0.0568,
       "trend_z": -0.852,
       "pageviews_per_month": null,
       "sales_per_month": 26.005,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop7": {
       "set_name": "POP Series 7",
@@ -2490,18 +2784,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 18.88,
-      "predicted_grading_rate": 1.9966879170040417e-05,
-      "rel_pop_score": 6460699.186,
-      "rel_pop_norm100": 0.0725,
-      "abs_estimate_mid": 7510840,
-      "abs_low": 2503613,
-      "abs_high": 22532521,
+      "predicted_grading_rate": 2.406423207883545e-05,
+      "rel_pop_score": 5360653.0878,
+      "rel_pop_norm100": 0.1924,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 142,
       "interest_rescaled": 0.0758,
       "trend_z": -0.8426,
       "pageviews_per_month": null,
       "sales_per_month": 50.538,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop8": {
       "set_name": "POP Series 8",
@@ -2512,18 +2809,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 10.43,
-      "predicted_grading_rate": 1.4841657373292175e-05,
-      "rel_pop_score": 4312523.756,
-      "rel_pop_norm100": 0.0484,
-      "abs_estimate_mid": 5013494,
-      "abs_low": 1671165,
-      "abs_high": 15040482,
+      "predicted_grading_rate": 1.788727644535244e-05,
+      "rel_pop_score": 3577962.2569,
+      "rel_pop_norm100": 0.1284,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 138,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 76.484,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "pop9": {
       "set_name": "POP Series 9",
@@ -2534,18 +2834,21 @@
       "chase_tier": 2,
       "pull_denominator": 1.5,
       "chase_value": 17.27,
-      "predicted_grading_rate": 1.909488419495023e-05,
-      "rel_pop_score": 3744720.2753,
-      "rel_pop_norm100": 0.042,
-      "abs_estimate_mid": 4353398,
-      "abs_low": 1451133,
-      "abs_high": 13060194,
+      "predicted_grading_rate": 2.3013297214480974e-05,
+      "rel_pop_score": 3106899.4301,
+      "rel_pop_norm100": 0.1115,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 140,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 70.8,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "rsv10pt5": {
       "set_name": "White Flare",
@@ -2569,8 +2872,10 @@
       "sales_per_month": 1391.899,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "ru1": {
       "set_name": "Pok\u00e9mon Rumble",
@@ -2581,18 +2886,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 371.65,
-      "predicted_grading_rate": 8.858045946486951e-05,
-      "rel_pop_score": 4086680.0893,
-      "rel_pop_norm100": 0.0459,
-      "abs_estimate_mid": 4750941,
-      "abs_low": 1583647,
-      "abs_high": 14252823,
+      "predicted_grading_rate": 0.00010675783211083463,
+      "rel_pop_score": 3390851.9201,
+      "rel_pop_norm100": 0.1217,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 144,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 39.335,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "si1": {
       "set_name": "Southern Islands",
@@ -2603,18 +2911,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 189.65,
-      "predicted_grading_rate": 4.382973993704995e-06,
-      "rel_pop_score": 457755396.8793,
+      "predicted_grading_rate": 1.4011754682156017e-05,
+      "rel_pop_score": 143189299.1881,
       "rel_pop_norm100": 5.1397,
-      "abs_estimate_mid": 532160306,
-      "abs_low": 177386769,
-      "abs_high": 1596480918,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 111,
       "interest_rescaled": 1.5726,
       "trend_z": -0.3809,
       "pageviews_per_month": null,
       "sales_per_month": 264.326,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "sm1": {
       "set_name": "Sun & Moon",
@@ -2625,18 +2936,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 60.94,
-      "predicted_grading_rate": 0.0004750717223151569,
-      "rel_pop_score": 69000107.6895,
-      "rel_pop_norm100": 0.7747,
-      "abs_estimate_mid": 80215588,
-      "abs_low": 26738529,
-      "abs_high": 240646765,
+      "predicted_grading_rate": 0.0007126354033794957,
+      "rel_pop_score": 45998276.0393,
+      "rel_pop_norm100": 1.6511,
+      "abs_estimate_mid": 46885038,
+      "abs_low": 15628346,
+      "abs_high": 140655113,
       "sales_velocity_rank": 34,
       "interest_rescaled": 14.2099,
       "trend_z": 0.5602,
       "pageviews_per_month": null,
       "sales_per_month": 1379.833,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm10": {
       "set_name": "Unbroken Bonds",
@@ -2647,18 +2959,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 141.32,
-      "predicted_grading_rate": 0.0007234803998247498,
-      "rel_pop_score": 139017919.524,
-      "rel_pop_norm100": 1.5609,
-      "abs_estimate_mid": 161614301,
-      "abs_low": 53871434,
-      "abs_high": 484842904,
+      "predicted_grading_rate": 0.0010852629663026783,
+      "rel_pop_score": 92674927.4504,
+      "rel_pop_norm100": 3.3265,
+      "abs_estimate_mid": 94461529,
+      "abs_low": 31487176,
+      "abs_high": 283384586,
       "sales_velocity_rank": 57,
       "interest_rescaled": 4.0932,
       "trend_z": -0.0192,
       "pageviews_per_month": null,
       "sales_per_month": 837.713,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm11": {
       "set_name": "Unified Minds",
@@ -2669,18 +2982,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 214.77,
-      "predicted_grading_rate": 0.0008918735246308619,
-      "rel_pop_score": 51653063.7223,
-      "rel_pop_norm100": 0.58,
-      "abs_estimate_mid": 60048905,
-      "abs_low": 20016302,
-      "abs_high": 180146714,
+      "predicted_grading_rate": 0.001337862514509273,
+      "rel_pop_score": 34434031.5245,
+      "rel_pop_norm100": 1.236,
+      "abs_estimate_mid": 35097856,
+      "abs_low": 11699285,
+      "abs_high": 105293568,
       "sales_velocity_rank": 60,
       "interest_rescaled": 3.2778,
       "trend_z": -0.1116,
       "pageviews_per_month": null,
       "sales_per_month": 776.859,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm115": {
       "set_name": "Hidden Fates",
@@ -2691,12 +3005,12 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 40.55,
-      "predicted_grading_rate": 0.0003875547931097241,
-      "rel_pop_score": 593944402.4237,
-      "rel_pop_norm100": 6.6688,
-      "abs_estimate_mid": 690485873,
-      "abs_low": 230161958,
-      "abs_high": 2071457620,
+      "predicted_grading_rate": 0.0005813548846340037,
+      "rel_pop_score": 395947477.3226,
+      "rel_pop_norm100": 14.2123,
+      "abs_estimate_mid": 403580613,
+      "abs_low": 134526871,
+      "abs_high": 1210741838,
       "sales_velocity_rank": 28,
       "interest_rescaled": 19.136,
       "trend_z": 0.7088,
@@ -2705,7 +3019,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "sm12": {
       "set_name": "Cosmic Eclipse",
@@ -2716,18 +3031,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 141.48,
-      "predicted_grading_rate": 0.0007238727751839166,
-      "rel_pop_score": 41799140.7293,
-      "rel_pop_norm100": 0.4693,
-      "abs_estimate_mid": 48593296,
-      "abs_low": 16197765,
-      "abs_high": 145779888,
+      "predicted_grading_rate": 0.0010858515523186874,
+      "rel_pop_score": 27865073.5165,
+      "rel_pop_norm100": 1.0002,
+      "abs_estimate_mid": 28402261,
+      "abs_low": 9467420,
+      "abs_high": 85206782,
       "sales_velocity_rank": 39,
       "interest_rescaled": 7.9386,
       "trend_z": 0.2787,
       "pageviews_per_month": null,
       "sales_per_month": 1238.175,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm2": {
       "set_name": "Guardians Rising",
@@ -2738,18 +3054,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 76.12,
-      "predicted_grading_rate": 0.0005309806958481095,
-      "rel_pop_score": 19072746.1077,
-      "rel_pop_norm100": 0.2141,
-      "abs_estimate_mid": 22172886,
-      "abs_low": 7390962,
-      "abs_high": 66518659,
+      "predicted_grading_rate": 0.0007965021376738978,
+      "rel_pop_score": 12714759.7656,
+      "rel_pop_norm100": 0.4564,
+      "abs_estimate_mid": 12959877,
+      "abs_low": 4319959,
+      "abs_high": 38879630,
       "sales_velocity_rank": 78,
       "interest_rescaled": 0.8715,
       "trend_z": -0.5494,
       "pageviews_per_month": null,
       "sales_per_month": 624.227,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm3": {
       "set_name": "Burning Shadows",
@@ -2760,18 +3077,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 203.04,
-      "predicted_grading_rate": 0.0008671827615847485,
-      "rel_pop_score": 55508483.4851,
-      "rel_pop_norm100": 0.6233,
-      "abs_estimate_mid": 64530996,
-      "abs_low": 21510332,
-      "abs_high": 193592987,
+      "predicted_grading_rate": 0.0013008249240642625,
+      "rel_pop_score": 37004211.0276,
+      "rel_pop_norm100": 1.3282,
+      "abs_estimate_mid": 37717584,
+      "abs_low": 12572528,
+      "abs_high": 113152751,
       "sales_velocity_rank": 53,
       "interest_rescaled": 4.4714,
       "trend_z": 0.0188,
       "pageviews_per_month": null,
       "sales_per_month": 882.102,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm35": {
       "set_name": "Shining Legends",
@@ -2782,18 +3100,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 230.59,
-      "predicted_grading_rate": 0.0009241515736378837,
-      "rel_pop_score": 206513742.3818,
-      "rel_pop_norm100": 2.3187,
-      "abs_estimate_mid": 240081094,
-      "abs_low": 80027031,
-      "abs_high": 720243281,
+      "predicted_grading_rate": 0.001386281478202428,
+      "rel_pop_score": 137670453.6567,
+      "rel_pop_norm100": 4.9416,
+      "abs_estimate_mid": 140324486,
+      "abs_low": 46774829,
+      "abs_high": 420973457,
       "sales_velocity_rank": 81,
       "interest_rescaled": 8.7723,
       "trend_z": 0.3259,
       "pageviews_per_month": null,
       "sales_per_month": 577.532,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm4": {
       "set_name": "Crimson Invasion",
@@ -2804,18 +3123,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 26.76,
-      "predicted_grading_rate": 0.00031480080760558935,
-      "rel_pop_score": 45867925.5299,
-      "rel_pop_norm100": 0.515,
-      "abs_estimate_mid": 53323433,
-      "abs_low": 17774478,
-      "abs_high": 159970299,
+      "predicted_grading_rate": 0.00047221964594932665,
+      "rel_pop_score": 30577578.5849,
+      "rel_pop_norm100": 1.0976,
+      "abs_estimate_mid": 31167058,
+      "abs_low": 10389019,
+      "abs_high": 93501173,
       "sales_velocity_rank": 62,
       "interest_rescaled": 1.8378,
       "trend_z": -0.3289,
       "pageviews_per_month": null,
       "sales_per_month": 755.474,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm5": {
       "set_name": "Ultra Prism",
@@ -2826,18 +3146,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 71.54,
-      "predicted_grading_rate": 0.0005147355736812926,
-      "rel_pop_score": 33394350.1846,
-      "rel_pop_norm100": 0.375,
-      "abs_estimate_mid": 38822366,
-      "abs_low": 12940789,
-      "abs_high": 116467098,
+      "predicted_grading_rate": 0.0007721335031193478,
+      "rel_pop_score": 22262125.9975,
+      "rel_pop_norm100": 0.7991,
+      "abs_estimate_mid": 22691299,
+      "abs_low": 7563766,
+      "abs_high": 68073896,
       "sales_velocity_rank": 87,
       "interest_rescaled": 2.5009,
       "trend_z": -0.2177,
       "pageviews_per_month": null,
       "sales_per_month": 533.999,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm6": {
       "set_name": "Forbidden Light",
@@ -2848,18 +3169,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 99.38,
-      "predicted_grading_rate": 0.0006067036576601112,
-      "rel_pop_score": 14939748.402,
-      "rel_pop_norm100": 0.1677,
-      "abs_estimate_mid": 17368099,
-      "abs_low": 5789366,
-      "abs_high": 52104297,
+      "predicted_grading_rate": 0.0009100910146817943,
+      "rel_pop_score": 9959443.4554,
+      "rel_pop_norm100": 0.3575,
+      "abs_estimate_mid": 10151443,
+      "abs_low": 3383814,
+      "abs_high": 30454329,
       "sales_velocity_rank": 65,
       "interest_rescaled": 0.6252,
       "trend_z": -0.6241,
       "pageviews_per_month": null,
       "sales_per_month": 724.545,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm7": {
       "set_name": "Celestial Storm",
@@ -2870,18 +3192,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 122.95,
-      "predicted_grading_rate": 0.0006748231726113938,
-      "rel_pop_score": 123112636.5719,
-      "rel_pop_norm100": 1.3823,
-      "abs_estimate_mid": 143123727,
-      "abs_low": 47707909,
-      "abs_high": 429371180,
+      "predicted_grading_rate": 0.0010122742761454586,
+      "rel_pop_score": 82071959.4394,
+      "rel_pop_norm100": 2.9459,
+      "abs_estimate_mid": 83654155,
+      "abs_low": 27884718,
+      "abs_high": 250962465,
       "sales_velocity_rank": 89,
       "interest_rescaled": 0.8526,
       "trend_z": -0.5547,
       "pageviews_per_month": null,
       "sales_per_month": 523.779,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm75": {
       "set_name": "Dragon Majesty",
@@ -2892,18 +3215,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 75.11,
-      "predicted_grading_rate": 0.0005274230157204998,
-      "rel_pop_score": 20244205.6599,
-      "rel_pop_norm100": 0.2273,
-      "abs_estimate_mid": 23534758,
-      "abs_low": 7844919,
-      "abs_high": 70604275,
+      "predicted_grading_rate": 0.0007911654091469315,
+      "rel_pop_score": 13495702.9338,
+      "rel_pop_norm100": 0.4844,
+      "abs_estimate_mid": 13755875,
+      "abs_low": 4585292,
+      "abs_high": 41267625,
       "sales_velocity_rank": 131,
       "interest_rescaled": 0.6631,
       "trend_z": -0.6119,
       "pageviews_per_month": null,
       "sales_per_month": 168.911,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm8": {
       "set_name": "Lost Thunder",
@@ -2914,18 +3238,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 176.17,
-      "predicted_grading_rate": 0.0008077664496112017,
-      "rel_pop_score": 23486070.7685,
-      "rel_pop_norm100": 0.2637,
-      "abs_estimate_mid": 27303566,
-      "abs_low": 9101189,
-      "abs_high": 81910697,
+      "predicted_grading_rate": 0.0012116969767213953,
+      "rel_pop_score": 15656829.7997,
+      "rel_pop_norm100": 0.562,
+      "abs_estimate_mid": 15958665,
+      "abs_low": 5319555,
+      "abs_high": 47875994,
       "sales_velocity_rank": 94,
       "interest_rescaled": 1.516,
       "trend_z": -0.3927,
       "pageviews_per_month": null,
       "sales_per_month": 495.609,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sm9": {
       "set_name": "Team Up",
@@ -2936,18 +3261,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 254.98,
-      "predicted_grading_rate": 0.0009717910435841642,
-      "rel_pop_score": 44952811.912,
-      "rel_pop_norm100": 0.5047,
-      "abs_estimate_mid": 52259574,
-      "abs_low": 17419858,
-      "abs_high": 156778723,
+      "predicted_grading_rate": 0.0014577434728597974,
+      "rel_pop_score": 29967321.0548,
+      "rel_pop_norm100": 1.0757,
+      "abs_estimate_mid": 30545036,
+      "abs_low": 10181679,
+      "abs_high": 91635107,
       "sales_velocity_rank": 68,
       "interest_rescaled": 20.6178,
       "trend_z": 0.7464,
       "pageviews_per_month": null,
       "sales_per_month": 696.451,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sma": {
       "set_name": "Hidden Fates Shiny Vault",
@@ -2958,18 +3284,19 @@
       "chase_tier": 5,
       "pull_denominator": 22.0,
       "chase_value": 320.35,
-      "predicted_grading_rate": 0.0010892672777325582,
-      "rel_pop_score": 216627034.3595,
-      "rel_pop_norm100": 2.4323,
-      "abs_estimate_mid": 251838230,
-      "abs_low": 83946077,
-      "abs_high": 755514690,
+      "predicted_grading_rate": 0.0016339647034181329,
+      "rel_pop_score": 144412340.2256,
+      "rel_pop_norm100": 5.1836,
+      "abs_estimate_mid": 147196343,
+      "abs_low": 49065448,
+      "abs_high": 441589030,
       "sales_velocity_rank": 67,
       "interest_rescaled": 0.0379,
       "trend_z": -0.8616,
       "pageviews_per_month": null,
       "sales_per_month": 712.657,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "smp": {
       "set_name": "SM Black Star Promos",
@@ -2993,8 +3320,10 @@
       "sales_per_month": 429.241,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "sv1": {
       "set_name": "Scarlet & Violet",
@@ -3005,18 +3334,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 34.69,
-      "predicted_grading_rate": 9.79547542295174e-05,
-      "rel_pop_score": 1486282632.6824,
-      "rel_pop_norm100": 16.688,
-      "abs_estimate_mid": 1727867385,
-      "abs_low": 575955795,
-      "abs_high": 5183602155,
+      "predicted_grading_rate": 0.0003243507001100033,
+      "rel_pop_score": 448860857.3496,
+      "rel_pop_norm100": 16.1116,
+      "abs_estimate_mid": 457514065,
+      "abs_low": 152504688,
+      "abs_high": 1372542195,
       "sales_velocity_rank": 6,
       "interest_rescaled": 50.7274,
       "trend_z": 1.2085,
       "pageviews_per_month": null,
       "sales_per_month": 3482.327,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv10": {
       "set_name": "Destined Rivals",
@@ -3040,8 +3370,10 @@
       "sales_per_month": 4986.216,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sv2": {
       "set_name": "Paldea Evolved",
@@ -3052,18 +3384,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 40.36,
-      "predicted_grading_rate": 0.00010564772482198844,
-      "rel_pop_score": 432773635.94,
-      "rel_pop_norm100": 4.8592,
-      "abs_estimate_mid": 503117936,
-      "abs_low": 167705979,
-      "abs_high": 1509353808,
+      "predicted_grading_rate": 0.00034982389349627976,
+      "rel_pop_score": 130699096.0786,
+      "rel_pop_norm100": 4.6914,
+      "abs_estimate_mid": 133218733,
+      "abs_low": 44406244,
+      "abs_high": 399656199,
       "sales_velocity_rank": 9,
       "interest_rescaled": 24.2983,
       "trend_z": 0.8297,
       "pageviews_per_month": null,
       "sales_per_month": 3311.346,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv3": {
       "set_name": "Obsidian Flames",
@@ -3074,18 +3407,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 43.77,
-      "predicted_grading_rate": 0.00011002903766592157,
-      "rel_pop_score": 5395575682.508,
-      "rel_pop_norm100": 60.5816,
-      "abs_estimate_mid": 6272588430,
-      "abs_low": 2090862810,
-      "abs_high": 18817765291,
+      "predicted_grading_rate": 0.0003643314270969555,
+      "rel_pop_score": 1629477876.0384,
+      "rel_pop_norm100": 58.4892,
+      "abs_estimate_mid": 1660891197,
+      "abs_low": 553630399,
+      "abs_high": 4982673592,
       "sales_velocity_rank": 5,
       "interest_rescaled": 38.332,
       "trend_z": 1.0634,
       "pageviews_per_month": null,
       "sales_per_month": 3501.834,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv3pt5": {
       "set_name": "151",
@@ -3096,18 +3430,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 191.9,
-      "predicted_grading_rate": 0.00023037946431337116,
-      "rel_pop_score": 3951322018.7098,
-      "rel_pop_norm100": 44.3655,
-      "abs_estimate_mid": 4593581526,
-      "abs_low": 1531193842,
-      "abs_high": 13780744579,
+      "predicted_grading_rate": 0.0007628393448461387,
+      "rel_pop_score": 1193309363.87,
+      "rel_pop_norm100": 42.8331,
+      "abs_estimate_mid": 1216314163,
+      "abs_low": 405438054,
+      "abs_high": 3648942488,
       "sales_velocity_rank": 1,
       "interest_rescaled": 407.6985,
       "trend_z": 2.3031,
       "pageviews_per_month": null,
       "sales_per_month": 4895.872,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv4": {
       "set_name": "Paradox Rift",
@@ -3118,18 +3453,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 33.72,
-      "predicted_grading_rate": 9.657090200109853e-05,
-      "rel_pop_score": 1211234415.0899,
-      "rel_pop_norm100": 13.5998,
-      "abs_estimate_mid": 1408112021,
-      "abs_low": 469370674,
-      "abs_high": 4224336063,
+      "predicted_grading_rate": 0.00031976844738866334,
+      "rel_pop_score": 365795940.6415,
+      "rel_pop_norm100": 13.13,
+      "abs_estimate_mid": 372847810,
+      "abs_low": 124282603,
+      "abs_high": 1118543431,
       "sales_velocity_rank": 8,
       "interest_rescaled": 29.0297,
       "trend_z": 0.9205,
       "pageviews_per_month": null,
       "sales_per_month": 3416.247,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv4pt5": {
       "set_name": "Paldean Fates",
@@ -3140,18 +3476,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 292.08,
-      "predicted_grading_rate": 0.0002842208232248796,
-      "rel_pop_score": 1773186581.763,
-      "rel_pop_norm100": 19.9094,
-      "abs_estimate_mid": 2061405546,
-      "abs_low": 687135182,
-      "abs_high": 6184216639,
+      "predicted_grading_rate": 0.0009411204563162675,
+      "rel_pop_score": 535507079.125,
+      "rel_pop_norm100": 19.2217,
+      "abs_estimate_mid": 545830666,
+      "abs_low": 181943555,
+      "abs_high": 1637491997,
       "sales_velocity_rank": 7,
       "interest_rescaled": 34.9242,
       "trend_z": 1.0154,
       "pageviews_per_month": null,
       "sales_per_month": 3428.851,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv5": {
       "set_name": "Temporal Forces",
@@ -3162,18 +3499,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 46.07,
-      "predicted_grading_rate": 0.0001128745154681929,
-      "rel_pop_score": 873079716.8097,
-      "rel_pop_norm100": 9.803,
-      "abs_estimate_mid": 1014992663,
-      "abs_low": 338330888,
-      "abs_high": 3044977989,
+      "predicted_grading_rate": 0.0003737534579577717,
+      "rel_pop_score": 263672030.9474,
+      "rel_pop_norm100": 9.4644,
+      "abs_estimate_mid": 268755140,
+      "abs_low": 89585047,
+      "abs_high": 806265421,
       "sales_velocity_rank": 13,
       "interest_rescaled": 23.9205,
       "trend_z": 0.8217,
       "pageviews_per_month": null,
       "sales_per_month": 3017.463,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv6": {
       "set_name": "Twilight Masquerade",
@@ -3184,18 +3522,19 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 148.79,
-      "predicted_grading_rate": 0.0002028567095820169,
-      "rel_pop_score": 477462885.9926,
-      "rel_pop_norm100": 5.361,
-      "abs_estimate_mid": 555071108,
-      "abs_low": 185023703,
-      "abs_high": 1665213325,
+      "predicted_grading_rate": 0.0006717051795237097,
+      "rel_pop_score": 144195205.9017,
+      "rel_pop_norm100": 5.1758,
+      "abs_estimate_mid": 146975023,
+      "abs_low": 48991674,
+      "abs_high": 440925069,
       "sales_velocity_rank": 11,
       "interest_rescaled": 25.1136,
       "trend_z": 0.8465,
       "pageviews_per_month": null,
       "sales_per_month": 3143.003,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "sv6pt5": {
       "set_name": "Shrouded Fable",
@@ -3206,18 +3545,21 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 42.0,
-      "predicted_grading_rate": 0.00010777298593563774,
-      "rel_pop_score": 92448491.7394,
-      "rel_pop_norm100": 1.038,
-      "abs_estimate_mid": 107475342,
-      "abs_low": 35825114,
-      "abs_high": 322426025,
+      "predicted_grading_rate": 0.00035686112140370267,
+      "rel_pop_score": 27919357.7999,
+      "rel_pop_norm100": 1.0021,
+      "abs_estimate_mid": 28457591,
+      "abs_low": 9485864,
+      "abs_high": 85372774,
       "sales_velocity_rank": 35,
       "interest_rescaled": 18.2765,
       "trend_z": 0.6857,
       "pageviews_per_month": null,
       "sales_per_month": 1321.495,
-      "flags": []
+      "flags": [
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sv7": {
       "set_name": "Stellar Crown",
@@ -3228,18 +3570,21 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 30.28,
-      "predicted_grading_rate": 9.151754118442426e-05,
-      "rel_pop_score": 1017799962.6574,
-      "rel_pop_norm100": 11.4279,
-      "abs_estimate_mid": 1183236163,
-      "abs_low": 394412054,
-      "abs_high": 3549708490,
+      "predicted_grading_rate": 0.0003030356085214825,
+      "rel_pop_score": 307378618.378,
+      "rel_pop_norm100": 11.0332,
+      "abs_estimate_mid": 313304310,
+      "abs_low": 104434770,
+      "abs_high": 939912930,
       "sales_velocity_rank": 18,
       "interest_rescaled": 30.6373,
       "trend_z": 0.9481,
       "pageviews_per_month": null,
       "sales_per_month": 2690.095,
-      "flags": []
+      "flags": [
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sv8": {
       "set_name": "Surging Sparks",
@@ -3250,18 +3595,21 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 171.51,
-      "predicted_grading_rate": 0.0002177946605302542,
-      "rel_pop_score": 772011580.0389,
-      "rel_pop_norm100": 8.6682,
-      "abs_estimate_mid": 897496614,
-      "abs_low": 299165538,
-      "abs_high": 2692489842,
+      "predicted_grading_rate": 0.0007211681676796188,
+      "rel_pop_score": 233149503.1748,
+      "rel_pop_norm100": 8.3688,
+      "abs_estimate_mid": 237644195,
+      "abs_low": 79214732,
+      "abs_high": 712932584,
       "sales_velocity_rank": 2,
       "interest_rescaled": 52.598,
       "trend_z": 1.2273,
       "pageviews_per_month": null,
       "sales_per_month": 4287.339,
-      "flags": []
+      "flags": [
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sv8pt5": {
       "set_name": "Prismatic Evolutions",
@@ -3272,18 +3620,21 @@
       "chase_tier": 5,
       "pull_denominator": 35.0,
       "chase_value": 544.0,
-      "predicted_grading_rate": 0.0003878852680133865,
-      "rel_pop_score": 47582498.0271,
-      "rel_pop_norm100": 0.5343,
-      "abs_estimate_mid": 55316697,
-      "abs_low": 18438899,
-      "abs_high": 165950092,
+      "predicted_grading_rate": 0.0012843772538871504,
+      "rel_pop_score": 14370128.8783,
+      "rel_pop_norm100": 0.5158,
+      "abs_estimate_mid": 14647158,
+      "abs_low": 4882386,
+      "abs_high": 43941475,
       "sales_velocity_rank": 10,
       "interest_rescaled": 60.098,
       "trend_z": 1.2966,
       "pageviews_per_month": null,
       "sales_per_month": 3231.058,
-      "flags": []
+      "flags": [
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sv9": {
       "set_name": "Journey Together",
@@ -3307,8 +3658,10 @@
       "sales_per_month": 4071.016,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     },
     "sve": {
       "set_name": "Scarlet & Violet Energies",
@@ -3319,18 +3672,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 0.28,
-      "predicted_grading_rate": 8.747439021959538e-06,
-      "rel_pop_score": 15890365.1287,
-      "rel_pop_norm100": 0.1784,
-      "abs_estimate_mid": 18473232,
-      "abs_low": 6157744,
-      "abs_high": 55419696,
+      "predicted_grading_rate": 2.896478066081634e-05,
+      "rel_pop_score": 4798931.5586,
+      "rel_pop_norm100": 0.1723,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 51,
       "interest_rescaled": 0.0238,
       "trend_z": -0.8688,
       "pageviews_per_month": null,
       "sales_per_month": 989.219,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "svp": {
       "set_name": "Scarlet & Violet Black Star Promos",
@@ -3354,8 +3710,10 @@
       "sales_per_month": 442.303,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "swsh1": {
       "set_name": "Sword & Shield",
@@ -3366,18 +3724,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 37.36,
-      "predicted_grading_rate": 0.00016342967715174089,
-      "rel_pop_score": 242313640.2774,
-      "rel_pop_norm100": 2.7207,
-      "abs_estimate_mid": 281700012,
-      "abs_low": 93900004,
-      "abs_high": 845100037,
+      "predicted_grading_rate": 0.0004383867647692389,
+      "rel_pop_score": 90334235.6929,
+      "rel_pop_norm100": 3.2425,
+      "abs_estimate_mid": 92075713,
+      "abs_low": 30691904,
+      "abs_high": 276227138,
       "sales_velocity_rank": 17,
       "interest_rescaled": 22.7927,
       "trend_z": 0.7972,
       "pageviews_per_month": null,
       "sales_per_month": 2754.594,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh10": {
       "set_name": "Astral Radiance",
@@ -3388,18 +3747,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 11.98,
-      "predicted_grading_rate": 9.25286225101696e-05,
-      "rel_pop_score": 217476057.1821,
-      "rel_pop_norm100": 2.4418,
-      "abs_estimate_mid": 252825255,
-      "abs_low": 84275085,
-      "abs_high": 758475766,
+      "predicted_grading_rate": 0.00024820047483251935,
+      "rel_pop_score": 81074247.2602,
+      "rel_pop_norm100": 2.9101,
+      "abs_estimate_mid": 82637209,
+      "abs_low": 27545736,
+      "abs_high": 247911627,
       "sales_velocity_rank": 20,
       "interest_rescaled": 27.7083,
       "trend_z": 0.8966,
       "pageviews_per_month": null,
       "sales_per_month": 2542.799,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh10tg": {
       "set_name": "Astral Radiance Trainer Gallery",
@@ -3410,20 +3770,22 @@
       "chase_tier": 4,
       "pull_denominator": 8.0,
       "chase_value": 57.82,
-      "predicted_grading_rate": 0.0002033045784951297,
-      "rel_pop_score": 193338685.685,
-      "rel_pop_norm100": 2.1708,
-      "abs_estimate_mid": 224764525,
-      "abs_low": 74921508,
-      "abs_high": 674293574,
+      "predicted_grading_rate": 0.0005453479317988375,
+      "rel_pop_score": 72076310.1402,
+      "rel_pop_norm100": 2.5871,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 84,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 563.094,
       "flags": [
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "subset_set"
+      ],
+      "subset_of": "swsh10"
     },
     "swsh11": {
       "set_name": "Lost Origin",
@@ -3434,18 +3796,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 16.82,
-      "predicted_grading_rate": 0.0001096422838906494,
-      "rel_pop_score": 488705252.1949,
-      "rel_pop_norm100": 5.4872,
-      "abs_estimate_mid": 568140842,
-      "abs_low": 189380281,
-      "abs_high": 1704422526,
+      "predicted_grading_rate": 0.00029410647413874685,
+      "rel_pop_score": 182187987.6109,
+      "rel_pop_norm100": 6.5395,
+      "abs_estimate_mid": 185700235,
+      "abs_low": 61900078,
+      "abs_high": 557100706,
       "sales_velocity_rank": 15,
       "interest_rescaled": 36.419,
       "trend_z": 1.037,
       "pageviews_per_month": null,
       "sales_per_month": 2850.979,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh11tg": {
       "set_name": "Lost Origin Trainer Gallery",
@@ -3456,20 +3819,22 @@
       "chase_tier": 4,
       "pull_denominator": 8.0,
       "chase_value": 60.89,
-      "predicted_grading_rate": 0.00020863208706905478,
-      "rel_pop_score": 214259276.3557,
-      "rel_pop_norm100": 2.4057,
-      "abs_estimate_mid": 249085610,
-      "abs_low": 83028537,
-      "abs_high": 747256829,
+      "predicted_grading_rate": 0.0005596385385521936,
+      "rel_pop_score": 79875366.4267,
+      "rel_pop_norm100": 2.8671,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 96,
       "interest_rescaled": 0.1326,
       "trend_z": -0.8153,
       "pageviews_per_month": null,
       "sales_per_month": 473.472,
       "flags": [
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "subset_set"
+      ],
+      "subset_of": "swsh11"
     },
     "swsh12": {
       "set_name": "Silver Tempest",
@@ -3480,18 +3845,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 24.51,
-      "predicted_grading_rate": 0.00013236701376808006,
-      "rel_pop_score": 660547953.0814,
-      "rel_pop_norm100": 7.4166,
-      "abs_estimate_mid": 767915361,
-      "abs_low": 255971787,
-      "abs_high": 2303746083,
+      "predicted_grading_rate": 0.00035506370653890564,
+      "rel_pop_score": 246250644.7616,
+      "rel_pop_norm100": 8.839,
+      "abs_estimate_mid": 250997902,
+      "abs_low": 83665967,
+      "abs_high": 752993706,
       "sales_velocity_rank": 12,
       "interest_rescaled": 34.6591,
       "trend_z": 1.0115,
       "pageviews_per_month": null,
       "sales_per_month": 3070.675,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh12pt5": {
       "set_name": "Crown Zenith",
@@ -3502,12 +3868,12 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 20.01,
-      "predicted_grading_rate": 0.00011961009352966482,
-      "rel_pop_score": 3620497127.1308,
-      "rel_pop_norm100": 40.651,
-      "abs_estimate_mid": 4208983383,
-      "abs_low": 1402994461,
-      "abs_high": 12626950150,
+      "predicted_grading_rate": 0.00032084430961416236,
+      "rel_pop_score": 1349713823.8817,
+      "rel_pop_norm100": 48.4472,
+      "abs_estimate_mid": 1375733812,
+      "abs_low": 458577937,
+      "abs_high": 4127201435,
       "sales_velocity_rank": 3,
       "interest_rescaled": 56.7613,
       "trend_z": 1.2669,
@@ -3516,7 +3882,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "swsh12pt5gg": {
       "set_name": "Crown Zenith Galarian Gallery",
@@ -3527,18 +3894,21 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 146.14,
-      "predicted_grading_rate": 0.0003232121767192553,
-      "rel_pop_score": 1416753553.8048,
-      "rel_pop_norm100": 15.9073,
-      "abs_estimate_mid": 1647036845,
-      "abs_low": 549012282,
-      "abs_high": 4941110536,
+      "predicted_grading_rate": 0.0008669902734643468,
+      "rel_pop_score": 528162787.9979,
+      "rel_pop_norm100": 18.9581,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 41,
       "interest_rescaled": 0.3816,
       "trend_z": -0.7101,
       "pageviews_per_month": null,
       "sales_per_month": 1222.573,
-      "flags": []
+      "flags": [
+        "subset_set"
+      ],
+      "subset_of": "swsh12pt5"
     },
     "swsh12tg": {
       "set_name": "Silver Tempest Trainer Gallery",
@@ -3549,20 +3919,22 @@
       "chase_tier": 4,
       "pull_denominator": 8.0,
       "chase_value": 50.85,
-      "predicted_grading_rate": 0.000190663617276695,
-      "rel_pop_score": 199457875.3051,
-      "rel_pop_norm100": 2.2395,
-      "abs_estimate_mid": 231878345,
-      "abs_low": 77292782,
-      "abs_high": 695635036,
+      "predicted_grading_rate": 0.0005114395854770265,
+      "rel_pop_score": 74357430.307,
+      "rel_pop_norm100": 2.669,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 77,
       "interest_rescaled": 0.2083,
       "trend_z": -0.7811,
       "pageviews_per_month": null,
       "sales_per_month": 624.983,
       "flags": [
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "subset_set"
+      ],
+      "subset_of": "swsh12"
     },
     "swsh2": {
       "set_name": "Rebel Clash",
@@ -3573,18 +3945,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 23.67,
-      "predicted_grading_rate": 0.00013006985693331163,
-      "rel_pop_score": 91489298.7551,
-      "rel_pop_norm100": 1.0272,
-      "abs_estimate_mid": 106360239,
-      "abs_low": 35453413,
-      "abs_high": 319080716,
+      "predicted_grading_rate": 0.00034890177089470466,
+      "rel_pop_score": 34107020.9231,
+      "rel_pop_norm100": 1.2243,
+      "abs_estimate_mid": 34764541,
+      "abs_low": 11588180,
+      "abs_high": 104293624,
       "sales_velocity_rank": 32,
       "interest_rescaled": 4.4146,
       "trend_z": 0.0132,
       "pageviews_per_month": null,
       "sales_per_month": 1426.758,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh3": {
       "set_name": "Darkness Ablaze",
@@ -3595,18 +3968,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 12.19,
-      "predicted_grading_rate": 9.334906414541724e-05,
-      "rel_pop_score": 591401322.6099,
-      "rel_pop_norm100": 6.6403,
-      "abs_estimate_mid": 687529434,
-      "abs_low": 229176478,
-      "abs_high": 2062588301,
+      "predicted_grading_rate": 0.00025040124252922216,
+      "rel_pop_score": 220472814.388,
+      "rel_pop_norm100": 7.9137,
+      "abs_estimate_mid": 224723123,
+      "abs_low": 74907708,
+      "abs_high": 674169368,
       "sales_velocity_rank": 22,
       "interest_rescaled": 12.9759,
       "trend_z": 0.5154,
       "pageviews_per_month": null,
       "sales_per_month": 2409.635,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh35": {
       "set_name": "Champion's Path",
@@ -3617,18 +3991,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 150.04,
-      "predicted_grading_rate": 0.00032750389351501787,
-      "rel_pop_score": 1433953150.7843,
-      "rel_pop_norm100": 16.1005,
-      "abs_estimate_mid": 1667032115,
-      "abs_low": 555677372,
-      "abs_high": 5001096346,
+      "predicted_grading_rate": 0.0008785024533461762,
+      "rel_pop_score": 534574868.3394,
+      "rel_pop_norm100": 19.1883,
+      "abs_estimate_mid": 544880484,
+      "abs_low": 181626828,
+      "abs_high": 1634641451,
       "sales_velocity_rank": 50,
       "interest_rescaled": 5.8534,
       "trend_z": 0.138,
       "pageviews_per_month": null,
       "sales_per_month": 991.755,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh4": {
       "set_name": "Vivid Voltage",
@@ -3639,18 +4014,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 53.49,
-      "predicted_grading_rate": 0.00019555005661935074,
-      "rel_pop_score": 768478427.4572,
-      "rel_pop_norm100": 8.6285,
-      "abs_estimate_mid": 893389172,
-      "abs_low": 297796391,
-      "abs_high": 2680167517,
+      "predicted_grading_rate": 0.000524547060031229,
+      "rel_pop_score": 286487164.738,
+      "rel_pop_norm100": 10.2833,
+      "abs_estimate_mid": 292010108,
+      "abs_low": 97336703,
+      "abs_high": 876030323,
       "sales_velocity_rank": 23,
       "interest_rescaled": 18.9619,
       "trend_z": 0.7042,
       "pageviews_per_month": null,
       "sales_per_month": 2086.056,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh45": {
       "set_name": "Shining Fates",
@@ -3661,12 +4037,12 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 7.62,
-      "predicted_grading_rate": 7.380496884160486e-05,
-      "rel_pop_score": 1260294550.0814,
-      "rel_pop_norm100": 14.1506,
-      "abs_estimate_mid": 1465146535,
-      "abs_low": 488382178,
-      "abs_high": 4395439604,
+      "predicted_grading_rate": 0.00019797580267092222,
+      "rel_pop_score": 469835195.7416,
+      "rel_pop_norm100": 16.8645,
+      "abs_estimate_mid": 478892750,
+      "abs_low": 159630917,
+      "abs_high": 1436678250,
       "sales_velocity_rank": 48,
       "interest_rescaled": 31.9568,
       "trend_z": 0.9697,
@@ -3675,7 +4051,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "swsh45sv": {
       "set_name": "Shining Fates Shiny Vault",
@@ -3686,18 +4063,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 9.31,
-      "predicted_grading_rate": 8.156525441733179e-05,
-      "rel_pop_score": 167865595.4402,
-      "rel_pop_norm100": 1.8848,
-      "abs_estimate_mid": 195150963,
-      "abs_low": 65050321,
-      "abs_high": 585452890,
+      "predicted_grading_rate": 0.00021879213509302993,
+      "rel_pop_score": 62579946.003,
+      "rel_pop_norm100": 2.2463,
+      "abs_estimate_mid": 63786372,
+      "abs_low": 21262124,
+      "abs_high": 191359115,
       "sales_velocity_rank": 38,
       "interest_rescaled": 0.0379,
       "trend_z": -0.8616,
       "pageviews_per_month": null,
       "sales_per_month": 1253.735,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh5": {
       "set_name": "Battle Styles",
@@ -3708,18 +4086,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 41.87,
-      "predicted_grading_rate": 0.00017299848818606357,
-      "rel_pop_score": 219470126.0,
-      "rel_pop_norm100": 2.4642,
-      "abs_estimate_mid": 255143446,
-      "abs_low": 85047815,
-      "abs_high": 765430338,
+      "predicted_grading_rate": 0.00046405431906618606,
+      "rel_pop_score": 81818008.022,
+      "rel_pop_norm100": 2.9368,
+      "abs_estimate_mid": 83395308,
+      "abs_low": 27798436,
+      "abs_high": 250185924,
       "sales_velocity_rank": 26,
       "interest_rescaled": 13.8284,
       "trend_z": 0.5468,
       "pageviews_per_month": null,
       "sales_per_month": 1725.572,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh6": {
       "set_name": "Chilling Reign",
@@ -3730,18 +4109,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 175.52,
-      "predicted_grading_rate": 0.0003542220111629317,
-      "rel_pop_score": 389620056.492,
-      "rel_pop_norm100": 4.3747,
-      "abs_estimate_mid": 452950047,
-      "abs_low": 150983349,
-      "abs_high": 1358850141,
+      "predicted_grading_rate": 0.0009501716223767041,
+      "rel_pop_score": 145249549.397,
+      "rel_pop_norm100": 5.2136,
+      "abs_estimate_mid": 148049692,
+      "abs_low": 49349897,
+      "abs_high": 444149077,
       "sales_velocity_rank": 16,
       "interest_rescaled": 22.5983,
       "trend_z": 0.7928,
       "pageviews_per_month": null,
       "sales_per_month": 2760.366,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh7": {
       "set_name": "Evolving Skies",
@@ -3752,18 +4132,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 890.22,
-      "predicted_grading_rate": 0.0007977330811764174,
-      "rel_pop_score": 554044968.7109,
-      "rel_pop_norm100": 6.2208,
-      "abs_estimate_mid": 644101068,
-      "abs_low": 214700356,
-      "abs_high": 1932303205,
+      "predicted_grading_rate": 0.0021398538545824982,
+      "rel_pop_score": 206546815.8274,
+      "rel_pop_norm100": 7.4139,
+      "abs_estimate_mid": 210528657,
+      "abs_low": 70176219,
+      "abs_high": 631585970,
       "sales_velocity_rank": 19,
       "interest_rescaled": 56.7686,
       "trend_z": 1.267,
       "pageviews_per_month": null,
       "sales_per_month": 2615.596,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh8": {
       "set_name": "Fusion Strike",
@@ -3774,18 +4155,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 402.83,
-      "predicted_grading_rate": 0.0005366248938345007,
-      "rel_pop_score": 606082132.4855,
-      "rel_pop_norm100": 6.8051,
-      "abs_estimate_mid": 704596506,
-      "abs_low": 234865502,
-      "abs_high": 2113789517,
+      "predicted_grading_rate": 0.0014394524617724058,
+      "rel_pop_score": 225946097.7726,
+      "rel_pop_norm100": 8.1102,
+      "abs_estimate_mid": 230301921,
+      "abs_low": 76767307,
+      "abs_high": 690905763,
       "sales_velocity_rank": 4,
       "interest_rescaled": 35.0568,
       "trend_z": 1.0173,
       "pageviews_per_month": null,
       "sales_per_month": 3611.917,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh9": {
       "set_name": "Brilliant Stars",
@@ -3796,18 +4178,19 @@
       "chase_tier": 5,
       "pull_denominator": 28.0,
       "chase_value": 34.51,
-      "predicted_grading_rate": 0.00015705783982154659,
-      "rel_pop_score": 1197910529.1004,
-      "rel_pop_norm100": 13.4502,
-      "abs_estimate_mid": 1392622431,
-      "abs_low": 464207477,
-      "abs_high": 4177867294,
+      "predicted_grading_rate": 0.000421294831397638,
+      "rel_pop_score": 446578783.5782,
+      "rel_pop_norm100": 16.0297,
+      "abs_estimate_mid": 455187997,
+      "abs_low": 151729332,
+      "abs_high": 1365563991,
       "sales_velocity_rank": 14,
       "interest_rescaled": 40.625,
       "trend_z": 1.0934,
       "pageviews_per_month": null,
       "sales_per_month": 3013.312,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "swsh9tg": {
       "set_name": "Brilliant Stars Trainer Gallery",
@@ -3818,20 +4201,22 @@
       "chase_tier": 4,
       "pull_denominator": 8.0,
       "chase_value": 61.93,
-      "predicted_grading_rate": 0.00021040059685300397,
-      "rel_pop_score": 211317651.4944,
-      "rel_pop_norm100": 2.3727,
-      "abs_estimate_mid": 245665844,
-      "abs_low": 81888615,
-      "abs_high": 736997533,
+      "predicted_grading_rate": 0.0005643824216471122,
+      "rel_pop_score": 78778735.1767,
+      "rel_pop_norm100": 2.8277,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 86,
       "interest_rescaled": 0.1136,
       "trend_z": -0.8243,
       "pageviews_per_month": null,
       "sales_per_month": 547.875,
       "flags": [
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "subset_set"
+      ],
+      "subset_of": "swsh9"
     },
     "swshp": {
       "set_name": "SWSH Black Star Promos",
@@ -3842,18 +4227,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 396.77,
-      "predicted_grading_rate": 0.0012122417787057836,
-      "rel_pop_score": 80841.9589,
-      "rel_pop_norm100": 0.0009,
-      "abs_estimate_mid": 93982,
-      "abs_low": 31327,
-      "abs_high": 281947,
+      "predicted_grading_rate": 0.0018184336561888263,
+      "rel_pop_score": 53892.5353,
+      "rel_pop_norm100": 0.0019,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 61,
       "interest_rescaled": 0.0379,
       "trend_z": -0.8616,
       "pageviews_per_month": null,
       "sales_per_month": 774.517,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "tk1a": {
       "set_name": "EX Trainer Kit Latias",
@@ -3864,18 +4252,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 3.35,
-      "predicted_grading_rate": 3.6269422633377824e-06,
-      "rel_pop_score": 29225720.2635,
-      "rel_pop_norm100": 0.3281,
-      "abs_estimate_mid": 33976155,
-      "abs_low": 11325385,
-      "abs_high": 101928464,
+      "predicted_grading_rate": 6.578135200736541e-06,
+      "rel_pop_score": 16113989.2637,
+      "rel_pop_norm100": 0.5784,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 146,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
       "pageviews_per_month": null,
       "sales_per_month": 26.764,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "tk1b": {
       "set_name": "EX Trainer Kit Latios",
@@ -3886,18 +4277,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 3.8,
-      "predicted_grading_rate": 3.861174891031297e-06,
-      "rel_pop_score": 40143221.7847,
-      "rel_pop_norm100": 0.4507,
-      "abs_estimate_mid": 46668219,
-      "abs_low": 15556073,
-      "abs_high": 140004658,
+      "predicted_grading_rate": 7.00295968966396e-06,
+      "rel_pop_score": 22133498.816,
+      "rel_pop_norm100": 0.7945,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 139,
       "interest_rescaled": 0.0189,
       "trend_z": -0.8714,
       "pageviews_per_month": null,
       "sales_per_month": 71.021,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "tk2a": {
       "set_name": "EX Trainer Kit 2 Plusle",
@@ -3908,18 +4302,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 3.8,
-      "predicted_grading_rate": 3.864563373378048e-06,
-      "rel_pop_score": 22253484.2079,
-      "rel_pop_norm100": 0.2499,
-      "abs_estimate_mid": 25870631,
-      "abs_low": 8623544,
-      "abs_high": 77611893,
+      "predicted_grading_rate": 7.009105333400158e-06,
+      "rel_pop_score": 12269754.2567,
+      "rel_pop_norm100": 0.4404,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 147,
       "interest_rescaled": 0.0568,
       "trend_z": -0.852,
       "pageviews_per_month": null,
       "sales_per_month": 26.161,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "tk2b": {
       "set_name": "EX Trainer Kit 2 Minun",
@@ -3930,12 +4327,12 @@
       "chase_tier": 1,
       "pull_denominator": 1.0,
       "chase_value": 5.77,
-      "predicted_grading_rate": 4.759991149739358e-06,
-      "rel_pop_score": 8823545.8174,
-      "rel_pop_norm100": 0.0991,
-      "abs_estimate_mid": 10257751,
-      "abs_low": 3419250,
-      "abs_high": 30773253,
+      "predicted_grading_rate": 8.633130351647606e-06,
+      "rel_pop_score": 4864979.2473,
+      "rel_pop_norm100": 0.1746,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 152,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
@@ -3943,8 +4340,10 @@
       "sales_per_month": 20.879,
       "flags": [
         "tier_mixed",
-        "tier_fallback"
-      ]
+        "tier_fallback",
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "xy0": {
       "set_name": "Kalos Starter Set",
@@ -3955,18 +4354,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 16.56,
-      "predicted_grading_rate": 0.000228458353364669,
-      "rel_pop_score": 55458.6856,
-      "rel_pop_norm100": 0.0006,
-      "abs_estimate_mid": 64473,
-      "abs_low": 21491,
-      "abs_high": 193419,
+      "predicted_grading_rate": 0.00027501011521279374,
+      "rel_pop_score": 46058.9119,
+      "rel_pop_norm100": 0.0017,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 114,
       "interest_rescaled": 0.0195,
       "trend_z": -0.8711,
       "pageviews_per_month": null,
       "sales_per_month": 242.329,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "xy1": {
       "set_name": "XY",
@@ -3977,18 +4379,19 @@
       "chase_tier": 4,
       "pull_denominator": 6.0,
       "chase_value": 104.85,
-      "predicted_grading_rate": 0.0005749165450297536,
-      "rel_pop_score": 6192168.2908,
-      "rel_pop_norm100": 0.0695,
-      "abs_estimate_mid": 7198662,
-      "abs_low": 2399554,
-      "abs_high": 21595985,
+      "predicted_grading_rate": 0.0006920642776147453,
+      "rel_pop_score": 5144030.8583,
+      "rel_pop_norm100": 0.1846,
+      "abs_estimate_mid": 5243198,
+      "abs_low": 1747733,
+      "abs_high": 15729595,
       "sales_velocity_rank": 80,
       "interest_rescaled": 236.9057,
       "trend_z": 2.0166,
       "pageviews_per_month": null,
       "sales_per_month": 586.668,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy10": {
       "set_name": "Fates Collide",
@@ -3999,12 +4402,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 111.67,
-      "predicted_grading_rate": 0.000593328663418884,
-      "rel_pop_score": 76955762.9947,
-      "rel_pop_norm100": 0.8641,
-      "abs_estimate_mid": 89464379,
-      "abs_low": 29821460,
-      "abs_high": 268393137,
+      "predicted_grading_rate": 0.0007142281369130913,
+      "rel_pop_score": 63929153.2217,
+      "rel_pop_norm100": 2.2947,
+      "abs_estimate_mid": 65161589,
+      "abs_low": 21720530,
+      "abs_high": 195484767,
       "sales_velocity_rank": 33,
       "interest_rescaled": 0.0,
       "trend_z": -0.8813,
@@ -4013,7 +4416,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xy11": {
       "set_name": "Steam Siege",
@@ -4024,12 +4428,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 54.92,
-      "predicted_grading_rate": 0.00041607600789941374,
-      "rel_pop_score": 48784499.9823,
-      "rel_pop_norm100": 0.5478,
-      "abs_estimate_mid": 56714076,
-      "abs_low": 18904692,
-      "abs_high": 170142228,
+      "predicted_grading_rate": 0.0005008576363458673,
+      "rel_pop_score": 40526486.0252,
+      "rel_pop_norm100": 1.4547,
+      "abs_estimate_mid": 41307762,
+      "abs_low": 13769254,
+      "abs_high": 123923285,
       "sales_velocity_rank": 45,
       "interest_rescaled": 0.1032,
       "trend_z": -0.8293,
@@ -4038,7 +4442,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xy12": {
       "set_name": "Evolutions",
@@ -4049,18 +4454,19 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 5.16,
-      "predicted_grading_rate": 0.00012758090283295523,
-      "rel_pop_score": 855315627.7854,
-      "rel_pop_norm100": 9.6035,
-      "abs_estimate_mid": 994341147,
-      "abs_low": 331447049,
-      "abs_high": 2983023440,
+      "predicted_grading_rate": 0.0001535773950494966,
+      "rel_pop_score": 710534255.1541,
+      "rel_pop_norm100": 25.5042,
+      "abs_estimate_mid": 724232042,
+      "abs_low": 241410681,
+      "abs_high": 2172696127,
       "sales_velocity_rank": 29,
       "interest_rescaled": 408.3591,
       "trend_z": 2.304,
       "pageviews_per_month": null,
       "sales_per_month": 1716.095,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy2": {
       "set_name": "Flashfire",
@@ -4071,18 +4477,19 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 291.06,
-      "predicted_grading_rate": 0.0009578816466822662,
-      "rel_pop_score": 51569982.7542,
-      "rel_pop_norm100": 0.579,
-      "abs_estimate_mid": 59952319,
-      "abs_low": 19984106,
-      "abs_high": 179856958,
+      "predicted_grading_rate": 0.0011530641718047571,
+      "rel_pop_score": 42840633.8588,
+      "rel_pop_norm100": 1.5377,
+      "abs_estimate_mid": 43666522,
+      "abs_low": 14555507,
+      "abs_high": 130999566,
       "sales_velocity_rank": 73,
       "interest_rescaled": 2.5583,
       "trend_z": -0.2091,
       "pageviews_per_month": null,
       "sales_per_month": 634.711,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy3": {
       "set_name": "Furious Fists",
@@ -4093,12 +4500,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 143.75,
-      "predicted_grading_rate": 0.0006731774374752708,
-      "rel_pop_score": 10419333.1647,
-      "rel_pop_norm100": 0.117,
-      "abs_estimate_mid": 12112922,
-      "abs_low": 4037641,
-      "abs_high": 36338767,
+      "predicted_grading_rate": 0.0008103472773578952,
+      "rel_pop_score": 8655548.3013,
+      "rel_pop_norm100": 0.3107,
+      "abs_estimate_mid": 8822411,
+      "abs_low": 2940804,
+      "abs_high": 26467234,
       "sales_velocity_rank": 88,
       "interest_rescaled": 0.4359,
       "trend_z": -0.6897,
@@ -4107,7 +4514,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xy4": {
       "set_name": "Phantom Forces",
@@ -4118,18 +4526,19 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 598.73,
-      "predicted_grading_rate": 0.0013738436422192062,
-      "rel_pop_score": 10468440.1907,
-      "rel_pop_norm100": 0.1175,
-      "abs_estimate_mid": 12170011,
-      "abs_low": 4056670,
-      "abs_high": 36510034,
+      "predicted_grading_rate": 0.0016537845640863223,
+      "rel_pop_score": 8696416.8806,
+      "rel_pop_norm100": 0.3122,
+      "abs_estimate_mid": 8864068,
+      "abs_low": 2954689,
+      "abs_high": 26592203,
       "sales_velocity_rank": 64,
       "interest_rescaled": 2.1793,
       "trend_z": -0.2687,
       "pageviews_per_month": null,
       "sales_per_month": 736.956,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy5": {
       "set_name": "Primal Clash",
@@ -4140,18 +4549,19 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 16.63,
-      "predicted_grading_rate": 0.0002289866877012831,
-      "rel_pop_score": 4690491.0097,
-      "rel_pop_norm100": 0.0527,
-      "abs_estimate_mid": 5452897,
-      "abs_low": 1817632,
-      "abs_high": 16358692,
+      "predicted_grading_rate": 0.0002756461054694126,
+      "rel_pop_score": 3896300.2875,
+      "rel_pop_norm100": 0.1399,
+      "abs_estimate_mid": 3971414,
+      "abs_low": 1323805,
+      "abs_high": 11914241,
       "sales_velocity_rank": 40,
       "interest_rescaled": 1.8757,
       "trend_z": -0.3219,
       "pageviews_per_month": null,
       "sales_per_month": 1223.207,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy6": {
       "set_name": "Roaring Skies",
@@ -4162,12 +4572,12 @@
       "chase_tier": 4,
       "pull_denominator": 6.0,
       "chase_value": 182.57,
-      "predicted_grading_rate": 0.0007586392311174139,
-      "rel_pop_score": 7421155.8921,
-      "rel_pop_norm100": 0.0833,
-      "abs_estimate_mid": 8627412,
-      "abs_low": 2875804,
-      "abs_high": 25882237,
+      "predicted_grading_rate": 0.0009132231729847105,
+      "rel_pop_score": 6164977.1562,
+      "rel_pop_norm100": 0.2213,
+      "abs_estimate_mid": 6283827,
+      "abs_low": 2094609,
+      "abs_high": 18851480,
       "sales_velocity_rank": 49,
       "interest_rescaled": 3.0693,
       "trend_z": -0.138,
@@ -4175,7 +4585,8 @@
       "sales_per_month": 1009.347,
       "flags": [
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xy7": {
       "set_name": "Ancient Origins",
@@ -4186,18 +4597,19 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 514.24,
-      "predicted_grading_rate": 0.0012732201910465061,
-      "rel_pop_score": 22662223.0804,
-      "rel_pop_norm100": 0.2545,
-      "abs_estimate_mid": 26345808,
-      "abs_low": 8781936,
-      "abs_high": 79037423,
+      "predicted_grading_rate": 0.001532657599400807,
+      "rel_pop_score": 18826122.6847,
+      "rel_pop_norm100": 0.6758,
+      "abs_estimate_mid": 19189056,
+      "abs_low": 6396352,
+      "abs_high": 57567167,
       "sales_velocity_rank": 58,
       "interest_rescaled": 2.6715,
       "trend_z": -0.1925,
       "pageviews_per_month": null,
       "sales_per_month": 835.129,
-      "flags": []
+      "flags": [],
+      "subset_of": null
     },
     "xy8": {
       "set_name": "BREAKthrough",
@@ -4208,12 +4620,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 158.74,
-      "predicted_grading_rate": 0.0007073979185287777,
-      "rel_pop_score": 38057872.7967,
-      "rel_pop_norm100": 0.4273,
-      "abs_estimate_mid": 44243911,
-      "abs_low": 14747970,
-      "abs_high": 132731734,
+      "predicted_grading_rate": 0.0008515406865660068,
+      "rel_pop_score": 31615635.5471,
+      "rel_pop_norm100": 1.1348,
+      "abs_estimate_mid": 32225127,
+      "abs_low": 10741709,
+      "abs_high": 96675380,
       "sales_velocity_rank": 30,
       "interest_rescaled": 8.5638,
       "trend_z": 0.3145,
@@ -4222,7 +4634,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xy9": {
       "set_name": "BREAKpoint",
@@ -4233,12 +4646,12 @@
       "chase_tier": 5,
       "pull_denominator": 18.0,
       "chase_value": 123.04,
-      "predicted_grading_rate": 0.0006228014766460564,
-      "rel_pop_score": 71666593.0858,
-      "rel_pop_norm100": 0.8047,
-      "abs_estimate_mid": 83315492,
-      "abs_low": 27771831,
-      "abs_high": 249946476,
+      "predicted_grading_rate": 0.0007497064708933418,
+      "rel_pop_score": 59535300.4581,
+      "rel_pop_norm100": 2.137,
+      "abs_estimate_mid": 60683031,
+      "abs_low": 20227677,
+      "abs_high": 182049093,
       "sales_velocity_rank": 47,
       "interest_rescaled": 2.8799,
       "trend_z": -0.1633,
@@ -4247,7 +4660,8 @@
       "flags": [
         "tier_mixed",
         "tier_fallback"
-      ]
+      ],
+      "subset_of": null
     },
     "xyp": {
       "set_name": "XY Black Star Promos",
@@ -4258,18 +4672,21 @@
       "chase_tier": 0,
       "pull_denominator": 1.0,
       "chase_value": 369.34,
-      "predicted_grading_rate": 0.0010790306027748788,
-      "rel_pop_score": 155695.3061,
-      "rel_pop_norm100": 0.0017,
-      "abs_estimate_mid": 181002,
-      "abs_low": 60334,
-      "abs_high": 543007,
+      "predicted_grading_rate": 0.0012988990160214516,
+      "rel_pop_score": 129340.3089,
+      "rel_pop_norm100": 0.0046,
+      "abs_estimate_mid": null,
+      "abs_low": null,
+      "abs_high": null,
       "sales_velocity_rank": 82,
       "interest_rescaled": 0.0779,
       "trend_z": -0.8416,
       "pageviews_per_month": null,
       "sales_per_month": 576.213,
-      "flags": []
+      "flags": [
+        "numerator_unreliable"
+      ],
+      "subset_of": null
     },
     "zsv10pt5": {
       "set_name": "Black Bolt",
@@ -4293,8 +4710,10 @@
       "sales_per_month": 1473.533,
       "flags": [
         "no_chase_pop",
-        "no_grading_rate"
-      ]
+        "no_grading_rate",
+        "pop_lag_underestimate"
+      ],
+      "subset_of": null
     }
   }
 }
