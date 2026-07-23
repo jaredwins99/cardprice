@@ -1,0 +1,158 @@
+{
+ "generated_at": "2026-07-23",
+ "method": "model residual cross-checked against >=5 actual sales in 90d; only cards where BOTH the trade tape and the model say the quote is low",
+ "model_vs_market_calibration": {
+  "n_rows_with_sales": 5521,
+  "median_model_over_market": 0.721,
+  "model_within_1.5x_of_market": 0.391,
+  "model_over_2x_above_market": 0.074,
+  "quote_within_1.25x_of_market": 0.905
+ },
+ "candidates": [
+  {
+   "card_id": "ecard2-13/normal",
+   "name": "Exeggutor",
+   "era": "ECARD",
+   "printing": "Reverse Holofoil",
+   "label_lp": 25.25,
+   "mkt_lp": 43.79,
+   "fair_value": 57.94,
+   "lp_n": 1.0,
+   "nm_n": 4.0,
+   "upside": 1.73
+  },
+  {
+   "card_id": "ex5-39/normal",
+   "name": "Loudred",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 8.02,
+   "mkt_lp": 12.08,
+   "fair_value": 17.25,
+   "lp_n": 3.0,
+   "nm_n": 2.0,
+   "upside": 1.51
+  },
+  {
+   "card_id": "ex1-74/normal",
+   "name": "Torchic",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 8.35,
+   "mkt_lp": 12.5,
+   "fair_value": 20.59,
+   "lp_n": 2.0,
+   "nm_n": 3.0,
+   "upside": 1.5
+  },
+  {
+   "card_id": "ex14-51/normal",
+   "name": "Duskull",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 7.21,
+   "mkt_lp": 10.5,
+   "fair_value": 16.93,
+   "lp_n": 4.0,
+   "nm_n": 4.0,
+   "upside": 1.46
+  },
+  {
+   "card_id": "pl1-128/normal",
+   "name": "Electabuzz",
+   "era": "DP",
+   "printing": "Holofoil",
+   "label_lp": 11.76,
+   "mkt_lp": 17.0,
+   "fair_value": 41.61,
+   "lp_n": 4.0,
+   "nm_n": 8.0,
+   "upside": 1.45
+  },
+  {
+   "card_id": "ex1-26/normal",
+   "name": "Cascoon",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 5.39,
+   "mkt_lp": 7.69,
+   "fair_value": 11.04,
+   "lp_n": 5.0,
+   "nm_n": 1.0,
+   "upside": 1.43
+  },
+  {
+   "card_id": "ex16-16/normal",
+   "name": "Magneton",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 9.33,
+   "mkt_lp": 13.24,
+   "fair_value": 24.59,
+   "lp_n": 2.0,
+   "nm_n": 3.0,
+   "upside": 1.42
+  },
+  {
+   "card_id": "ex16-26/normal",
+   "name": "Anorith",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 5.69,
+   "mkt_lp": 8.07,
+   "fair_value": 11.41,
+   "lp_n": 4.0,
+   "nm_n": 1.0,
+   "upside": 1.42
+  },
+  {
+   "card_id": "ex14-53/normal",
+   "name": "Jigglypuff",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 14.18,
+   "mkt_lp": 20.05,
+   "fair_value": 37.22,
+   "lp_n": 2.0,
+   "nm_n": 4.0,
+   "upside": 1.41
+  },
+  {
+   "card_id": "sm9-185/normal",
+   "name": "Ampharos-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "label_lp": 33.67,
+   "mkt_lp": 47.45,
+   "fair_value": 65.3,
+   "lp_n": NaN,
+   "nm_n": 9.0,
+   "upside": 1.41
+  },
+  {
+   "card_id": "ex16-32/normal",
+   "name": "Lairon",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 6.48,
+   "mkt_lp": 8.97,
+   "fair_value": 14.18,
+   "lp_n": 2.0,
+   "nm_n": 3.0,
+   "upside": 1.38
+  },
+  {
+   "card_id": "ex6-33/normal",
+   "name": "Exeggcute",
+   "era": "EX",
+   "printing": "Reverse Holofoil",
+   "label_lp": 18.18,
+   "mkt_lp": 24.99,
+   "fair_value": 34.13,
+   "lp_n": 2.0,
+   "nm_n": 4.0,
+   "upside": 1.37
+  }
+ ],
+ "caveat": "The raw top-residual list is dominated by MODEL ERROR: quotes match actual trades (90.5% within 1.25x) while the model sits 6-16x above both on promos/Rare Ultra/Holofoil. Model over-prices promo sets 1.9x and Rare Ultra 1.7x relative to their share of the universe."
+}
