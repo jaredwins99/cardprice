@@ -64,29 +64,59 @@ def caveat_of(title):
     return m.group(0) if m else None
 
 
+LADDER_MIN_GAP = 0.20      # a ladder break must be >= 20% to be economic
+LADDER_MIN_N = 3           # and rest on >= 3 worse-condition sales
+
+
 def steal_evidence(r, own_map, steal_discount):
     """Is this listing cheap against the CARD'S OWN market? Model-independent.
 
     Two ways to qualify:
-      (a) own-condition discount: price <= steal_discount x median recent sale
-          of the SAME condition (needs >= 2 comparable sales);
-      (b) ladder violation: price < the max recent sale of a strictly WORSE
-          condition (needs >= 2 such sales, so one odd print can't trigger it).
-    Returns (reason_str, ratio_to_own_market) or (None, None).
+      (a) own-condition discount: price <= steal_discount x the RECENT median
+          sale of the SAME condition (>= 2 sales; 30d window preferred, 90d
+          fallback);
+      (b) ladder violation: price < (1 - LADDER_MIN_GAP) x the MEDIAN sale of
+          a strictly worse condition (>= LADDER_MIN_N sales).
+
+    Design notes, all learned from live misfires:
+      * MEDIAN, never max. Comparing a current quote against the max of N
+        trades manufactures violations mechanically (the adversarial review
+        called this out; Viridian Forest then proved it — a $44.99 NM listing
+        "broke" a ladder only because one LP copy sold $59.99 seven weeks
+        earlier, while LP median was $37 and NM itself had just traded
+        $42.99-$44.99).
+      * Same-condition sales VETO the ladder signal. If the card's own
+        condition is trading at or below the listing price, it is not a steal
+        no matter what worse grades did.
+      * Recency first: prices drift (that NM went $60.70 in June to $43-45 in
+        July), so a 30-day window wins when it has support.
     """
-    key = (r.tcg_product_id, r.printing, r.condition)
-    same = own_map.get(key)
-    if same and same[2] >= 2 and r.all_in <= steal_discount * same[0]:
-        return (f"its own {r.condition} sells ${same[0]:.0f} "
-                f"(n={int(same[2])}, 90d)"), r.all_in / same[0]
+    def stat(cond):
+        """(median, n) preferring the 30d window, falling back to 90d."""
+        s30 = own_map.get((r.tcg_product_id, r.printing, cond, 30))
+        if s30 and s30[1] >= 2:
+            return s30
+        return own_map.get((r.tcg_product_id, r.printing, cond, 90))
+
+    same = stat(r.condition)
+    if same and same[1] >= 2:
+        if r.all_in <= steal_discount * same[0]:
+            return (f"its own {r.condition} sells ${same[0]:.0f} "
+                    f"(median of {int(same[1])})"), r.all_in / same[0]
+        # its own condition says this price is fair -> not a steal, and the
+        # ladder cannot override its own market
+        return None, None
+
     my_rank = COND_RANK.get(r.condition, 99)
-    for cond, rank in COND_RANK.items():
+    for cond, rank in sorted(COND_RANK.items(), key=lambda kv: kv[1]):
         if rank <= my_rank:
             continue
-        worse = own_map.get((r.tcg_product_id, r.printing, cond))
-        if worse and worse[2] >= 2 and r.all_in < worse[1]:
-            return (f"LADDER BREAK: a {cond} copy sold ${worse[1]:.0f} "
-                    f"(n={int(worse[2])})"), r.all_in / worse[1]
+        worse = stat(cond)
+        if (worse and worse[1] >= LADDER_MIN_N
+                and r.all_in < worse[0] * (1 - LADDER_MIN_GAP)):
+            return (f"LADDER BREAK: {cond} copies sell ${worse[0]:.0f} "
+                    f"(median of {int(worse[1])}) — worse grade, higher price"
+                    ), r.all_in / worse[0]
     return None, None
 
 
@@ -256,13 +286,19 @@ def main():
     # the HP market price, with a perfectly coherent ladder.
     pids = tuple(int(p) for p in d["tcg_product_id"].unique()) or (0,)
     own = pd.read_sql(
-        f"SELECT tcg_product_id, printing, condition, sale_price "
+        f"SELECT tcg_product_id, printing, condition, sale_price, sale_date "
         f"FROM tcgplayer_sales WHERE tcg_product_id IN {pids} "
         f"AND sale_date >= date('now', '-90 days')", conn)
-    own_stats = (own.groupby(["tcg_product_id", "printing", "condition"])
-                 ["sale_price"].agg(["median", "max", "size"]).reset_index())
-    own_map = {(r.tcg_product_id, r.printing, r.condition):
-               (r.median, r.max, r.size) for r in own_stats.itertuples()}
+    own["sale_date"] = pd.to_datetime(own["sale_date"], format="mixed",
+                                      utc=True, errors="coerce")
+    cutoff30 = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=30)
+    own_map = {}
+    for window, sub in ((90, own), (30, own[own["sale_date"] >= cutoff30])):
+        g = (sub.groupby(["tcg_product_id", "printing", "condition"])
+             ["sale_price"].agg(["median", "size"]).reset_index())
+        for x in g.itertuples():
+            own_map[(x.tcg_product_id, x.printing, x.condition, window)] = (
+                x.median, x.size)
     # card art for the ping (ntfy renders an Attach URL inline)
     import psycopg2
     pgc = psycopg2.connect(dbname="cardprice")
