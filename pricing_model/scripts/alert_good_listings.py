@@ -338,8 +338,16 @@ def main():
     # run; unsent candidates are NOT marked, so a genuinely deep discount
     # resurfaces next hour when the queue is shorter.
     steal_discount = cfg.get("steal_discount", 0.70)
-    cands = []          # (sort_key, row, kind, headline, ratio)
-    n_caveat = 0
+    CLUSTER_N = cfg.get("cluster_sellers", 3)
+    # every listing in this snapshot, for cheap-cluster detection
+    cheap_peers = {}
+    for r in d.itertuples():
+        cheap_peers.setdefault(
+            (r.tcg_product_id, r.printing, r.condition), []
+        ).append((r.all_in, r.seller_name))
+
+    cands = []          # (sort_key, row, kind, headline, ratio, unverified)
+    n_caveat = n_cluster = 0
     for r in d.itertuples():
         if r.listing_id in sent or r.language not in ("EN", ""):
             continue
@@ -360,6 +368,23 @@ def main():
         # (1) STEAL — model-independent, judged against the card's own market
         why, own_ratio = steal_evidence(r, own_map, steal_discount)
         if why:
+            # VARIANT-CLUSTER GUARD: several sellers priced together far below
+            # the card's own market means a different good is listed under this
+            # product ID (foreign print, variant), not N independent steals.
+            # Flareon VMAX SWSH180: four sellers at $25-29 with a $16 gap to
+            # the next NM, one of them the known Chinese-card seller, against
+            # 45 NM sales at $40-94. Consensus at the cheap end is evidence of
+            # product identity, not opportunity.
+            peers = cheap_peers.get(
+                (r.tcg_product_id, r.printing, r.condition), [])
+            near = {s for p, s in peers if p <= r.all_in * 1.25}
+            if len(near) >= CLUSTER_N:
+                n_cluster += 1
+                print(f"  cluster-suppressed {r.card_id} {r.condition}: "
+                      f"{len(near)} sellers at ${r.all_in:.0f}-"
+                      f"{r.all_in * 1.25:.0f} vs own market — likely a "
+                      "foreign/variant print under the same product id")
+                continue
             cands.append((own_ratio, r, "steal", why, own_ratio, unverified))
             continue
 
