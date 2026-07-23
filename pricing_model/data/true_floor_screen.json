@@ -1,0 +1,1575 @@
+{
+ "generated_at": "2026-07-23T18:37:55.522564",
+ "rows": [
+  {
+   "card_id": "svp-122/normal",
+   "name": "Snorlax",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 9.48,
+   "model_fv": 107.15,
+   "true_lp_floor": 9.42,
+   "true_nm_floor": 6.2,
+   "book_depth": 50,
+   "quote_vs_true": 1.006,
+   "model_vs_true": 11.374,
+   "floors": {
+    "Near Mint": {
+     "all_in": 6.2,
+     "seller": "GameQuestGamingRF",
+     "listing_id": 540815197.0
+    },
+    "Lightly Played": {
+     "all_in": 9.42,
+     "seller": "ThreeD Games",
+     "listing_id": 593854382.0
+    },
+    "Moderately Played": {
+     "all_in": 7.91,
+     "seller": "Hypercollectible",
+     "listing_id": 798081902.0
+    },
+    "Damaged": {
+     "all_in": 5.29,
+     "seller": "Top Loaded TCG",
+     "listing_id": 814137370.0
+    }
+   }
+  },
+  {
+   "card_id": "det1-17/normal",
+   "name": "Ditto",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 8.18,
+   "model_fv": 85.65,
+   "true_lp_floor": 5.56,
+   "true_nm_floor": 7.34,
+   "book_depth": 50,
+   "quote_vs_true": 1.471,
+   "model_vs_true": 15.404,
+   "floors": {
+    "Near Mint": {
+     "all_in": 7.34,
+     "seller": "Mr Magic LLC",
+     "listing_id": 208234890.0
+    },
+    "Lightly Played": {
+     "all_in": 5.56,
+     "seller": "The Eldritch Bazaar",
+     "listing_id": 680457579.0
+    },
+    "Moderately Played": {
+     "all_in": 7.49,
+     "seller": "Mystic TCG",
+     "listing_id": 453032153.0
+    },
+    "Heavily Played": {
+     "all_in": 9.0,
+     "seller": "Out of Society",
+     "listing_id": 817951321.0
+    },
+    "Damaged": {
+     "all_in": 4.47,
+     "seller": "Nerd Zone Linton",
+     "listing_id": 334329915.0
+    }
+   }
+  },
+  {
+   "card_id": "ex6-105/normal",
+   "name": "Charizard ex",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 48.0,
+   "model_fv": 467.45,
+   "true_lp_floor": null,
+   "true_nm_floor": 2500.0,
+   "book_depth": 9,
+   "quote_vs_true": 0.026,
+   "model_vs_true": 0.256,
+   "floors": {
+    "Near Mint": {
+     "all_in": 2500.0,
+     "seller": "OverallsCollectibles",
+     "listing_id": 775556529.0
+    },
+    "Moderately Played": {
+     "all_in": 1500.0,
+     "seller": "KSC",
+     "listing_id": 806018776.0
+    },
+    "Heavily Played": {
+     "all_in": 449.99,
+     "seller": "RetroMon",
+     "listing_id": 742198271.0
+    },
+    "Damaged": {
+     "all_in": 300.0,
+     "seller": "TabletopTavernLEX",
+     "listing_id": 795304439.0
+    }
+   }
+  },
+  {
+   "card_id": "swshp-SWSH143/normal",
+   "name": "Pikachu V",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 9.06,
+   "model_fv": 71.39,
+   "true_lp_floor": 9.49,
+   "true_nm_floor": 9.99,
+   "book_depth": 50,
+   "quote_vs_true": 0.955,
+   "model_vs_true": 7.523,
+   "floors": {
+    "Near Mint": {
+     "all_in": 9.99,
+     "seller": "Mosley Products",
+     "listing_id": 785456147.0
+    },
+    "Lightly Played": {
+     "all_in": 9.49,
+     "seller": "HonestGames",
+     "listing_id": 821383237.0
+    },
+    "Moderately Played": {
+     "all_in": 10.27,
+     "seller": "Darkwater Games",
+     "listing_id": 755106653.0
+    },
+    "Heavily Played": {
+     "all_in": 10.48,
+     "seller": "Casa De Andre",
+     "listing_id": 803204747.0
+    },
+    "Damaged": {
+     "all_in": 4.99,
+     "seller": "HSCWinchester",
+     "listing_id": 821330590.0
+    }
+   }
+  },
+  {
+   "card_id": "pl1-129/normal",
+   "name": "Hitmonchan",
+   "era": "DP",
+   "printing": "Holofoil",
+   "quote_lp": 12.54,
+   "model_fv": 98.73,
+   "true_lp_floor": 13.0,
+   "true_nm_floor": 28.36,
+   "book_depth": 34,
+   "quote_vs_true": 0.965,
+   "model_vs_true": 7.595,
+   "floors": {
+    "Near Mint": {
+     "all_in": 28.36,
+     "seller": "thekingdomkokomo",
+     "listing_id": 793845034.0
+    },
+    "Lightly Played": {
+     "all_in": 13.0,
+     "seller": "BestGradeCards",
+     "listing_id": 823837789.0
+    },
+    "Moderately Played": {
+     "all_in": 11.71,
+     "seller": "GameScapeMVOH",
+     "listing_id": 788345932.0
+    },
+    "Heavily Played": {
+     "all_in": 10.49,
+     "seller": "DZ Comics",
+     "listing_id": 782100799.0
+    },
+    "Damaged": {
+     "all_in": 7.93,
+     "seller": "SharpBrothers Gaming",
+     "listing_id": 776914830.0
+    }
+   }
+  },
+  {
+   "card_id": "pop3-3/normal",
+   "name": "Jolteon",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 16.35,
+   "model_fv": 118.3,
+   "true_lp_floor": 17.84,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 0.916,
+   "model_vs_true": 6.631,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 17.84,
+     "seller": "Acute Games",
+     "listing_id": 816256205.0
+    },
+    "Moderately Played": {
+     "all_in": 12.21,
+     "seller": "Zaneyworks Cards",
+     "listing_id": 809080135.0
+    },
+    "Heavily Played": {
+     "all_in": 5.76,
+     "seller": "Dice Dungeon",
+     "listing_id": 806397543.0
+    },
+    "Damaged": {
+     "all_in": 4.49,
+     "seller": "Mint as Muk",
+     "listing_id": 801968913.0
+    }
+   }
+  },
+  {
+   "card_id": "det1-5/normal",
+   "name": "Charizard",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 8.02,
+   "model_fv": 52.1,
+   "true_lp_floor": 7.6,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 1.055,
+   "model_vs_true": 6.855,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 7.6,
+     "seller": "The Card Prospector",
+     "listing_id": 824410925.0
+    },
+    "Moderately Played": {
+     "all_in": 5.69,
+     "seller": "Blue Moon Kami",
+     "listing_id": 496753319.0
+    },
+    "Heavily Played": {
+     "all_in": 4.9,
+     "seller": "LVL1Gaming",
+     "listing_id": 746719122.0
+    },
+    "Damaged": {
+     "all_in": 4.69,
+     "seller": "Starlight Games LLC",
+     "listing_id": 738767747.0
+    }
+   }
+  },
+  {
+   "card_id": "sm11-223/normal",
+   "name": "Latios-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 20.1,
+   "model_fv": 126.91,
+   "true_lp_floor": 23.35,
+   "true_nm_floor": 25.09,
+   "book_depth": 50,
+   "quote_vs_true": 0.861,
+   "model_vs_true": 5.435,
+   "floors": {
+    "Near Mint": {
+     "all_in": 25.09,
+     "seller": "VioletSkyTCG",
+     "listing_id": 803336639.0
+    },
+    "Lightly Played": {
+     "all_in": 23.35,
+     "seller": "Drawn Together Games",
+     "listing_id": 755811525.0
+    },
+    "Moderately Played": {
+     "all_in": 16.97,
+     "seller": "Collector Store LLC",
+     "listing_id": 694075010.0
+    },
+    "Heavily Played": {
+     "all_in": 12.99,
+     "seller": "SharpBrothers Gaming",
+     "listing_id": 824179435.0
+    },
+    "Damaged": {
+     "all_in": 10.5,
+     "seller": "Gamer's Gauntlet",
+     "listing_id": 798100171.0
+    }
+   }
+  },
+  {
+   "card_id": "svp-164/normal",
+   "name": "Lapras ex",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 8.68,
+   "model_fv": 54.02,
+   "true_lp_floor": 9.13,
+   "true_nm_floor": 9.68,
+   "book_depth": 50,
+   "quote_vs_true": 0.951,
+   "model_vs_true": 5.917,
+   "floors": {
+    "Near Mint": {
+     "all_in": 9.68,
+     "seller": "Redwoods TCG",
+     "listing_id": 755924148.0
+    },
+    "Lightly Played": {
+     "all_in": 9.13,
+     "seller": "Blue Moon Kami",
+     "listing_id": 541660723.0
+    },
+    "Damaged": {
+     "all_in": 7.0,
+     "seller": "9A Cards",
+     "listing_id": 807637623.0
+    }
+   }
+  },
+  {
+   "card_id": "pop3-6/normal",
+   "name": "Vaporeon",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 19.2,
+   "model_fv": 113.71,
+   "true_lp_floor": 6.95,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 2.763,
+   "model_vs_true": 16.361,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 6.95,
+     "seller": "guubuuhobby",
+     "listing_id": 409424156.0
+    },
+    "Moderately Played": {
+     "all_in": 9.51,
+     "seller": "SnorlaxStackz",
+     "listing_id": 807478120.0
+    },
+    "Heavily Played": {
+     "all_in": 6.7,
+     "seller": "Origins Gaming",
+     "listing_id": 656887670.0
+    },
+    "Damaged": {
+     "all_in": 6.02,
+     "seller": "The Side Deck",
+     "listing_id": 161573261.0
+    }
+   }
+  },
+  {
+   "card_id": "sm8-196/normal",
+   "name": "Sceptile-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 15.2,
+   "model_fv": 88.07,
+   "true_lp_floor": 17.82,
+   "true_nm_floor": 21.5,
+   "book_depth": 28,
+   "quote_vs_true": 0.853,
+   "model_vs_true": 4.942,
+   "floors": {
+    "Near Mint": {
+     "all_in": 21.5,
+     "seller": "Sunburst Gaming",
+     "listing_id": 818522825.0
+    },
+    "Lightly Played": {
+     "all_in": 17.82,
+     "seller": "Drawn Together Games",
+     "listing_id": 814819845.0
+    },
+    "Moderately Played": {
+     "all_in": 11.64,
+     "seller": "Galactic Kentwood",
+     "listing_id": 313931460.0
+    },
+    "Damaged": {
+     "all_in": 21.99,
+     "seller": "GET EXCITED CC",
+     "listing_id": 771528875.0
+    }
+   }
+  },
+  {
+   "card_id": "pl1-130/normal",
+   "name": "Scyther",
+   "era": "DP",
+   "printing": "Holofoil",
+   "quote_lp": 21.56,
+   "model_fv": 122.69,
+   "true_lp_floor": 23.28,
+   "true_nm_floor": 37.3,
+   "book_depth": 22,
+   "quote_vs_true": 0.926,
+   "model_vs_true": 5.27,
+   "floors": {
+    "Near Mint": {
+     "all_in": 37.3,
+     "seller": "Ceres Gaming",
+     "listing_id": 824227174.0
+    },
+    "Lightly Played": {
+     "all_in": 23.28,
+     "seller": "The Vault MKE",
+     "listing_id": 603691583.0
+    },
+    "Moderately Played": {
+     "all_in": 16.01,
+     "seller": "The Vault MKE",
+     "listing_id": 604746193.0
+    },
+    "Heavily Played": {
+     "all_in": 13.0,
+     "seller": "Mojomius",
+     "listing_id": 782540640.0
+    },
+    "Damaged": {
+     "all_in": 13.84,
+     "seller": "Wild Things Games",
+     "listing_id": 780842723.0
+    }
+   }
+  },
+  {
+   "card_id": "sm11-229/normal",
+   "name": "Dragonite-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 41.44,
+   "model_fv": 233.34,
+   "true_lp_floor": 56.95,
+   "true_nm_floor": 47.2,
+   "book_depth": 22,
+   "quote_vs_true": 0.728,
+   "model_vs_true": 4.097,
+   "floors": {
+    "Near Mint": {
+     "all_in": 47.2,
+     "seller": "PF Hobby",
+     "listing_id": 740790915.0
+    },
+    "Lightly Played": {
+     "all_in": 56.95,
+     "seller": "GamesGaloreTCG",
+     "listing_id": 799989303.0
+    },
+    "Moderately Played": {
+     "all_in": 38.64,
+     "seller": "CardNAll Middletown",
+     "listing_id": 247656427.0
+    }
+   }
+  },
+  {
+   "card_id": "pop3-2/normal",
+   "name": "Flareon",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 20.26,
+   "model_fv": 110.2,
+   "true_lp_floor": 6.3,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 3.216,
+   "model_vs_true": 17.491,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 6.3,
+     "seller": "guubuuhobby",
+     "listing_id": 409424524.0
+    },
+    "Moderately Played": {
+     "all_in": 13.01,
+     "seller": "Alohameans",
+     "listing_id": 811421320.0
+    },
+    "Heavily Played": {
+     "all_in": 6.02,
+     "seller": "Blue Moon Kami",
+     "listing_id": 614830480.0
+    },
+    "Damaged": {
+     "all_in": 5.25,
+     "seller": "DungeonDuo",
+     "listing_id": 800505923.0
+    }
+   }
+  },
+  {
+   "card_id": "cel25c-88_A/normal",
+   "name": "Mew ex",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 19.98,
+   "model_fv": 107.35,
+   "true_lp_floor": 17.31,
+   "true_nm_floor": 3.07,
+   "book_depth": 50,
+   "quote_vs_true": 1.154,
+   "model_vs_true": 6.202,
+   "floors": {
+    "Near Mint": {
+     "all_in": 3.07,
+     "seller": "guubuuhobby",
+     "listing_id": 409423644.0
+    },
+    "Lightly Played": {
+     "all_in": 17.31,
+     "seller": "Mystic TCG",
+     "listing_id": 465402676.0
+    },
+    "Moderately Played": {
+     "all_in": 16.21,
+     "seller": "TheGoatGames FL",
+     "listing_id": 811476665.0
+    },
+    "Heavily Played": {
+     "all_in": 12.57,
+     "seller": "Keolas Kustoms",
+     "listing_id": 824378421.0
+    },
+    "Damaged": {
+     "all_in": 9.82,
+     "seller": "FC Cards2020",
+     "listing_id": 792499984.0
+    }
+   }
+  },
+  {
+   "card_id": "swshp-SWSH162/normal",
+   "name": "Mewtwo V-UNION",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 8.89,
+   "model_fv": 46.88,
+   "true_lp_floor": 12.0,
+   "true_nm_floor": 11.44,
+   "book_depth": 45,
+   "quote_vs_true": 0.741,
+   "model_vs_true": 3.907,
+   "floors": {
+    "Near Mint": {
+     "all_in": 11.44,
+     "seller": "LVL1Gaming",
+     "listing_id": 726030766.0
+    },
+    "Lightly Played": {
+     "all_in": 12.0,
+     "seller": "WannaSmash",
+     "listing_id": 691001627.0
+    },
+    "Moderately Played": {
+     "all_in": 12.42,
+     "seller": "Gamers Pair a Dice",
+     "listing_id": 824135608.0
+    }
+   }
+  },
+  {
+   "card_id": "ex5-8/normal",
+   "name": "Jirachi",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 23.33,
+   "model_fv": 122.09,
+   "true_lp_floor": 25.99,
+   "true_nm_floor": 35.11,
+   "book_depth": 50,
+   "quote_vs_true": 0.898,
+   "model_vs_true": 4.698,
+   "floors": {
+    "Near Mint": {
+     "all_in": 35.11,
+     "seller": "thekingdomkokomo",
+     "listing_id": 145729204.0
+    },
+    "Lightly Played": {
+     "all_in": 25.99,
+     "seller": "Steel Sunset TCG",
+     "listing_id": 769240874.0
+    },
+    "Moderately Played": {
+     "all_in": 13.0,
+     "seller": "Past to the future",
+     "listing_id": 814607610.0
+    },
+    "Heavily Played": {
+     "all_in": 9.83,
+     "seller": "Blue Moon Kami",
+     "listing_id": 540820747.0
+    },
+    "Damaged": {
+     "all_in": 10.0,
+     "seller": "artiesoddsandends",
+     "listing_id": 824110270.0
+    }
+   }
+  },
+  {
+   "card_id": "sm11-214/normal",
+   "name": "Rowlet & Alolan Exeggutor-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 20.85,
+   "model_fv": 107.09,
+   "true_lp_floor": 21.11,
+   "true_nm_floor": 24.13,
+   "book_depth": 27,
+   "quote_vs_true": 0.988,
+   "model_vs_true": 5.073,
+   "floors": {
+    "Near Mint": {
+     "all_in": 24.13,
+     "seller": "Popo's TCG",
+     "listing_id": 749235066.0
+    },
+    "Lightly Played": {
+     "all_in": 21.11,
+     "seller": "PF Hobby",
+     "listing_id": 580133576.0
+    },
+    "Moderately Played": {
+     "all_in": 37.65,
+     "seller": "Games Explosion",
+     "listing_id": 772921511.0
+    }
+   }
+  },
+  {
+   "card_id": "swshp-SWSH141/normal",
+   "name": "Pikachu V-UNION",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 8.56,
+   "model_fv": 43.81,
+   "true_lp_floor": 8.64,
+   "true_nm_floor": 10.87,
+   "book_depth": 50,
+   "quote_vs_true": 0.991,
+   "model_vs_true": 5.071,
+   "floors": {
+    "Near Mint": {
+     "all_in": 10.87,
+     "seller": "Blue Moon Kami",
+     "listing_id": 582852574.0
+    },
+    "Lightly Played": {
+     "all_in": 8.64,
+     "seller": "ThreeD Games",
+     "listing_id": 541997087.0
+    },
+    "Moderately Played": {
+     "all_in": 10.0,
+     "seller": "Dads Pokemon",
+     "listing_id": 771249860.0
+    },
+    "Damaged": {
+     "all_in": 9.59,
+     "seller": "Trading Card World",
+     "listing_id": 774407271.0
+    }
+   }
+  },
+  {
+   "card_id": "sm8-208/normal",
+   "name": "Faba",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 9.9,
+   "model_fv": 49.67,
+   "true_lp_floor": 12.19,
+   "true_nm_floor": 10.91,
+   "book_depth": 50,
+   "quote_vs_true": 0.812,
+   "model_vs_true": 4.075,
+   "floors": {
+    "Near Mint": {
+     "all_in": 10.91,
+     "seller": "KaiErrTCG",
+     "listing_id": 822266446.0
+    },
+    "Lightly Played": {
+     "all_in": 12.19,
+     "seller": "Galactic Kentwood",
+     "listing_id": 197518792.0
+    },
+    "Moderately Played": {
+     "all_in": 40.79,
+     "seller": "Four Horsemen",
+     "listing_id": 818036003.0
+    },
+    "Damaged": {
+     "all_in": 7.44,
+     "seller": "Midgar Market TCG",
+     "listing_id": 795886517.0
+    }
+   }
+  },
+  {
+   "card_id": "swshp-SWSH133/normal",
+   "name": "Lance's Charizard V",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 8.86,
+   "model_fv": 44.24,
+   "true_lp_floor": 6.29,
+   "true_nm_floor": 6.89,
+   "book_depth": 50,
+   "quote_vs_true": 1.409,
+   "model_vs_true": 7.033,
+   "floors": {
+    "Near Mint": {
+     "all_in": 6.89,
+     "seller": "Adventure Games Osh",
+     "listing_id": 166618028.0
+    },
+    "Lightly Played": {
+     "all_in": 6.29,
+     "seller": "Chrono & Cosmo",
+     "listing_id": 819312165.0
+    },
+    "Moderately Played": {
+     "all_in": 6.8,
+     "seller": "Zajax",
+     "listing_id": 790992125.0
+    },
+    "Heavily Played": {
+     "all_in": 5.4,
+     "seller": "Gamers Headquarters",
+     "listing_id": 819064802.0
+    },
+    "Damaged": {
+     "all_in": 5.32,
+     "seller": "Hypercollectible",
+     "listing_id": 745295016.0
+    }
+   }
+  },
+  {
+   "card_id": "hsp-HGSS03/normal",
+   "name": "Pikachu",
+   "era": "HGSS",
+   "printing": "Holofoil",
+   "quote_lp": 22.59,
+   "model_fv": 110.59,
+   "true_lp_floor": 22.9,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 0.986,
+   "model_vs_true": 4.829,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 22.9,
+     "seller": "Keolas Kustoms",
+     "listing_id": 824135469.0
+    },
+    "Moderately Played": {
+     "all_in": 8.31,
+     "seller": "FirstEditionCollect",
+     "listing_id": 642502100.0
+    },
+    "Heavily Played": {
+     "all_in": 9.99,
+     "seller": "Jake's Card Show",
+     "listing_id": 823803387.0
+    },
+    "Damaged": {
+     "all_in": 13.93,
+     "seller": "Dominics Dominion",
+     "listing_id": 823107731.0
+    }
+   }
+  },
+  {
+   "card_id": "swsh11tg-TG30/normal",
+   "name": "Mew VMAX",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 29.59,
+   "model_fv": 142.95,
+   "true_lp_floor": 29.6,
+   "true_nm_floor": 6.39,
+   "book_depth": 50,
+   "quote_vs_true": 1.0,
+   "model_vs_true": 4.829,
+   "floors": {
+    "Near Mint": {
+     "all_in": 6.39,
+     "seller": "guubuuhobby",
+     "listing_id": 409424898.0
+    },
+    "Lightly Played": {
+     "all_in": 29.6,
+     "seller": "House of Reeves",
+     "listing_id": 777097875.0
+    },
+    "Moderately Played": {
+     "all_in": 32.53,
+     "seller": "Frost Giant Games",
+     "listing_id": 776120332.0
+    },
+    "Heavily Played": {
+     "all_in": 19.15,
+     "seller": "PNT Murfreesboro",
+     "listing_id": 778219499.0
+    },
+    "Damaged": {
+     "all_in": 12.0,
+     "seller": "GamesGaloreTCG",
+     "listing_id": 824050098.0
+    }
+   }
+  },
+  {
+   "card_id": "sv6-212/normal",
+   "name": "Hearthflame Mask Ogerpon ex",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 10.74,
+   "model_fv": 49.02,
+   "true_lp_floor": 12.0,
+   "true_nm_floor": 12.3,
+   "book_depth": 50,
+   "quote_vs_true": 0.895,
+   "model_vs_true": 4.085,
+   "floors": {
+    "Near Mint": {
+     "all_in": 12.3,
+     "seller": "LittleShopofCardsLLC",
+     "listing_id": 811340457.0
+    },
+    "Lightly Played": {
+     "all_in": 12.0,
+     "seller": "HTS Cardboard",
+     "listing_id": 821004010.0
+    }
+   }
+  },
+  {
+   "card_id": "swsh11tg-TG29/normal",
+   "name": "Pikachu VMAX",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 22.06,
+   "model_fv": 97.2,
+   "true_lp_floor": 19.0,
+   "true_nm_floor": 6.04,
+   "book_depth": 50,
+   "quote_vs_true": 1.161,
+   "model_vs_true": 5.116,
+   "floors": {
+    "Near Mint": {
+     "all_in": 6.04,
+     "seller": "guubuuhobby",
+     "listing_id": 409426101.0
+    },
+    "Lightly Played": {
+     "all_in": 19.0,
+     "seller": "DharmaDobby",
+     "listing_id": 818733944.0
+    },
+    "Moderately Played": {
+     "all_in": 15.99,
+     "seller": "MultiMonster Deals",
+     "listing_id": 824809327.0
+    },
+    "Heavily Played": {
+     "all_in": 15.67,
+     "seller": "Paradigm Games",
+     "listing_id": 694491495.0
+    },
+    "Damaged": {
+     "all_in": 12.88,
+     "seller": "OhSock TCG",
+     "listing_id": 823252739.0
+    }
+   }
+  },
+  {
+   "card_id": "sv2-266/normal",
+   "name": "Dendra",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 9.11,
+   "model_fv": 39.85,
+   "true_lp_floor": 9.36,
+   "true_nm_floor": 9.69,
+   "book_depth": 50,
+   "quote_vs_true": 0.973,
+   "model_vs_true": 4.258,
+   "floors": {
+    "Near Mint": {
+     "all_in": 9.69,
+     "seller": "Downtown C&C",
+     "listing_id": 736800162.0
+    },
+    "Lightly Played": {
+     "all_in": 9.36,
+     "seller": "PixelHaven ATX",
+     "listing_id": 821304986.0
+    },
+    "Moderately Played": {
+     "all_in": 7.91,
+     "seller": "IronCityGames",
+     "listing_id": 570959490.0
+    }
+   }
+  },
+  {
+   "card_id": "bwp-BW45/normal",
+   "name": "Mewtwo-EX",
+   "era": "HGSS",
+   "printing": "Holofoil",
+   "quote_lp": 9.94,
+   "model_fv": 43.29,
+   "true_lp_floor": 9.78,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 1.016,
+   "model_vs_true": 4.426,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 9.78,
+     "seller": "ThreeD Games",
+     "listing_id": 689470020.0
+    },
+    "Moderately Played": {
+     "all_in": 6.36,
+     "seller": "The Vault MKE",
+     "listing_id": 744237856.0
+    },
+    "Heavily Played": {
+     "all_in": 4.81,
+     "seller": "CollectiveCubed",
+     "listing_id": 819052959.0
+    },
+    "Damaged": {
+     "all_in": 3.36,
+     "seller": "EG Collectibles LLC",
+     "listing_id": 816173273.0
+    }
+   }
+  },
+  {
+   "card_id": "svp-56/normal",
+   "name": "Charizard ex",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 13.66,
+   "model_fv": 58.87,
+   "true_lp_floor": 10.99,
+   "true_nm_floor": 7.0,
+   "book_depth": 50,
+   "quote_vs_true": 1.243,
+   "model_vs_true": 5.356,
+   "floors": {
+    "Near Mint": {
+     "all_in": 7.0,
+     "seller": "Super Nova Toys",
+     "listing_id": 396664804.0
+    },
+    "Lightly Played": {
+     "all_in": 10.99,
+     "seller": "The Card Spot OH",
+     "listing_id": 604652017.0
+    },
+    "Moderately Played": {
+     "all_in": 11.32,
+     "seller": "BreakpointPlaza",
+     "listing_id": 821925596.0
+    },
+    "Heavily Played": {
+     "all_in": 8.21,
+     "seller": "Notoriousfig",
+     "listing_id": 745619283.0
+    },
+    "Damaged": {
+     "all_in": 6.45,
+     "seller": "Cafe Gaming",
+     "listing_id": 400949592.0
+    }
+   }
+  },
+  {
+   "card_id": "bw2-98/normal",
+   "name": "Tornadus",
+   "era": "BW",
+   "printing": "Holofoil",
+   "quote_lp": 12.44,
+   "model_fv": 53.5,
+   "true_lp_floor": null,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": null,
+   "model_vs_true": null,
+   "floors": {
+    "Moderately Played": {
+     "all_in": 8.27,
+     "seller": "Blue Moon Kami",
+     "listing_id": 423136792.0
+    },
+    "Heavily Played": {
+     "all_in": 5.32,
+     "seller": "HoloForge TCG",
+     "listing_id": 775797241.0
+    },
+    "Damaged": {
+     "all_in": 5.0,
+     "seller": "Top Cut Chicago",
+     "listing_id": 88209362.0
+    }
+   }
+  },
+  {
+   "card_id": "base4-13/normal",
+   "name": "Ninetales",
+   "era": "WOTC",
+   "printing": "Holofoil",
+   "quote_lp": 18.22,
+   "model_fv": 75.42,
+   "true_lp_floor": 12.08,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 1.508,
+   "model_vs_true": 6.243,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 12.08,
+     "seller": "SellingTradingCards",
+     "listing_id": 508139811.0
+    },
+    "Moderately Played": {
+     "all_in": 14.0,
+     "seller": "49er TCG",
+     "listing_id": 816344805.0
+    },
+    "Heavily Played": {
+     "all_in": 11.62,
+     "seller": "Blue Moon Kami",
+     "listing_id": 663852405.0
+    },
+    "Damaged": {
+     "all_in": 7.75,
+     "seller": "Mitmart",
+     "listing_id": 805338713.0
+    }
+   }
+  },
+  {
+   "card_id": "swshp-SWSH160/normal",
+   "name": "Mewtwo V-UNION",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 11.43,
+   "model_fv": 46.88,
+   "true_lp_floor": 12.07,
+   "true_nm_floor": 17.42,
+   "book_depth": 39,
+   "quote_vs_true": 0.947,
+   "model_vs_true": 3.884,
+   "floors": {
+    "Near Mint": {
+     "all_in": 17.42,
+     "seller": "EInn's Finds",
+     "listing_id": 772412866.0
+    },
+    "Lightly Played": {
+     "all_in": 12.07,
+     "seller": "Collector Store LLC",
+     "listing_id": 695697929.0
+    },
+    "Moderately Played": {
+     "all_in": 16.04,
+     "seller": "HotsauceGames",
+     "listing_id": 685235068.0
+    },
+    "Damaged": {
+     "all_in": 5.19,
+     "seller": "Battlegrounds Games",
+     "listing_id": 819814233.0
+    }
+   }
+  },
+  {
+   "card_id": "tk1b-2/normal",
+   "name": "Latios",
+   "era": "EX",
+   "printing": "Holofoil",
+   "quote_lp": 8.55,
+   "model_fv": 34.91,
+   "true_lp_floor": 3.98,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 2.148,
+   "model_vs_true": 8.772,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 3.98,
+     "seller": "Mr Magic LLC",
+     "listing_id": 140343452.0
+    },
+    "Moderately Played": {
+     "all_in": 3.74,
+     "seller": "Mr Magic LLC",
+     "listing_id": 197434455.0
+    },
+    "Heavily Played": {
+     "all_in": 3.24,
+     "seller": "OzarksTradingCards",
+     "listing_id": 823519243.0
+    },
+    "Damaged": {
+     "all_in": 3.25,
+     "seller": "FourMaxGaming",
+     "listing_id": 819857690.0
+    }
+   }
+  },
+  {
+   "card_id": "cel25c-93_A/normal",
+   "name": "Gardevoir ex \u03b4",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 9.02,
+   "model_fv": 36.66,
+   "true_lp_floor": 7.24,
+   "true_nm_floor": 2.55,
+   "book_depth": 50,
+   "quote_vs_true": 1.246,
+   "model_vs_true": 5.064,
+   "floors": {
+    "Near Mint": {
+     "all_in": 2.55,
+     "seller": "guubuuhobby",
+     "listing_id": 409425288.0
+    },
+    "Lightly Played": {
+     "all_in": 7.24,
+     "seller": "Mystic Forge Games",
+     "listing_id": 817248677.0
+    },
+    "Moderately Played": {
+     "all_in": 8.42,
+     "seller": "MD Game Haven",
+     "listing_id": 739331748.0
+    },
+    "Heavily Played": {
+     "all_in": 9.99,
+     "seller": "Card Addicts",
+     "listing_id": 358739368.0
+    }
+   }
+  },
+  {
+   "card_id": "cel25c-15_A1/normal",
+   "name": "Venusaur",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 8.89,
+   "model_fv": 35.15,
+   "true_lp_floor": 8.77,
+   "true_nm_floor": 3.06,
+   "book_depth": 50,
+   "quote_vs_true": 1.014,
+   "model_vs_true": 4.008,
+   "floors": {
+    "Near Mint": {
+     "all_in": 3.06,
+     "seller": "guubuuhobby",
+     "listing_id": 409425602.0
+    },
+    "Lightly Played": {
+     "all_in": 8.77,
+     "seller": "Daddy Daughter Rips",
+     "listing_id": 811587047.0
+    },
+    "Moderately Played": {
+     "all_in": 8.99,
+     "seller": "Blue Moon Kami",
+     "listing_id": 797029489.0
+    },
+    "Heavily Played": {
+     "all_in": 9.27,
+     "seller": "Gamers Headquarters",
+     "listing_id": 686090064.0
+    }
+   }
+  },
+  {
+   "card_id": "neo1-1/normal",
+   "name": "Ampharos",
+   "era": "WOTC",
+   "printing": "1st Edition Holofoil",
+   "quote_lp": 57.09,
+   "model_fv": 225.69,
+   "true_lp_floor": 61.73,
+   "true_nm_floor": 116.99,
+   "book_depth": 16,
+   "quote_vs_true": 0.925,
+   "model_vs_true": 3.656,
+   "floors": {
+    "Near Mint": {
+     "all_in": 116.99,
+     "seller": "Card shop lounge",
+     "listing_id": 623986321.0
+    },
+    "Lightly Played": {
+     "all_in": 61.73,
+     "seller": "PF Hobby",
+     "listing_id": 776598996.0
+    },
+    "Moderately Played": {
+     "all_in": 38.58,
+     "seller": "The Vault MKE",
+     "listing_id": 450250202.0
+    },
+    "Heavily Played": {
+     "all_in": 72.43,
+     "seller": "GamesattheVault",
+     "listing_id": 513414930.0
+    }
+   }
+  },
+  {
+   "card_id": "sv3-225/normal",
+   "name": "Pidgeot ex",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 20.14,
+   "model_fv": 79.57,
+   "true_lp_floor": 18.0,
+   "true_nm_floor": 11.99,
+   "book_depth": 50,
+   "quote_vs_true": 1.119,
+   "model_vs_true": 4.421,
+   "floors": {
+    "Near Mint": {
+     "all_in": 11.99,
+     "seller": "Duckman tcg",
+     "listing_id": 387834259.0
+    },
+    "Lightly Played": {
+     "all_in": 18.0,
+     "seller": "The Card Spot OH",
+     "listing_id": 562309470.0
+    },
+    "Moderately Played": {
+     "all_in": 16.99,
+     "seller": "Collector Store LLC",
+     "listing_id": 693944538.0
+    },
+    "Heavily Played": {
+     "all_in": 15.99,
+     "seller": "Wanderer Games",
+     "listing_id": 798302863.0
+    },
+    "Damaged": {
+     "all_in": 10.94,
+     "seller": "YGOCardsTCG",
+     "listing_id": 824173693.0
+    }
+   }
+  },
+  {
+   "card_id": "me2-128/normal",
+   "name": "Mega Lopunny ex",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 18.62,
+   "model_fv": 73.35,
+   "true_lp_floor": 16.74,
+   "true_nm_floor": 15.43,
+   "book_depth": 50,
+   "quote_vs_true": 1.112,
+   "model_vs_true": 4.382,
+   "floors": {
+    "Near Mint": {
+     "all_in": 15.43,
+     "seller": "Peony Co",
+     "listing_id": 786202432.0
+    },
+    "Lightly Played": {
+     "all_in": 16.74,
+     "seller": "Mystic Forge Games",
+     "listing_id": 791015997.0
+    },
+    "Damaged": {
+     "all_in": 17.58,
+     "seller": "Poke Plug LLC",
+     "listing_id": 811478699.0
+    }
+   }
+  },
+  {
+   "card_id": "base4-10/normal",
+   "name": "Mewtwo",
+   "era": "WOTC",
+   "printing": "Holofoil",
+   "quote_lp": 38.89,
+   "model_fv": 150.26,
+   "true_lp_floor": 40.0,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": 0.972,
+   "model_vs_true": 3.757,
+   "floors": {
+    "Lightly Played": {
+     "all_in": 40.0,
+     "seller": "KSC",
+     "listing_id": 417479066.0
+    },
+    "Moderately Played": {
+     "all_in": 26.24,
+     "seller": "TCG Trader Inc",
+     "listing_id": 816967989.0
+    },
+    "Heavily Played": {
+     "all_in": 17.25,
+     "seller": "The Vault MKE",
+     "listing_id": 450251140.0
+    },
+    "Damaged": {
+     "all_in": 14.99,
+     "seller": "Mystic TCG",
+     "listing_id": 324164338.0
+    }
+   }
+  },
+  {
+   "card_id": "swsh3-193/normal",
+   "name": "Scizor VMAX",
+   "era": "SWSH",
+   "printing": "Holofoil",
+   "quote_lp": 10.31,
+   "model_fv": 39.2,
+   "true_lp_floor": 10.54,
+   "true_nm_floor": 7.04,
+   "book_depth": 50,
+   "quote_vs_true": 0.978,
+   "model_vs_true": 3.719,
+   "floors": {
+    "Near Mint": {
+     "all_in": 7.04,
+     "seller": "guubuuhobby",
+     "listing_id": 409425044.0
+    },
+    "Lightly Played": {
+     "all_in": 10.54,
+     "seller": "Collector Store LLC",
+     "listing_id": 694133267.0
+    },
+    "Damaged": {
+     "all_in": 7.67,
+     "seller": "Blue Mist Cards",
+     "listing_id": 814373140.0
+    }
+   }
+  },
+  {
+   "card_id": "me2-127/normal",
+   "name": "Mega Sharpedo ex",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 21.31,
+   "model_fv": 79.9,
+   "true_lp_floor": 21.0,
+   "true_nm_floor": 19.17,
+   "book_depth": 50,
+   "quote_vs_true": 1.015,
+   "model_vs_true": 3.805,
+   "floors": {
+    "Near Mint": {
+     "all_in": 19.17,
+     "seller": "Peony Co",
+     "listing_id": 807804177.0
+    },
+    "Lightly Played": {
+     "all_in": 21.0,
+     "seller": "Mystic TCG",
+     "listing_id": 824116468.0
+    }
+   }
+  },
+  {
+   "card_id": "ecard2-17/normal",
+   "name": "Jumpluff",
+   "era": "ECARD",
+   "printing": "Reverse Holofoil",
+   "quote_lp": 16.98,
+   "model_fv": 63.59,
+   "true_lp_floor": 20.0,
+   "true_nm_floor": 201.31,
+   "book_depth": 12,
+   "quote_vs_true": 0.849,
+   "model_vs_true": 3.18,
+   "floors": {
+    "Near Mint": {
+     "all_in": 201.31,
+     "seller": "Dramaz",
+     "listing_id": 812803862.0
+    },
+    "Lightly Played": {
+     "all_in": 20.0,
+     "seller": "PF Hobby",
+     "listing_id": 808813340.0
+    },
+    "Moderately Played": {
+     "all_in": 39.99,
+     "seller": "Dramaz",
+     "listing_id": 812803976.0
+    },
+    "Heavily Played": {
+     "all_in": 39.99,
+     "seller": "Zoruya Games",
+     "listing_id": 751845933.0
+    },
+    "Damaged": {
+     "all_in": 29.99,
+     "seller": "Foil Me Once",
+     "listing_id": 778693366.0
+    }
+   }
+  },
+  {
+   "card_id": "sv3-205/normal",
+   "name": "Scizor",
+   "era": "SV",
+   "printing": "Holofoil",
+   "quote_lp": 13.7,
+   "model_fv": 51.23,
+   "true_lp_floor": 7.78,
+   "true_nm_floor": 4.84,
+   "book_depth": 50,
+   "quote_vs_true": 1.761,
+   "model_vs_true": 6.584,
+   "floors": {
+    "Near Mint": {
+     "all_in": 4.84,
+     "seller": "Super Nova Toys",
+     "listing_id": 396664621.0
+    },
+    "Lightly Played": {
+     "all_in": 7.78,
+     "seller": "ThreeD Games",
+     "listing_id": 541997063.0
+    },
+    "Moderately Played": {
+     "all_in": 14.28,
+     "seller": "SuperGamesInc",
+     "listing_id": 821329100.0
+    },
+    "Heavily Played": {
+     "all_in": 13.99,
+     "seller": "Guardian Games",
+     "listing_id": 821968124.0
+    }
+   }
+  },
+  {
+   "card_id": "base4-15/normal",
+   "name": "Poliwrath",
+   "era": "WOTC",
+   "printing": "Holofoil",
+   "quote_lp": 13.85,
+   "model_fv": 51.61,
+   "true_lp_floor": null,
+   "true_nm_floor": null,
+   "book_depth": 50,
+   "quote_vs_true": null,
+   "model_vs_true": null,
+   "floors": {
+    "Moderately Played": {
+     "all_in": 7.05,
+     "seller": "SellingTradingCards",
+     "listing_id": 586819135.0
+    },
+    "Heavily Played": {
+     "all_in": 8.0,
+     "seller": "THUNDERBIRD144GAMES",
+     "listing_id": 824559362.0
+    },
+    "Damaged": {
+     "all_in": 5.0,
+     "seller": "THUNDERBIRD144GAMES",
+     "listing_id": 824559336.0
+    }
+   }
+  },
+  {
+   "card_id": "sm11-220/normal",
+   "name": "Raichu & Alolan Raichu-GX",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 45.04,
+   "model_fv": 166.24,
+   "true_lp_floor": 47.53,
+   "true_nm_floor": 50.99,
+   "book_depth": 33,
+   "quote_vs_true": 0.948,
+   "model_vs_true": 3.498,
+   "floors": {
+    "Near Mint": {
+     "all_in": 50.99,
+     "seller": "DZ Comics",
+     "listing_id": 101542391.0
+    },
+    "Lightly Played": {
+     "all_in": 47.53,
+     "seller": "Three Mountain Games",
+     "listing_id": 811935455.0
+    },
+    "Damaged": {
+     "all_in": 34.99,
+     "seller": "Symphony Games",
+     "listing_id": 816111723.0
+    }
+   }
+  },
+  {
+   "card_id": "sm6-129/normal",
+   "name": "Crasher Wake",
+   "era": "SM",
+   "printing": "Holofoil",
+   "quote_lp": 9.33,
+   "model_fv": 34.4,
+   "true_lp_floor": 9.6,
+   "true_nm_floor": 10.0,
+   "book_depth": 50,
+   "quote_vs_true": 0.972,
+   "model_vs_true": 3.584,
+   "floors": {
+    "Near Mint": {
+     "all_in": 10.0,
+     "seller": "Dork Den Mankato",
+     "listing_id": 769877461.0
+    },
+    "Lightly Played": {
+     "all_in": 9.6,
+     "seller": "PF Hobby",
+     "listing_id": 690917088.0
+    },
+    "Heavily Played": {
+     "all_in": 14.37,
+     "seller": "Alpha Card LLC",
+     "listing_id": 42514341.0
+    },
+    "Damaged": {
+     "all_in": 5.68,
+     "seller": "Tradewinds TCGs",
+     "listing_id": 823346217.0
+    }
+   }
+  }
+ ]
+}
