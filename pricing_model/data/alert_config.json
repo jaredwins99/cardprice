@@ -1,6 +1,6 @@
 {
  "ntfy_topic": "cardprice-deals-88f2b4208e2a",
- "discount": 0.5,
+ "discount": 0.6,
  "decisions_topic": "cardprice-decisions-3b8f5680bc14",
  "max_alerts_per_run": 5,
  "min_price": 20,

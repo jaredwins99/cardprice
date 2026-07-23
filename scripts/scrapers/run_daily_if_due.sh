@@ -94,6 +94,15 @@ run_job() {
         : > "$done_file"
         printf '[%s] %s: DONE — wrote %s\n' \
             "$(date -u +%FT%TZ)" "$job" "$done_file" >> "$log_file"
+        # The tcgplayer scrape is what captures live listings, so score them
+        # for deals the moment fresh data lands (WSL-start or the daily run)
+        # rather than waiting for the next hourly sweep.
+        if [ "$job" = "tcgplayer" ]; then
+            printf '[%s] %s: scoring fresh listings for alerts\n' \
+                "$(date -u +%FT%TZ)" "$job" >> "$log_file"
+            "$PY" pricing_model/scripts/alert_good_listings.py \
+                >> "$LOG_DIR/listing_alerts.log" 2>&1 || true
+        fi
         return 0
     else
         local rc=$?
