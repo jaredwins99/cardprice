@@ -113,7 +113,10 @@ def main():
     args = ap.parse_args()
 
     cfg = json.load(open(CONFIG))
-    topic, discount = cfg["ntfy_topic"], cfg.get("discount", 0.65)
+    topic = cfg["ntfy_topic"]
+    discount = cfg.get("discount", 0.50)
+    max_alerts = cfg.get("max_alerts_per_run", 5)
+    MIN_PRICE = cfg.get("min_price", 20)
 
     if args.test:
         dtopic = cfg.get("decisions_topic")
@@ -173,26 +176,72 @@ def main():
     sent = {r[0] for r in conn.execute(
         "SELECT listing_id FROM listing_alerts_sent")}
 
-    n_alerts = 0
+    # --- score candidates, then send only the best few -----------------------
+    # Rate discipline matters more than recall: the rotation now yields ~13k
+    # listing rows/day, and a loose threshold produced 273 candidates in one
+    # run. An alert the user ignores is worse than no alert (see project
+    # memory on notification cost), so we rank by discount depth and cap per
+    # run; unsent candidates are NOT marked, so a genuinely deep discount
+    # resurfaces next hour when the queue is shorter.
+    cands = []
     for r in d.itertuples():
         if r.listing_id in sent or r.language not in ("EN", ""):
             continue
-        if r.all_in < 10:
+        if r.all_in < MIN_PRICE:
             continue
         tag = ""
         if r.condition in COND_FACTOR:
             thresh = discount * r.fair_value * COND_FACTOR[r.condition]
+            adj_fv = r.fair_value * COND_FACTOR[r.condition]
         elif r.condition == "Heavily Played":
             thresh = 0.50 * r.fair_value * HP_FACTOR
+            adj_fv = r.fair_value * HP_FACTOR
             tag = " INSPECT (HP)"
         else:
             continue
         if r.all_in > thresh:
             continue
+        cands.append((r.all_in / adj_fv, r, tag))
+    cands.sort(key=lambda c: c[0])
+
+    # --- market-consensus filter (the model is the thing being tested) ------
+    # If several INDEPENDENT sellers all price a card far under model FV, the
+    # consensus is evidence the model is wrong, not that there are N bargains.
+    # (Discovered live: 5 sellers at ~$30 on a card the model marked $143 —
+    # a Trainer Gallery subset the model over-prices.) So: keep only the
+    # cheapest listing per (product, printing, condition), and drop the card
+    # entirely when >= CONSENSUS_N distinct sellers sit below the threshold.
+    CONSENSUS_N = cfg.get("consensus_sellers", 3)
+    by_card = {}
+    for c in cands:
+        by_card.setdefault((c[1].tcg_product_id, c[1].printing), []).append(c)
+    kept = []
+    for key, group in by_card.items():
+        sellers = {g[1].seller_name for g in group}
+        if len(sellers) >= CONSENSUS_N:
+            print(f"  consensus-suppressed {group[0][1].card_id} "
+                  f"{group[0][1].printing}: {len(sellers)} sellers below "
+                  f"threshold -> model FV ${group[0][1].fair_value:.0f} "
+                  "is likely wrong")
+            continue
+        best = {}
+        for g in group:
+            k = g[1].condition
+            if k not in best or g[0] < best[k][0]:
+                best[k] = g
+        kept.extend(best.values())
+    cands = sorted(kept, key=lambda c: c[0])
+    n_suppressed = max(0, len(cands) - max_alerts)
+    if n_suppressed:
+        print(f"{len(cands)} candidates; sending top {max_alerts}, "
+              f"{n_suppressed} held for next run")
+
+    n_alerts = 0
+    for cond_ratio, r, tag in cands[:max_alerts]:
         url = f"https://www.tcgplayer.com/product/{r.tcg_product_id}"
         title = f"Deal: {r.name} {r.printing} {r.condition}{tag}"
-        body = (f"${r.all_in:.2f} vs FV ${r.fair_value:.0f} "
-                f"({r.all_in / r.fair_value:.2f}x LP-basis) | {r.seller_name}"
+        body = (f"${r.all_in:.2f} = {cond_ratio:.2f}x cond-adj FV "
+                f"(LP-basis FV ${r.fair_value:.0f}) | {r.seller_name}"
                 f"{' direct' if r.direct_seller else ''} | {r.card_id}")
         actions = None
         dtopic = cfg.get("decisions_topic")
