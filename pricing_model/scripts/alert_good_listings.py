@@ -64,6 +64,75 @@ def caveat_of(title):
     return m.group(0) if m else None
 
 
+# Structural tell, verified 2026-07-23: listings carrying seller customData
+# (uploaded photos + a custom title) live in a LOW listing_id space (~4-5M)
+# while ordinary listings are 8-9 figures. Every foreign-print trap found so
+# far had a low id — SinoCARDS' "*Chinese*" Zekrom (4,493,270), a Chinese
+# Celebi & Venusaur (4,518,541), and a "Chinese Terastal Gathering" Ursaluna
+# (4,603,349) — because a seller listing an off-product card must upload
+# photos to disclose it. Low id therefore means "custom listing: read the
+# title before trusting the price", and it works retroactively on rows
+# captured before custom_title existed.
+CUSTOM_LISTING_ID_MAX = 10_000_000
+
+
+def is_custom_listing(listing_id):
+    try:
+        return listing_id is not None and int(listing_id) < CUSTOM_LISTING_ID_MAX
+    except (TypeError, ValueError):
+        return False
+
+
+def verify_live(product_id, listing_id, timeout_ms=25_000):
+    """Re-fetch a product's listings and return (status, title) for one id.
+
+    status: "ok" (present, no caveat) | "caveat:<word>" | "gone" | "unknown".
+    Alerts are only ever sent on "ok" — this is the automated first pass of
+    the reviewer-mandated "inspect the specific listing before buying", and it
+    also catches listings that vanished between snapshot and ping.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+        import sys
+        sys.path.insert(0, REPO)
+        from cardprice.scrapers.tcgplayer_sales import create_browser_context
+    except Exception:
+        return "unknown", None
+    cap = {}
+    try:
+        with sync_playwright() as pw:
+            browser, ctx = create_browser_context(pw)
+            page = ctx.new_page()
+
+            def on_resp(r):
+                if "/listings" in r.url and r.status == 200:
+                    try:
+                        cap["b"] = r.json()
+                    except Exception:
+                        pass
+            page.on("response", on_resp)
+            page.goto(f"https://www.tcgplayer.com/product/{product_id}",
+                      wait_until="domcontentloaded", timeout=timeout_ms)
+            page.wait_for_timeout(5000)
+            browser.close()
+    except Exception:
+        return "unknown", None
+    blocks = (cap.get("b") or {}).get("results") or [{}]
+    for l in blocks[0].get("results", []):
+        if str(l.get("listingId")) != str(listing_id):
+            continue
+        custom = l.get("customData") or {}
+        title = custom.get("title") if isinstance(custom, dict) else None
+        cav = caveat_of(title)
+        if cav:
+            return f"caveat:{cav}", title
+        if title or (isinstance(custom, dict) and custom.get("images")):
+            # custom listing whose title we can't fault — still not vanilla
+            return "custom", title
+        return "ok", title
+    return "gone", None
+
+
 LADDER_MIN_GAP = 0.20      # a ladder break must be >= 20% to be economic
 LADDER_MIN_N = 3           # and rest on >= 3 worse-condition sales
 
@@ -212,6 +281,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--test", action="store_true", help="send a hello ping")
+    ap.add_argument("--no-verify", action="store_true",
+                    help="skip the live pre-send listing check (testing only)")
     args = ap.parse_args()
 
     cfg = json.load(open(CONFIG))
@@ -347,7 +418,7 @@ def main():
         ).append((r.all_in, r.seller_name))
 
     cands = []          # (sort_key, row, kind, headline, ratio, unverified)
-    n_caveat = n_cluster = 0
+    n_caveat = n_cluster = n_custom = 0
     for r in d.itertuples():
         if r.listing_id in sent or r.language not in ("EN", ""):
             continue
@@ -361,6 +432,11 @@ def main():
             continue
         if r.seller_name in seller_flags:
             n_caveat += 1
+            continue
+        # custom listings (low id space) are disclosure listings — foreign
+        # prints, damage, oddities. Never alert without reading the title.
+        if is_custom_listing(r.listing_id) and not getattr(r, "custom_title", None):
+            n_custom += 1
             continue
         # listings captured before custom_title existed can't be verified
         unverified = getattr(r, "custom_title", None) is None
@@ -404,6 +480,8 @@ def main():
         cands.append((ratio + 0.5, r, "model", r.top_factors or "", ratio, unverified))
     if n_caveat:
         print(f"  {n_caveat} listings skipped on seller-disclosed caveats")
+    if n_custom:
+        print(f"  {n_custom} custom/disclosure listings skipped (low-id space)")
     cands.sort(key=lambda c: c[0])
 
     # --- market-consensus filter (the model is the thing being tested) ------
@@ -444,7 +522,31 @@ def main():
               f"{n_suppressed} held for next run")
 
     n_alerts = 0
+    n_verified_out = 0
     for _sort, r, kind, why, ratio, unver in cands[:max_alerts]:
+        # --- mandatory live verification -----------------------------------
+        # Snapshots are up to a day old and cannot see seller disclosures on
+        # historical rows. Before any ping, re-fetch the product and inspect
+        # THIS listing: drop it if it carries a caveat, is a custom/disclosure
+        # listing, or has vanished. Costs <=max_alerts page loads per run.
+        if not args.no_verify:
+            status, live_title = verify_live(r.tcg_product_id, r.listing_id)
+            if status.startswith("caveat"):
+                print(f"  VERIFY-DROP {r.card_id} {r.condition}: "
+                      f"{status} — \"{live_title}\"")
+                n_verified_out += 1
+                continue
+            if status == "custom":
+                print(f"  VERIFY-DROP {r.card_id} {r.condition}: custom "
+                      f"disclosure listing — \"{live_title}\"")
+                n_verified_out += 1
+                continue
+            if status == "gone":
+                print(f"  VERIFY-DROP {r.card_id} {r.condition}: listing no "
+                      "longer in the cheapest book (sold or repriced)")
+                n_verified_out += 1
+                continue
+            unver = status == "unknown"
         url = f"https://www.tcgplayer.com/product/{r.tcg_product_id}"
         # Condition leads the title — it's what you're actually buying.
         title = f"{r.condition} · {r.name} · {r.printing}"
@@ -500,7 +602,9 @@ def main():
             (max_ts,))
         conn.commit()
     conn.close()
-    print(f"processed {len(new)} new listing rows -> {n_alerts} alerts")
+    print(f"processed {len(new)} new listing rows -> {n_alerts} alerts"
+          + (f" ({n_verified_out} dropped at live verification)"
+             if n_verified_out else ""))
 
 
 if __name__ == "__main__":
