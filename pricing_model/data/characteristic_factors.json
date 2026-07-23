@@ -1,0 +1,6127 @@
+{
+ "artist": [
+  {
+   "value": "Asako Ito",
+   "n_cards": 66,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.07389,
+   "t_stat": 6.18,
+   "hit_rate": 0.759,
+   "cumulative": 6.916
+  },
+  {
+   "value": "GIDORA",
+   "n_cards": 85,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04736,
+   "t_stat": 2.74,
+   "hit_rate": 0.655,
+   "cumulative": 2.766
+  },
+  {
+   "value": "Kurata So",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04026,
+   "t_stat": 2.09,
+   "hit_rate": 0.621,
+   "cumulative": 2.087
+  },
+  {
+   "value": "Jiro Sasumo",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03711,
+   "t_stat": 2.32,
+   "hit_rate": 0.655,
+   "cumulative": 1.826
+  },
+  {
+   "value": "Eri Yamaki",
+   "n_cards": 75,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02937,
+   "t_stat": 3.14,
+   "hit_rate": 0.69,
+   "cumulative": 1.276
+  },
+  {
+   "value": "Narumi Sato",
+   "n_cards": 74,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02925,
+   "t_stat": 3.47,
+   "hit_rate": 0.759,
+   "cumulative": 1.268
+  },
+  {
+   "value": "Mina Nakai",
+   "n_cards": 137,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02865,
+   "t_stat": 2.43,
+   "hit_rate": 0.552,
+   "cumulative": 1.23
+  },
+  {
+   "value": "HYOGONOSUKE",
+   "n_cards": 128,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02746,
+   "t_stat": 3.47,
+   "hit_rate": 0.621,
+   "cumulative": 1.157
+  },
+  {
+   "value": "Jerky",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02725,
+   "t_stat": 1.72,
+   "hit_rate": 0.552,
+   "cumulative": 1.145
+  },
+  {
+   "value": "Atsushi Furusawa",
+   "n_cards": 65,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02545,
+   "t_stat": 2.58,
+   "hit_rate": 0.655,
+   "cumulative": 1.039
+  },
+  {
+   "value": "0313",
+   "n_cards": 112,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02322,
+   "t_stat": 2.27,
+   "hit_rate": 0.552,
+   "cumulative": 0.916
+  },
+  {
+   "value": "OKACHEKE",
+   "n_cards": 95,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01951,
+   "t_stat": 2.84,
+   "hit_rate": 0.621,
+   "cumulative": 0.727
+  },
+  {
+   "value": "Oswaldo KATO",
+   "n_cards": 136,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01758,
+   "t_stat": 2.33,
+   "hit_rate": 0.621,
+   "cumulative": 0.636
+  },
+  {
+   "value": "KEIICHIRO ITO",
+   "n_cards": 83,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01716,
+   "t_stat": 1.21,
+   "hit_rate": 0.517,
+   "cumulative": 0.617
+  },
+  {
+   "value": "KIYOTAKA OSHIYAMA",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01703,
+   "t_stat": 1.77,
+   "hit_rate": 0.552,
+   "cumulative": 0.611
+  },
+  {
+   "value": "AKIRA EGAWA",
+   "n_cards": 122,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01531,
+   "t_stat": 2.63,
+   "hit_rate": 0.724,
+   "cumulative": 0.535
+  },
+  {
+   "value": "Keiko Fukuyama",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01459,
+   "t_stat": 2.49,
+   "hit_rate": 0.69,
+   "cumulative": 0.504
+  },
+  {
+   "value": "Lee HyunJung",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01332,
+   "t_stat": 2.13,
+   "hit_rate": 0.621,
+   "cumulative": 0.452
+  },
+  {
+   "value": "MAHOU",
+   "n_cards": 229,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01071,
+   "t_stat": 2.24,
+   "hit_rate": 0.69,
+   "cumulative": 0.35
+  },
+  {
+   "value": "Miki Tanaka",
+   "n_cards": 373,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00845,
+   "t_stat": 3.52,
+   "hit_rate": 0.828,
+   "cumulative": 0.267
+  },
+  {
+   "value": "Mizue",
+   "n_cards": 334,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00808,
+   "t_stat": 1.93,
+   "hit_rate": 0.552,
+   "cumulative": 0.254
+  },
+  {
+   "value": "Akira Komayama",
+   "n_cards": 409,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00596,
+   "t_stat": 2.33,
+   "hit_rate": 0.759,
+   "cumulative": 0.182
+  },
+  {
+   "value": "Aya Kusube",
+   "n_cards": 242,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00574,
+   "t_stat": 1.65,
+   "hit_rate": 0.517,
+   "cumulative": 0.174
+  },
+  {
+   "value": "Nisota Niso",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00485,
+   "t_stat": 0.57,
+   "hit_rate": 0.552,
+   "cumulative": 0.146
+  },
+  {
+   "value": "DOM",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00465,
+   "t_stat": 0.39,
+   "hit_rate": 0.552,
+   "cumulative": 0.139
+  },
+  {
+   "value": "OOYAMA",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00445,
+   "t_stat": 0.66,
+   "hit_rate": 0.345,
+   "cumulative": 0.133
+  },
+  {
+   "value": "Hironobu Yoshida",
+   "n_cards": 74,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00444,
+   "t_stat": 1.0,
+   "hit_rate": 0.517,
+   "cumulative": 0.132
+  },
+  {
+   "value": "Daisuke Ito",
+   "n_cards": 93,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00396,
+   "t_stat": 0.75,
+   "hit_rate": 0.586,
+   "cumulative": 0.117
+  },
+  {
+   "value": "Kanako Eo",
+   "n_cards": 182,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00376,
+   "t_stat": 0.82,
+   "hit_rate": 0.621,
+   "cumulative": 0.111
+  },
+  {
+   "value": "Atsuko Nishida",
+   "n_cards": 772,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00357,
+   "t_stat": 2.51,
+   "hit_rate": 0.759,
+   "cumulative": 0.105
+  },
+  {
+   "value": "Naoyo Kimura",
+   "n_cards": 486,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00307,
+   "t_stat": 1.47,
+   "hit_rate": 0.655,
+   "cumulative": 0.09
+  },
+  {
+   "value": "Misa Tsutsui",
+   "n_cards": 166,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00295,
+   "t_stat": 0.76,
+   "hit_rate": 0.483,
+   "cumulative": 0.086
+  },
+  {
+   "value": "Hajime Kusajima",
+   "n_cards": 400,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00213,
+   "t_stat": 0.85,
+   "hit_rate": 0.552,
+   "cumulative": 0.061
+  },
+  {
+   "value": "Nakaoka",
+   "n_cards": 80,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00195,
+   "t_stat": 0.43,
+   "hit_rate": 0.621,
+   "cumulative": 0.056
+  },
+  {
+   "value": "Masako Yamashita",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0019,
+   "t_stat": 0.54,
+   "hit_rate": 0.483,
+   "cumulative": 0.054
+  },
+  {
+   "value": "Kyoko Umemoto",
+   "n_cards": 334,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00129,
+   "t_stat": 0.42,
+   "hit_rate": 0.552,
+   "cumulative": 0.037
+  },
+  {
+   "value": "Anesaki Dynamic",
+   "n_cards": 239,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00125,
+   "t_stat": 0.26,
+   "hit_rate": 0.483,
+   "cumulative": 0.035
+  },
+  {
+   "value": "Mitsuhiro Arita",
+   "n_cards": 1222,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00123,
+   "t_stat": 1.25,
+   "hit_rate": 0.517,
+   "cumulative": 0.035
+  },
+  {
+   "value": "Hideaki Hakozaki",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00112,
+   "t_stat": 0.29,
+   "hit_rate": 0.483,
+   "cumulative": 0.032
+  },
+  {
+   "value": "Hisao Nakamura",
+   "n_cards": 139,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00093,
+   "t_stat": 0.29,
+   "hit_rate": 0.517,
+   "cumulative": 0.026
+  },
+  {
+   "value": "Naoki Saito",
+   "n_cards": 425,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00076,
+   "t_stat": 0.34,
+   "hit_rate": 0.517,
+   "cumulative": 0.022
+  },
+  {
+   "value": "Masakazu Fukuda",
+   "n_cards": 854,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00026,
+   "t_stat": 0.16,
+   "hit_rate": 0.448,
+   "cumulative": 0.007
+  },
+  {
+   "value": "Kouki Saitou",
+   "n_cards": 1209,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00024,
+   "t_stat": 0.16,
+   "hit_rate": 0.586,
+   "cumulative": 0.007
+  },
+  {
+   "value": "N-DESIGN Inc.",
+   "n_cards": 77,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00044,
+   "t_stat": -0.1,
+   "hit_rate": 0.621,
+   "cumulative": -0.012
+  },
+  {
+   "value": "Kagemaru Himeno",
+   "n_cards": 1217,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00047,
+   "t_stat": -0.38,
+   "hit_rate": 0.345,
+   "cumulative": -0.013
+  },
+  {
+   "value": "Kimiya Masago",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00049,
+   "t_stat": -0.1,
+   "hit_rate": 0.414,
+   "cumulative": -0.014
+  },
+  {
+   "value": "Hasuno",
+   "n_cards": 133,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00114,
+   "t_stat": -0.34,
+   "hit_rate": 0.379,
+   "cumulative": -0.032
+  },
+  {
+   "value": "NC Empire",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00124,
+   "t_stat": -0.11,
+   "hit_rate": 0.552,
+   "cumulative": -0.034
+  },
+  {
+   "value": "Hideki Ishikawa",
+   "n_cards": 137,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0015,
+   "t_stat": -0.64,
+   "hit_rate": 0.414,
+   "cumulative": -0.041
+  },
+  {
+   "value": "Midori Harada",
+   "n_cards": 679,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0017,
+   "t_stat": -1.48,
+   "hit_rate": 0.31,
+   "cumulative": -0.047
+  },
+  {
+   "value": "Eske Yoshinob",
+   "n_cards": 195,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00203,
+   "t_stat": -1.11,
+   "hit_rate": 0.379,
+   "cumulative": -0.055
+  },
+  {
+   "value": "5ban Graphics",
+   "n_cards": 1963,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00228,
+   "t_stat": -1.63,
+   "hit_rate": 0.448,
+   "cumulative": -0.062
+  },
+  {
+   "value": "Ken Sugimori",
+   "n_cards": 2030,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00272,
+   "t_stat": -2.91,
+   "hit_rate": 0.207,
+   "cumulative": -0.073
+  },
+  {
+   "value": "Kazuyuki Kano",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00277,
+   "t_stat": -0.45,
+   "hit_rate": 0.448,
+   "cumulative": -0.075
+  },
+  {
+   "value": "Hikaru Koike",
+   "n_cards": 64,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00428,
+   "t_stat": -0.84,
+   "hit_rate": 0.379,
+   "cumulative": -0.113
+  },
+  {
+   "value": "Katsura Tabata",
+   "n_cards": 69,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00433,
+   "t_stat": -1.07,
+   "hit_rate": 0.345,
+   "cumulative": -0.114
+  },
+  {
+   "value": "GOSSAN",
+   "n_cards": 84,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00588,
+   "t_stat": -0.47,
+   "hit_rate": 0.586,
+   "cumulative": -0.152
+  },
+  {
+   "value": "Hitoshi Ariga",
+   "n_cards": 241,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.006,
+   "t_stat": -3.14,
+   "hit_rate": 0.207,
+   "cumulative": -0.155
+  },
+  {
+   "value": "CR CG gangs",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00624,
+   "t_stat": -1.69,
+   "hit_rate": 0.276,
+   "cumulative": -0.16
+  },
+  {
+   "value": "Ayaka Yoshida",
+   "n_cards": 183,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00657,
+   "t_stat": -1.26,
+   "hit_rate": 0.345,
+   "cumulative": -0.168
+  },
+  {
+   "value": "Noriko Hotta",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00679,
+   "t_stat": -1.53,
+   "hit_rate": 0.345,
+   "cumulative": -0.173
+  },
+  {
+   "value": "Kent Kanetsuna",
+   "n_cards": 141,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00682,
+   "t_stat": -1.82,
+   "hit_rate": 0.345,
+   "cumulative": -0.174
+  },
+  {
+   "value": "Megumi Mizutani",
+   "n_cards": 213,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00696,
+   "t_stat": -2.44,
+   "hit_rate": 0.31,
+   "cumulative": -0.177
+  },
+  {
+   "value": "AYUMI ODASHIMA",
+   "n_cards": 81,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00711,
+   "t_stat": -0.15,
+   "hit_rate": 0.31,
+   "cumulative": -0.181
+  },
+  {
+   "value": "Hiromichi Sugiyama",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00759,
+   "t_stat": -2.3,
+   "hit_rate": 0.345,
+   "cumulative": -0.192
+  },
+  {
+   "value": "Ken Ikuji",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00958,
+   "t_stat": -1.27,
+   "hit_rate": 0.379,
+   "cumulative": -0.235
+  },
+  {
+   "value": "Keiji Kinebuchi",
+   "n_cards": 345,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01111,
+   "t_stat": -4.28,
+   "hit_rate": 0.172,
+   "cumulative": -0.267
+  },
+  {
+   "value": "Motofumi Fujiwara",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01313,
+   "t_stat": -1.4,
+   "hit_rate": 0.448,
+   "cumulative": -0.308
+  },
+  {
+   "value": "\"Big Mama\" Tagawa",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01713,
+   "t_stat": -2.11,
+   "hit_rate": 0.31,
+   "cumulative": -0.381
+  },
+  {
+   "value": "Megumi Higuchi",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01817,
+   "t_stat": -1.53,
+   "hit_rate": 0.31,
+   "cumulative": -0.399
+  },
+  {
+   "value": "Milky Isobe",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02385,
+   "t_stat": -4.57,
+   "hit_rate": 0.103,
+   "cumulative": -0.487
+  },
+  {
+   "value": "Nagomi Nijo",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": NaN,
+   "t_stat": NaN,
+   "hit_rate": 0.0,
+   "cumulative": 0.0
+  },
+  {
+   "value": "Tika Matsuno",
+   "n_cards": 85,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0467,
+   "t_stat": 4.19,
+   "hit_rate": 0.724,
+   "cumulative": 2.698
+  },
+  {
+   "value": "aoki",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03534,
+   "t_stat": 2.11,
+   "hit_rate": 0.69,
+   "cumulative": 1.69
+  },
+  {
+   "value": "miki kudo",
+   "n_cards": 103,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03337,
+   "t_stat": 2.87,
+   "hit_rate": 0.724,
+   "cumulative": 1.546
+  },
+  {
+   "value": "Yuya Oka",
+   "n_cards": 67,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03327,
+   "t_stat": 1.86,
+   "hit_rate": 0.655,
+   "cumulative": 1.539
+  },
+  {
+   "value": "Shibuzoh.",
+   "n_cards": 181,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03002,
+   "t_stat": 3.92,
+   "hit_rate": 0.828,
+   "cumulative": 1.318
+  },
+  {
+   "value": "Yuka Morii",
+   "n_cards": 392,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02964,
+   "t_stat": 6.93,
+   "hit_rate": 0.862,
+   "cumulative": 1.293
+  },
+  {
+   "value": "kurumitsu",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02685,
+   "t_stat": 2.62,
+   "hit_rate": 0.655,
+   "cumulative": 1.121
+  },
+  {
+   "value": "yuu",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02505,
+   "t_stat": 2.27,
+   "hit_rate": 0.655,
+   "cumulative": 1.017
+  },
+  {
+   "value": "sowsow",
+   "n_cards": 180,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02364,
+   "t_stat": 3.06,
+   "hit_rate": 0.655,
+   "cumulative": 0.938
+  },
+  {
+   "value": "Shinji Kanda",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0227,
+   "t_stat": 0.61,
+   "hit_rate": 0.69,
+   "cumulative": 0.888
+  },
+  {
+   "value": "Teeziro",
+   "n_cards": 110,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02258,
+   "t_stat": 2.85,
+   "hit_rate": 0.655,
+   "cumulative": 0.882
+  },
+  {
+   "value": "so-taro",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02171,
+   "t_stat": 1.46,
+   "hit_rate": 0.621,
+   "cumulative": 0.837
+  },
+  {
+   "value": "Pani Kobayashi",
+   "n_cards": 73,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02152,
+   "t_stat": 1.35,
+   "hit_rate": 0.483,
+   "cumulative": 0.827
+  },
+  {
+   "value": "Tomokazu Komiya",
+   "n_cards": 480,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02033,
+   "t_stat": 4.91,
+   "hit_rate": 0.828,
+   "cumulative": 0.767
+  },
+  {
+   "value": "Sachiko Adachi",
+   "n_cards": 84,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01843,
+   "t_stat": 3.36,
+   "hit_rate": 0.69,
+   "cumulative": 0.676
+  },
+  {
+   "value": "Scav",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01743,
+   "t_stat": 1.51,
+   "hit_rate": 0.621,
+   "cumulative": 0.629
+  },
+  {
+   "value": "Shiburingaru",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0169,
+   "t_stat": 0.92,
+   "hit_rate": 0.552,
+   "cumulative": 0.605
+  },
+  {
+   "value": "Saya Tsuruta",
+   "n_cards": 216,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01597,
+   "t_stat": 2.55,
+   "hit_rate": 0.724,
+   "cumulative": 0.564
+  },
+  {
+   "value": "Uta",
+   "n_cards": 84,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01576,
+   "t_stat": 1.18,
+   "hit_rate": 0.552,
+   "cumulative": 0.555
+  },
+  {
+   "value": "saino misaki",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0137,
+   "t_stat": 1.66,
+   "hit_rate": 0.69,
+   "cumulative": 0.467
+  },
+  {
+   "value": "Souichirou Gunjima",
+   "n_cards": 130,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01353,
+   "t_stat": 1.81,
+   "hit_rate": 0.828,
+   "cumulative": 0.461
+  },
+  {
+   "value": "You Iribi",
+   "n_cards": 75,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01238,
+   "t_stat": 2.17,
+   "hit_rate": 0.552,
+   "cumulative": 0.414
+  },
+  {
+   "value": "Ryota Murayama",
+   "n_cards": 81,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01152,
+   "t_stat": 2.94,
+   "hit_rate": 0.69,
+   "cumulative": 0.381
+  },
+  {
+   "value": "chibi",
+   "n_cards": 69,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00838,
+   "t_stat": 0.67,
+   "hit_rate": 0.448,
+   "cumulative": 0.265
+  },
+  {
+   "value": "Yumi",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00783,
+   "t_stat": 0.71,
+   "hit_rate": 0.483,
+   "cumulative": 0.245
+  },
+  {
+   "value": "Toshinao Aoki",
+   "n_cards": 91,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00742,
+   "t_stat": 2.51,
+   "hit_rate": 0.724,
+   "cumulative": 0.231
+  },
+  {
+   "value": "otumami",
+   "n_cards": 81,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00657,
+   "t_stat": 0.72,
+   "hit_rate": 0.552,
+   "cumulative": 0.202
+  },
+  {
+   "value": "Sekio",
+   "n_cards": 145,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00616,
+   "t_stat": 0.77,
+   "hit_rate": 0.552,
+   "cumulative": 0.188
+  },
+  {
+   "value": "ryoma uratsuka",
+   "n_cards": 86,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00611,
+   "t_stat": 0.2,
+   "hit_rate": 0.103,
+   "cumulative": 0.07
+  },
+  {
+   "value": "Sanosuke Sakuma",
+   "n_cards": 250,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00596,
+   "t_stat": 2.07,
+   "hit_rate": 0.586,
+   "cumulative": 0.182
+  },
+  {
+   "value": "Yukiko Baba",
+   "n_cards": 297,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00589,
+   "t_stat": 1.81,
+   "hit_rate": 0.655,
+   "cumulative": 0.179
+  },
+  {
+   "value": "sui",
+   "n_cards": 362,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00539,
+   "t_stat": 1.52,
+   "hit_rate": 0.69,
+   "cumulative": 0.163
+  },
+  {
+   "value": "Sumiyoshi Kizuki",
+   "n_cards": 405,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00529,
+   "t_stat": 2.03,
+   "hit_rate": 0.655,
+   "cumulative": 0.16
+  },
+  {
+   "value": "Saki Hayashiro",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00461,
+   "t_stat": 0.87,
+   "hit_rate": 0.586,
+   "cumulative": 0.138
+  },
+  {
+   "value": "Suwama Chiaki",
+   "n_cards": 206,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00266,
+   "t_stat": 0.65,
+   "hit_rate": 0.517,
+   "cumulative": 0.077
+  },
+  {
+   "value": "TOKIYA",
+   "n_cards": 168,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00259,
+   "t_stat": 0.75,
+   "hit_rate": 0.621,
+   "cumulative": 0.075
+  },
+  {
+   "value": "Satoshi Shirai",
+   "n_cards": 88,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00224,
+   "t_stat": 0.53,
+   "hit_rate": 0.517,
+   "cumulative": 0.065
+  },
+  {
+   "value": "Shizurow",
+   "n_cards": 92,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0019,
+   "t_stat": 0.69,
+   "hit_rate": 0.448,
+   "cumulative": 0.055
+  },
+  {
+   "value": "kawayoo",
+   "n_cards": 383,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00038,
+   "t_stat": 0.2,
+   "hit_rate": 0.483,
+   "cumulative": 0.011
+  },
+  {
+   "value": "kantaro",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00035,
+   "t_stat": 0.04,
+   "hit_rate": 0.483,
+   "cumulative": 0.01
+  },
+  {
+   "value": "nagimiso",
+   "n_cards": 240,
+   "n_months": 29,
+   "mean_monthly_alpha": 6e-05,
+   "t_stat": 0.02,
+   "hit_rate": 0.448,
+   "cumulative": 0.002
+  },
+  {
+   "value": "PLANETA",
+   "n_cards": 64,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00048,
+   "t_stat": -0.18,
+   "hit_rate": 0.552,
+   "cumulative": -0.013
+  },
+  {
+   "value": "Taira Akitsu",
+   "n_cards": 89,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00062,
+   "t_stat": -0.09,
+   "hit_rate": 0.517,
+   "cumulative": -0.017
+  },
+  {
+   "value": "Ryuta Fuse",
+   "n_cards": 141,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00092,
+   "t_stat": -0.19,
+   "hit_rate": 0.414,
+   "cumulative": -0.026
+  },
+  {
+   "value": "aky CG Works",
+   "n_cards": 168,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00116,
+   "t_stat": -0.37,
+   "hit_rate": 0.517,
+   "cumulative": -0.032
+  },
+  {
+   "value": "Takashi Yamaguchi",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00123,
+   "t_stat": -0.18,
+   "hit_rate": 0.414,
+   "cumulative": -0.034
+  },
+  {
+   "value": "Shigenori Negishi",
+   "n_cards": 276,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00135,
+   "t_stat": -0.32,
+   "hit_rate": 0.448,
+   "cumulative": -0.037
+  },
+  {
+   "value": "Shin-ichi Yoshida",
+   "n_cards": 96,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00172,
+   "t_stat": -0.63,
+   "hit_rate": 0.483,
+   "cumulative": -0.047
+  },
+  {
+   "value": "Shin Nagasawa",
+   "n_cards": 530,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00229,
+   "t_stat": -1.1,
+   "hit_rate": 0.448,
+   "cumulative": -0.062
+  },
+  {
+   "value": "match",
+   "n_cards": 271,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00283,
+   "t_stat": -0.91,
+   "hit_rate": 0.414,
+   "cumulative": -0.076
+  },
+  {
+   "value": "hatachu",
+   "n_cards": 61,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00285,
+   "t_stat": -0.46,
+   "hit_rate": 0.414,
+   "cumulative": -0.077
+  },
+  {
+   "value": "hncl",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00292,
+   "t_stat": -0.16,
+   "hit_rate": 0.483,
+   "cumulative": -0.079
+  },
+  {
+   "value": "Yuu Nishida",
+   "n_cards": 97,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00324,
+   "t_stat": -0.49,
+   "hit_rate": 0.517,
+   "cumulative": -0.087
+  },
+  {
+   "value": "PLANETA Igarashi",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00418,
+   "t_stat": -0.88,
+   "hit_rate": 0.483,
+   "cumulative": -0.11
+  },
+  {
+   "value": "PLANETA Tsuji",
+   "n_cards": 81,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00474,
+   "t_stat": -1.49,
+   "hit_rate": 0.483,
+   "cumulative": -0.124
+  },
+  {
+   "value": "Yusuke Ohmura",
+   "n_cards": 109,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00475,
+   "t_stat": -0.8,
+   "hit_rate": 0.345,
+   "cumulative": -0.125
+  },
+  {
+   "value": "PLANETA Mochizuki",
+   "n_cards": 132,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00596,
+   "t_stat": -1.13,
+   "hit_rate": 0.483,
+   "cumulative": -0.154
+  },
+  {
+   "value": "SATOSHI NAKAI",
+   "n_cards": 109,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00672,
+   "t_stat": -1.07,
+   "hit_rate": 0.448,
+   "cumulative": -0.172
+  },
+  {
+   "value": "tetsuya koizumi",
+   "n_cards": 115,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00772,
+   "t_stat": -1.47,
+   "hit_rate": 0.345,
+   "cumulative": -0.194
+  },
+  {
+   "value": "Ryo Ueda",
+   "n_cards": 721,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00785,
+   "t_stat": -3.87,
+   "hit_rate": 0.207,
+   "cumulative": -0.197
+  },
+  {
+   "value": "kodama",
+   "n_cards": 151,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00844,
+   "t_stat": -1.94,
+   "hit_rate": 0.345,
+   "cumulative": -0.211
+  },
+  {
+   "value": "Wataru Kawahara",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00965,
+   "t_stat": -2.93,
+   "hit_rate": 0.345,
+   "cumulative": -0.237
+  },
+  {
+   "value": "Yoshinobu Saito",
+   "n_cards": 96,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01033,
+   "t_stat": -2.93,
+   "hit_rate": 0.241,
+   "cumulative": -0.251
+  },
+  {
+   "value": "kirisAki",
+   "n_cards": 306,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01057,
+   "t_stat": -3.44,
+   "hit_rate": 0.207,
+   "cumulative": -0.256
+  },
+  {
+   "value": "sadaji",
+   "n_cards": 68,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01106,
+   "t_stat": -2.54,
+   "hit_rate": 0.207,
+   "cumulative": -0.266
+  },
+  {
+   "value": "Studio Bora Inc.",
+   "n_cards": 150,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01406,
+   "t_stat": -1.38,
+   "hit_rate": 0.31,
+   "cumulative": -0.325
+  },
+  {
+   "value": "Toyste Beach",
+   "n_cards": 472,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01505,
+   "t_stat": -2.64,
+   "hit_rate": 0.241,
+   "cumulative": -0.344
+  },
+  {
+   "value": "Shin-ichi Yoshikawa",
+   "n_cards": 92,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0217,
+   "t_stat": -6.15,
+   "hit_rate": 0.138,
+   "cumulative": -0.455
+  },
+  {
+   "value": "Takumi Akabane",
+   "n_cards": 100,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02212,
+   "t_stat": -5.78,
+   "hit_rate": 0.103,
+   "cumulative": -0.462
+  },
+  {
+   "value": "take",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02686,
+   "t_stat": -2.61,
+   "hit_rate": 0.241,
+   "cumulative": -0.529
+  },
+  {
+   "value": "takuyoa",
+   "n_cards": 63,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02807,
+   "t_stat": -3.18,
+   "hit_rate": 0.276,
+   "cumulative": -0.544
+  },
+  {
+   "value": "inose yukie",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.08638,
+   "t_stat": -2.8,
+   "hit_rate": 0.207,
+   "cumulative": -0.911
+  }
+ ],
+ "era": [
+  {
+   "value": "BW",
+   "n_cards": 2248,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.92,
+   "hit_rate": 0.448,
+   "cumulative": -0.0
+  },
+  {
+   "value": "DP",
+   "n_cards": 2791,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -1.5,
+   "hit_rate": 0.276,
+   "cumulative": -0.0
+  },
+  {
+   "value": "ECARD",
+   "n_cards": 985,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 0.64,
+   "hit_rate": 0.552,
+   "cumulative": 0.0
+  },
+  {
+   "value": "EX",
+   "n_cards": 3505,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.85,
+   "hit_rate": 0.448,
+   "cumulative": -0.0
+  },
+  {
+   "value": "HGSS",
+   "n_cards": 1092,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.31,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "SM",
+   "n_cards": 5126,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 1.8,
+   "hit_rate": 0.483,
+   "cumulative": 0.0
+  },
+  {
+   "value": "SV",
+   "n_cards": 6435,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.33,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "SWSH",
+   "n_cards": 5618,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.29,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "WOTC",
+   "n_cards": 2196,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.26,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "XY",
+   "n_cards": 3501,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.9,
+   "hit_rate": 0.379,
+   "cumulative": -0.0
+  }
+ ],
+ "printing": [
+  {
+   "value": "1st Edition",
+   "n_cards": 675,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.45,
+   "hit_rate": 0.414,
+   "cumulative": -0.0
+  },
+  {
+   "value": "1st Edition Holofoil",
+   "n_cards": 163,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 1.34,
+   "hit_rate": 0.517,
+   "cumulative": 0.0
+  },
+  {
+   "value": "Holofoil",
+   "n_cards": 7512,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 0.41,
+   "hit_rate": 0.517,
+   "cumulative": 0.0
+  },
+  {
+   "value": "Normal",
+   "n_cards": 11774,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.26,
+   "hit_rate": 0.483,
+   "cumulative": -0.0
+  },
+  {
+   "value": "Reverse Holofoil",
+   "n_cards": 12536,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -1.61,
+   "hit_rate": 0.379,
+   "cumulative": -0.0
+  },
+  {
+   "value": "Unlimited",
+   "n_cards": 674,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 0.6,
+   "hit_rate": 0.517,
+   "cumulative": 0.0
+  },
+  {
+   "value": "Unlimited Holofoil",
+   "n_cards": 163,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -1.02,
+   "hit_rate": 0.31,
+   "cumulative": -0.0
+  }
+ ],
+ "rarity_bucket": [
+  {
+   "value": "CU",
+   "n_cards": 19524,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -1.33,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "HOLO",
+   "n_cards": 4250,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0,
+   "t_stat": 0.97,
+   "hit_rate": 0.483,
+   "cumulative": 0.0
+  },
+  {
+   "value": "RARE",
+   "n_cards": 7886,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.41,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  },
+  {
+   "value": "ULTRA",
+   "n_cards": 1837,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0,
+   "t_stat": -0.4,
+   "hit_rate": 0.517,
+   "cumulative": -0.0
+  }
+ ],
+ "species": [
+  {
+   "value": "dex54",
+   "n_cards": 64,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.052,
+   "t_stat": 6.73,
+   "hit_rate": 0.862,
+   "cumulative": 3.289
+  },
+  {
+   "value": "dex662",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04977,
+   "t_stat": 2.51,
+   "hit_rate": 0.655,
+   "cumulative": 3.03
+  },
+  {
+   "value": "dex509",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04572,
+   "t_stat": 2.15,
+   "hit_rate": 0.621,
+   "cumulative": 2.597
+  },
+  {
+   "value": "dex778",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04545,
+   "t_stat": 4.16,
+   "hit_rate": 0.759,
+   "cumulative": 2.57
+  },
+  {
+   "value": "dex622",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04304,
+   "t_stat": 0.96,
+   "hit_rate": 0.207,
+   "cumulative": 0.606
+  },
+  {
+   "value": "dex702",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.04045,
+   "t_stat": 3.36,
+   "hit_rate": 0.655,
+   "cumulative": 2.104
+  },
+  {
+   "value": "dex393",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03885,
+   "t_stat": 4.71,
+   "hit_rate": 0.759,
+   "cumulative": 1.967
+  },
+  {
+   "value": "dex311",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03575,
+   "t_stat": 3.66,
+   "hit_rate": 0.724,
+   "cumulative": 1.721
+  },
+  {
+   "value": "dex194",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03429,
+   "t_stat": 2.72,
+   "hit_rate": 0.69,
+   "cumulative": 1.612
+  },
+  {
+   "value": "dex104",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03375,
+   "t_stat": 3.12,
+   "hit_rate": 0.862,
+   "cumulative": 1.573
+  },
+  {
+   "value": "dex79",
+   "n_cards": 64,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03359,
+   "t_stat": 4.45,
+   "hit_rate": 0.931,
+   "cumulative": 1.561
+  },
+  {
+   "value": "dex312",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03274,
+   "t_stat": 3.64,
+   "hit_rate": 0.759,
+   "cumulative": 1.501
+  },
+  {
+   "value": "dex94",
+   "n_cards": 73,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03154,
+   "t_stat": 5.14,
+   "hit_rate": 0.793,
+   "cumulative": 1.418
+  },
+  {
+   "value": "dex447",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03097,
+   "t_stat": 1.65,
+   "hit_rate": 0.69,
+   "cumulative": 1.38
+  },
+  {
+   "value": "dex143",
+   "n_cards": 82,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.03024,
+   "t_stat": 7.03,
+   "hit_rate": 0.897,
+   "cumulative": 1.332
+  },
+  {
+   "value": "dex935",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02983,
+   "t_stat": 1.2,
+   "hit_rate": 0.552,
+   "cumulative": 1.305
+  },
+  {
+   "value": "dex132",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02733,
+   "t_stat": 4.51,
+   "hit_rate": 0.897,
+   "cumulative": 1.149
+  },
+  {
+   "value": "dex129",
+   "n_cards": 77,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02647,
+   "t_stat": 5.12,
+   "hit_rate": 0.828,
+   "cumulative": 1.098
+  },
+  {
+   "value": "dex390",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02586,
+   "t_stat": 1.71,
+   "hit_rate": 0.655,
+   "cumulative": 1.063
+  },
+  {
+   "value": "dex328",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02584,
+   "t_stat": 2.12,
+   "hit_rate": 0.552,
+   "cumulative": 1.061
+  },
+  {
+   "value": "dex595",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02537,
+   "t_stat": 1.16,
+   "hit_rate": 0.724,
+   "cumulative": 1.035
+  },
+  {
+   "value": "dex572",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02403,
+   "t_stat": 2.83,
+   "hit_rate": 0.759,
+   "cumulative": 0.96
+  },
+  {
+   "value": "dex216",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02303,
+   "t_stat": 1.74,
+   "hit_rate": 0.483,
+   "cumulative": 0.906
+  },
+  {
+   "value": "dex448",
+   "n_cards": 79,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02296,
+   "t_stat": 4.31,
+   "hit_rate": 0.793,
+   "cumulative": 0.902
+  },
+  {
+   "value": "dex158",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02284,
+   "t_stat": 2.46,
+   "hit_rate": 0.759,
+   "cumulative": 0.896
+  },
+  {
+   "value": "dex387",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0221,
+   "t_stat": 2.02,
+   "hit_rate": 0.621,
+   "cumulative": 0.856
+  },
+  {
+   "value": "dex392",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02201,
+   "t_stat": 2.07,
+   "hit_rate": 0.586,
+   "cumulative": 0.852
+  },
+  {
+   "value": "dex151",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02182,
+   "t_stat": 3.19,
+   "hit_rate": 0.724,
+   "cumulative": 0.842
+  },
+  {
+   "value": "dex559",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02152,
+   "t_stat": 1.5,
+   "hit_rate": 0.552,
+   "cumulative": 0.827
+  },
+  {
+   "value": "dex1",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02092,
+   "t_stat": 3.07,
+   "hit_rate": 0.69,
+   "cumulative": 0.796
+  },
+  {
+   "value": "dex195",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02082,
+   "t_stat": 2.56,
+   "hit_rate": 0.69,
+   "cumulative": 0.791
+  },
+  {
+   "value": "dex11",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02078,
+   "t_stat": 4.07,
+   "hit_rate": 0.759,
+   "cumulative": 0.789
+  },
+  {
+   "value": "dex580",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02068,
+   "t_stat": 1.09,
+   "hit_rate": 0.517,
+   "cumulative": 0.785
+  },
+  {
+   "value": "dex52",
+   "n_cards": 96,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0206,
+   "t_stat": 3.37,
+   "hit_rate": 0.793,
+   "cumulative": 0.78
+  },
+  {
+   "value": "dex384",
+   "n_cards": 71,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02031,
+   "t_stat": 3.96,
+   "hit_rate": 0.724,
+   "cumulative": 0.766
+  },
+  {
+   "value": "dex80",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.02016,
+   "t_stat": 3.69,
+   "hit_rate": 0.759,
+   "cumulative": 0.758
+  },
+  {
+   "value": "dex551",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01986,
+   "t_stat": 1.15,
+   "hit_rate": 0.552,
+   "cumulative": 0.744
+  },
+  {
+   "value": "dex624",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01985,
+   "t_stat": 1.25,
+   "hit_rate": 0.586,
+   "cumulative": 0.743
+  },
+  {
+   "value": "dex363",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01979,
+   "t_stat": 1.79,
+   "hit_rate": 0.69,
+   "cumulative": 0.74
+  },
+  {
+   "value": "dex138",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01974,
+   "t_stat": 3.02,
+   "hit_rate": 0.69,
+   "cumulative": 0.738
+  },
+  {
+   "value": "dex355",
+   "n_cards": 39,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01943,
+   "t_stat": 1.99,
+   "hit_rate": 0.655,
+   "cumulative": 0.723
+  },
+  {
+   "value": "dex381",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01877,
+   "t_stat": 3.79,
+   "hit_rate": 0.828,
+   "cumulative": 0.691
+  },
+  {
+   "value": "dex93",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01858,
+   "t_stat": 4.19,
+   "hit_rate": 0.724,
+   "cumulative": 0.683
+  },
+  {
+   "value": "dex25",
+   "n_cards": 225,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01856,
+   "t_stat": 4.12,
+   "hit_rate": 0.724,
+   "cumulative": 0.681
+  },
+  {
+   "value": "dex280",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01851,
+   "t_stat": 3.41,
+   "hit_rate": 0.69,
+   "cumulative": 0.679
+  },
+  {
+   "value": "dex623",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01793,
+   "t_stat": 1.2,
+   "hit_rate": 0.552,
+   "cumulative": 0.652
+  },
+  {
+   "value": "dex7",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0176,
+   "t_stat": 3.38,
+   "hit_rate": 0.724,
+   "cumulative": 0.637
+  },
+  {
+   "value": "dex491",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01753,
+   "t_stat": 3.19,
+   "hit_rate": 0.759,
+   "cumulative": 0.634
+  },
+  {
+   "value": "dex213",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0175,
+   "t_stat": 2.14,
+   "hit_rate": 0.655,
+   "cumulative": 0.632
+  },
+  {
+   "value": "dex241",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01734,
+   "t_stat": 1.27,
+   "hit_rate": 0.724,
+   "cumulative": 0.625
+  },
+  {
+   "value": "dex333",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01715,
+   "t_stat": 1.38,
+   "hit_rate": 0.655,
+   "cumulative": 0.617
+  },
+  {
+   "value": "dex258",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01705,
+   "t_stat": 3.15,
+   "hit_rate": 0.759,
+   "cumulative": 0.612
+  },
+  {
+   "value": "dex658",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01704,
+   "t_stat": 3.05,
+   "hit_rate": 0.724,
+   "cumulative": 0.611
+  },
+  {
+   "value": "dex114",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01701,
+   "t_stat": 2.13,
+   "hit_rate": 0.621,
+   "cumulative": 0.61
+  },
+  {
+   "value": "dex197",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01668,
+   "t_stat": 2.56,
+   "hit_rate": 0.586,
+   "cumulative": 0.595
+  },
+  {
+   "value": "dex514",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01668,
+   "t_stat": 0.93,
+   "hit_rate": 0.552,
+   "cumulative": 0.595
+  },
+  {
+   "value": "dex58",
+   "n_cards": 70,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01651,
+   "t_stat": 3.07,
+   "hit_rate": 0.655,
+   "cumulative": 0.587
+  },
+  {
+   "value": "dex32",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01618,
+   "t_stat": 2.16,
+   "hit_rate": 0.552,
+   "cumulative": 0.573
+  },
+  {
+   "value": "dex877",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01577,
+   "t_stat": 1.39,
+   "hit_rate": 0.586,
+   "cumulative": 0.555
+  },
+  {
+   "value": "dex403",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01575,
+   "t_stat": 1.37,
+   "hit_rate": 0.517,
+   "cumulative": 0.554
+  },
+  {
+   "value": "dex621",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01554,
+   "t_stat": 1.52,
+   "hit_rate": 0.655,
+   "cumulative": 0.545
+  },
+  {
+   "value": "dex175",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01551,
+   "t_stat": 1.89,
+   "hit_rate": 0.724,
+   "cumulative": 0.544
+  },
+  {
+   "value": "dex96",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01551,
+   "t_stat": 1.43,
+   "hit_rate": 0.621,
+   "cumulative": 0.544
+  },
+  {
+   "value": "dex27",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01538,
+   "t_stat": 0.84,
+   "hit_rate": 0.586,
+   "cumulative": 0.538
+  },
+  {
+   "value": "dex92",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01531,
+   "t_stat": 3.42,
+   "hit_rate": 0.69,
+   "cumulative": 0.535
+  },
+  {
+   "value": "dex587",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0153,
+   "t_stat": 2.05,
+   "hit_rate": 0.586,
+   "cumulative": 0.535
+  },
+  {
+   "value": "dex385",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01509,
+   "t_stat": 3.09,
+   "hit_rate": 0.759,
+   "cumulative": 0.526
+  },
+  {
+   "value": "dex14",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01502,
+   "t_stat": 1.49,
+   "hit_rate": 0.552,
+   "cumulative": 0.523
+  },
+  {
+   "value": "dex380",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01501,
+   "t_stat": 2.91,
+   "hit_rate": 0.793,
+   "cumulative": 0.522
+  },
+  {
+   "value": "dex109",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01499,
+   "t_stat": 1.49,
+   "hit_rate": 0.586,
+   "cumulative": 0.521
+  },
+  {
+   "value": "dex140",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01498,
+   "t_stat": 1.09,
+   "hit_rate": 0.552,
+   "cumulative": 0.521
+  },
+  {
+   "value": "dex643",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01491,
+   "t_stat": 2.27,
+   "hit_rate": 0.586,
+   "cumulative": 0.518
+  },
+  {
+   "value": "dex325",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01483,
+   "t_stat": 1.1,
+   "hit_rate": 0.586,
+   "cumulative": 0.515
+  },
+  {
+   "value": "dex39",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0143,
+   "t_stat": 2.56,
+   "hit_rate": 0.69,
+   "cumulative": 0.492
+  },
+  {
+   "value": "dex573",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01417,
+   "t_stat": 1.23,
+   "hit_rate": 0.586,
+   "cumulative": 0.487
+  },
+  {
+   "value": "dex700",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01415,
+   "t_stat": 1.57,
+   "hit_rate": 0.586,
+   "cumulative": 0.486
+  },
+  {
+   "value": "dex149",
+   "n_cards": 70,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01386,
+   "t_stat": 3.12,
+   "hit_rate": 0.724,
+   "cumulative": 0.474
+  },
+  {
+   "value": "dex50",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01384,
+   "t_stat": 2.17,
+   "hit_rate": 0.621,
+   "cumulative": 0.473
+  },
+  {
+   "value": "dex296",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0138,
+   "t_stat": 1.13,
+   "hit_rate": 0.483,
+   "cumulative": 0.472
+  },
+  {
+   "value": "dex359",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01377,
+   "t_stat": 2.15,
+   "hit_rate": 0.655,
+   "cumulative": 0.47
+  },
+  {
+   "value": "dex494",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01333,
+   "t_stat": 2.1,
+   "hit_rate": 0.69,
+   "cumulative": 0.452
+  },
+  {
+   "value": "dex70",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01332,
+   "t_stat": 1.69,
+   "hit_rate": 0.586,
+   "cumulative": 0.452
+  },
+  {
+   "value": "dex287",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01316,
+   "t_stat": 1.04,
+   "hit_rate": 0.69,
+   "cumulative": 0.446
+  },
+  {
+   "value": "dex35",
+   "n_cards": 64,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01301,
+   "t_stat": 2.99,
+   "hit_rate": 0.655,
+   "cumulative": 0.44
+  },
+  {
+   "value": "dex386",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01287,
+   "t_stat": 2.67,
+   "hit_rate": 0.69,
+   "cumulative": 0.434
+  },
+  {
+   "value": "dex255",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01286,
+   "t_stat": 1.79,
+   "hit_rate": 0.552,
+   "cumulative": 0.433
+  },
+  {
+   "value": "dex183",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01271,
+   "t_stat": 1.03,
+   "hit_rate": 0.552,
+   "cumulative": 0.428
+  },
+  {
+   "value": "dex307",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01253,
+   "t_stat": 1.27,
+   "hit_rate": 0.552,
+   "cumulative": 0.42
+  },
+  {
+   "value": "dex4",
+   "n_cards": 74,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01246,
+   "t_stat": 2.71,
+   "hit_rate": 0.724,
+   "cumulative": 0.418
+  },
+  {
+   "value": "dex222",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01237,
+   "t_stat": 1.19,
+   "hit_rate": 0.552,
+   "cumulative": 0.414
+  },
+  {
+   "value": "dex427",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01235,
+   "t_stat": 0.72,
+   "hit_rate": 0.552,
+   "cumulative": 0.413
+  },
+  {
+   "value": "dex43",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01234,
+   "t_stat": 1.89,
+   "hit_rate": 0.586,
+   "cumulative": 0.413
+  },
+  {
+   "value": "dex61",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01229,
+   "t_stat": 1.73,
+   "hit_rate": 0.621,
+   "cumulative": 0.411
+  },
+  {
+   "value": "dex487",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01213,
+   "t_stat": 1.99,
+   "hit_rate": 0.69,
+   "cumulative": 0.404
+  },
+  {
+   "value": "dex302",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01211,
+   "t_stat": 1.32,
+   "hit_rate": 0.69,
+   "cumulative": 0.404
+  },
+  {
+   "value": "dex235",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01198,
+   "t_stat": 1.54,
+   "hit_rate": 0.517,
+   "cumulative": 0.399
+  },
+  {
+   "value": "dex179",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01197,
+   "t_stat": 1.7,
+   "hit_rate": 0.586,
+   "cumulative": 0.398
+  },
+  {
+   "value": "dex214",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01185,
+   "t_stat": 1.63,
+   "hit_rate": 0.621,
+   "cumulative": 0.394
+  },
+  {
+   "value": "dex320",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01182,
+   "t_stat": 0.76,
+   "hit_rate": 0.655,
+   "cumulative": 0.392
+  },
+  {
+   "value": "dex60",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01176,
+   "t_stat": 1.58,
+   "hit_rate": 0.621,
+   "cumulative": 0.39
+  },
+  {
+   "value": "dex449",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01155,
+   "t_stat": 0.59,
+   "hit_rate": 0.552,
+   "cumulative": 0.382
+  },
+  {
+   "value": "dex350",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01144,
+   "t_stat": 1.24,
+   "hit_rate": 0.621,
+   "cumulative": 0.378
+  },
+  {
+   "value": "dex69",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0114,
+   "t_stat": 1.41,
+   "hit_rate": 0.483,
+   "cumulative": 0.376
+  },
+  {
+   "value": "dex353",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0113,
+   "t_stat": 1.03,
+   "hit_rate": 0.517,
+   "cumulative": 0.372
+  },
+  {
+   "value": "dex77",
+   "n_cards": 56,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01118,
+   "t_stat": 1.61,
+   "hit_rate": 0.483,
+   "cumulative": 0.368
+  },
+  {
+   "value": "dex531",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0111,
+   "t_stat": 0.67,
+   "hit_rate": 0.621,
+   "cumulative": 0.364
+  },
+  {
+   "value": "dex231",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01106,
+   "t_stat": 1.21,
+   "hit_rate": 0.655,
+   "cumulative": 0.363
+  },
+  {
+   "value": "dex108",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01103,
+   "t_stat": 1.23,
+   "hit_rate": 0.69,
+   "cumulative": 0.362
+  },
+  {
+   "value": "dex248",
+   "n_cards": 68,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01069,
+   "t_stat": 2.33,
+   "hit_rate": 0.724,
+   "cumulative": 0.349
+  },
+  {
+   "value": "dex334",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01066,
+   "t_stat": 1.41,
+   "hit_rate": 0.552,
+   "cumulative": 0.348
+  },
+  {
+   "value": "dex177",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01061,
+   "t_stat": 0.93,
+   "hit_rate": 0.655,
+   "cumulative": 0.346
+  },
+  {
+   "value": "dex780",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01057,
+   "t_stat": 1.3,
+   "hit_rate": 0.621,
+   "cumulative": 0.344
+  },
+  {
+   "value": "dex150",
+   "n_cards": 102,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01052,
+   "t_stat": 2.71,
+   "hit_rate": 0.724,
+   "cumulative": 0.343
+  },
+  {
+   "value": "dex383",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01044,
+   "t_stat": 2.13,
+   "hit_rate": 0.69,
+   "cumulative": 0.34
+  },
+  {
+   "value": "dex701",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01038,
+   "t_stat": 0.49,
+   "hit_rate": 0.586,
+   "cumulative": 0.337
+  },
+  {
+   "value": "dex126",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01032,
+   "t_stat": 1.66,
+   "hit_rate": 0.552,
+   "cumulative": 0.335
+  },
+  {
+   "value": "dex128",
+   "n_cards": 63,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01028,
+   "t_stat": 1.01,
+   "hit_rate": 0.483,
+   "cumulative": 0.333
+  },
+  {
+   "value": "dex148",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.01007,
+   "t_stat": 1.99,
+   "hit_rate": 0.724,
+   "cumulative": 0.326
+  },
+  {
+   "value": "dex40",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00995,
+   "t_stat": 2.08,
+   "hit_rate": 0.655,
+   "cumulative": 0.321
+  },
+  {
+   "value": "dex59",
+   "n_cards": 68,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00981,
+   "t_stat": 2.23,
+   "hit_rate": 0.655,
+   "cumulative": 0.316
+  },
+  {
+   "value": "dex445",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00972,
+   "t_stat": 3.35,
+   "hit_rate": 0.724,
+   "cumulative": 0.313
+  },
+  {
+   "value": "dex228",
+   "n_cards": 63,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00968,
+   "t_stat": 1.73,
+   "hit_rate": 0.69,
+   "cumulative": 0.311
+  },
+  {
+   "value": "dex569",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0096,
+   "t_stat": 1.7,
+   "hit_rate": 0.621,
+   "cumulative": 0.308
+  },
+  {
+   "value": "dex282",
+   "n_cards": 66,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00955,
+   "t_stat": 1.84,
+   "hit_rate": 0.586,
+   "cumulative": 0.306
+  },
+  {
+   "value": "dex246",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00916,
+   "t_stat": 1.12,
+   "hit_rate": 0.655,
+   "cumulative": 0.292
+  },
+  {
+   "value": "dex95",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00914,
+   "t_stat": 1.2,
+   "hit_rate": 0.621,
+   "cumulative": 0.291
+  },
+  {
+   "value": "dex488",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00899,
+   "t_stat": 1.14,
+   "hit_rate": 0.655,
+   "cumulative": 0.286
+  },
+  {
+   "value": "dex417",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00894,
+   "t_stat": 0.97,
+   "hit_rate": 0.586,
+   "cumulative": 0.284
+  },
+  {
+   "value": "dex602",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00893,
+   "t_stat": 0.5,
+   "hit_rate": 0.379,
+   "cumulative": 0.284
+  },
+  {
+   "value": "dex443",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00889,
+   "t_stat": 0.96,
+   "hit_rate": 0.586,
+   "cumulative": 0.283
+  },
+  {
+   "value": "dex364",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0088,
+   "t_stat": 0.85,
+   "hit_rate": 0.483,
+   "cumulative": 0.279
+  },
+  {
+   "value": "dex113",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00868,
+   "t_stat": 1.57,
+   "hit_rate": 0.552,
+   "cumulative": 0.275
+  },
+  {
+   "value": "dex198",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00862,
+   "t_stat": 1.02,
+   "hit_rate": 0.483,
+   "cumulative": 0.273
+  },
+  {
+   "value": "dex513",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00862,
+   "t_stat": 0.46,
+   "hit_rate": 0.241,
+   "cumulative": 0.099
+  },
+  {
+   "value": "dex608",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00858,
+   "t_stat": 0.43,
+   "hit_rate": 0.448,
+   "cumulative": 0.271
+  },
+  {
+   "value": "dex44",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00856,
+   "t_stat": 1.23,
+   "hit_rate": 0.621,
+   "cumulative": 0.271
+  },
+  {
+   "value": "dex351",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00852,
+   "t_stat": 1.13,
+   "hit_rate": 0.586,
+   "cumulative": 0.269
+  },
+  {
+   "value": "dex147",
+   "n_cards": 56,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00842,
+   "t_stat": 1.71,
+   "hit_rate": 0.552,
+   "cumulative": 0.266
+  },
+  {
+   "value": "dex717",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00821,
+   "t_stat": 1.5,
+   "hit_rate": 0.552,
+   "cumulative": 0.258
+  },
+  {
+   "value": "dex254",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00819,
+   "t_stat": 1.93,
+   "hit_rate": 0.69,
+   "cumulative": 0.258
+  },
+  {
+   "value": "dex212",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00815,
+   "t_stat": 1.96,
+   "hit_rate": 0.552,
+   "cumulative": 0.256
+  },
+  {
+   "value": "dex133",
+   "n_cards": 124,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00809,
+   "t_stat": 1.93,
+   "hit_rate": 0.621,
+   "cumulative": 0.254
+  },
+  {
+   "value": "dex135",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00809,
+   "t_stat": 3.04,
+   "hit_rate": 0.724,
+   "cumulative": 0.254
+  },
+  {
+   "value": "dex72",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00796,
+   "t_stat": 0.96,
+   "hit_rate": 0.448,
+   "cumulative": 0.25
+  },
+  {
+   "value": "dex152",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00786,
+   "t_stat": 0.88,
+   "hit_rate": 0.517,
+   "cumulative": 0.246
+  },
+  {
+   "value": "dex176",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0078,
+   "t_stat": 0.74,
+   "hit_rate": 0.621,
+   "cumulative": 0.244
+  },
+  {
+   "value": "dex648",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00774,
+   "t_stat": 1.0,
+   "hit_rate": 0.586,
+   "cumulative": 0.242
+  },
+  {
+   "value": "dex251",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00772,
+   "t_stat": 1.11,
+   "hit_rate": 0.586,
+   "cumulative": 0.241
+  },
+  {
+   "value": "dex74",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00738,
+   "t_stat": 1.18,
+   "hit_rate": 0.586,
+   "cumulative": 0.23
+  },
+  {
+   "value": "dex130",
+   "n_cards": 90,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00732,
+   "t_stat": 1.8,
+   "hit_rate": 0.621,
+   "cumulative": 0.228
+  },
+  {
+   "value": "dex376",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00732,
+   "t_stat": 1.56,
+   "hit_rate": 0.552,
+   "cumulative": 0.228
+  },
+  {
+   "value": "dex471",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0073,
+   "t_stat": 1.71,
+   "hit_rate": 0.586,
+   "cumulative": 0.227
+  },
+  {
+   "value": "dex322",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0072,
+   "t_stat": 0.49,
+   "hit_rate": 0.448,
+   "cumulative": 0.223
+  },
+  {
+   "value": "dex38",
+   "n_cards": 88,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00719,
+   "t_stat": 2.27,
+   "hit_rate": 0.586,
+   "cumulative": 0.223
+  },
+  {
+   "value": "dex131",
+   "n_cards": 74,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00713,
+   "t_stat": 1.99,
+   "hit_rate": 0.655,
+   "cumulative": 0.221
+  },
+  {
+   "value": "dex382",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00707,
+   "t_stat": 1.28,
+   "hit_rate": 0.586,
+   "cumulative": 0.219
+  },
+  {
+   "value": "dex185",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00699,
+   "t_stat": 1.1,
+   "hit_rate": 0.517,
+   "cumulative": 0.216
+  },
+  {
+   "value": "dex53",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00691,
+   "t_stat": 0.87,
+   "hit_rate": 0.655,
+   "cumulative": 0.214
+  },
+  {
+   "value": "dex369",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00689,
+   "t_stat": 0.7,
+   "hit_rate": 0.483,
+   "cumulative": 0.213
+  },
+  {
+   "value": "dex257",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00686,
+   "t_stat": 1.48,
+   "hit_rate": 0.552,
+   "cumulative": 0.212
+  },
+  {
+   "value": "dex570",
+   "n_cards": 39,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00681,
+   "t_stat": 1.31,
+   "hit_rate": 0.552,
+   "cumulative": 0.21
+  },
+  {
+   "value": "dex88",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00673,
+   "t_stat": 0.87,
+   "hit_rate": 0.448,
+   "cumulative": 0.207
+  },
+  {
+   "value": "dex97",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00672,
+   "t_stat": 1.63,
+   "hit_rate": 0.517,
+   "cumulative": 0.207
+  },
+  {
+   "value": "dex476",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00664,
+   "t_stat": 0.65,
+   "hit_rate": 0.483,
+   "cumulative": 0.204
+  },
+  {
+   "value": "dex207",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00658,
+   "t_stat": 0.69,
+   "hit_rate": 0.448,
+   "cumulative": 0.202
+  },
+  {
+   "value": "dex24",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00654,
+   "t_stat": 0.96,
+   "hit_rate": 0.517,
+   "cumulative": 0.201
+  },
+  {
+   "value": "dex89",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00643,
+   "t_stat": 2.05,
+   "hit_rate": 0.621,
+   "cumulative": 0.197
+  },
+  {
+   "value": "dex123",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00629,
+   "t_stat": 1.47,
+   "hit_rate": 0.621,
+   "cumulative": 0.193
+  },
+  {
+   "value": "dex163",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00627,
+   "t_stat": 0.77,
+   "hit_rate": 0.517,
+   "cumulative": 0.192
+  },
+  {
+   "value": "dex199",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00614,
+   "t_stat": 1.44,
+   "hit_rate": 0.586,
+   "cumulative": 0.188
+  },
+  {
+   "value": "dex744",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00606,
+   "t_stat": 0.51,
+   "hit_rate": 0.483,
+   "cumulative": 0.185
+  },
+  {
+   "value": "dex122",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00599,
+   "t_stat": 1.27,
+   "hit_rate": 0.552,
+   "cumulative": 0.182
+  },
+  {
+   "value": "dex155",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00576,
+   "t_stat": 0.63,
+   "hit_rate": 0.621,
+   "cumulative": 0.175
+  },
+  {
+   "value": "dex23",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00573,
+   "t_stat": 0.65,
+   "hit_rate": 0.448,
+   "cumulative": 0.174
+  },
+  {
+   "value": "dex2",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00567,
+   "t_stat": 1.1,
+   "hit_rate": 0.621,
+   "cumulative": 0.172
+  },
+  {
+   "value": "dex196",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00559,
+   "t_stat": 1.31,
+   "hit_rate": 0.517,
+   "cumulative": 0.17
+  },
+  {
+   "value": "dex260",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00557,
+   "t_stat": 1.22,
+   "hit_rate": 0.621,
+   "cumulative": 0.169
+  },
+  {
+   "value": "dex29",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00544,
+   "t_stat": 0.73,
+   "hit_rate": 0.483,
+   "cumulative": 0.164
+  },
+  {
+   "value": "dex63",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00542,
+   "t_stat": 0.85,
+   "hit_rate": 0.586,
+   "cumulative": 0.164
+  },
+  {
+   "value": "dex849",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0053,
+   "t_stat": 0.56,
+   "hit_rate": 0.586,
+   "cumulative": 0.16
+  },
+  {
+   "value": "dex242",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00526,
+   "t_stat": 0.74,
+   "hit_rate": 0.517,
+   "cumulative": 0.159
+  },
+  {
+   "value": "dex36",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00525,
+   "t_stat": 0.87,
+   "hit_rate": 0.483,
+   "cumulative": 0.158
+  },
+  {
+   "value": "dex37",
+   "n_cards": 87,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00519,
+   "t_stat": 1.02,
+   "hit_rate": 0.552,
+   "cumulative": 0.156
+  },
+  {
+   "value": "dex83",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00515,
+   "t_stat": 0.53,
+   "hit_rate": 0.552,
+   "cumulative": 0.155
+  },
+  {
+   "value": "dex167",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00502,
+   "t_stat": 0.44,
+   "hit_rate": 0.483,
+   "cumulative": 0.151
+  },
+  {
+   "value": "dex276",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0049,
+   "t_stat": 0.59,
+   "hit_rate": 0.483,
+   "cumulative": 0.147
+  },
+  {
+   "value": "dex399",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00488,
+   "t_stat": 0.61,
+   "hit_rate": 0.448,
+   "cumulative": 0.147
+  },
+  {
+   "value": "dex66",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00483,
+   "t_stat": 0.58,
+   "hit_rate": 0.586,
+   "cumulative": 0.145
+  },
+  {
+   "value": "dex208",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00478,
+   "t_stat": 0.87,
+   "hit_rate": 0.483,
+   "cumulative": 0.143
+  },
+  {
+   "value": "dex67",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00477,
+   "t_stat": 0.86,
+   "hit_rate": 0.586,
+   "cumulative": 0.143
+  },
+  {
+   "value": "dex160",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00464,
+   "t_stat": 0.67,
+   "hit_rate": 0.483,
+   "cumulative": 0.139
+  },
+  {
+   "value": "dex127",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00463,
+   "t_stat": 0.98,
+   "hit_rate": 0.517,
+   "cumulative": 0.138
+  },
+  {
+   "value": "dex137",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00458,
+   "t_stat": 0.89,
+   "hit_rate": 0.483,
+   "cumulative": 0.137
+  },
+  {
+   "value": "dex442",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00453,
+   "t_stat": 0.55,
+   "hit_rate": 0.483,
+   "cumulative": 0.135
+  },
+  {
+   "value": "dex429",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00437,
+   "t_stat": 0.67,
+   "hit_rate": 0.483,
+   "cumulative": 0.13
+  },
+  {
+   "value": "dex319",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00436,
+   "t_stat": 0.6,
+   "hit_rate": 0.414,
+   "cumulative": 0.13
+  },
+  {
+   "value": "dex357",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00436,
+   "t_stat": 0.37,
+   "hit_rate": 0.483,
+   "cumulative": 0.13
+  },
+  {
+   "value": "dex19",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00433,
+   "t_stat": 0.54,
+   "hit_rate": 0.621,
+   "cumulative": 0.129
+  },
+  {
+   "value": "dex644",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00429,
+   "t_stat": 0.62,
+   "hit_rate": 0.724,
+   "cumulative": 0.128
+  },
+  {
+   "value": "dex202",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00425,
+   "t_stat": 0.59,
+   "hit_rate": 0.448,
+   "cumulative": 0.126
+  },
+  {
+   "value": "dex144",
+   "n_cards": 61,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00423,
+   "t_stat": 1.21,
+   "hit_rate": 0.586,
+   "cumulative": 0.126
+  },
+  {
+   "value": "dex65",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00423,
+   "t_stat": 1.23,
+   "hit_rate": 0.517,
+   "cumulative": 0.126
+  },
+  {
+   "value": "dex16",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00422,
+   "t_stat": 0.63,
+   "hit_rate": 0.448,
+   "cumulative": 0.126
+  },
+  {
+   "value": "dex474",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00418,
+   "t_stat": 0.72,
+   "hit_rate": 0.448,
+   "cumulative": 0.124
+  },
+  {
+   "value": "dex303",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00414,
+   "t_stat": 0.52,
+   "hit_rate": 0.517,
+   "cumulative": 0.123
+  },
+  {
+   "value": "dex230",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00406,
+   "t_stat": 0.82,
+   "hit_rate": 0.621,
+   "cumulative": 0.12
+  },
+  {
+   "value": "dex181",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00404,
+   "t_stat": 1.04,
+   "hit_rate": 0.586,
+   "cumulative": 0.12
+  },
+  {
+   "value": "dex530",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.004,
+   "t_stat": 0.64,
+   "hit_rate": 0.483,
+   "cumulative": 0.118
+  },
+  {
+   "value": "dex172",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00392,
+   "t_stat": 0.81,
+   "hit_rate": 0.517,
+   "cumulative": 0.116
+  },
+  {
+   "value": "dex51",
+   "n_cards": 56,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00378,
+   "t_stat": 0.74,
+   "hit_rate": 0.483,
+   "cumulative": 0.112
+  },
+  {
+   "value": "dex8",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00378,
+   "t_stat": 0.89,
+   "hit_rate": 0.448,
+   "cumulative": 0.112
+  },
+  {
+   "value": "dex274",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00377,
+   "t_stat": 0.41,
+   "hit_rate": 0.517,
+   "cumulative": 0.111
+  },
+  {
+   "value": "dex492",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00374,
+   "t_stat": 0.84,
+   "hit_rate": 0.552,
+   "cumulative": 0.11
+  },
+  {
+   "value": "dex106",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00371,
+   "t_stat": 0.52,
+   "hit_rate": 0.517,
+   "cumulative": 0.11
+  },
+  {
+   "value": "dex568",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00371,
+   "t_stat": 0.24,
+   "hit_rate": 0.586,
+   "cumulative": 0.109
+  },
+  {
+   "value": "dex249",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00363,
+   "t_stat": 0.58,
+   "hit_rate": 0.483,
+   "cumulative": 0.107
+  },
+  {
+   "value": "dex107",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00356,
+   "t_stat": 0.58,
+   "hit_rate": 0.517,
+   "cumulative": 0.105
+  },
+  {
+   "value": "dex91",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00346,
+   "t_stat": 0.49,
+   "hit_rate": 0.483,
+   "cumulative": 0.102
+  },
+  {
+   "value": "dex562",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00343,
+   "t_stat": 0.32,
+   "hit_rate": 0.483,
+   "cumulative": 0.101
+  },
+  {
+   "value": "dex26",
+   "n_cards": 113,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0034,
+   "t_stat": 1.41,
+   "hit_rate": 0.586,
+   "cumulative": 0.1
+  },
+  {
+   "value": "dex549",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00333,
+   "t_stat": 0.5,
+   "hit_rate": 0.517,
+   "cumulative": 0.098
+  },
+  {
+   "value": "dex134",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00332,
+   "t_stat": 0.83,
+   "hit_rate": 0.483,
+   "cumulative": 0.097
+  },
+  {
+   "value": "dex349",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0033,
+   "t_stat": 0.31,
+   "hit_rate": 0.414,
+   "cumulative": 0.097
+  },
+  {
+   "value": "dex117",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00311,
+   "t_stat": 0.53,
+   "hit_rate": 0.483,
+   "cumulative": 0.091
+  },
+  {
+   "value": "dex453",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00302,
+   "t_stat": 0.18,
+   "hit_rate": 0.414,
+   "cumulative": 0.088
+  },
+  {
+   "value": "dex12",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.003,
+   "t_stat": 0.95,
+   "hit_rate": 0.552,
+   "cumulative": 0.088
+  },
+  {
+   "value": "dex321",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00288,
+   "t_stat": 0.4,
+   "hit_rate": 0.586,
+   "cumulative": 0.084
+  },
+  {
+   "value": "dex10",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00287,
+   "t_stat": 0.3,
+   "hit_rate": 0.552,
+   "cumulative": 0.084
+  },
+  {
+   "value": "dex145",
+   "n_cards": 65,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0027,
+   "t_stat": 0.66,
+   "hit_rate": 0.517,
+   "cumulative": 0.079
+  },
+  {
+   "value": "dex547",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0025,
+   "t_stat": 0.35,
+   "hit_rate": 0.586,
+   "cumulative": 0.072
+  },
+  {
+   "value": "dex184",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00236,
+   "t_stat": 0.44,
+   "hit_rate": 0.517,
+   "cumulative": 0.068
+  },
+  {
+   "value": "dex68",
+   "n_cards": 72,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00228,
+   "t_stat": 0.68,
+   "hit_rate": 0.517,
+   "cumulative": 0.066
+  },
+  {
+   "value": "dex647",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00225,
+   "t_stat": 0.43,
+   "hit_rate": 0.517,
+   "cumulative": 0.065
+  },
+  {
+   "value": "dex116",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00222,
+   "t_stat": 0.27,
+   "hit_rate": 0.552,
+   "cumulative": 0.064
+  },
+  {
+   "value": "dex111",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00213,
+   "t_stat": 0.27,
+   "hit_rate": 0.517,
+   "cumulative": 0.062
+  },
+  {
+   "value": "dex190",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00205,
+   "t_stat": 0.16,
+   "hit_rate": 0.517,
+   "cumulative": 0.059
+  },
+  {
+   "value": "dex553",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00175,
+   "t_stat": 0.32,
+   "hit_rate": 0.483,
+   "cumulative": 0.05
+  },
+  {
+   "value": "dex17",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00172,
+   "t_stat": 0.28,
+   "hit_rate": 0.448,
+   "cumulative": 0.049
+  },
+  {
+   "value": "dex510",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00172,
+   "t_stat": 0.26,
+   "hit_rate": 0.483,
+   "cumulative": 0.049
+  },
+  {
+   "value": "dex82",
+   "n_cards": 81,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00155,
+   "t_stat": 0.31,
+   "hit_rate": 0.414,
+   "cumulative": 0.044
+  },
+  {
+   "value": "dex28",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00153,
+   "t_stat": 0.23,
+   "hit_rate": 0.483,
+   "cumulative": 0.044
+  },
+  {
+   "value": "dex444",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00151,
+   "t_stat": 0.19,
+   "hit_rate": 0.517,
+   "cumulative": 0.043
+  },
+  {
+   "value": "dex395",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00148,
+   "t_stat": 0.22,
+   "hit_rate": 0.448,
+   "cumulative": 0.042
+  },
+  {
+   "value": "dex33",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00146,
+   "t_stat": 0.29,
+   "hit_rate": 0.483,
+   "cumulative": 0.042
+  },
+  {
+   "value": "dex329",
+   "n_cards": 39,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00134,
+   "t_stat": 0.13,
+   "hit_rate": 0.414,
+   "cumulative": 0.038
+  },
+  {
+   "value": "dex245",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00133,
+   "t_stat": 0.27,
+   "hit_rate": 0.448,
+   "cumulative": 0.038
+  },
+  {
+   "value": "dex9",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00121,
+   "t_stat": 0.29,
+   "hit_rate": 0.448,
+   "cumulative": 0.034
+  },
+  {
+   "value": "dex78",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00104,
+   "t_stat": 0.25,
+   "hit_rate": 0.552,
+   "cumulative": 0.03
+  },
+  {
+   "value": "dex466",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.001,
+   "t_stat": 0.12,
+   "hit_rate": 0.483,
+   "cumulative": 0.028
+  },
+  {
+   "value": "dex5",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00092,
+   "t_stat": 0.18,
+   "hit_rate": 0.414,
+   "cumulative": 0.026
+  },
+  {
+   "value": "dex522",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00092,
+   "t_stat": 0.13,
+   "hit_rate": 0.586,
+   "cumulative": 0.026
+  },
+  {
+   "value": "dex304",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00089,
+   "t_stat": 0.09,
+   "hit_rate": 0.483,
+   "cumulative": 0.025
+  },
+  {
+   "value": "dex306",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00089,
+   "t_stat": 0.18,
+   "hit_rate": 0.414,
+   "cumulative": 0.025
+  },
+  {
+   "value": "dex215",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00084,
+   "t_stat": 0.11,
+   "hit_rate": 0.448,
+   "cumulative": 0.024
+  },
+  {
+   "value": "dex278",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00081,
+   "t_stat": 0.04,
+   "hit_rate": 0.483,
+   "cumulative": 0.023
+  },
+  {
+   "value": "dex6",
+   "n_cards": 126,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00078,
+   "t_stat": 0.18,
+   "hit_rate": 0.379,
+   "cumulative": 0.022
+  },
+  {
+   "value": "dex470",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00069,
+   "t_stat": 0.18,
+   "hit_rate": 0.483,
+   "cumulative": 0.019
+  },
+  {
+   "value": "dex372",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00066,
+   "t_stat": 0.12,
+   "hit_rate": 0.379,
+   "cumulative": 0.019
+  },
+  {
+   "value": "dex354",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.0006,
+   "t_stat": 0.08,
+   "hit_rate": 0.586,
+   "cumulative": 0.017
+  },
+  {
+   "value": "dex459",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00059,
+   "t_stat": 0.03,
+   "hit_rate": 0.483,
+   "cumulative": 0.017
+  },
+  {
+   "value": "dex56",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00055,
+   "t_stat": 0.07,
+   "hit_rate": 0.448,
+   "cumulative": 0.015
+  },
+  {
+   "value": "dex305",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00052,
+   "t_stat": 0.07,
+   "hit_rate": 0.414,
+   "cumulative": 0.015
+  },
+  {
+   "value": "dex229",
+   "n_cards": 75,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00051,
+   "t_stat": 0.08,
+   "hit_rate": 0.552,
+   "cumulative": 0.014
+  },
+  {
+   "value": "dex87",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00042,
+   "t_stat": 0.09,
+   "hit_rate": 0.448,
+   "cumulative": 0.012
+  },
+  {
+   "value": "dex288",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00027,
+   "t_stat": 0.02,
+   "hit_rate": 0.345,
+   "cumulative": 0.008
+  },
+  {
+   "value": "dex41",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00024,
+   "t_stat": 0.03,
+   "hit_rate": 0.517,
+   "cumulative": 0.007
+  },
+  {
+   "value": "dex124",
+   "n_cards": 47,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00018,
+   "t_stat": 0.02,
+   "hit_rate": 0.517,
+   "cumulative": 0.005
+  },
+  {
+   "value": "dex396",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00014,
+   "t_stat": 0.01,
+   "hit_rate": 0.483,
+   "cumulative": 0.004
+  },
+  {
+   "value": "dex490",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 0.00014,
+   "t_stat": 0.02,
+   "hit_rate": 0.552,
+   "cumulative": 0.004
+  },
+  {
+   "value": "dex714",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": 8e-05,
+   "t_stat": 0.0,
+   "hit_rate": 0.517,
+   "cumulative": 0.002
+  },
+  {
+   "value": "dex460",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": 4e-05,
+   "t_stat": 0.0,
+   "hit_rate": 0.448,
+   "cumulative": 0.001
+  },
+  {
+   "value": "dex71",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -7e-05,
+   "t_stat": -0.02,
+   "hit_rate": 0.379,
+   "cumulative": -0.002
+  },
+  {
+   "value": "dex42",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0002,
+   "t_stat": -0.03,
+   "hit_rate": 0.517,
+   "cumulative": -0.006
+  },
+  {
+   "value": "dex34",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00021,
+   "t_stat": -0.05,
+   "hit_rate": 0.448,
+   "cumulative": -0.006
+  },
+  {
+   "value": "dex3",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00042,
+   "t_stat": -0.12,
+   "hit_rate": 0.517,
+   "cumulative": -0.012
+  },
+  {
+   "value": "dex136",
+   "n_cards": 61,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0005,
+   "t_stat": -0.12,
+   "hit_rate": 0.448,
+   "cumulative": -0.014
+  },
+  {
+   "value": "dex221",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00052,
+   "t_stat": -0.08,
+   "hit_rate": 0.448,
+   "cumulative": -0.014
+  },
+  {
+   "value": "dex338",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00074,
+   "t_stat": -0.06,
+   "hit_rate": 0.414,
+   "cumulative": -0.021
+  },
+  {
+   "value": "dex180",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0008,
+   "t_stat": -0.15,
+   "hit_rate": 0.517,
+   "cumulative": -0.022
+  },
+  {
+   "value": "dex22",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00081,
+   "t_stat": -0.19,
+   "hit_rate": 0.414,
+   "cumulative": -0.023
+  },
+  {
+   "value": "dex103",
+   "n_cards": 74,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00088,
+   "t_stat": -0.2,
+   "hit_rate": 0.552,
+   "cumulative": -0.024
+  },
+  {
+   "value": "dex21",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00096,
+   "t_stat": -0.11,
+   "hit_rate": 0.483,
+   "cumulative": -0.026
+  },
+  {
+   "value": "dex45",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00101,
+   "t_stat": -0.23,
+   "hit_rate": 0.483,
+   "cumulative": -0.028
+  },
+  {
+   "value": "dex483",
+   "n_cards": 59,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00108,
+   "t_stat": -0.25,
+   "hit_rate": 0.414,
+   "cumulative": -0.03
+  },
+  {
+   "value": "dex467",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00112,
+   "t_stat": -0.14,
+   "hit_rate": 0.448,
+   "cumulative": -0.031
+  },
+  {
+   "value": "dex146",
+   "n_cards": 57,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00119,
+   "t_stat": -0.25,
+   "hit_rate": 0.483,
+   "cumulative": -0.033
+  },
+  {
+   "value": "dex18",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00122,
+   "t_stat": -0.27,
+   "hit_rate": 0.483,
+   "cumulative": -0.033
+  },
+  {
+   "value": "dex607",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00123,
+   "t_stat": -0.14,
+   "hit_rate": 0.414,
+   "cumulative": -0.034
+  },
+  {
+   "value": "dex121",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00126,
+   "t_stat": -0.18,
+   "hit_rate": 0.448,
+   "cumulative": -0.035
+  },
+  {
+   "value": "dex716",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00126,
+   "t_stat": -0.23,
+   "hit_rate": 0.483,
+   "cumulative": -0.035
+  },
+  {
+   "value": "dex170",
+   "n_cards": 53,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00128,
+   "t_stat": -0.13,
+   "hit_rate": 0.379,
+   "cumulative": -0.035
+  },
+  {
+   "value": "dex90",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00139,
+   "t_stat": -0.21,
+   "hit_rate": 0.483,
+   "cumulative": -0.038
+  },
+  {
+   "value": "dex718",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0014,
+   "t_stat": -0.22,
+   "hit_rate": 0.414,
+   "cumulative": -0.038
+  },
+  {
+   "value": "dex81",
+   "n_cards": 86,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00155,
+   "t_stat": -0.25,
+   "hit_rate": 0.517,
+   "cumulative": -0.043
+  },
+  {
+   "value": "dex165",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00157,
+   "t_stat": -0.14,
+   "hit_rate": 0.448,
+   "cumulative": -0.043
+  },
+  {
+   "value": "dex341",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00158,
+   "t_stat": -0.16,
+   "hit_rate": 0.483,
+   "cumulative": -0.043
+  },
+  {
+   "value": "dex110",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0017,
+   "t_stat": -0.36,
+   "hit_rate": 0.345,
+   "cumulative": -0.046
+  },
+  {
+   "value": "dex374",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0017,
+   "t_stat": -0.19,
+   "hit_rate": 0.448,
+   "cumulative": -0.047
+  },
+  {
+   "value": "dex300",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00174,
+   "t_stat": -0.25,
+   "hit_rate": 0.448,
+   "cumulative": -0.048
+  },
+  {
+   "value": "dex189",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00178,
+   "t_stat": -0.24,
+   "hit_rate": 0.448,
+   "cumulative": -0.049
+  },
+  {
+   "value": "dex20",
+   "n_cards": 48,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0019,
+   "t_stat": -0.34,
+   "hit_rate": 0.414,
+   "cumulative": -0.052
+  },
+  {
+   "value": "dex695",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00195,
+   "t_stat": -0.09,
+   "hit_rate": 0.483,
+   "cumulative": -0.053
+  },
+  {
+   "value": "dex30",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00196,
+   "t_stat": -0.47,
+   "hit_rate": 0.448,
+   "cumulative": -0.053
+  },
+  {
+   "value": "dex279",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00199,
+   "t_stat": -0.18,
+   "hit_rate": 0.586,
+   "cumulative": -0.054
+  },
+  {
+   "value": "dex475",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00202,
+   "t_stat": -0.25,
+   "hit_rate": 0.379,
+   "cumulative": -0.055
+  },
+  {
+   "value": "dex272",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00211,
+   "t_stat": -0.41,
+   "hit_rate": 0.517,
+   "cumulative": -0.057
+  },
+  {
+   "value": "dex511",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00221,
+   "t_stat": -0.26,
+   "hit_rate": 0.345,
+   "cumulative": -0.06
+  },
+  {
+   "value": "dex375",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00222,
+   "t_stat": -0.32,
+   "hit_rate": 0.448,
+   "cumulative": -0.06
+  },
+  {
+   "value": "dex101",
+   "n_cards": 80,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00223,
+   "t_stat": -0.43,
+   "hit_rate": 0.414,
+   "cumulative": -0.061
+  },
+  {
+   "value": "dex407",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00228,
+   "t_stat": -0.2,
+   "hit_rate": 0.517,
+   "cumulative": -0.062
+  },
+  {
+   "value": "dex166",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00249,
+   "t_stat": -0.32,
+   "hit_rate": 0.483,
+   "cumulative": -0.067
+  },
+  {
+   "value": "dex201",
+   "n_cards": 156,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00253,
+   "t_stat": -0.81,
+   "hit_rate": 0.345,
+   "cumulative": -0.068
+  },
+  {
+   "value": "dex100",
+   "n_cards": 73,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0026,
+   "t_stat": -0.61,
+   "hit_rate": 0.414,
+   "cumulative": -0.07
+  },
+  {
+   "value": "dex285",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00271,
+   "t_stat": -0.24,
+   "hit_rate": 0.517,
+   "cumulative": -0.073
+  },
+  {
+   "value": "dex13",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00274,
+   "t_stat": -0.52,
+   "hit_rate": 0.448,
+   "cumulative": -0.074
+  },
+  {
+   "value": "dex169",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00274,
+   "t_stat": -0.71,
+   "hit_rate": 0.31,
+   "cumulative": -0.074
+  },
+  {
+   "value": "dex820",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00286,
+   "t_stat": -0.35,
+   "hit_rate": 0.414,
+   "cumulative": -0.077
+  },
+  {
+   "value": "dex115",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00289,
+   "t_stat": -0.47,
+   "hit_rate": 0.586,
+   "cumulative": -0.078
+  },
+  {
+   "value": "dex62",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00289,
+   "t_stat": -0.59,
+   "hit_rate": 0.483,
+   "cumulative": -0.078
+  },
+  {
+   "value": "dex464",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00295,
+   "t_stat": -0.46,
+   "hit_rate": 0.448,
+   "cumulative": -0.079
+  },
+  {
+   "value": "dex120",
+   "n_cards": 54,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00305,
+   "t_stat": -0.33,
+   "hit_rate": 0.414,
+   "cumulative": -0.082
+  },
+  {
+   "value": "dex373",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00309,
+   "t_stat": -0.66,
+   "hit_rate": 0.276,
+   "cumulative": -0.083
+  },
+  {
+   "value": "dex57",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0031,
+   "t_stat": -0.38,
+   "hit_rate": 0.517,
+   "cumulative": -0.083
+  },
+  {
+   "value": "dex250",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00314,
+   "t_stat": -0.58,
+   "hit_rate": 0.414,
+   "cumulative": -0.084
+  },
+  {
+   "value": "dex31",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00314,
+   "t_stat": -0.62,
+   "hit_rate": 0.552,
+   "cumulative": -0.084
+  },
+  {
+   "value": "dex301",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00328,
+   "t_stat": -0.61,
+   "hit_rate": 0.483,
+   "cumulative": -0.088
+  },
+  {
+   "value": "dex141",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00339,
+   "t_stat": -0.61,
+   "hit_rate": 0.241,
+   "cumulative": -0.091
+  },
+  {
+   "value": "dex218",
+   "n_cards": 46,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00344,
+   "t_stat": -0.29,
+   "hit_rate": 0.448,
+   "cumulative": -0.092
+  },
+  {
+   "value": "dex720",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00347,
+   "t_stat": -0.66,
+   "hit_rate": 0.517,
+   "cumulative": -0.093
+  },
+  {
+   "value": "dex253",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00352,
+   "t_stat": -0.63,
+   "hit_rate": 0.379,
+   "cumulative": -0.094
+  },
+  {
+   "value": "dex275",
+   "n_cards": 39,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00352,
+   "t_stat": -0.61,
+   "hit_rate": 0.414,
+   "cumulative": -0.094
+  },
+  {
+   "value": "dex356",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00356,
+   "t_stat": -0.28,
+   "hit_rate": 0.414,
+   "cumulative": -0.095
+  },
+  {
+   "value": "dex271",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00366,
+   "t_stat": -0.3,
+   "hit_rate": 0.517,
+   "cumulative": -0.097
+  },
+  {
+   "value": "dex159",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00367,
+   "t_stat": -0.47,
+   "hit_rate": 0.483,
+   "cumulative": -0.098
+  },
+  {
+   "value": "dex270",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0037,
+   "t_stat": -0.43,
+   "hit_rate": 0.517,
+   "cumulative": -0.099
+  },
+  {
+   "value": "dex200",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00374,
+   "t_stat": -0.56,
+   "hit_rate": 0.483,
+   "cumulative": -0.099
+  },
+  {
+   "value": "dex112",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00377,
+   "t_stat": -0.45,
+   "hit_rate": 0.345,
+   "cumulative": -0.1
+  },
+  {
+   "value": "dex226",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00384,
+   "t_stat": -0.54,
+   "hit_rate": 0.379,
+   "cumulative": -0.102
+  },
+  {
+   "value": "dex261",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00394,
+   "t_stat": -0.45,
+   "hit_rate": 0.483,
+   "cumulative": -0.104
+  },
+  {
+   "value": "dex55",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00399,
+   "t_stat": -1.1,
+   "hit_rate": 0.345,
+   "cumulative": -0.106
+  },
+  {
+   "value": "dex244",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00403,
+   "t_stat": -0.35,
+   "hit_rate": 0.483,
+   "cumulative": -0.107
+  },
+  {
+   "value": "dex503",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00413,
+   "t_stat": -0.54,
+   "hit_rate": 0.448,
+   "cumulative": -0.109
+  },
+  {
+   "value": "dex405",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00414,
+   "t_stat": -0.68,
+   "hit_rate": 0.483,
+   "cumulative": -0.109
+  },
+  {
+   "value": "dex105",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00417,
+   "t_stat": -0.57,
+   "hit_rate": 0.448,
+   "cumulative": -0.11
+  },
+  {
+   "value": "dex479",
+   "n_cards": 80,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00428,
+   "t_stat": -0.42,
+   "hit_rate": 0.379,
+   "cumulative": -0.113
+  },
+  {
+   "value": "dex636",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00432,
+   "t_stat": -0.15,
+   "hit_rate": 0.483,
+   "cumulative": -0.094
+  },
+  {
+   "value": "dex125",
+   "n_cards": 55,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00434,
+   "t_stat": -1.05,
+   "hit_rate": 0.379,
+   "cumulative": -0.114
+  },
+  {
+   "value": "dex484",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00436,
+   "t_stat": -0.84,
+   "hit_rate": 0.448,
+   "cumulative": -0.115
+  },
+  {
+   "value": "dex554",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00441,
+   "t_stat": -0.31,
+   "hit_rate": 0.448,
+   "cumulative": -0.116
+  },
+  {
+   "value": "dex493",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00449,
+   "t_stat": -0.98,
+   "hit_rate": 0.345,
+   "cumulative": -0.118
+  },
+  {
+   "value": "dex219",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00456,
+   "t_stat": -0.7,
+   "hit_rate": 0.414,
+   "cumulative": -0.12
+  },
+  {
+   "value": "dex286",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00457,
+   "t_stat": -0.43,
+   "hit_rate": 0.414,
+   "cumulative": -0.12
+  },
+  {
+   "value": "dex171",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00468,
+   "t_stat": -0.45,
+   "hit_rate": 0.483,
+   "cumulative": -0.123
+  },
+  {
+   "value": "dex281",
+   "n_cards": 56,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00511,
+   "t_stat": -0.67,
+   "hit_rate": 0.345,
+   "cumulative": -0.133
+  },
+  {
+   "value": "dex119",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00513,
+   "t_stat": -0.69,
+   "hit_rate": 0.517,
+   "cumulative": -0.134
+  },
+  {
+   "value": "dex220",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00516,
+   "t_stat": -0.39,
+   "hit_rate": 0.586,
+   "cumulative": -0.135
+  },
+  {
+   "value": "dex468",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00518,
+   "t_stat": -0.73,
+   "hit_rate": 0.552,
+   "cumulative": -0.135
+  },
+  {
+   "value": "dex293",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00523,
+   "t_stat": -0.3,
+   "hit_rate": 0.621,
+   "cumulative": -0.136
+  },
+  {
+   "value": "dex324",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00533,
+   "t_stat": -0.6,
+   "hit_rate": 0.31,
+   "cumulative": -0.139
+  },
+  {
+   "value": "dex715",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00535,
+   "t_stat": -0.98,
+   "hit_rate": 0.379,
+   "cumulative": -0.139
+  },
+  {
+   "value": "dex102",
+   "n_cards": 61,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00541,
+   "t_stat": -0.59,
+   "hit_rate": 0.448,
+   "cumulative": -0.14
+  },
+  {
+   "value": "dex142",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00552,
+   "t_stat": -1.39,
+   "hit_rate": 0.379,
+   "cumulative": -0.143
+  },
+  {
+   "value": "dex154",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00563,
+   "t_stat": -1.04,
+   "hit_rate": 0.448,
+   "cumulative": -0.146
+  },
+  {
+   "value": "dex330",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00569,
+   "t_stat": -1.3,
+   "hit_rate": 0.345,
+   "cumulative": -0.147
+  },
+  {
+   "value": "dex157",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00574,
+   "t_stat": -1.24,
+   "hit_rate": 0.448,
+   "cumulative": -0.149
+  },
+  {
+   "value": "dex156",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00576,
+   "t_stat": -0.85,
+   "hit_rate": 0.414,
+   "cumulative": -0.149
+  },
+  {
+   "value": "dex75",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00578,
+   "t_stat": -0.93,
+   "hit_rate": 0.586,
+   "cumulative": -0.149
+  },
+  {
+   "value": "dex646",
+   "n_cards": 62,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00581,
+   "t_stat": -1.28,
+   "hit_rate": 0.448,
+   "cumulative": -0.15
+  },
+  {
+   "value": "dex49",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0059,
+   "t_stat": -0.82,
+   "hit_rate": 0.414,
+   "cumulative": -0.152
+  },
+  {
+   "value": "dex424",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00592,
+   "t_stat": -0.29,
+   "hit_rate": 0.414,
+   "cumulative": -0.153
+  },
+  {
+   "value": "dex361",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00595,
+   "t_stat": -0.29,
+   "hit_rate": 0.586,
+   "cumulative": -0.154
+  },
+  {
+   "value": "dex681",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00612,
+   "t_stat": -0.59,
+   "hit_rate": 0.379,
+   "cumulative": -0.157
+  },
+  {
+   "value": "dex318",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00614,
+   "t_stat": -0.37,
+   "hit_rate": 0.379,
+   "cumulative": -0.158
+  },
+  {
+   "value": "dex73",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00615,
+   "t_stat": -0.83,
+   "hit_rate": 0.414,
+   "cumulative": -0.158
+  },
+  {
+   "value": "dex233",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00622,
+   "t_stat": -0.91,
+   "hit_rate": 0.414,
+   "cumulative": -0.16
+  },
+  {
+   "value": "dex277",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00623,
+   "t_stat": -0.79,
+   "hit_rate": 0.448,
+   "cumulative": -0.16
+  },
+  {
+   "value": "dex632",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0063,
+   "t_stat": -0.51,
+   "hit_rate": 0.552,
+   "cumulative": -0.162
+  },
+  {
+   "value": "dex335",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00635,
+   "t_stat": -0.5,
+   "hit_rate": 0.31,
+   "cumulative": -0.163
+  },
+  {
+   "value": "dex452",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00635,
+   "t_stat": -1.02,
+   "hit_rate": 0.345,
+   "cumulative": -0.163
+  },
+  {
+   "value": "dex637",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00639,
+   "t_stat": -1.12,
+   "hit_rate": 0.414,
+   "cumulative": -0.164
+  },
+  {
+   "value": "dex331",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00647,
+   "t_stat": -0.6,
+   "hit_rate": 0.379,
+   "cumulative": -0.166
+  },
+  {
+   "value": "dex437",
+   "n_cards": 51,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00677,
+   "t_stat": -1.44,
+   "hit_rate": 0.345,
+   "cumulative": -0.173
+  },
+  {
+   "value": "dex626",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0068,
+   "t_stat": -0.55,
+   "hit_rate": 0.448,
+   "cumulative": -0.173
+  },
+  {
+   "value": "dex609",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00687,
+   "t_stat": -1.55,
+   "hit_rate": 0.379,
+   "cumulative": -0.175
+  },
+  {
+   "value": "dex571",
+   "n_cards": 50,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00691,
+   "t_stat": -1.09,
+   "hit_rate": 0.414,
+   "cumulative": -0.176
+  },
+  {
+   "value": "dex227",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00692,
+   "t_stat": -1.0,
+   "hit_rate": 0.448,
+   "cumulative": -0.176
+  },
+  {
+   "value": "dex661",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00693,
+   "t_stat": -0.33,
+   "hit_rate": 0.276,
+   "cumulative": -0.176
+  },
+  {
+   "value": "dex86",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00696,
+   "t_stat": -0.98,
+   "hit_rate": 0.276,
+   "cumulative": -0.177
+  },
+  {
+   "value": "dex209",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00698,
+   "t_stat": -0.62,
+   "hit_rate": 0.379,
+   "cumulative": -0.178
+  },
+  {
+   "value": "dex426",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.007,
+   "t_stat": -0.79,
+   "hit_rate": 0.483,
+   "cumulative": -0.178
+  },
+  {
+   "value": "dex358",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00709,
+   "t_stat": -0.75,
+   "hit_rate": 0.414,
+   "cumulative": -0.18
+  },
+  {
+   "value": "dex310",
+   "n_cards": 58,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00734,
+   "t_stat": -1.12,
+   "hit_rate": 0.448,
+   "cumulative": -0.186
+  },
+  {
+   "value": "dex807",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00747,
+   "t_stat": -1.2,
+   "hit_rate": 0.414,
+   "cumulative": -0.189
+  },
+  {
+   "value": "dex187",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00764,
+   "t_stat": -0.65,
+   "hit_rate": 0.483,
+   "cumulative": -0.193
+  },
+  {
+   "value": "dex247",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00779,
+   "t_stat": -1.2,
+   "hit_rate": 0.414,
+   "cumulative": -0.196
+  },
+  {
+   "value": "dex323",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00788,
+   "t_stat": -1.24,
+   "hit_rate": 0.31,
+   "cumulative": -0.198
+  },
+  {
+   "value": "dex252",
+   "n_cards": 39,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00789,
+   "t_stat": -0.79,
+   "hit_rate": 0.414,
+   "cumulative": -0.198
+  },
+  {
+   "value": "dex139",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0079,
+   "t_stat": -1.18,
+   "hit_rate": 0.241,
+   "cumulative": -0.198
+  },
+  {
+   "value": "dex342",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00796,
+   "t_stat": -1.16,
+   "hit_rate": 0.31,
+   "cumulative": -0.2
+  },
+  {
+   "value": "dex203",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00798,
+   "t_stat": -1.48,
+   "hit_rate": 0.379,
+   "cumulative": -0.2
+  },
+  {
+   "value": "dex472",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00801,
+   "t_stat": -1.39,
+   "hit_rate": 0.241,
+   "cumulative": -0.201
+  },
+  {
+   "value": "dex178",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00807,
+   "t_stat": -1.03,
+   "hit_rate": 0.276,
+   "cumulative": -0.202
+  },
+  {
+   "value": "dex428",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00808,
+   "t_stat": -0.32,
+   "hit_rate": 0.655,
+   "cumulative": -0.202
+  },
+  {
+   "value": "dex461",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00811,
+   "t_stat": -1.08,
+   "hit_rate": 0.414,
+   "cumulative": -0.203
+  },
+  {
+   "value": "dex668",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00811,
+   "t_stat": -0.58,
+   "hit_rate": 0.379,
+   "cumulative": -0.203
+  },
+  {
+   "value": "dex237",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0083,
+   "t_stat": -1.53,
+   "hit_rate": 0.379,
+   "cumulative": -0.207
+  },
+  {
+   "value": "dex371",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00842,
+   "t_stat": -1.17,
+   "hit_rate": 0.448,
+   "cumulative": -0.21
+  },
+  {
+   "value": "dex462",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00847,
+   "t_stat": -1.47,
+   "hit_rate": 0.379,
+   "cumulative": -0.211
+  },
+  {
+   "value": "dex649",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00851,
+   "t_stat": -1.11,
+   "hit_rate": 0.414,
+   "cumulative": -0.212
+  },
+  {
+   "value": "dex599",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00854,
+   "t_stat": -0.88,
+   "hit_rate": 0.483,
+   "cumulative": -0.213
+  },
+  {
+   "value": "dex273",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0087,
+   "t_stat": -0.64,
+   "hit_rate": 0.345,
+   "cumulative": -0.216
+  },
+  {
+   "value": "dex332",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00885,
+   "t_stat": -0.67,
+   "hit_rate": 0.379,
+   "cumulative": -0.219
+  },
+  {
+   "value": "dex262",
+   "n_cards": 44,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0089,
+   "t_stat": -1.89,
+   "hit_rate": 0.448,
+   "cumulative": -0.221
+  },
+  {
+   "value": "dex193",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00918,
+   "t_stat": -1.31,
+   "hit_rate": 0.414,
+   "cumulative": -0.227
+  },
+  {
+   "value": "dex224",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00921,
+   "t_stat": -2.13,
+   "hit_rate": 0.379,
+   "cumulative": -0.227
+  },
+  {
+   "value": "dex478",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00922,
+   "t_stat": -0.86,
+   "hit_rate": 0.414,
+   "cumulative": -0.228
+  },
+  {
+   "value": "dex168",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00937,
+   "t_stat": -1.31,
+   "hit_rate": 0.241,
+   "cumulative": -0.231
+  },
+  {
+   "value": "dex377",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00943,
+   "t_stat": -0.94,
+   "hit_rate": 0.414,
+   "cumulative": -0.232
+  },
+  {
+   "value": "dex243",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00967,
+   "t_stat": -2.33,
+   "hit_rate": 0.31,
+   "cumulative": -0.237
+  },
+  {
+   "value": "dex454",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00983,
+   "t_stat": -0.59,
+   "hit_rate": 0.379,
+   "cumulative": -0.241
+  },
+  {
+   "value": "dex721",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.00987,
+   "t_stat": -1.98,
+   "hit_rate": 0.207,
+   "cumulative": -0.241
+  },
+  {
+   "value": "dex210",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01027,
+   "t_stat": -0.96,
+   "hit_rate": 0.31,
+   "cumulative": -0.25
+  },
+  {
+   "value": "dex76",
+   "n_cards": 45,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01073,
+   "t_stat": -2.73,
+   "hit_rate": 0.241,
+   "cumulative": -0.259
+  },
+  {
+   "value": "dex800",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01089,
+   "t_stat": -2.08,
+   "hit_rate": 0.379,
+   "cumulative": -0.263
+  },
+  {
+   "value": "dex529",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.011,
+   "t_stat": -0.57,
+   "hit_rate": 0.414,
+   "cumulative": -0.265
+  },
+  {
+   "value": "dex217",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01104,
+   "t_stat": -1.5,
+   "hit_rate": 0.448,
+   "cumulative": -0.266
+  },
+  {
+   "value": "dex555",
+   "n_cards": 37,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01116,
+   "t_stat": -1.26,
+   "hit_rate": 0.379,
+   "cumulative": -0.268
+  },
+  {
+   "value": "dex485",
+   "n_cards": 40,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0112,
+   "t_stat": -1.67,
+   "hit_rate": 0.276,
+   "cumulative": -0.269
+  },
+  {
+   "value": "dex326",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01122,
+   "t_stat": -1.06,
+   "hit_rate": 0.414,
+   "cumulative": -0.27
+  },
+  {
+   "value": "dex888",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01135,
+   "t_stat": -1.17,
+   "hit_rate": 0.414,
+   "cumulative": -0.272
+  },
+  {
+   "value": "dex785",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01136,
+   "t_stat": -2.08,
+   "hit_rate": 0.345,
+   "cumulative": -0.272
+  },
+  {
+   "value": "dex299",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01158,
+   "t_stat": -1.03,
+   "hit_rate": 0.448,
+   "cumulative": -0.277
+  },
+  {
+   "value": "dex635",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01162,
+   "t_stat": -1.87,
+   "hit_rate": 0.207,
+   "cumulative": -0.278
+  },
+  {
+   "value": "dex15",
+   "n_cards": 49,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01163,
+   "t_stat": -2.23,
+   "hit_rate": 0.31,
+   "cumulative": -0.278
+  },
+  {
+   "value": "dex344",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01167,
+   "t_stat": -1.37,
+   "hit_rate": 0.483,
+   "cumulative": -0.279
+  },
+  {
+   "value": "dex656",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01192,
+   "t_stat": -1.22,
+   "hit_rate": 0.345,
+   "cumulative": -0.284
+  },
+  {
+   "value": "dex687",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01208,
+   "t_stat": -2.01,
+   "hit_rate": 0.31,
+   "cumulative": -0.287
+  },
+  {
+   "value": "dex309",
+   "n_cards": 60,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01209,
+   "t_stat": -1.33,
+   "hit_rate": 0.31,
+   "cumulative": -0.287
+  },
+  {
+   "value": "dex118",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0122,
+   "t_stat": -1.23,
+   "hit_rate": 0.414,
+   "cumulative": -0.289
+  },
+  {
+   "value": "dex641",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01221,
+   "t_stat": -1.9,
+   "hit_rate": 0.31,
+   "cumulative": -0.29
+  },
+  {
+   "value": "dex48",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01241,
+   "t_stat": -0.82,
+   "hit_rate": 0.483,
+   "cumulative": -0.294
+  },
+  {
+   "value": "dex256",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01246,
+   "t_stat": -1.52,
+   "hit_rate": 0.379,
+   "cumulative": -0.295
+  },
+  {
+   "value": "dex618",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01247,
+   "t_stat": -0.88,
+   "hit_rate": 0.345,
+   "cumulative": -0.295
+  },
+  {
+   "value": "dex477",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01284,
+   "t_stat": -2.21,
+   "hit_rate": 0.345,
+   "cumulative": -0.302
+  },
+  {
+   "value": "dex84",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01303,
+   "t_stat": -1.45,
+   "hit_rate": 0.379,
+   "cumulative": -0.306
+  },
+  {
+   "value": "dex486",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01314,
+   "t_stat": -2.53,
+   "hit_rate": 0.276,
+   "cumulative": -0.308
+  },
+  {
+   "value": "dex640",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01315,
+   "t_stat": -2.74,
+   "hit_rate": 0.31,
+   "cumulative": -0.308
+  },
+  {
+   "value": "dex205",
+   "n_cards": 42,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01354,
+   "t_stat": -2.16,
+   "hit_rate": 0.345,
+   "cumulative": -0.316
+  },
+  {
+   "value": "dex663",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01363,
+   "t_stat": -1.46,
+   "hit_rate": 0.448,
+   "cumulative": -0.317
+  },
+  {
+   "value": "dex450",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01392,
+   "t_stat": -1.26,
+   "hit_rate": 0.448,
+   "cumulative": -0.323
+  },
+  {
+   "value": "dex724",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01393,
+   "t_stat": -2.38,
+   "hit_rate": 0.379,
+   "cumulative": -0.323
+  },
+  {
+   "value": "dex85",
+   "n_cards": 35,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01414,
+   "t_stat": -1.26,
+   "hit_rate": 0.414,
+   "cumulative": -0.327
+  },
+  {
+   "value": "dex436",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01445,
+   "t_stat": -0.78,
+   "hit_rate": 0.31,
+   "cumulative": -0.333
+  },
+  {
+   "value": "dex164",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01454,
+   "t_stat": -1.78,
+   "hit_rate": 0.345,
+   "cumulative": -0.334
+  },
+  {
+   "value": "dex741",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01468,
+   "t_stat": -1.16,
+   "hit_rate": 0.414,
+   "cumulative": -0.337
+  },
+  {
+   "value": "dex884",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01504,
+   "t_stat": -1.6,
+   "hit_rate": 0.345,
+   "cumulative": -0.344
+  },
+  {
+   "value": "dex625",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01528,
+   "t_stat": -1.11,
+   "hit_rate": 0.414,
+   "cumulative": -0.348
+  },
+  {
+   "value": "dex745",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01528,
+   "t_stat": -2.96,
+   "hit_rate": 0.241,
+   "cumulative": -0.348
+  },
+  {
+   "value": "dex47",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01547,
+   "t_stat": -2.3,
+   "hit_rate": 0.276,
+   "cumulative": -0.351
+  },
+  {
+   "value": "dex425",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01569,
+   "t_stat": -0.78,
+   "hit_rate": 0.414,
+   "cumulative": -0.356
+  },
+  {
+   "value": "dex343",
+   "n_cards": 52,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01619,
+   "t_stat": -1.15,
+   "hit_rate": 0.414,
+   "cumulative": -0.365
+  },
+  {
+   "value": "dex560",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0163,
+   "t_stat": -0.8,
+   "hit_rate": 0.448,
+   "cumulative": -0.366
+  },
+  {
+   "value": "dex441",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01656,
+   "t_stat": -0.81,
+   "hit_rate": 0.483,
+   "cumulative": -0.371
+  },
+  {
+   "value": "dex404",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01692,
+   "t_stat": -1.16,
+   "hit_rate": 0.345,
+   "cumulative": -0.377
+  },
+  {
+   "value": "dex603",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01706,
+   "t_stat": -1.04,
+   "hit_rate": 0.379,
+   "cumulative": -0.38
+  },
+  {
+   "value": "dex851",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01723,
+   "t_stat": -2.93,
+   "hit_rate": 0.241,
+   "cumulative": -0.383
+  },
+  {
+   "value": "dex337",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01777,
+   "t_stat": -1.86,
+   "hit_rate": 0.414,
+   "cumulative": -0.392
+  },
+  {
+   "value": "dex336",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01787,
+   "t_stat": -1.98,
+   "hit_rate": 0.345,
+   "cumulative": -0.394
+  },
+  {
+   "value": "dex430",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01823,
+   "t_stat": -2.44,
+   "hit_rate": 0.31,
+   "cumulative": -0.4
+  },
+  {
+   "value": "dex46",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01843,
+   "t_stat": -1.36,
+   "hit_rate": 0.483,
+   "cumulative": -0.403
+  },
+  {
+   "value": "dex308",
+   "n_cards": 43,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01887,
+   "t_stat": -1.61,
+   "hit_rate": 0.379,
+   "cumulative": -0.41
+  },
+  {
+   "value": "dex469",
+   "n_cards": 34,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01903,
+   "t_stat": -1.69,
+   "hit_rate": 0.241,
+   "cumulative": -0.413
+  },
+  {
+   "value": "dex370",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01915,
+   "t_stat": -1.13,
+   "hit_rate": 0.448,
+   "cumulative": -0.415
+  },
+  {
+   "value": "dex204",
+   "n_cards": 38,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01935,
+   "t_stat": -1.25,
+   "hit_rate": 0.345,
+   "cumulative": -0.418
+  },
+  {
+   "value": "dex758",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01979,
+   "t_stat": -3.27,
+   "hit_rate": 0.241,
+   "cumulative": -0.425
+  },
+  {
+   "value": "dex709",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0198,
+   "t_stat": -3.31,
+   "hit_rate": 0.276,
+   "cumulative": -0.426
+  },
+  {
+   "value": "dex1017",
+   "n_cards": 33,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.01981,
+   "t_stat": -1.19,
+   "hit_rate": 0.31,
+   "cumulative": -0.391
+  },
+  {
+   "value": "dex232",
+   "n_cards": 36,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02036,
+   "t_stat": -2.34,
+   "hit_rate": 0.241,
+   "cumulative": -0.435
+  },
+  {
+   "value": "dex561",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02085,
+   "t_stat": -3.69,
+   "hit_rate": 0.241,
+   "cumulative": -0.442
+  },
+  {
+   "value": "dex206",
+   "n_cards": 41,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02115,
+   "t_stat": -3.11,
+   "hit_rate": 0.207,
+   "cumulative": -0.447
+  },
+  {
+   "value": "dex465",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0213,
+   "t_stat": -1.77,
+   "hit_rate": 0.345,
+   "cumulative": -0.449
+  },
+  {
+   "value": "dex284",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02176,
+   "t_stat": -1.75,
+   "hit_rate": 0.414,
+   "cumulative": -0.456
+  },
+  {
+   "value": "dex419",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02184,
+   "t_stat": -1.8,
+   "hit_rate": 0.379,
+   "cumulative": -0.458
+  },
+  {
+   "value": "dex315",
+   "n_cards": 32,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02185,
+   "t_stat": -1.72,
+   "hit_rate": 0.414,
+   "cumulative": -0.458
+  },
+  {
+   "value": "dex722",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02185,
+   "t_stat": -1.09,
+   "hit_rate": 0.414,
+   "cumulative": -0.458
+  },
+  {
+   "value": "dex686",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02188,
+   "t_stat": -0.99,
+   "hit_rate": 0.414,
+   "cumulative": -0.458
+  },
+  {
+   "value": "dex413",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02247,
+   "t_stat": -1.98,
+   "hit_rate": 0.276,
+   "cumulative": -0.467
+  },
+  {
+   "value": "dex552",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02276,
+   "t_stat": -0.83,
+   "hit_rate": 0.483,
+   "cumulative": -0.459
+  },
+  {
+   "value": "dex289",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02342,
+   "t_stat": -2.97,
+   "hit_rate": 0.345,
+   "cumulative": -0.481
+  },
+  {
+   "value": "dex815",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02351,
+   "t_stat": -1.48,
+   "hit_rate": 0.414,
+   "cumulative": -0.482
+  },
+  {
+   "value": "dex455",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02355,
+   "t_stat": -2.45,
+   "hit_rate": 0.276,
+   "cumulative": -0.483
+  },
+  {
+   "value": "dex297",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02468,
+   "t_stat": -1.81,
+   "hit_rate": 0.31,
+   "cumulative": -0.499
+  },
+  {
+   "value": "dex604",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02501,
+   "t_stat": -2.16,
+   "hit_rate": 0.345,
+   "cumulative": -0.504
+  },
+  {
+   "value": "dex628",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02515,
+   "t_stat": -1.53,
+   "hit_rate": 0.379,
+   "cumulative": -0.506
+  },
+  {
+   "value": "dex596",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02626,
+   "t_stat": -1.25,
+   "hit_rate": 0.379,
+   "cumulative": -0.521
+  },
+  {
+   "value": "dex283",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.02995,
+   "t_stat": -1.8,
+   "hit_rate": 0.379,
+   "cumulative": -0.568
+  },
+  {
+   "value": "dex627",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.03151,
+   "t_stat": -0.43,
+   "hit_rate": 0.483,
+   "cumulative": -0.559
+  },
+  {
+   "value": "dex523",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.03168,
+   "t_stat": -3.24,
+   "hit_rate": 0.276,
+   "cumulative": -0.588
+  },
+  {
+   "value": "dex679",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.03221,
+   "t_stat": -3.08,
+   "hit_rate": 0.414,
+   "cumulative": -0.594
+  },
+  {
+   "value": "dex223",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.03475,
+   "t_stat": -1.48,
+   "hit_rate": 0.448,
+   "cumulative": -0.622
+  },
+  {
+   "value": "dex631",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.03568,
+   "t_stat": -1.28,
+   "hit_rate": 0.448,
+   "cumulative": -0.59
+  },
+  {
+   "value": "dex667",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.04105,
+   "t_stat": -1.59,
+   "hit_rate": 0.138,
+   "cumulative": -0.309
+  },
+  {
+   "value": "dex674",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.04561,
+   "t_stat": -1.26,
+   "hit_rate": 0.207,
+   "cumulative": -0.472
+  },
+  {
+   "value": "dex634",
+   "n_cards": 27,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.0465,
+   "t_stat": -2.15,
+   "hit_rate": 0.345,
+   "cumulative": -0.728
+  },
+  {
+   "value": "dex418",
+   "n_cards": 30,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.05646,
+   "t_stat": -2.35,
+   "hit_rate": 0.379,
+   "cumulative": -0.794
+  },
+  {
+   "value": "dex757",
+   "n_cards": 26,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.05887,
+   "t_stat": -5.46,
+   "hit_rate": 0.0,
+   "cumulative": -0.692
+  },
+  {
+   "value": "dex574",
+   "n_cards": 25,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.06506,
+   "t_stat": -1.27,
+   "hit_rate": 0.379,
+   "cumulative": -0.776
+  },
+  {
+   "value": "dex546",
+   "n_cards": 31,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.07672,
+   "t_stat": -1.23,
+   "hit_rate": 0.345,
+   "cumulative": -0.749
+  },
+  {
+   "value": "dex633",
+   "n_cards": 29,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.07944,
+   "t_stat": -2.36,
+   "hit_rate": 0.345,
+   "cumulative": -0.883
+  },
+  {
+   "value": "dex694",
+   "n_cards": 28,
+   "n_months": 29,
+   "mean_monthly_alpha": -0.07979,
+   "t_stat": -2.11,
+   "hit_rate": 0.103,
+   "cumulative": -0.512
+  }
+ ],
+ "nishida_factor": {
+  "n_card_printings": 772,
+  "months": 29,
+  "mean_monthly_alpha": 0.00357,
+  "t_stat": 2.51,
+  "hit_rate": 0.759,
+  "cumulative_hedged_return": 0.1051,
+  "control_all_other_artists_mean": 0.00088,
+  "monthly_series": {
+   "2024-03-01": NaN,
+   "2024-04-01": 0.0029,
+   "2024-05-01": 0.0024,
+   "2024-06-01": -0.0098,
+   "2024-07-01": 0.0002,
+   "2024-08-01": 0.0028,
+   "2024-09-01": 0.0091,
+   "2024-10-01": 0.004,
+   "2024-11-01": -0.0037,
+   "2024-12-01": -0.0091,
+   "2025-01-01": 0.0023,
+   "2025-02-01": 0.0092,
+   "2025-03-01": 0.0012,
+   "2025-04-01": -0.002,
+   "2025-05-01": 0.0019,
+   "2025-06-01": 0.0023,
+   "2025-07-01": 0.0003,
+   "2025-08-01": -0.0059,
+   "2025-09-01": 0.0019,
+   "2025-10-01": 0.0099,
+   "2025-11-01": 0.0101,
+   "2025-12-01": -0.0049,
+   "2026-01-01": 0.012,
+   "2026-02-01": 0.0031,
+   "2026-03-01": 0.0016,
+   "2026-04-01": 0.0178,
+   "2026-05-01": 0.0023,
+   "2026-06-01": 0.0241,
+   "2026-07-01": 0.0141
+  }
+ }
+}
