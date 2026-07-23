@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sqlite3
+import unicodedata
 import urllib.request
 
 import pandas as pd
@@ -37,15 +38,72 @@ COND_FACTOR = {"Near Mint": 1 / 0.73, "Lightly Played": 1.0,
 HP_FACTOR = 0.55
 
 
-def push(topic, title, body, url=None, dry=False):
+def _hdr_safe(s):
+    """HTTP headers are latin-1 only, but card names carry δ (delta species),
+    é (Pokémon), ♀/♂ (Nidoran), etc. Transliterate what we can, drop the rest.
+    The BODY is UTF-8 and keeps the original text."""
+    repl = {"δ": "delta", "♀": "(F)", "♂": "(M)",
+            "★": "*", "☆": "*", "’": "'", "—": "-",
+            "–": "-"}
+    for k, v in repl.items():
+        s = s.replace(k, v)
+    s = unicodedata.normalize("NFKD", s)
+    return s.encode("latin-1", "ignore").decode("latin-1")
+
+
+def push(topic, title, body, url=None, dry=False, actions=None):
     if dry:
         print(f"[dry-run] {title} | {body} | {url}")
         return
+    title = _hdr_safe(title)
+    headers = {"Title": title, "Priority": "high", "Tags": "moneybag"}
+    if url:
+        headers["Click"] = url
+    if actions:
+        headers["Actions"] = actions
     req = urllib.request.Request(
-        f"https://ntfy.sh/{topic}", data=body.encode(),
-        headers={"Title": title, "Priority": "high", "Tags": "moneybag",
-                 **({"Click": url} if url else {})})
+        f"https://ntfy.sh/{topic}", data=body.encode(), headers=headers)
     urllib.request.urlopen(req, timeout=15)
+
+
+def poll_decisions(conn, cfg, dry=False):
+    """Pull veto/approve button taps from the decisions topic into the DB."""
+    dtopic = cfg.get("decisions_topic")
+    if not dtopic or dry:
+        return 0
+    row = conn.execute(
+        "SELECT v FROM listing_alerts_state WHERE k='decisions_since'").fetchone()
+    since = row[0] if row else "0"
+    try:
+        with urllib.request.urlopen(
+                f"https://ntfy.sh/{dtopic}/json?poll=1&since={since}",
+                timeout=15) as r:
+            lines = r.read().decode().strip().splitlines()
+    except Exception:
+        return 0
+    n = 0
+    last_id = since
+    for line in lines:
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            continue
+        if msg.get("event") != "message":
+            continue
+        last_id = msg.get("id", last_id)
+        parts = (msg.get("message") or "").strip().split()
+        if len(parts) == 2 and parts[0] in ("approve", "veto"):
+            conn.execute(
+                "UPDATE listing_alerts_decisions SET decision=?, "
+                "decided_at=datetime('now') WHERE listing_id=? "
+                "AND decision='pending'",
+                (parts[0], int(parts[1])))
+            n += 1
+    conn.execute(
+        "INSERT OR REPLACE INTO listing_alerts_state VALUES ('decisions_since', ?)",
+        (last_id,))
+    conn.commit()
+    return n
 
 
 def main():
@@ -58,9 +116,21 @@ def main():
     topic, discount = cfg["ntfy_topic"], cfg.get("discount", 0.65)
 
     if args.test:
-        push(topic, "cardprice alerts: connected",
-             "You will receive listing alerts on this topic.", dry=args.dry_run)
-        print("test ping sent")
+        dtopic = cfg.get("decisions_topic")
+        actions = None
+        if dtopic:
+            actions = (
+                f"http, Approve, https://ntfy.sh/{dtopic}, method=POST, "
+                f"body=approve 0; "
+                f"http, Veto, https://ntfy.sh/{dtopic}, method=POST, "
+                f"body=veto 0")
+        push(topic, "TEST: Blastoise δ Holofoil Heavily Played",
+             "$62.00 vs FV $262 (0.24x LP-basis) | MikusMarket | "
+             "ex14-2/normal — tap Approve or Veto to test the loop",
+             "https://www.tcgplayer.com/product/83899",
+             dry=args.dry_run, actions=actions)
+        print(f"test ping sent to topic {topic}"
+              + (f"; decisions -> {dtopic}" if dtopic else ""))
         return
 
     conn = sqlite3.connect(DB)
@@ -69,7 +139,18 @@ def main():
             (k TEXT PRIMARY KEY, v TEXT);
         CREATE TABLE IF NOT EXISTS listing_alerts_sent
             (listing_id INTEGER PRIMARY KEY, alerted_at TEXT);
+        CREATE TABLE IF NOT EXISTS listing_alerts_decisions (
+            listing_id INTEGER PRIMARY KEY,
+            card_id TEXT, name TEXT, printing TEXT, condition TEXT,
+            all_in REAL, fair_value REAL, ratio REAL,
+            alerted_at TEXT,
+            decision TEXT DEFAULT 'pending',   -- pending | approve | veto
+            decided_at TEXT
+        );
     """)
+    n_dec = poll_decisions(conn, cfg, dry=args.dry_run)
+    if n_dec:
+        print(f"recorded {n_dec} decisions from phone")
     wm = conn.execute(
         "SELECT v FROM listing_alerts_state WHERE k='watermark'").fetchone()
     wm = wm[0] if wm else "1970-01-01"
@@ -113,12 +194,29 @@ def main():
         body = (f"${r.all_in:.2f} vs FV ${r.fair_value:.0f} "
                 f"({r.all_in / r.fair_value:.2f}x LP-basis) | {r.seller_name}"
                 f"{' direct' if r.direct_seller else ''} | {r.card_id}")
-        push(topic, title, body, url, dry=args.dry_run)
+        actions = None
+        dtopic = cfg.get("decisions_topic")
+        if dtopic and r.listing_id is not None:
+            lid = int(r.listing_id)
+            actions = (
+                f"http, Approve, https://ntfy.sh/{dtopic}, method=POST, "
+                f"body=approve {lid}; "
+                f"http, Veto, https://ntfy.sh/{dtopic}, method=POST, "
+                f"body=veto {lid}")
+        push(topic, title, body, url, dry=args.dry_run, actions=actions)
         n_alerts += 1
         if not args.dry_run and r.listing_id is not None:
             conn.execute(
                 "INSERT OR IGNORE INTO listing_alerts_sent VALUES (?, datetime('now'))",
                 (int(r.listing_id),))
+            conn.execute(
+                "INSERT OR IGNORE INTO listing_alerts_decisions "
+                "(listing_id, card_id, name, printing, condition, all_in, "
+                "fair_value, ratio, alerted_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                (int(r.listing_id), r.card_id, r.name, r.printing,
+                 r.condition, float(r.all_in), float(r.fair_value),
+                 float(r.all_in / r.fair_value)))
 
     if not args.dry_run:
         conn.execute(
