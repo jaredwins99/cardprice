@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS tcgplayer_listings (
     verified_seller INTEGER,
     seller_rating   REAL,
     total_results   INTEGER,
+    custom_title    TEXT,               -- seller's own listing title
     scraped_at      TEXT NOT NULL
 );
 
@@ -187,7 +188,13 @@ def _parse_listings_response(data: dict) -> list[dict[str, Any]]:
         for l in block.get("results", []):
             if not isinstance(l, dict) or l.get("price") is None:
                 continue
+            # The seller's own title is where caveats live — TCGPlayer's
+            # languageAbbreviation says "EN" even for a listing titled
+            # "*Chinese* Near Mint Holofoil ..." (verified 2026-07-23).
+            custom = l.get("customData") or {}
+            custom_title = custom.get("title") if isinstance(custom, dict) else None
             out.append({
+                "custom_title": custom_title,
                 "listing_id": int(l["listingId"]) if l.get("listingId") else None,
                 "condition": l.get("condition", ""),
                 "printing": l.get("printing", ""),
@@ -211,18 +218,23 @@ def _insert_listings(
     listings: list[dict[str, Any]],
 ) -> int:
     now = datetime.now(timezone.utc).isoformat()
+    # tolerate pre-existing DBs created before custom_title was added
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(tcgplayer_listings)")}
+    if "custom_title" not in cols:
+        conn.execute("ALTER TABLE tcgplayer_listings ADD COLUMN custom_title TEXT")
     rows = [(product_id, l.get("listing_id"), l.get("condition"),
              l.get("printing"), l.get("language"), l.get("price"),
              l.get("shipping_price"), l.get("quantity"), l.get("seller_name"),
              l.get("direct_seller"), l.get("verified_seller"),
-             l.get("seller_rating"), l.get("total_results"), now)
+             l.get("seller_rating"), l.get("total_results"),
+             l.get("custom_title"), now)
             for l in listings]
     conn.executemany(
         "INSERT INTO tcgplayer_listings "
         "(tcg_product_id, listing_id, condition, printing, language, price, "
         "shipping_price, quantity, seller_name, direct_seller, "
-        "verified_seller, seller_rating, total_results, scraped_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "verified_seller, seller_rating, total_results, custom_title, scraped_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows,
     )
     conn.commit()

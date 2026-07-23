@@ -3,5 +3,10 @@
  "discount": 0.5,
  "decisions_topic": "cardprice-decisions-3b8f5680bc14",
  "max_alerts_per_run": 5,
- "min_price": 20
+ "min_price": 20,
+ "steal_discount": 0.7,
+ "consensus_sellers": 3,
+ "caveat_sellers": {
+  "SinoCARDS": "known to list Chinese cards under EN products (user-verified 2026-07-23)"
+ }
 }
