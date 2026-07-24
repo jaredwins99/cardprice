@@ -1,0 +1,225 @@
+{
+ "generated_at": "2026-07-24T17:13:04.692862",
+ "n_cards": 16304,
+ "cv": "5-fold GroupKFold by set_id",
+ "target": "log(LP-adjusted price)",
+ "note": "held-out-CARD OOS; fold-pure target encoding; one shared numeric design matrix for all models",
+ "ranking": [
+  {
+   "model": "XGBoost",
+   "MALE": 0.6034,
+   "median_ALE": 0.4652,
+   "within_2x": 0.6728,
+   "within_1.5x": 0.4436,
+   "RMSE_log": 0.8077,
+   "R2_log": 0.7237,
+   "spearman": 0.8325,
+   "fit_sec": 38.5
+  },
+  {
+   "model": "LightGBM",
+   "MALE": 0.6079,
+   "median_ALE": 0.4719,
+   "within_2x": 0.666,
+   "within_1.5x": 0.4414,
+   "RMSE_log": 0.8108,
+   "R2_log": 0.7215,
+   "spearman": 0.8305,
+   "fit_sec": 55.0
+  },
+  {
+   "model": "CatBoost",
+   "MALE": 0.6129,
+   "median_ALE": 0.4758,
+   "within_2x": 0.6666,
+   "within_1.5x": 0.4374,
+   "RMSE_log": 0.821,
+   "R2_log": 0.7145,
+   "spearman": 0.8296,
+   "fit_sec": 15.7
+  },
+  {
+   "model": "HistGBM",
+   "MALE": 0.6185,
+   "median_ALE": 0.4789,
+   "within_2x": 0.6605,
+   "within_1.5x": 0.4346,
+   "RMSE_log": 0.8265,
+   "R2_log": 0.7106,
+   "spearman": 0.8232,
+   "fit_sec": 10.5
+  },
+  {
+   "model": "RandomForest",
+   "MALE": 0.6617,
+   "median_ALE": 0.5182,
+   "within_2x": 0.6289,
+   "within_1.5x": 0.4044,
+   "RMSE_log": 0.8752,
+   "R2_log": 0.6756,
+   "spearman": 0.8016,
+   "fit_sec": 12.0
+  },
+  {
+   "model": "GBM(sklearn)",
+   "MALE": 0.6697,
+   "median_ALE": 0.5486,
+   "within_2x": 0.6134,
+   "within_1.5x": 0.3785,
+   "RMSE_log": 0.8678,
+   "R2_log": 0.681,
+   "spearman": 0.804,
+   "fit_sec": 45.6
+  },
+  {
+   "model": "MLP",
+   "MALE": 0.675,
+   "median_ALE": 0.5255,
+   "within_2x": 0.6225,
+   "within_1.5x": 0.3992,
+   "RMSE_log": 0.8988,
+   "R2_log": 0.6578,
+   "spearman": 0.7932,
+   "fit_sec": 26.5
+  },
+  {
+   "model": "kNN(k=10)",
+   "MALE": 0.6854,
+   "median_ALE": 0.532,
+   "within_2x": 0.6172,
+   "within_1.5x": 0.3952,
+   "RMSE_log": 0.9137,
+   "R2_log": 0.6464,
+   "spearman": 0.7797,
+   "fit_sec": 0.4
+  },
+  {
+   "model": "ElasticNet",
+   "MALE": 0.7602,
+   "median_ALE": 0.6371,
+   "within_2x": 0.538,
+   "within_1.5x": 0.3331,
+   "RMSE_log": 0.9732,
+   "R2_log": 0.5988,
+   "spearman": 0.7524,
+   "fit_sec": 5.5
+  },
+  {
+   "model": "OLS",
+   "MALE": 0.7615,
+   "median_ALE": 0.6283,
+   "within_2x": 0.5428,
+   "within_1.5x": 0.3349,
+   "RMSE_log": 0.9807,
+   "R2_log": 0.5926,
+   "spearman": 0.7497,
+   "fit_sec": 0.2
+  },
+  {
+   "model": "Ridge",
+   "MALE": 0.7615,
+   "median_ALE": 0.6283,
+   "within_2x": 0.5431,
+   "within_1.5x": 0.3353,
+   "RMSE_log": 0.9808,
+   "R2_log": 0.5926,
+   "spearman": 0.7496,
+   "fit_sec": 2.6
+  },
+  {
+   "model": "Lasso",
+   "MALE": 0.7618,
+   "median_ALE": 0.6392,
+   "within_2x": 0.5386,
+   "within_1.5x": 0.3305,
+   "RMSE_log": 0.9757,
+   "R2_log": 0.5967,
+   "spearman": 0.7508,
+   "fit_sec": 2.3
+  },
+  {
+   "model": "CellMedian(comps)",
+   "MALE": 0.846,
+   "median_ALE": 0.6631,
+   "within_2x": 0.5213,
+   "within_1.5x": 0.3183,
+   "RMSE_log": 1.1242,
+   "R2_log": 0.4646,
+   "spearman": 0.6778,
+   "fit_sec": 0.0
+  },
+  {
+   "model": "NullMedian",
+   "MALE": 1.2628,
+   "median_ALE": 1.1404,
+   "within_2x": 0.3116,
+   "within_1.5x": 0.184,
+   "RMSE_log": 1.5614,
+   "R2_log": -0.0328,
+   "spearman": -0.126,
+   "fit_sec": 0.0
+  }
+ ],
+ "per_era_MALE_top5": {
+  "XGBoost": {
+   "BW": 0.572,
+   "DP": 0.506,
+   "ECARD": 0.71,
+   "EX": 0.519,
+   "HGSS": 0.658,
+   "SM": 0.707,
+   "SV": 0.615,
+   "SWSH": 0.685,
+   "WOTC": 0.551,
+   "XY": 0.668
+  },
+  "LightGBM": {
+   "BW": 0.592,
+   "DP": 0.507,
+   "ECARD": 0.714,
+   "EX": 0.538,
+   "HGSS": 0.661,
+   "SM": 0.716,
+   "SV": 0.633,
+   "SWSH": 0.681,
+   "WOTC": 0.542,
+   "XY": 0.646
+  },
+  "CatBoost": {
+   "BW": 0.587,
+   "DP": 0.521,
+   "ECARD": 0.676,
+   "EX": 0.527,
+   "HGSS": 0.682,
+   "SM": 0.729,
+   "SV": 0.65,
+   "SWSH": 0.67,
+   "WOTC": 0.569,
+   "XY": 0.661
+  },
+  "HistGBM": {
+   "BW": 0.605,
+   "DP": 0.522,
+   "ECARD": 0.73,
+   "EX": 0.543,
+   "HGSS": 0.662,
+   "SM": 0.721,
+   "SV": 0.637,
+   "SWSH": 0.698,
+   "WOTC": 0.564,
+   "XY": 0.653
+  },
+  "RandomForest": {
+   "BW": 0.65,
+   "DP": 0.542,
+   "ECARD": 0.834,
+   "EX": 0.582,
+   "HGSS": 0.677,
+   "SM": 0.762,
+   "SV": 0.679,
+   "SWSH": 0.713,
+   "WOTC": 0.664,
+   "XY": 0.672
+  }
+ }
+}
